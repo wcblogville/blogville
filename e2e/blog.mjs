@@ -79,6 +79,12 @@ await b.screenshot({ path: `${outDir}/12-post-by-other.png`, fullPage: true });
 
 // 블로그 홈, 마을 소식
 await b.goto(`${BASE}/@tester1`);
+// 미니룸은 아래쪽에만 2px 선 (BLOG-04, #23)
+const miniroomBorder = await b
+  .locator("div.bg-bottom")
+  .first()
+  .evaluate((el) => ["Top", "Right", "Bottom", "Left"].map((side) => getComputedStyle(el)[`border${side}Width`]).join(" "));
+if (miniroomBorder !== "0px 0px 2px 0px") throw new Error(`미니룸 테두리가 아래쪽만이 아니에요: ${miniroomBorder}`);
 await b.screenshot({ path: `${outDir}/13-blog-home.png`, fullPage: true });
 await b.goto(`${BASE}/feed`);
 await b.screenshot({ path: `${outDir}/14-feed.png`, fullPage: true });

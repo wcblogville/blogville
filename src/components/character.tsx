@@ -20,7 +20,8 @@ export function CharacterArt({ asset, size = 96, className = "" }: { asset: stri
   return <img src={characterDataUri(asset, size * 2)} alt="" width={size} height={size} className={className} aria-hidden />;
 }
 
-/** 미니룸: 장착한 배경 장면 위에 캐릭터가 서 있는 작은 방 */
+/** 미니룸: 장착한 배경 장면 위에 캐릭터가 서 있는 작은 방.
+ *  테두리·둥근 모서리는 쓰는 쪽이 className으로 정한다. 기본에 넣으면 클래스 순서 때문에 덮어쓰지 못한다 (#23) */
 export function MiniRoom({
   characterAsset,
   backgroundAsset: bgKey,
@@ -34,7 +35,7 @@ export function MiniRoom({
 }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border-2 border-line bg-cover bg-bottom ${className}`}
+      className={`relative overflow-hidden bg-cover bg-bottom ${className}`}
       // 미니룸은 넓은 배너로 쓰이므로 넓게 그린 장면을 쓴다 (확대돼서 흐려지지 않게)
       style={{ backgroundImage: `url("${backgroundDataUri(bgKey, 760)}")` }}
     >
