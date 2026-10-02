@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 0.1 (2026-10-02)
+- 버전: 0.2 (2026-10-02, 구현 반영)
 - 근거: [요구사항 명세서](01-requirements.md)
 
 ## 1. 전체 관계도
@@ -229,12 +229,17 @@ WHERE user_id = $1 AND reason = 'post' AND created_at >= 오늘 0시;
 
 ```text
 BEGIN
-  1. 이 회원의 원장 행을 잠그고(FOR UPDATE) 잔액 계산
-  2. 잔액 < 가격이면 ROLLBACK
-  3. point_ledger에 coin_delta = -가격 기록
-  4. user_items에 아이템 추가 (이미 있으면 실패 → ROLLBACK)
+  1. pg_advisory_xact_lock(hashtext(user_id))  ← 이 회원의 보상·구매를 한 줄로 세운다
+  2. 원장 합계로 잔액·레벨 계산
+  3. 잔액 < 가격 또는 레벨 부족이면 중단
+  4. user_items에 아이템 추가 (이미 있으면 기본 키 위반 → ROLLBACK)
+  5. point_ledger에 coin_delta = -가격 기록
 COMMIT
 ```
+
+> 처음에는 원장 행을 `FOR UPDATE`로 잠그려 했지만, 원장은 "행을 추가"하는 테이블이라 아직 없는 행은 잠글 수 없다.
+> 그래서 회원 ID로 만든 **advisory lock**(트랜잭션이 끝나면 자동으로 풀리는 이름표 잠금)을 쓴다.
+> 같은 방식으로 출석, 글·댓글·공감 보상의 하루 상한 확인도 동시에 두 번 처리되지 않는다.
 
 ### 3.7 다대다(N:M) 관계
 
