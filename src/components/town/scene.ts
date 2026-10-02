@@ -14,11 +14,11 @@ import {
   lampSvg,
   SHOP_SIZE,
   shopSvg,
-  SIGN_SIZE,
+  FARM_SIZE,
+  farmSvg,
   toDataUri,
   TREE_SIZE,
   treeSvg,
-  welcomeSignSvg,
   type HouseStage,
 } from "@/lib/art/town";
 import type { TownData, TownHouse, TownTarget } from "./types";
@@ -67,7 +67,8 @@ const NEIGHBOR_SLOTS = [
 ];
 const BOARD_POS = { x: CENTER.x, y: CENTER.y - PLAZA_RADIUS - 70 };
 const SHOP_POS = { x: CENTER.x + 480, y: CENTER.y + 80 };
-const SIGN_POS = { x: CENTER.x - 480, y: CENTER.y + 60 };
+// 동물 농장: 원래 우체통이 있던 왼쪽 길가 (아직 틀만 있다)
+const FARM_POS = { x: CENTER.x - 480, y: CENTER.y + 200 };
 const MY_HOUSE_POS = { x: CENTER.x, y: CENTER.y + PLAZA_RADIUS + 190 };
 
 const charKey = (asset: string) => `char:${asset}`;
@@ -87,7 +88,7 @@ export function townTextures(data: TownData) {
   list.set("shop", toDataUri(shopSvg()));
   list.set("fountain", toDataUri(fountainSvg()));
   list.set("lamp", toDataUri(lampSvg()));
-  list.set("sign", toDataUri(welcomeSignSvg()));
+  list.set("farm", toDataUri(farmSvg()));
   for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
@@ -120,8 +121,16 @@ function layout(data: TownData) {
     promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
   });
 
-  // 환영 표지판 (꾸밈)
-  structures.push({ texture: "sign", ...SIGN_POS, w: SIGN_SIZE.width, h: SIGN_SIZE.height, solid: { w: 90, h: 18 } });
+  // 동물 농장 (준비 중): 문 앞에서 들어가면 안내 화면
+  structures.push({
+    texture: "farm", ...FARM_POS, w: FARM_SIZE.width, h: FARM_SIZE.height, solid: { w: FARM_SIZE.width * 0.94, h: 100 },
+    label: "동물 농장", sub: "준비 중 🚧",
+  });
+  entrances.push({
+    label: "동물 농장 (준비 중)", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
+    area: { x: FARM_POS.x - FARM_SIZE.width / 2, y: FARM_POS.y - FARM_SIZE.height, w: FARM_SIZE.width, h: FARM_SIZE.height },
+    promptY: FARM_POS.y - FARM_SIZE.height - 6,
+  });
 
   // 집: 내 집 + 이웃집
   const addHouse = (h: TownHouse, pos: { x: number; y: number }, mine: boolean) => {
@@ -484,7 +493,7 @@ export function createTownScene(
     private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
       const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
       const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...SIGN_POS, r: 110 }, { ...MY_HOUSE_POS, r: 150 },
+        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...MY_HOUSE_POS, r: 150 },
         ...NEIGHBOR_SLOTS.map((p) => ({ ...p, r: 150 })),
       ];
       let planted = 0;

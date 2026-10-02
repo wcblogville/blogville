@@ -183,19 +183,43 @@ export function lampSvg(): string {
   );
 }
 
-export const SIGN_SIZE = { width: 130, height: 110 };
-export function welcomeSignSvg(): string {
-  return wrap(
-    SIGN_SIZE.width,
-    SIGN_SIZE.height,
-    `<ellipse cx="65" cy="104" rx="50" ry="5" fill="#000" opacity=".15"/>` +
-      `<rect x="59" y="40" width="12" height="64" rx="3" fill="#8d6040" ${S}/>` +
-      `<path d="M8 18H112L124 34L112 50H8Z" fill="#f5e6c8" ${S}/>` +
-      `<text x="62" y="40" text-anchor="middle" font-size="17" fill="#2f7d32" ${FONT}>Blogville</text>` +
-      // 아래 꽃밭
-      `<ellipse cx="65" cy="100" rx="46" ry="9" fill="#7ac36a" ${S}/>` +
-      `<circle cx="34" cy="96" r="4" fill="#ff7aa2"/><circle cx="48" cy="100" r="4" fill="#ffd36e"/><circle cx="82" cy="100" r="4" fill="#ff7aa2"/><circle cx="96" cy="96" r="4" fill="#b79cff"/>`,
-  );
+// ===== 동물 농장 (틀만: 울타리·헛간·간판. 동물은 아직 없다) =====
+export const FARM_SIZE = { width: 260, height: 170 };
+export function farmSvg(): string {
+  const { width: w, height: h } = FARM_SIZE;
+  // 울타리 기둥 + 가로대 두 줄. 가운데 아래(문 자리)는 비운다
+  const post = (x: number, y: number) => `<rect x="${x - 3.5}" y="${y - 20}" width="7" height="22" rx="2" fill="#c08a52" stroke="${O}" stroke-width="2"/>`;
+  const rails = (x1: number, x2: number, y: number) =>
+    `<rect x="${x1}" y="${y - 15}" width="${x2 - x1}" height="5" rx="2" fill="#d9a066" stroke="${O}" stroke-width="1.5"/>` +
+    `<rect x="${x1}" y="${y - 7}" width="${x2 - x1}" height="5" rx="2" fill="#d9a066" stroke="${O}" stroke-width="1.5"/>`;
+  let fence = rails(96, 248, 72);
+  for (let x = 100; x <= 245; x += 24) fence += post(x, 72);
+  let front = rails(12, 112, 160) + rails(148, 248, 160);
+  for (const x of [16, 40, 64, 88, 112, 148, 172, 196, 220, 244]) front += post(x, 160);
+  const side = (x: number) => rails(x - 2, x + 2, 120) + post(x, 96) + post(x, 120) + post(x, 144);
+  const body =
+    `<ellipse cx="130" cy="163" rx="124" ry="7" fill="#000" opacity=".15"/>` +
+    // 울타리 안 땅 (풀 + 흙길)
+    `<rect x="12" y="56" width="236" height="100" rx="10" fill="#b9dc86" ${S}/>` +
+    `<path d="M120 156Q126 120 150 100T210 76" fill="none" stroke="#d9c08f" stroke-width="16" stroke-linecap="round"/>` +
+    `<circle cx="60" cy="130" r="2" fill="#fff"/><circle cx="196" cy="128" r="2" fill="#ffd36e"/><circle cx="172" cy="140" r="2" fill="#ff9ecb"/>` +
+    // 헛간 (왼쪽 뒤)
+    `<rect x="18" y="38" width="76" height="66" rx="3" fill="#d9534f" ${S}/>` +
+    `<path d="M12 42L56 8L100 42Z" fill="#8f3b2d" ${S}/>` +
+    `<path d="M46 26h20v10h-20z" fill="#fff4dc" stroke="${O}" stroke-width="2"/>` +
+    `<rect x="38" y="64" width="36" height="40" fill="#fff4dc" ${S}/><path d="M38 64L74 104M74 64L38 104" stroke="${O}" stroke-width="2.5"/>` +
+    fence + side(12) + side(248) +
+    // 건초 더미, 여물통
+    `<rect x="104" y="80" width="30" height="20" rx="5" fill="#f0c75e" ${S}/><path d="M108 86h22M108 93h22" stroke="#c99a2e" stroke-width="2"/>` +
+    `<path d="M196 112h36l-4 14h-28z" fill="#a9733f" ${S}/><path d="M199 116h30" stroke="#6cb4ee" stroke-width="3"/>` +
+    front +
+    // 간판 + "준비 중" 띠
+    `<rect x="166" y="100" width="6" height="40" fill="#8d6040" ${S}/>` +
+    `<rect x="128" y="74" width="82" height="34" rx="6" fill="#f5e6c8" ${S}/>` +
+    `<text x="169" y="96" text-anchor="middle" font-size="14" fill="#2f7d32" ${FONT}>동물 농장</text>` +
+    `<g transform="rotate(-8 169 108)"><rect x="124" y="101" width="90" height="13" fill="#ffd400" stroke="${O}" stroke-width="1.5"/>` +
+    `<text x="169" y="111" text-anchor="middle" font-size="9" fill="${O}" ${FONT}>🚧 준비 중 🚧</text></g>`;
+  return wrap(w, h, body);
 }
 
 export function toDataUri(svg: string) {

@@ -57,17 +57,13 @@ async function main() {
       // 3. 온보딩: 공지사항 블로그 (이미 있으면 건너뜀)
       const [profile] = await tx.select({ userId: profiles.userId }).from(profiles).where(eq(profiles.userId, user.id));
       if (!profile) {
-        const [character] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "char_human"));
+        const [character] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "char_boy"));
         const [background] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "bg_meadow"));
         if (!character || !background) throw new Error("아이템이 없어요. 먼저 npm run db:seed 를 실행해 주세요");
-        // 일반 회원과 똑같이 기본 캐릭터 3종 + 초원 (GAME-01)
-        const starters = await tx
-          .select({ id: items.id })
-          .from(items)
-          .where(and(eq(items.type, "character"), eq(items.isStarter, true)));
+        // 일반 회원과 똑같이 기본 캐릭터 하나 + 초원 (GAME-01)
         await tx
           .insert(userItems)
-          .values([...starters.map((s) => ({ userId: user.id, itemId: s.id })), { userId: user.id, itemId: background.id }])
+          .values([{ userId: user.id, itemId: character.id }, { userId: user.id, itemId: background.id }])
           .onConflictDoNothing();
         await tx.insert(profiles).values({ userId: user.id, nickname: "관리자", characterItemId: character.id });
         const [blog] = await tx

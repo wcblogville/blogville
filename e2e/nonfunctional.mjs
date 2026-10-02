@@ -17,7 +17,7 @@ await page.getByRole("button", { name: "로그인", exact: true }).click();
 await page.waitForURL(/town|onboarding/, { timeout: 20000 });
 
 const slug = "normal01";
-const pages = ["/town", "/feed", `/@${slug}`, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet"];
+const pages = ["/town", "/feed", `/@${slug}`, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm"];
 
 console.log("== NF-06 모바일(375px) 가로 스크롤");
 for (const path of pages) {

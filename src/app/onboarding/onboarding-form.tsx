@@ -40,9 +40,9 @@ export function OnboardingForm({ starters, defaultNickname }: { starters: Starte
       </Field>
 
       <fieldset>
-        <legend className="mb-1 font-bold">처음 함께할 캐릭터</legend>
-        <p className="mb-2 text-sm text-ink-soft">셋 다 받아요. 나머지 둘은 꾸미기에서 언제든 바꿔 낄 수 있어요.</p>
-        <div className="grid grid-cols-3 gap-3">
+        <legend className="mb-1 font-bold">내 캐릭터</legend>
+        <p className="mb-2 text-sm text-ink-soft">남자·여자 중 하나를 골라 주세요. 동물 농장에서 동물을 키우며 레벨을 올려 보세요.</p>
+        <div className="grid grid-cols-2 gap-3">
           {starters.map((c, i) => (
             <label key={c.id} className="cursor-pointer">
               <input
@@ -53,7 +53,7 @@ export function OnboardingForm({ starters, defaultNickname }: { starters: Starte
                 className="peer sr-only"
               />
               <span className="flex flex-col items-center rounded-2xl border-2 border-line bg-white p-4 text-center transition peer-checked:border-sun peer-checked:bg-[#fff3d6] peer-checked:shadow-[0_4px_0_0_var(--color-sun-dark)] peer-focus-visible:ring-2 peer-focus-visible:ring-sky">
-                <CharacterArt asset={c.assetKey} size={80} />
+                <CharacterArt asset={c.assetKey} size={96} />
                 <span className="mt-2 font-display text-lg">{c.name}</span>
                 <span className="text-xs text-ink-soft">{c.description}</span>
               </span>

@@ -67,6 +67,35 @@ const CHARACTERS: Record<string, Look> = {
       `<path d="M21 40.5q11 5 22 0l1.5 3.2q-12.5 5.6-25 0z" fill="#e85d4a" ${S}/>` +
       `<path d="M38.5 43.5l3.5 6.5l3-1.2l-2.6-6.4" fill="#e85d4a" ${S}/>`,
   },
+  // 남자 주민: 짧은 갈색 머리, 하늘색 셔츠, 남색 신발 (가입할 때 고르는 기본 캐릭터)
+  "char.boy": {
+    body: "#6cb4ee",
+    head: "#ffdcbf",
+    arms: "#ffdcbf",
+    feet: "#3d4f7c",
+    belly: "#8ec8f4",
+    overHead:
+      `<path d="M15.8 26.5C14.6 14.5 22.4 9.4 32 9.4S49.4 14.5 48.2 26.5C46.6 21.6 43.4 19.2 39.6 18.8C38 16.2 35.4 15.4 33 16.6C29 14.8 20.8 17.2 15.8 26.5Z" fill="#6b4226" ${S}/>` +
+      `<path d="M27.5 10.2c1.6-3.4 5.4-4.4 7.8-3.2c-2.4.6-3.8 1.6-4.4 3.2" fill="#6b4226" ${S}/>`,
+    extra:
+      smile +
+      `<path d="M26 42.6l6 4.4l6-4.4z" fill="#fff" ${S}/>`,
+  },
+  // 여자 주민: 양갈래 머리, 분홍 리본, 분홍 원피스 (가입할 때 고르는 기본 캐릭터)
+  "char.girl": {
+    body: "#ff9ec3",
+    head: "#ffdcbf",
+    arms: "#ffdcbf",
+    feet: "#b0476e",
+    belly: "#ffc1da",
+    behind:
+      `<ellipse cx="13.5" cy="34" rx="5" ry="9" transform="rotate(14 13.5 34)" fill="#8a4f2d" ${S}/>` +
+      `<ellipse cx="50.5" cy="34" rx="5" ry="9" transform="rotate(-14 50.5 34)" fill="#8a4f2d" ${S}/>`,
+    overHead:
+      `<path d="M15.6 28C14.4 15 22.4 9.4 32 9.4S49.6 15 48.4 28C46.6 22 42.4 18.6 37.2 18.4C34.6 20.8 31 21.4 27.4 19.8C22.6 20.6 18.2 23.4 15.6 28Z" fill="#8a4f2d" ${S}/>` +
+      `<path d="M41 10.5l-5-4.5l-.4 6.4z M41 10.5l6.2-2.2l-2.4 6z" fill="#ff5c8a" ${S}/><circle cx="41" cy="10.6" r="1.8" fill="#ff5c8a" ${S}/>`,
+    extra: smile,
+  },
   // 고양이: 주황 줄무늬, 세모 귀, 수염, 말린 꼬리
   "char.cat": {
     body: "#f6a24e",
