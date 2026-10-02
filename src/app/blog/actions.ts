@@ -114,6 +114,9 @@ export async function toggleFollow(followeeId: string) {
     .where(and(eq(follows.followerId, viewer.userId), eq(follows.followeeId, followeeId)))
     .returning({ id: follows.followeeId });
   if (!removed.length) {
+    // 이웃은 블로그가 있는 회원만 (없는 회원·온보딩 전 회원 ID로 조작한 요청은 무시, SOC-04 #22)
+    const [target] = await db.select({ id: blogs.id }).from(blogs).where(eq(blogs.ownerId, followeeId));
+    if (!target) return;
     await db.insert(follows).values({ followerId: viewer.userId, followeeId }).onConflictDoNothing();
   }
   revalidatePath("/", "layout");
