@@ -1,0 +1,203 @@
+// 광장 건물·소품 그림 (SVG). Phaser가 이 SVG를 이미지로 바꿔 광장에 놓는다.
+// 크기는 화면에 보일 크기의 2배로 그려서(SCALE) 선명하게 만든다.
+
+const O = "#4a3426"; // 외곽선
+const S = `stroke="${O}" stroke-width="3" stroke-linejoin="round"`;
+const FONT = `font-family="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" font-weight="800"`;
+
+function wrap(w: number, h: number, body: string) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * 2}" height="${h * 2}">${body}</svg>`;
+}
+
+function darken(hex: string, amount = 0.25) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => Math.max(0, Math.round(v * (1 - amount)));
+  return `#${[f(n >> 16), f((n >> 8) & 255), f(n & 255)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+// ===== 집 (단계별 성장) =====
+// 지금은 1단계(작은 오두막)만 있다. 단계가 늘면 HOUSE_STAGES에 추가한다.
+export const HOUSE_STAGES = {
+  1: { name: "작은 오두막", width: 150, height: 140 },
+} as const;
+export type HouseStage = keyof typeof HOUSE_STAGES;
+
+export function houseSvg(stage: HouseStage, roof: string): string {
+  const { width: w, height: h } = HOUSE_STAGES[stage];
+  const roofDark = darken(roof, 0.28);
+  // 1단계: 나무 벽, 세모 지붕, 굴뚝, 둥근 문, 창문 하나와 꽃 상자
+  const body =
+    `<ellipse cx="75" cy="133" rx="62" ry="6" fill="#000" opacity=".15"/>` +
+    // 굴뚝
+    `<rect x="98" y="22" width="16" height="30" fill="#b9a28a" ${S}/><rect x="95" y="18" width="22" height="8" rx="2" fill="#9c8670" ${S}/>` +
+    // 벽 + 나무 판자
+    `<rect x="24" y="62" width="102" height="68" rx="4" fill="#f4dcb5" ${S}/>` +
+    `<path d="M26 80H124M26 98H124M26 116H124" stroke="#d9b98a" stroke-width="2"/>` +
+    // 지붕 + 기와 줄
+    `<path d="M12 68L75 18L138 68Q140 74 133 74H17Q10 74 12 68Z" fill="${roof}" ${S}/>` +
+    `<path d="M40 52H110M28 63H122M56 39H94" stroke="${roofDark}" stroke-width="3" stroke-linecap="round"/>` +
+    // 문
+    `<path d="M62 130V100Q62 88 75 88Q88 88 88 100V130Z" fill="#9b6a43" ${S}/>` +
+    `<path d="M75 90V130" stroke="#7d5232" stroke-width="2"/><circle cx="82" cy="111" r="2.2" fill="#ffd36e" stroke="${O}" stroke-width="1"/>` +
+    `<rect x="56" y="128" width="38" height="6" rx="2" fill="#c9b8a6" ${S}/>` +
+    // 창문 + 꽃 상자
+    `<rect x="33" y="84" width="20" height="18" rx="3" fill="#bfe8ff" ${S}/><path d="M43 84V102M33 93H53" stroke="${O}" stroke-width="2"/>` +
+    `<rect x="31" y="102" width="24" height="6" rx="2" fill="#8d6e63" ${S}/>` +
+    `<circle cx="36" cy="100" r="3" fill="#ff7aa2"/><circle cx="43" cy="99" r="3" fill="#ffd36e"/><circle cx="50" cy="100" r="3" fill="#ff7aa2"/>` +
+    // 문 옆 작은 등
+    `<rect x="98" y="96" width="8" height="10" rx="2" fill="#ffe08a" ${S}/>`;
+  return wrap(w, h, body);
+}
+
+// ===== 마을 게시판 (마을 소식 + 출석 도장) =====
+export const BOARD_SIZE = { width: 250, height: 170 };
+export function boardSvg(): string {
+  const { width: w, height: h } = BOARD_SIZE;
+  let notes = "";
+  const papers = [
+    { x: 30, y: 52, r: -6, c: "#fffdf5" },
+    { x: 64, y: 48, r: 4, c: "#fff3b0" },
+    { x: 38, y: 92, r: 3, c: "#d6f5ff" },
+    { x: 74, y: 90, r: -4, c: "#ffe1ec" },
+  ];
+  for (const p of papers) {
+    notes +=
+      `<g transform="rotate(${p.r} ${p.x + 15} ${p.y + 18})"><rect x="${p.x}" y="${p.y}" width="30" height="34" fill="${p.c}" stroke="#c9b79c" stroke-width="1.5"/>` +
+      `<path d="M${p.x + 5} ${p.y + 12}H${p.x + 25}M${p.x + 5} ${p.y + 18}H${p.x + 22}M${p.x + 5} ${p.y + 24}H${p.x + 24}" stroke="#a89880" stroke-width="2" stroke-linecap="round"/>` +
+      `<circle cx="${p.x + 15}" cy="${p.y + 3}" r="3" fill="#e5484d" stroke="${O}" stroke-width="1"/></g>`;
+  }
+  // 출석 도장 판: 7칸 중 몇 칸에 도장
+  let stamps = "";
+  for (let i = 0; i < 7; i++) {
+    const cx = 148 + (i % 4) * 19 + (i >= 4 ? 9 : 0);
+    const cy = 82 + Math.floor(i / 4) * 22;
+    stamps += `<circle cx="${cx}" cy="${cy}" r="8" fill="#fff" stroke="#c9b79c" stroke-width="1.5"/>`;
+    if (i < 4) stamps += `<path d="M${cx} ${cy - 5}l1.5 3.4 3.7.3-2.8 2.4.9 3.6-3.3-2-3.3 2 .9-3.6-2.8-2.4 3.7-.3z" fill="#e5484d"/>`;
+  }
+  const body =
+    `<ellipse cx="125" cy="163" rx="100" ry="6" fill="#000" opacity=".15"/>` +
+    // 기둥
+    `<rect x="22" y="40" width="12" height="124" rx="3" fill="#8d6040" ${S}/><rect x="216" y="40" width="12" height="124" rx="3" fill="#8d6040" ${S}/>` +
+    // 작은 지붕
+    `<path d="M6 34L125 6L244 34Q246 42 238 42H12Q4 42 6 34Z" fill="#a0522d" ${S}/><path d="M50 26H200" stroke="#7a3d20" stroke-width="3" stroke-linecap="round"/>` +
+    // 판
+    `<rect x="16" y="38" width="218" height="104" rx="6" fill="#b07a4f" ${S}/>` +
+    `<rect x="24" y="44" width="98" height="92" rx="3" fill="#d9b382"/>` +
+    `<rect x="128" y="44" width="98" height="92" rx="3" fill="#e9d5b0"/>` +
+    notes +
+    // 출석 도장 판 머리
+    `<rect x="140" y="52" width="74" height="16" rx="4" fill="#4caf50" stroke="${O}" stroke-width="1.5"/>` +
+    `<text x="177" y="64" text-anchor="middle" font-size="11" fill="#fff" ${FONT}>출석 도장</text>` +
+    stamps +
+    // 아래 명패
+    `<rect x="70" y="146" width="110" height="18" rx="5" fill="#f5e6c8" ${S}/>` +
+    `<text x="125" y="159" text-anchor="middle" font-size="11" fill="${O}" ${FONT}>마을 게시판</text>`;
+  return wrap(w, h, body);
+}
+
+// ===== 상점 =====
+export const SHOP_SIZE = { width: 210, height: 180 };
+export function shopSvg(): string {
+  const { width: w, height: h } = SHOP_SIZE;
+  let awning = "";
+  for (let i = 0; i < 9; i++) {
+    const x = 14 + i * 20;
+    awning += `<path d="M${x} 60H${x + 20}V82Q${x + 10} 92 ${x} 82Z" fill="${i % 2 ? "#fff" : "#e5484d"}" stroke="${O}" stroke-width="2"/>`;
+  }
+  const body =
+    `<ellipse cx="105" cy="173" rx="90" ry="6" fill="#000" opacity=".15"/>` +
+    // 건물
+    `<rect x="20" y="40" width="170" height="130" rx="5" fill="#fff4dc" ${S}/>` +
+    `<path d="M14 44L105 14L196 44Z" fill="#c0392b" ${S}/>` +
+    // 간판
+    `<rect x="62" y="24" width="86" height="28" rx="8" fill="#ffd36e" ${S}/>` +
+    `<circle cx="80" cy="38" r="8" fill="#ffb31a" stroke="${O}" stroke-width="2"/><text x="80" y="42" text-anchor="middle" font-size="10" fill="${O}" ${FONT}>₩</text>` +
+    `<text x="116" y="43" text-anchor="middle" font-size="15" fill="${O}" ${FONT}>상점</text>` +
+    // 줄무늬 차양
+    `<rect x="12" y="56" width="186" height="8" rx="3" fill="#a5282b" ${S}/>` + awning +
+    // 진열창 + 진열품
+    `<rect x="30" y="98" width="72" height="50" rx="4" fill="#cdeefe" ${S}/>` +
+    `<path d="M30 132H102" stroke="#9cc9de" stroke-width="2"/>` +
+    `<circle cx="46" cy="124" r="7" fill="#f6a24e" stroke="${O}" stroke-width="1.5"/><circle cx="66" cy="122" r="9" fill="#b79cff" stroke="${O}" stroke-width="1.5"/>` +
+    `<rect x="80" y="115" width="14" height="16" rx="3" fill="#6cc070" stroke="${O}" stroke-width="1.5"/>` +
+    `<path d="M38 104l10 10M58 102l14 14" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>` +
+    // 문
+    `<rect x="120" y="96" width="50" height="74" rx="4" fill="#8d5a3b" ${S}/>` +
+    `<rect x="128" y="104" width="34" height="28" rx="3" fill="#cdeefe" stroke="${O}" stroke-width="2"/>` +
+    `<circle cx="163" cy="140" r="2.5" fill="#ffd36e" stroke="${O}" stroke-width="1"/>` +
+    `<rect x="127" y="110" width="36" height="10" rx="2" fill="#fff" stroke="${O}" stroke-width="1"/>` +
+    `<text x="145" y="118" text-anchor="middle" font-size="7" fill="#2f855a" ${FONT}>OPEN</text>` +
+    // 바깥 나무 상자·통·화분
+    `<rect x="4" y="146" width="26" height="24" rx="2" fill="#c08a52" ${S}/><path d="M4 158H30M17 146V170" stroke="#9c6b3f" stroke-width="2"/>` +
+    `<ellipse cx="190" cy="156" rx="11" ry="15" fill="#a9733f" ${S}/><path d="M179 150H201M179 162H201" stroke="#6d4c2f" stroke-width="2"/>` +
+    `<rect x="104" y="156" width="12" height="12" rx="2" fill="#d9774f" ${S}/><circle cx="110" cy="150" r="7" fill="#57bb5a" stroke="${O}" stroke-width="2"/>`;
+  return wrap(w, h, body);
+}
+
+// ===== 분수 =====
+export const FOUNTAIN_SIZE = { width: 180, height: 150 };
+export function fountainSvg(): string {
+  const body =
+    `<ellipse cx="90" cy="120" rx="82" ry="26" fill="#000" opacity=".12"/>` +
+    `<ellipse cx="90" cy="110" rx="80" ry="30" fill="#b9c3cc" ${S}/>` +
+    `<ellipse cx="90" cy="104" rx="66" ry="22" fill="#5ec4ef"/>` +
+    `<ellipse cx="70" cy="100" rx="18" ry="4" fill="#fff" opacity=".5"/><ellipse cx="115" cy="110" rx="12" ry="3" fill="#fff" opacity=".4"/>` +
+    `<rect x="82" y="52" width="16" height="52" rx="4" fill="#c7d0d8" ${S}/>` +
+    `<ellipse cx="90" cy="54" rx="30" ry="9" fill="#c7d0d8" ${S}/><ellipse cx="90" cy="52" rx="22" ry="6" fill="#5ec4ef"/>` +
+    `<path d="M90 50Q90 18 90 14M90 22Q68 26 62 56M90 22Q112 26 118 56" fill="none" stroke="#9de2ff" stroke-width="4" stroke-linecap="round"/>` +
+    `<circle cx="90" cy="12" r="5" fill="#d5f3ff"/><circle cx="60" cy="60" r="3" fill="#d5f3ff"/><circle cx="120" cy="60" r="3" fill="#d5f3ff"/>`;
+  return wrap(FOUNTAIN_SIZE.width, FOUNTAIN_SIZE.height, body);
+}
+
+// ===== 나무·소품 =====
+export const TREE_SIZE = { width: 80, height: 100 };
+export function treeSvg(kind: "round" | "pine" | "bush" | "blossom"): string {
+  const trunk = `<rect x="34" y="62" width="12" height="30" rx="3" fill="#8d6040" ${S}/>`;
+  const shadow = `<ellipse cx="40" cy="94" rx="26" ry="5" fill="#000" opacity=".15"/>`;
+  const body = {
+    round:
+      shadow + trunk +
+      `<circle cx="40" cy="40" r="28" fill="#4caf50" ${S}/><circle cx="30" cy="34" r="10" fill="#66c26a"/><circle cx="50" cy="48" r="7" fill="#43a047"/>`,
+    pine:
+      shadow + trunk +
+      `<path d="M40 4L66 44H54L72 72H8L26 44H14Z" fill="#2e8b57" ${S}/><path d="M40 14L52 34" stroke="#3fa86b" stroke-width="4" stroke-linecap="round"/>`,
+    bush:
+      `<ellipse cx="40" cy="92" rx="30" ry="5" fill="#000" opacity=".15"/>` +
+      `<path d="M10 90Q4 66 22 62Q26 46 42 50Q58 44 62 60Q78 64 70 90Z" fill="#5cb85c" ${S}/>` +
+      `<circle cx="28" cy="70" r="3.5" fill="#e5484d"/><circle cx="48" cy="64" r="3.5" fill="#e5484d"/><circle cx="56" cy="78" r="3.5" fill="#e5484d"/>`,
+    blossom:
+      shadow + trunk +
+      `<circle cx="40" cy="40" r="27" fill="#ffb7d0" ${S}/><circle cx="28" cy="32" r="9" fill="#ffd1e1"/><circle cx="52" cy="46" r="8" fill="#ff9ec3"/>`,
+  }[kind];
+  return wrap(TREE_SIZE.width, TREE_SIZE.height, body);
+}
+
+export const LAMP_SIZE = { width: 40, height: 110 };
+export function lampSvg(): string {
+  return wrap(
+    LAMP_SIZE.width,
+    LAMP_SIZE.height,
+    `<ellipse cx="20" cy="106" rx="12" ry="3" fill="#000" opacity=".15"/>` +
+      `<rect x="16" y="30" width="8" height="76" rx="3" fill="#4a5568" ${S}/><rect x="10" y="100" width="20" height="6" rx="2" fill="#4a5568" ${S}/>` +
+      `<path d="M8 30L12 10H28L32 30Z" fill="#ffe08a" ${S}/><path d="M6 10H34L30 4H10Z" fill="#4a5568" ${S}/>`,
+  );
+}
+
+export const SIGN_SIZE = { width: 130, height: 110 };
+export function welcomeSignSvg(): string {
+  return wrap(
+    SIGN_SIZE.width,
+    SIGN_SIZE.height,
+    `<ellipse cx="65" cy="104" rx="50" ry="5" fill="#000" opacity=".15"/>` +
+      `<rect x="59" y="40" width="12" height="64" rx="3" fill="#8d6040" ${S}/>` +
+      `<path d="M8 18H112L124 34L112 50H8Z" fill="#f5e6c8" ${S}/>` +
+      `<text x="62" y="40" text-anchor="middle" font-size="17" fill="#2f7d32" ${FONT}>Blogville</text>` +
+      // 아래 꽃밭
+      `<ellipse cx="65" cy="100" rx="46" ry="9" fill="#7ac36a" ${S}/>` +
+      `<circle cx="34" cy="96" r="4" fill="#ff7aa2"/><circle cx="48" cy="100" r="4" fill="#ffd36e"/><circle cx="82" cy="100" r="4" fill="#ff7aa2"/><circle cx="96" cy="96" r="4" fill="#b79cff"/>`,
+  );
+}
+
+export function toDataUri(svg: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}

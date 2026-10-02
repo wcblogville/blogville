@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { characterEmoji } from "@/lib/assets";
+import { CharacterArt } from "@/components/character";
 import { completeOnboarding, type OnboardingState } from "./actions";
 
 type Starter = { id: number; name: string; description: string | null; assetKey: string };
@@ -53,7 +53,7 @@ export function OnboardingForm({ starters, defaultNickname }: { starters: Starte
                 className="peer sr-only"
               />
               <span className="flex flex-col items-center rounded-2xl border-2 border-line bg-white p-4 text-center transition peer-checked:border-sun peer-checked:bg-[#fff3d6] peer-checked:shadow-[0_4px_0_0_var(--color-sun-dark)] peer-focus-visible:ring-2 peer-focus-visible:ring-sky">
-                <span className="text-5xl">{characterEmoji(c.assetKey)}</span>
+                <CharacterArt asset={c.assetKey} size={80} />
                 <span className="mt-2 font-display text-lg">{c.name}</span>
                 <span className="text-xs text-ink-soft">{c.description}</span>
               </span>
