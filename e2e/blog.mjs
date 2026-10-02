@@ -58,6 +58,10 @@ await b.screenshot({ path: `${outDir}/13-blog-home.png`, fullPage: true });
 await b.goto(`${BASE}/feed`);
 await b.screenshot({ path: `${outDir}/14-feed.png`, fullPage: true });
 
+// %가 든 태그 페이지도 탭 제목이 나온다 (POST-04, #20)
+await b.goto(`${BASE}/tags/${encodeURIComponent("100%")}`);
+if ((await b.title()) !== "#100% | Blogville") throw new Error(`태그 페이지 제목이 이상해요: ${await b.title()}`);
+
 // 작성자 코인 (공감 받음 +2)
 await a.reload();
 await a.waitForLoadState("networkidle");
