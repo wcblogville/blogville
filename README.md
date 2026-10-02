@@ -81,6 +81,8 @@ npm run dev                     # http://localhost:3000
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
 | `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
+| `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
+| `npm run test:sanitize` | 글 HTML 정화(XSS 방지) 테스트 |
 
 ## 폴더 구조
 
