@@ -16,7 +16,7 @@ const schema = z.object({
   title: z.string().trim().min(1, "제목을 적어 주세요").max(100, "제목은 100자까지예요"),
   contentHtml: z.string().max(200_000, "글이 너무 길어요"),
   categoryId: z.coerce.number().int().positive().optional(),
-  tags: z.string().max(300),
+  tags: z.string().max(300, "태그는 모두 합쳐 300자까지예요"),
   visibility: z.enum(["public", "private"]),
 });
 

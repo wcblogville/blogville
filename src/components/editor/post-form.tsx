@@ -84,6 +84,7 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
         placeholder="태그 (쉼표로 구분, 최대 10개)  예: git, 회고"
         className="w-full rounded-xl border-2 border-line bg-white px-3 py-2.5"
         aria-label="태그"
+        maxLength={300}
       />
 
       <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
