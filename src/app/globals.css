@@ -1,26 +1,78 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* Blogville 색과 글꼴: 따뜻한 크림색 바탕에 동글동글한 게임 느낌 */
+@theme {
+  --color-cream: #fff8ec;
+  --color-paper: #ffffff;
+  --color-ink: #2b2118;
+  --color-ink-soft: #6b5d50;
+  --color-line: #ead9c0;
+  --color-leaf: #4caf50;
+  --color-leaf-dark: #2f7d32;
+  --color-sun: #ffb93b;
+  --color-sun-dark: #e08a00;
+  --color-berry: #ff6b6b;
+  --color-sky: #5aa9e6;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --font-sans: var(--font-noto), "Apple SD Gothic Neo", sans-serif;
+  --font-display: var(--font-jua), var(--font-noto), sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --shadow-pop: 0 4px 0 0 var(--color-line);
+  --shadow-pop-dark: 0 4px 0 0 #00000033;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+/* 게임 버튼: 눌렀을 때 아래로 쏙 들어가는 느낌 */
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 0.9rem;
+  font-weight: 700;
+  box-shadow: var(--shadow-pop-dark);
+  transition: transform 0.06s, box-shadow 0.06s, filter 0.15s;
+  &:hover {
+    filter: brightness(1.05);
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 0 #00000033;
+  }
+  &:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+@utility card {
+  background: var(--color-paper);
+  border: 2px solid var(--color-line);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-pop);
+}
+
+/* 에디터로 쓴 글 본문 */
+@utility prose-blog {
+  line-height: 1.8;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  & h1 { font-size: 1.6rem; font-weight: 800; margin: 1.6em 0 0.6em; }
+  & h2 { font-size: 1.35rem; font-weight: 800; margin: 1.5em 0 0.6em; padding-left: 0.6rem; border-left: 4px solid var(--color-sun); }
+  & h3 { font-size: 1.15rem; font-weight: 700; margin: 1.3em 0 0.5em; }
+  & p { margin: 0.8em 0; }
+  & ul { list-style: disc; padding-left: 1.4rem; margin: 0.8em 0; }
+  & ol { list-style: decimal; padding-left: 1.4rem; margin: 0.8em 0; }
+  & blockquote { margin: 1em 0; padding: 0.6rem 1rem; border-left: 4px solid var(--color-leaf); background: #f1f8e9; border-radius: 0 0.6rem 0.6rem 0; }
+  & a { color: var(--color-sky); text-decoration: underline; }
+  & code { background: #f3ece1; padding: 0.1em 0.35em; border-radius: 0.3rem; font-size: 0.9em; }
+  & pre { background: #2b2118; color: #fff8ec; padding: 1rem; border-radius: 0.8rem; overflow-x: auto; margin: 1em 0; }
+  & pre code { background: none; padding: 0; color: inherit; }
+  & hr { border: none; border-top: 2px dashed var(--color-line); margin: 2em 0; }
+  & img { max-width: 100%; border-radius: 0.8rem; }
 }
