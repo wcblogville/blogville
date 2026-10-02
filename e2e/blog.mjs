@@ -54,11 +54,17 @@ const after = await coins(a);
 console.log("post:", postUrl, "coins", before, "→", after);
 await a.screenshot({ path: `${outDir}/11-post.png`, fullPage: true });
 
+// 태그 칸은 300자에서 멈춘다 (넘겨 보내면 서버가 한국어로 안내, POST-04·NF-19, #19)
+await a.goto(`${BASE}/write`);
+await a.getByPlaceholder(/태그/).fill("가".repeat(350));
+const tagLength = (await a.getByPlaceholder(/태그/).inputValue()).length;
+if (tagLength !== 300) throw new Error(`태그 칸이 300자에서 멈추지 않아요: ${tagLength}자`);
+
 // --- 다른 회원 ---
 const ctxB = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const b = await ctxB.newPage();
 const errB = collectErrors(b);
-await loginDev(b, "tester2", "강아지");
+await loginDev(b, "tester2", "여자 주민");
 const bBefore = await coins(b);
 await b.goto(postUrl);
 await b.getByRole("button", { name: /공감/ }).click();
@@ -76,6 +82,10 @@ await b.goto(`${BASE}/@tester1`);
 await b.screenshot({ path: `${outDir}/13-blog-home.png`, fullPage: true });
 await b.goto(`${BASE}/feed`);
 await b.screenshot({ path: `${outDir}/14-feed.png`, fullPage: true });
+
+// %가 든 태그 페이지도 탭 제목이 나온다 (POST-04, #20)
+await b.goto(`${BASE}/tags/${encodeURIComponent("100%")}`);
+if ((await b.title()) !== "#100% | Blogville") throw new Error(`태그 페이지 제목이 이상해요: ${await b.title()}`);
 
 // 작성자 코인 (공감 받음 +2)
 await a.reload();

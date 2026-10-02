@@ -69,7 +69,7 @@ export function ClosetView({
                 onClick={() => equip(item)}
                 className={`card p-2 text-center transition hover:-translate-y-0.5 ${on ? "border-sun! bg-[#fff3d6]" : ""}`}
               >
-                <ItemArt type={item.type} assetKey={item.assetKey} className="h-20" />
+                <ItemArt type={item.type} assetKey={item.assetKey} className="h-20" characterSize={70} />
                 <span className="mt-1 block text-sm font-bold">
                   {on && "✓ "}
                   {item.name}

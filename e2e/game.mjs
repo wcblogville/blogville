@@ -7,7 +7,7 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 const errors = collectErrors(page);
-await loginDev(page, "gamer1", "모험가");
+await loginDev(page, "gamer1", "남자 주민");
 console.log("start coins:", await coins(page));
 
 // 같은 계정으로 탭 두 개를 열어 출석 버튼을 동시에 누른다

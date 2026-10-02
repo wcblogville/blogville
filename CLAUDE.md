@@ -18,6 +18,8 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 - **보상·코인**: 잔액 컬럼을 만들지 않는다. `point_ledger`에 기록하고 `getWallet()`으로 계산한다. 지급·차감은 `lockUser(tx, userId)`를 건 트랜잭션 안에서 `grantReward()` 사용. 규칙 숫자는 `src/lib/game.ts`.
 - **헤더 갱신**: 코인·캐릭터가 바뀌는 Server Action은 `revalidatePath("/", "layout")`을 호출한다 (루트 레이아웃은 이동만으로 다시 그려지지 않는다).
 - **글 HTML**: 저장 전에 `sanitizePostHtml()`로 정화한다. 허용 태그를 늘리면 에디터와 `src/server/sanitize.ts`를 같이 고친다.
-- **그림**: DB에는 `asset_key`만. 실제 모양은 `src/lib/assets.ts` (현재 이모지·그라데이션, 나중에 스프라이트로 교체 예정).
+- **그림**: DB에는 `asset_key`만. 실제 모양은 `src/lib/art/`에서 코드로 그린 SVG (`characters.ts` 캐릭터, `backgrounds.ts` 배경, `town.ts` 광장 건물). 외부 그림 파일을 쓰지 않는다. 아이소메트릭(TOWN-05) 전까지 2D.
+- **광장이 메인**: 헤더에 다른 화면으로 가는 메뉴를 두지 않는다. 광장 밖 화면은 헤더의 `← 광장으로 나가기`(`src/components/exit-button.tsx`)로 돌아온다. 새 장소는 광장 건물 입구(`scene.ts`의 `entrances`)로 연결한다.
+- **기본 캐릭터**: 가입할 때 남자/여자 주민(`is_starter`) 중 하나만 받는다. 아이템을 바꾸면 `npm run db:seed`.
 - **로그인**: 아이디 로그인은 Better Auth `username` 플러그인 (가입은 `src/app/(auth)/actions.ts`, 대체 이메일 `아이디@users.blogville.invalid`). 관리자는 `users.role = 'admin'`, `requireAdmin()`. 관리자 계정은 `npm run admin:create` (비밀번호는 `.env.local`에만, 코드·문서에 쓰지 않는다).
-- **검증**: `npx tsc --noEmit`, `npx eslint`, `npm test`, 개발 서버를 띄운 상태에서 `npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>`, `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. 화면 변경은 스크린샷으로 확인한다.
+- **검증**: `npx tsc --noEmit`, `npx eslint`, `npm test`, 개발 서버를 띄운 상태에서 `npm run db:seed && npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>`, `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. 화면 변경은 스크린샷으로 확인한다.

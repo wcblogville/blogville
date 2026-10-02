@@ -12,7 +12,7 @@ export function collectErrors(page) {
 }
 
 /** 아이디로 로그인하고, 없는 계정이면 회원가입 + 온보딩까지 마친다 */
-export async function loginDev(page, devId, character = "고양이", password = "test-password-1234") {
+export async function loginDev(page, devId, character = "남자 주민", password = "test-password-1234") {
   await page.goto(BASE);
   await page.getByLabel("아이디").fill(devId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);

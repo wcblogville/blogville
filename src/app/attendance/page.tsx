@@ -6,7 +6,7 @@ import { ATTENDANCE_STREAK_BONUS_EVERY, currentStreak, REWARD_RULES, todayKST } 
 import { requireMember } from "@/server/dal";
 import { AttendButton } from "./attend-button";
 
-export const metadata = { title: "출석 우체통" };
+export const metadata = { title: "출석 체크" };
 
 export default async function AttendancePage() {
   const viewer = await requireMember();
@@ -45,7 +45,7 @@ export default async function AttendancePage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-display text-3xl">📮 출석 우체통</h1>
+      <h1 className="font-display text-3xl">📮 출석 체크</h1>
       <p className="mt-1 text-ink-soft">
         하루 한 번 ✨ {REWARD_RULES.attendance.exp} · 🪙 {REWARD_RULES.attendance.coins}, {ATTENDANCE_STREAK_BONUS_EVERY}일 연속마다 🪙{" "}
         {REWARD_RULES.attendance_streak.coins} 보너스
