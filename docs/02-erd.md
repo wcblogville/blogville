@@ -37,6 +37,7 @@ erDiagram
 
     users ||--o{ attendances : "출석"
     users ||--o{ point_ledger : "경험치·코인 기록"
+    users ||--o{ attachments : "올린 사진·파일"
 
     users {
         text id PK
@@ -154,6 +155,15 @@ erDiagram
         text ref_id "관련 글·아이템 ID"
         timestamptz created_at
     }
+    attachments {
+        text key PK "무작위 32자 = 주소 /files/키"
+        text user_id FK
+        text kind "image | file"
+        text name "원래 파일 이름"
+        text mime
+        int size "바이트"
+        timestamptz created_at
+    }
 ```
 
 ## 2. 테이블 그룹
@@ -165,6 +175,7 @@ erDiagram
 | 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `post_likes`, `follows` | POST, SOC |
 | 아이템 | `items`, `user_items` | GAME-01, SHOP |
 | 보상 | `attendances`, `point_ledger` | GAME-02~05 |
+| 첨부 | `attachments` | POST-07, POST-09 |
 
 인증 테이블 4개는 로그인 라이브러리(Better Auth)가 정한 구조를 따르고, 나머지는 직접 설계했다.
 `verifications`는 로그인 과정의 임시 값을 담는 라이브러리 내부용이라 관계도에서 뺐다.
@@ -266,7 +277,7 @@ COMMIT
 
 | 지워지는 것 | 함께 처리 |
 |---|---|
-| 회원 | 프로필, 블로그, 글, 댓글, 공감, 원장 모두 삭제 (`CASCADE`) (AUTH-06) |
+| 회원 | 프로필, 블로그, 글, 댓글, 공감, 원장, 첨부 정보 모두 삭제 (`CASCADE`) (AUTH-06). 저장소의 첨부 파일은 남는다 (POST-07 열린 질문) |
 | 블로그 | 카테고리, 글 삭제 |
 | 글 | 태그 연결, 댓글, 공감 삭제 |
 | 카테고리 | 글은 남기고 `category_id`만 비움 (`SET NULL`) |
@@ -293,6 +304,13 @@ COMMIT
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
 | `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 화면 최신순 (GAME-07, 마이그레이션 0003) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
+
+### 3.11 첨부(사진·파일)는 파일과 정보를 나눠 둔다 (POST-07, POST-09)
+
+- 파일 내용은 DB가 아니라 저장소(`src/server/storage.ts`, 지금은 서버 디스크 `UPLOAD_DIR`)에 두고, `attachments`에는 원래 이름·형식·크기와 올린 사람만 둔다. DB가 커지지 않고, 저장소를 바꿔도 테이블은 그대로다.
+- `key`는 서버가 만든 무작위 32자(16진수)이고, 저장 이름이자 주소(`/files/키`)다. 올린 파일 이름을 주소·저장 이름에 쓰지 않아 덮어쓰기·경로 조작을 막는다. CHECK로 형식을 강제한다.
+- 글 본문(`posts.content_html`)에는 `<img src="/files/키">`, `<a href="/files/키" data-file …>`처럼 주소만 들어간다. 글과 첨부를 잇는 테이블은 두지 않았다. 저장할 때 본문의 키를 `attachments`에서 확인한다 (DB에 없는 키는 정화에서 뺀다).
+- 내려받는 이름은 `attachments.name`(원래 이름)을 쓰므로, 본문을 조작해도 바뀌지 않는다.
 
 ## 4. 데이터 마이그레이션
 

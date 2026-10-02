@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
-import { categories, posts, postTags, tags } from "@/db/schema";
+import { attachments, categories, posts, postTags, tags } from "@/db/schema";
 import { POST_REWARD_MIN_LENGTH } from "@/lib/game";
 import { requireMember } from "@/server/dal";
 import { grantReward, lockUser } from "@/server/points";
-import { htmlToText, sanitizePostHtml } from "@/server/sanitize";
+import { attachmentKeysIn, htmlToText, sanitizePostHtml, type KnownAttachments } from "@/server/sanitize";
 
 const schema = z.object({
   postId: z.coerce.number().int().positive().optional(),
@@ -52,7 +52,18 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
   const input = parsed.data;
 
-  const contentHtml = sanitizePostHtml(input.contentHtml);
+  // 본문의 사진·파일은 실제로 올라간 첨부만 남기고, 파일 카드 이름·크기는 DB 값으로 맞춘다 (POST-07, POST-09)
+  const keys = attachmentKeysIn(input.contentHtml);
+  const known: KnownAttachments = new Map(
+    (keys.length
+      ? await db
+          .select({ key: attachments.key, kind: attachments.kind, name: attachments.name, size: attachments.size })
+          .from(attachments)
+          .where(inArray(attachments.key, keys))
+      : []
+    ).map((a) => [a.key, { kind: a.kind as "image" | "file", name: a.name, size: a.size }]),
+  );
+  const contentHtml = sanitizePostHtml(input.contentHtml, known);
   const contentText = htmlToText(contentHtml);
   if (!contentText) return { error: "본문을 적어 주세요", values };
 
