@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
@@ -91,5 +92,6 @@ export async function completeOnboarding(_prev: OnboardingState, formData: FormD
     throw err;
   }
 
+  revalidatePath("/", "layout"); // 헤더에 코인·캐릭터가 바로 보이도록
   redirect("/town?welcome=1");
 }

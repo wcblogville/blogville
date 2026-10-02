@@ -11,9 +11,14 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:reset": "tsx scripts/reset-dev.ts"
   },
   "dependencies": {
+    "@tiptap/extensions": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.3",
     "next": "16.3.8",
@@ -21,6 +26,7 @@
     "phaser": "^4.2.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sanitize-html": "^2.18.0",
     "server-only": "^0.0.1",
     "zod": "^4.6.5"
   },
@@ -31,6 +37,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/sanitize-html": "^2.16.2",
     "dotenv": "^18.0.5",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
