@@ -1,7 +1,8 @@
 import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { attendances } from "@/db/schema";
-import { ATTENDANCE_STREAK_BONUS_EVERY, REWARD_RULES, todayKST } from "@/lib/game";
+import { formatDate } from "@/lib/format";
+import { ATTENDANCE_STREAK_BONUS_EVERY, currentStreak, REWARD_RULES, todayKST } from "@/lib/game";
 import { requireMember } from "@/server/dal";
 import { AttendButton } from "./attend-button";
 
@@ -12,11 +13,21 @@ export default async function AttendancePage() {
   const today = todayKST();
   const monthStart = `${today.slice(0, 7)}-01`;
 
-  const rows = await db
-    .select({ date: attendances.date, streak: attendances.streak })
-    .from(attendances)
-    .where(and(eq(attendances.userId, viewer.userId), gte(attendances.date, monthStart)))
-    .orderBy(desc(attendances.date));
+  const [rows, [last]] = await Promise.all([
+    // 달력용: 이번 달 출석
+    db
+      .select({ date: attendances.date, streak: attendances.streak })
+      .from(attendances)
+      .where(and(eq(attendances.userId, viewer.userId), gte(attendances.date, monthStart)))
+      .orderBy(desc(attendances.date)),
+    // 연속 일수용: 달과 상관없이 가장 최근 출석 1건 (GAME-04)
+    db
+      .select({ date: attendances.date, streak: attendances.streak })
+      .from(attendances)
+      .where(eq(attendances.userId, viewer.userId))
+      .orderBy(desc(attendances.date))
+      .limit(1),
+  ]);
   const attendedDates = new Set(rows.map((r) => r.date));
   const attendedToday = attendedDates.has(today);
 
@@ -25,7 +36,12 @@ export default async function AttendancePage() {
   const firstWeekday = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const cells = [...Array(firstWeekday).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
-  const latestStreak = rows[0]?.streak ?? 0;
+  const streak = currentStreak(last, today);
+  const streakText = streak
+    ? `현재 연속 ${streak}일`
+    : last
+      ? `연속 출석이 끊겼어요 (마지막 출석 ${formatDate(new Date(`${last.date}T00:00:00+09:00`))})`
+      : "아직 출석 기록이 없어요";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -45,7 +61,7 @@ export default async function AttendancePage() {
             {y}년 {m}월
           </h2>
           <p className="text-sm text-ink-soft">
-            이번 달 {rows.length}일 출석 · 최근 연속 {latestStreak}일
+            이번 달 {rows.length}일 출석 · {streakText}
           </p>
         </div>
         <div className="grid grid-cols-7 gap-1.5 text-center text-sm">

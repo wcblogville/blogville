@@ -47,9 +47,9 @@ export async function SiteHeader() {
             <span className="hidden rounded-full bg-white px-2.5 py-1 text-sm font-bold shadow-sm sm:inline" title="레벨">
               Lv.{wallet.level}
             </span>
-            <span className="rounded-full bg-white px-2.5 py-1 text-sm font-bold shadow-sm" title="코인">
+            <Link href="/wallet" className="rounded-full bg-white px-2.5 py-1 text-sm font-bold shadow-sm hover:text-leaf-dark" title="코인">
               🪙 {wallet.coins.toLocaleString()}
-            </span>
+            </Link>
             {member.user.role === "admin" && (
               <Link href="/admin" className="rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-cream">
                 👑 관리자

@@ -343,5 +343,6 @@ export const pointLedger = pgTable(
     check("point_ledger_exp_check", sql`${t.expDelta} >= 0`),
     check("point_ledger_nonzero_check", sql`${t.expDelta} <> 0 OR ${t.coinDelta} <> 0`),
     index("point_ledger_user_reason_created_idx").on(t.userId, t.reason, t.createdAt),
+    index("point_ledger_user_created_idx").on(t.userId, t.createdAt.desc()), // 내역 화면 최신순 (GAME-07)
   ],
 );

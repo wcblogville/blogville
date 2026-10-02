@@ -61,8 +61,13 @@ export async function completeOnboarding(_prev: OnboardingState, formData: FormD
 
       const [background] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "bg_meadow"));
 
+      // 기본 캐릭터는 3종 모두 지급하고, 고른 캐릭터를 장착한다 (GAME-01)
+      const starters = await tx
+        .select({ id: items.id })
+        .from(items)
+        .where(and(eq(items.type, "character"), eq(items.isStarter, true)));
       await tx.insert(userItems).values([
-        { userId: viewer.userId, itemId: character.id },
+        ...starters.map((s) => ({ userId: viewer.userId, itemId: s.id })),
         { userId: viewer.userId, itemId: background.id },
       ]);
       await tx.insert(profiles).values({

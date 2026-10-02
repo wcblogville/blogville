@@ -26,12 +26,15 @@ export default async function ClosetPage() {
           <div className="flex justify-between text-sm">
             <b>Lv.{wallet.level}</b>
             <span className="text-ink-soft">
-              {wallet.current} / {wallet.needed} EXP
+              {wallet.isMax ? "MAX" : `${wallet.current} / ${wallet.needed} EXP`}
             </span>
           </div>
-          <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-cream" role="progressbar" aria-valuenow={wallet.current} aria-valuemax={wallet.needed} aria-label="다음 레벨까지">
+          <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-cream" role="progressbar" aria-valuenow={wallet.isMax ? 1 : wallet.current} aria-valuemax={wallet.isMax ? 1 : wallet.needed} aria-label="다음 레벨까지">
             <div className="h-full rounded-full bg-leaf" style={{ width: `${Math.round(wallet.ratio * 100)}%` }} />
           </div>
+          <Link href="/wallet" className="mt-1.5 inline-block text-xs text-ink-soft underline hover:text-ink">
+            경험치·코인 내역 보기
+          </Link>
         </div>
       </div>
 

@@ -291,9 +291,18 @@ COMMIT
 | `posts (visibility, created_at DESC)` | 마을 최신 글 |
 | `comments (post_id, created_at)` | 글 상세 댓글 |
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
+| `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 화면 최신순 (GAME-07, 마이그레이션 0003) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
 
-## 4. 남은 확인 사항
+## 4. 데이터 마이그레이션
+
+구조가 아니라 **데이터**를 바꿔야 할 때도 마이그레이션 파일로 남긴다. 그래야 팀원 각자의 DB와 배포 DB에 똑같이 적용된다.
+
+| 파일 | 내용 |
+|---|---|
+| `0002_give_all_starters.sql` | GAME-01 결정(기본 캐릭터 3종 모두 지급)에 맞춰, 이미 온보딩을 마친 회원에게 없는 기본 캐릭터를 `user_items`에 채운다. `ON CONFLICT DO NOTHING`이라 여러 번 실행해도 중복되지 않는다 |
+
+## 5. 남은 확인 사항
 
 - **카카오 로그인 이메일**: 카카오는 이메일 제공이 선택 동의라 이메일이 없을 수 있다. 로그인 라이브러리가 이메일을 필수로 요구하는지 구현할 때 확인한다.
 - **같은 블로그의 카테고리인지 검사**: 글의 `category_id`가 그 글의 블로그 카테고리인지는 서버 코드에서 검사한다.

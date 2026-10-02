@@ -40,7 +40,8 @@ export function OnboardingForm({ starters, defaultNickname }: { starters: Starte
       </Field>
 
       <fieldset>
-        <legend className="mb-2 font-bold">함께할 캐릭터</legend>
+        <legend className="mb-1 font-bold">처음 함께할 캐릭터</legend>
+        <p className="mb-2 text-sm text-ink-soft">셋 다 받아요. 나머지 둘은 꾸미기에서 언제든 바꿔 낄 수 있어요.</p>
         <div className="grid grid-cols-3 gap-3">
           {starters.map((c, i) => (
             <label key={c.id} className="cursor-pointer">
