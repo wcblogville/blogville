@@ -35,7 +35,7 @@ export default async function TownPage(props: PageProps<"/town">) {
           <span className="text-3xl">🎉</span>
           <p>
             <b>{member.profile.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요.
-            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요.
+            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 위쪽 <b>게시판</b>에서 출석 도장도 받을 수 있어요.
           </p>
         </div>
       )}
@@ -66,8 +66,8 @@ export default async function TownPage(props: PageProps<"/town">) {
           <span className="block text-sm text-ink-soft">마을 최신 글</span>
         </Link>
         <Link href={member ? "/attendance" : "/"} className="card p-4 hover:-translate-y-0.5">
-          📮 <b>우체통</b>
-          <span className="block text-sm text-ink-soft">{attendedToday ? "오늘 출석 완료 ✅" : "출석 보상 받기 🎁"}</span>
+          📮 <b>출석 체크</b>
+          <span className="block text-sm text-ink-soft">게시판 · {attendedToday ? "오늘 출석 완료 ✅" : "출석 보상 받기 🎁"}</span>
         </Link>
         <Link href={member ? "/shop" : "/"} className="card p-4 hover:-translate-y-0.5">
           🏪 <b>상점</b>
