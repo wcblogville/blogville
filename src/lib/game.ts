@@ -6,18 +6,22 @@ export function expForLevel(level: number): number {
   return 50 * level * (level - 1);
 }
 
+/** 최고 레벨 (GAME-02 결정). 경험치는 계속 쌓이지만 레벨은 여기서 멈춘다 */
+export const MAX_LEVEL = 99;
+
 export function levelFromExp(exp: number): number {
   let level = 1;
-  while (exp >= expForLevel(level + 1)) level++;
+  while (level < MAX_LEVEL && exp >= expForLevel(level + 1)) level++;
   return level;
 }
 
-/** 현재 레벨 안에서의 진행도 (경험치 막대용) */
+/** 현재 레벨 안에서의 진행도 (경험치 막대용). 최고 레벨이면 막대가 가득 찬다 */
 export function levelProgress(exp: number) {
   const level = levelFromExp(exp);
   const base = expForLevel(level);
+  if (level >= MAX_LEVEL) return { level, current: exp - base, needed: 0, ratio: 1, isMax: true };
   const next = expForLevel(level + 1);
-  return { level, current: exp - base, needed: next - base, ratio: (exp - base) / (next - base) };
+  return { level, current: exp - base, needed: next - base, ratio: (exp - base) / (next - base), isMax: false };
 }
 
 export type RewardReason = "signup" | "attendance" | "attendance_streak" | "post" | "comment" | "like_received";
@@ -37,6 +41,22 @@ export const POST_REWARD_MIN_LENGTH = 100;
 
 /** 연속 출석 보너스를 주는 주기 (7일마다) */
 export const ATTENDANCE_STREAK_BONUS_EVERY = 7;
+
+/** YYYY-MM-DD의 하루 전 날짜 */
+export function previousDay(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * 지금 이어지고 있는 연속 출석 일수.
+ * 마지막 출석이 오늘이나 어제면 그 기록의 연속 일수, 그보다 오래됐으면 끊긴 것(0)이다. (GAME-04)
+ */
+export function currentStreak(last: { date: string; streak: number } | null | undefined, today: string): number {
+  if (!last) return 0;
+  return last.date === today || last.date === previousDay(today) ? last.streak : 0;
+}
 
 /** 서비스 기준 시간대의 오늘 날짜 (YYYY-MM-DD) */
 export function todayKST(now = new Date()): string {

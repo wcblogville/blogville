@@ -42,8 +42,12 @@ export default async function TownPage(props: PageProps<"/town">) {
 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <h1 className="font-display text-3xl">🏛 중앙 광장</h1>
-        <p className="text-sm text-ink-soft">
+        {/* 기기에 맞는 조작 안내: 마우스·키보드 / 터치 (TOWN-02) */}
+        <p className="text-sm text-ink-soft pointer-coarse:hidden">
           방향키·WASD 또는 클릭으로 이동 · 건물 앞에서 <kbd className="rounded bg-white px-1.5 shadow-sm">Space</kbd>로 들어가기
+        </p>
+        <p className="hidden text-sm text-ink-soft pointer-coarse:block">
+          왼쪽 아래 조이스틱이나 탭으로 이동 · 건물을 탭해서 들어가기
         </p>
       </div>
 

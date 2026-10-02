@@ -15,6 +15,20 @@
       "when": 1790903651323,
       "tag": "0001_site_login",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790915852360,
+      "tag": "0002_give_all_starters",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790915935829,
+      "tag": "0003_ledger_history_index",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+CREATE INDEX "point_ledger_user_created_idx" ON "point_ledger" USING btree ("user_id","created_at" DESC NULLS LAST);

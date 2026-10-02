@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { MiniRoom } from "@/components/character";
 import { ItemArt } from "@/components/item-art";
 import { equipItem } from "./actions";
@@ -17,8 +17,15 @@ export function ClosetView({
   nickname: string;
 }) {
   const [current, setCurrent] = useState(equipped);
-  const [error, setError] = useState("");
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
+
+  // "저장했어요"는 2초 뒤에 사라진다
+  useEffect(() => {
+    if (!message?.ok) return;
+    const t = setTimeout(() => setMessage(null), 2000);
+    return () => clearTimeout(t);
+  }, [message]);
 
   const character = items.find((i) => i.id === current.characterItemId);
   const background = items.find((i) => i.id === current.backgroundItemId);
@@ -27,12 +34,20 @@ export function ClosetView({
     const key = item.type === "character" ? "characterItemId" : "backgroundItemId";
     const before = current;
     setCurrent({ ...current, [key]: item.id }); // 미리 바꿔 보여주고
-    setError("");
+    setMessage(null);
     start(async () => {
-      const r = await equipItem(item.id);
-      if (!r.ok) {
+      try {
+        const r = await equipItem(item.id);
+        if (r.ok) {
+          setMessage({ ok: true, text: `${item.name} 장착을 저장했어요 ✓` });
+          return;
+        }
         setCurrent(before); // 실패하면 되돌린다
-        setError(r.error ?? "장착하지 못했어요");
+        setMessage({ ok: false, text: r.error ?? "장착하지 못했어요" });
+      } catch {
+        // 서버 오류(네트워크, DB 등)도 오류 화면 대신 되돌리고 알려준다 (SHOP-04)
+        setCurrent(before);
+        setMessage({ ok: false, text: "장착하지 못했어요. 잠시 뒤 다시 시도해 주세요" });
       }
     });
   }
@@ -74,7 +89,9 @@ export function ClosetView({
         nickname={nickname}
         className="h-60 shadow-[0_4px_0_0_var(--color-line)]"
       />
-      {error && <p className="mt-3 text-center font-bold text-berry">{error}</p>}
+      <p role="status" aria-live="polite" className={`mt-3 min-h-6 text-center font-bold ${message?.ok ? "text-leaf-dark" : "text-berry"}`}>
+        {message?.text}
+      </p>
       {section("character", "🐾 내 캐릭터")}
       {section("background", "🖼 내 배경")}
     </>

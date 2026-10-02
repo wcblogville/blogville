@@ -4,7 +4,7 @@ import { and, desc, eq, lt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { attendances } from "@/db/schema";
-import { ATTENDANCE_STREAK_BONUS_EVERY, REWARD_RULES, todayKST } from "@/lib/game";
+import { ATTENDANCE_STREAK_BONUS_EVERY, previousDay, REWARD_RULES, todayKST } from "@/lib/game";
 import { requireMember } from "@/server/dal";
 import { grantReward, lockUser } from "@/server/points";
 
@@ -12,12 +12,6 @@ export type AttendState =
   | { status: "idle" }
   | { status: "done"; streak: number; coins: number; exp: number; bonus: boolean }
   | { status: "already" };
-
-function previousDay(date: string) {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString().slice(0, 10);
-}
 
 export async function attend(): Promise<AttendState> {
   const viewer = await requireMember();
