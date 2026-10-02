@@ -60,10 +60,15 @@ async function main() {
         const [character] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "char_human"));
         const [background] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "bg_meadow"));
         if (!character || !background) throw new Error("아이템이 없어요. 먼저 npm run db:seed 를 실행해 주세요");
-        await tx.insert(userItems).values([
-          { userId: user.id, itemId: character.id },
-          { userId: user.id, itemId: background.id },
-        ]).onConflictDoNothing();
+        // 일반 회원과 똑같이 기본 캐릭터 3종 + 초원 (GAME-01)
+        const starters = await tx
+          .select({ id: items.id })
+          .from(items)
+          .where(and(eq(items.type, "character"), eq(items.isStarter, true)));
+        await tx
+          .insert(userItems)
+          .values([...starters.map((s) => ({ userId: user.id, itemId: s.id })), { userId: user.id, itemId: background.id }])
+          .onConflictDoNothing();
         await tx.insert(profiles).values({ userId: user.id, nickname: "관리자", characterItemId: character.id });
         const [blog] = await tx
           .insert(blogs)

@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "db:reset": "tsx scripts/reset-dev.ts",
     "admin:create": "tsx scripts/create-admin.ts",
-    "test:sanitize": "tsx --conditions=react-server scripts/test-sanitize.ts"
+    "test:sanitize": "tsx --conditions=react-server scripts/test-sanitize.ts",
+    "test:game": "tsx scripts/test-game.ts",
+    "test": "npm run test:game && npm run test:sanitize"
   },
   "dependencies": {
     "@tiptap/extensions": "^3.31.4",

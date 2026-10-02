@@ -9,6 +9,8 @@ export const WORLD = { width: 1800, height: 1400 };
 const CENTER = { x: WORLD.width / 2, y: WORLD.height / 2 };
 const SPEED = 230;
 const INTERACT_DISTANCE = 90;
+// 가상 조이스틱 (터치 화면 전용, TOWN-02)
+const JOYSTICK = { radius: 56, thumb: 26, margin: 28, deadZone: 8 };
 
 type Building = {
   label: string;
@@ -85,6 +87,12 @@ export function createTownScene(
     private buildings: Building[] = [];
     private prompt!: PhaserNS.GameObjects.Text;
     private nearby: Building | null = null;
+    private joystick: {
+      base: PhaserNS.GameObjects.Arc;
+      thumb: PhaserNS.GameObjects.Arc;
+      pointerId: number | null;
+      vector: PhaserNS.Math.Vector2;
+    } | null = null;
 
     constructor() {
       super("town");
@@ -144,7 +152,16 @@ export function createTownScene(
       // 페이지 스크롤과 겹치지 않게 게임 안에서만 키를 쓴다
       keyboard.addCapture("UP,DOWN,LEFT,RIGHT,SPACE");
 
+      // 터치가 주 입력인 기기(휴대폰·태블릿)에서만 조이스틱을 보여준다
+      if (window.matchMedia?.("(pointer: coarse)").matches) this.createJoystick();
+
       this.input.on("pointerdown", (pointer: PhaserNS.Input.Pointer) => {
+        // 조이스틱을 누른 경우: 걷기 목표를 정하지 않고 조이스틱으로 움직인다
+        if (this.joystick && this.isOnJoystick(pointer)) {
+          this.joystick.pointerId = pointer.id;
+          this.moveJoystick(pointer);
+          return;
+        }
         const hit = this.buildingAt(pointer.worldX, pointer.worldY);
         if (hit) {
           // 가까우면 바로 들어가고, 멀면 그쪽으로 걸어간다
@@ -154,6 +171,55 @@ export function createTownScene(
         }
         this.moveTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
       });
+      this.input.on("pointermove", (pointer: PhaserNS.Input.Pointer) => {
+        if (this.joystick?.pointerId === pointer.id) this.moveJoystick(pointer);
+      });
+      const release = (pointer: PhaserNS.Input.Pointer) => {
+        if (this.joystick?.pointerId === pointer.id) this.resetJoystick();
+      };
+      this.input.on("pointerup", release);
+      this.input.on("pointerupoutside", release);
+    }
+
+    // ===== 가상 조이스틱 =====
+    private createJoystick() {
+      this.input.addPointer(1); // 조이스틱을 누른 채 다른 곳도 탭할 수 있게 두 손가락까지
+      const base = this.add.circle(0, 0, JOYSTICK.radius, 0x2b2118, 0.18).setStrokeStyle(3, 0xffffff, 0.7);
+      const thumb = this.add.circle(0, 0, JOYSTICK.thumb, 0xffffff, 0.85).setStrokeStyle(2, 0x2b2118, 0.4);
+      for (const o of [base, thumb]) o.setScrollFactor(0).setDepth(200000);
+      this.joystick = { base, thumb, pointerId: null, vector: new Phaser.Math.Vector2() };
+      this.placeJoystick();
+      this.scale.on("resize", () => this.placeJoystick());
+    }
+
+    /** 화면 왼쪽 아래 (화면 크기가 바뀌어도 따라간다) */
+    private placeJoystick() {
+      if (!this.joystick) return;
+      const x = JOYSTICK.margin + JOYSTICK.radius;
+      const y = this.scale.height - JOYSTICK.margin - JOYSTICK.radius;
+      this.joystick.base.setPosition(x, y);
+      if (this.joystick.pointerId === null) this.joystick.thumb.setPosition(x, y);
+    }
+
+    private isOnJoystick(pointer: PhaserNS.Input.Pointer) {
+      const { base } = this.joystick!;
+      return Phaser.Math.Distance.Between(pointer.x, pointer.y, base.x, base.y) <= JOYSTICK.radius + 20;
+    }
+
+    /** 손가락 위치 → 방향 벡터 (조이스틱 반지름 밖으로는 나가지 않는다) */
+    private moveJoystick(pointer: PhaserNS.Input.Pointer) {
+      const j = this.joystick!;
+      const v = new Phaser.Math.Vector2(pointer.x - j.base.x, pointer.y - j.base.y);
+      if (v.length() > JOYSTICK.radius) v.setLength(JOYSTICK.radius);
+      j.thumb.setPosition(j.base.x + v.x, j.base.y + v.y);
+      j.vector = v.length() < JOYSTICK.deadZone ? new Phaser.Math.Vector2() : v.clone().scale(1 / JOYSTICK.radius);
+    }
+
+    private resetJoystick() {
+      const j = this.joystick!;
+      j.pointerId = null;
+      j.vector = new Phaser.Math.Vector2();
+      j.thumb.setPosition(j.base.x, j.base.y);
     }
 
     update() {
@@ -169,6 +235,12 @@ export function createTownScene(
           .scale(SPEED);
         this.playerBody.setVelocity(v.x, v.y);
         if (v.x !== 0) this.player.setFlipX(v.x > 0);
+      } else if (this.joystick && this.joystick.vector.lengthSq() > 0) {
+        // 조이스틱: 많이 밀수록 빠르게 (최대 SPEED)
+        this.moveTarget = null;
+        const v = this.joystick.vector.clone().scale(SPEED);
+        this.playerBody.setVelocity(v.x, v.y);
+        if (Math.abs(v.x) > 1) this.player.setFlipX(v.x > 0);
       } else if (this.moveTarget) {
         const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.moveTarget.x, this.moveTarget.y);
         if (d < 8 || this.playerBody.blocked.none === false) {

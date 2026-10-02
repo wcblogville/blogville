@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { attendances, blogs, items, posts, profiles } from "@/db/schema";
@@ -9,7 +9,7 @@ import type { TownHouse } from "@/components/town/types";
 const characterItem = alias(items, "character_item");
 const backgroundItem = alias(items, "background_item");
 
-/** 광장에 보여줄 집: 최근 공개 글을 쓴 블로그 순 (글이 없으면 새로 생긴 순) */
+/** 광장에 보여줄 집: 공개 글이 있는 블로그만, 최근 공개 글 순 (TOWN-04) */
 export async function getTownHouses(excludeUserId: string | null, limit = 8): Promise<TownHouse[]> {
   const lastPostAt = sql<Date | null>`(
     SELECT MAX(${posts.createdAt}) FROM ${posts}
@@ -28,8 +28,8 @@ export async function getTownHouses(excludeUserId: string | null, limit = 8): Pr
     .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))
     .innerJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
     .innerJoin(backgroundItem, eq(backgroundItem.id, blogs.backgroundItemId))
-    .where(excludeUserId ? ne(blogs.ownerId, excludeUserId) : undefined)
-    .orderBy(sql`${lastPostAt} DESC NULLS LAST`, desc(blogs.createdAt))
+    .where(and(excludeUserId ? ne(blogs.ownerId, excludeUserId) : undefined, isNotNull(lastPostAt)))
+    .orderBy(sql`${lastPostAt} DESC`, desc(blogs.createdAt))
     .limit(limit);
 }
 
