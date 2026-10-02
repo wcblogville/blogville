@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import type { TownData, TownTarget } from "./types";
 
-export function TownGame({ data }: { data: TownData }) {
+export function TownGame({ data, className = "" }: { data: TownData; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -52,7 +52,7 @@ export function TownGame({ data }: { data: TownData }) {
   return (
     <div
       ref={containerRef}
-      className="h-[68vh] min-h-[420px] w-full overflow-hidden rounded-2xl border-2 border-line bg-[#8fd18a]"
+      className={`overflow-hidden bg-[#8fd18a] ${className}`}
       aria-label="중앙 광장. 방향키나 WASD로 움직이고 Space로 건물에 들어갑니다."
     />
   );

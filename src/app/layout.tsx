@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Jua, Noto_Sans_KR } from "next/font/google";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
 
@@ -18,9 +19,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <SiteHeader />
         <main className="flex-1">{children}</main>
-        <footer className="border-t-2 border-line py-6 text-center text-sm text-ink-soft">
-          Blogville · AI응용프로젝트
-        </footer>
+        <SiteFooter />
       </body>
     </html>
   );

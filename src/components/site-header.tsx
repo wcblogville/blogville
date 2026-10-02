@@ -12,7 +12,7 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-line bg-cream/95 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
         <Link href={member ? "/town" : "/"} className="font-display text-2xl text-leaf-dark">
           Blogville
         </Link>
