@@ -54,6 +54,12 @@ const after = await coins(a);
 console.log("post:", postUrl, "coins", before, "→", after);
 await a.screenshot({ path: `${outDir}/11-post.png`, fullPage: true });
 
+// 태그 칸은 300자에서 멈춘다 (넘겨 보내면 서버가 한국어로 안내, POST-04·NF-19, #19)
+await a.goto(`${BASE}/write`);
+await a.getByPlaceholder(/태그/).fill("가".repeat(350));
+const tagLength = (await a.getByPlaceholder(/태그/).inputValue()).length;
+if (tagLength !== 300) throw new Error(`태그 칸이 300자에서 멈추지 않아요: ${tagLength}자`);
+
 // --- 다른 회원 ---
 const ctxB = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const b = await ctxB.newPage();
