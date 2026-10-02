@@ -22,6 +22,8 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
   const [length, setLength] = useState(0);
   const [visibility, setVisibility] = useState(initial.visibility);
   const isNew = !initial.postId;
+  // 오류로 돌아오면 서버가 돌려준 입력값을, 아니면 처음 값을 쓴다
+  const v = state.values;
   const rewardable = isNew && visibility === "public" && length >= POST_REWARD_MIN_LENGTH;
 
   return (
@@ -32,7 +34,7 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
 
       <input
         name="title"
-        defaultValue={initial.title}
+        defaultValue={v?.title ?? initial.title}
         placeholder="제목"
         maxLength={100}
         required
@@ -41,8 +43,10 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
 
       <div className="flex flex-wrap gap-3">
         <select
+          // select는 그린 뒤 defaultValue를 바꿔도 폼 초기화 기준이 그대로라, 오류로 돌아오면 새로 그린다
+          key={v ? `restored-${v.categoryId}` : "initial"}
           name="categoryId"
-          defaultValue={initial.categoryId ?? ""}
+          defaultValue={v?.categoryId ?? initial.categoryId ?? ""}
           className="rounded-xl border-2 border-line bg-white px-3 py-2"
           aria-label="카테고리"
         >
@@ -80,7 +84,7 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
 
       <input
         name="tags"
-        defaultValue={initial.tags.join(", ")}
+        defaultValue={v?.tags ?? initial.tags.join(", ")}
         placeholder="태그 (쉼표로 구분, 최대 10개)  예: git, 회고"
         className="w-full rounded-xl border-2 border-line bg-white px-3 py-2.5"
         aria-label="태그"
