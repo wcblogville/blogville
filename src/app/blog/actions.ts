@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { blogs, comments, follows, pointLedger, postLikes, posts } from "@/db/schema";
+import { MAX_DB_INT, parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
 import { grantReward, lockUser } from "@/server/points";
 
@@ -23,6 +24,7 @@ async function findVisiblePost(postId: number, viewerId: string) {
 // ===== 공감 =====
 export async function toggleLike(postId: number) {
   const viewer = await requireMember();
+  if (parseId(postId) === null) return;
   const post = await findVisiblePost(postId, viewer.userId);
   if (!post) return;
 
@@ -50,8 +52,8 @@ export async function toggleLike(postId: number) {
 
 // ===== 댓글 =====
 const commentSchema = z.object({
-  postId: z.coerce.number().int().positive(),
-  parentId: z.coerce.number().int().positive().optional(),
+  postId: z.coerce.number().int().positive().max(MAX_DB_INT, "잘못된 요청이에요"),
+  parentId: z.coerce.number().int().positive().max(MAX_DB_INT, "잘못된 요청이에요").optional(),
   content: z.string().trim().min(1, "댓글을 적어 주세요").max(1000, "댓글은 1000자까지예요"),
 });
 
@@ -96,6 +98,7 @@ export async function addComment(_prev: CommentState, formData: FormData): Promi
 
 export async function deleteComment(commentId: number) {
   const viewer = await requireMember();
+  if (parseId(commentId) === null) return;
   // 내 댓글만. 답글이 남아 있을 수 있어서 행은 두고 삭제 표시만 한다
   await db
     .update(comments)

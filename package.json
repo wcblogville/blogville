@@ -16,7 +16,8 @@
     "admin:create": "tsx scripts/create-admin.ts",
     "test:sanitize": "tsx --conditions=react-server scripts/test-sanitize.ts",
     "test:game": "tsx scripts/test-game.ts",
-    "test": "npm run test:game && npm run test:sanitize"
+    "test:ids": "tsx scripts/test-ids.ts",
+    "test": "npm run test:game && npm run test:ids && npm run test:sanitize"
   },
   "dependencies": {
     "@tiptap/extensions": "^3.31.4",

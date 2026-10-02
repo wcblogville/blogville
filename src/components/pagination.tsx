@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { parseId } from "@/lib/ids";
 
 /** 페이지 번호. hrefFor(n)이 각 페이지 주소를 만든다 */
 export function Pagination({ page, pageCount, hrefFor }: { page: number; pageCount: number; hrefFor: (n: number) => string }) {
@@ -26,8 +27,7 @@ export function Pagination({ page, pageCount, hrefFor }: { page: number; pageCou
   );
 }
 
-/** ?page= 값을 1 이상의 정수로 */
+/** ?page= 값을 1 ~ 2147483647 정수로. 아니면 1페이지 (아주 큰 수는 OFFSET이 DB 범위를 넘는다, #21) */
 export function parsePage(value: string | string[] | undefined) {
-  const n = Number(Array.isArray(value) ? value[0] : value);
-  return Number.isInteger(n) && n > 0 ? n : 1;
+  return parseId(value) ?? 1;
 }
