@@ -1,6 +1,11 @@
 // 회원가입·로그인·관리자 권한
 import { chromium } from "@playwright/test";
+import { config } from "dotenv";
 import { BASE, collectErrors } from "./helpers.mjs";
+
+// 관리자 비밀번호는 코드에 쓰지 않고 .env.local에서 읽는다
+config({ path: ".env.local", quiet: true });
+const ADMIN = { username: process.env.ADMIN_USERNAME ?? "admin", password: process.env.ADMIN_PASSWORD ?? "" };
 
 const outDir = process.argv[2] ?? "e2e-shots";
 const browser = await chromium.launch();
@@ -81,7 +86,7 @@ async function signIn(page, id, pw) {
 // 4) 관리자 로그인 → 광장, 관리자 배지, /admin
 {
   const { ctx, page, errors } = await fresh();
-  await signIn(page, "admin", "q1w2e3r4");
+  await signIn(page, ADMIN.username, ADMIN.password);
   await page.waitForURL(/town/, { timeout: 15000 }).catch(() => {});
   check("관리자 로그인 → 광장", page.url().includes("/town"));
   check("헤더에 관리자 배지", await page.getByRole("link", { name: "👑 관리자" }).isVisible());
