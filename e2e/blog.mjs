@@ -63,5 +63,15 @@ await a.reload();
 await a.waitForLoadState("networkidle");
 console.log("tester1 coins after like:", await coins(a));
 
+// 빈 본문에는 안내 문구가 보인다 (POST-01, #17)
+await a.goto(`${BASE}/write`);
+await a.locator(".ProseMirror").waitFor();
+const placeholder = await a
+  .locator(".tiptap .is-editor-empty")
+  .first()
+  .evaluate((el) => getComputedStyle(el, "::before").content);
+if (!placeholder.includes("무엇이든 적어 보세요")) throw new Error(`본문 안내 문구가 보이지 않아요: ${placeholder}`);
+console.log("본문 안내 문구:", placeholder);
+
 console.log("errors:", [...errA, ...errB].length ? [...errA, ...errB] : "none");
 await browser.close();
