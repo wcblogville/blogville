@@ -30,6 +30,7 @@ export const ledgerReason = pgEnum("ledger_reason", [
   "signup",
   "attendance",
   "attendance_streak",
+  "attendance_rank", // 그날 1~3등으로 출석 (GAME-04)
   "post",
   "comment",
   "like_received",

@@ -11,8 +11,12 @@ export function AttendButton({ attended }: { attended: boolean }) {
       <div className="text-center">
         <p className="animate-bounce text-6xl">🎁</p>
         <p className="mt-2 font-display text-2xl">출석 완료! {state.streak}일 연속</p>
+        {state.rankBonus && (
+          <p className="mt-1 font-display text-xl text-sun-dark">{["🥇", "🥈", "🥉"][state.rank - 1]} 오늘 {state.rank}등으로 출석했어요!</p>
+        )}
         <p className="mt-1 font-bold text-leaf-dark">
-          ✨ 경험치 {state.exp} · 🪙 {state.coins} {state.bonus && "(7일 연속 보너스 포함!)"}
+          ✨ 경험치 {state.exp} · 🪙 {state.coins} {state.bonus && "(7일 연속 보너스 포함!)"}{" "}
+          {state.rankBonus && "(1~3등 보너스 포함!)"}
         </p>
       </div>
     );

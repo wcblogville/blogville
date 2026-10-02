@@ -44,11 +44,14 @@ await db.query("INSERT INTO attendances (user_id, date, streak) VALUES ($1, $2, 
 await page.goto(`${BASE}/attendance`);
 check("GAME-04 어제까지 6일 연속이면 '현재 연속 6일'", await page.getByText("현재 연속 6일").isVisible());
 const before = await coins(page);
+// 오늘 1~3등으로 출석하면 🪙 100이 더 붙는다 (GAME-04 출석 1~3등 보너스). db:reset 직후면 이 회원이 1등이다
+const attendedToday = (await db.query("SELECT count(*)::int AS n FROM attendances WHERE date = $1", [kstDate(0)])).rows[0].n;
+const rankBonus = attendedToday < 3 ? 100 : 0;
 await page.getByRole("button", { name: /출석하고/ }).click();
 await page.getByText(/출석 완료! 7일 연속/).waitFor();
 check("GAME-04 7일째 출석 보너스 문구", await page.getByText("7일 연속 보너스 포함").isVisible());
 await page.reload();
-check("GAME-04 7일째 코인 +70 (20 + 보너스 50)", (await coins(page)) - before === 70, `${before} → ${await coins(page)}`);
+check(`GAME-04 7일째 코인 +${70 + rankBonus} (20 + 보너스 50${rankBonus ? " + 1~3등 100" : ""})`, (await coins(page)) - before === 70 + rankBonus, `${before} → ${await coins(page)}`);
 // 마지막 출석이 그저께면 끊김
 await db.query("DELETE FROM attendances WHERE user_id = $1", [uid]);
 await db.query("INSERT INTO attendances (user_id, date, streak) VALUES ($1, $2, 4)", [uid, kstDate(-2)]);

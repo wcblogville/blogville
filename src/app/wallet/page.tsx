@@ -11,6 +11,7 @@ const REASON_LABEL: Record<string, string> = {
   signup: "🎉 가입 축하",
   attendance: "📮 출석",
   attendance_streak: "🔥 연속 출석 보너스",
+  attendance_rank: "🏅 출석 1~3등 보너스",
   post: "✏️ 글 작성",
   comment: "💬 댓글 작성",
   like_received: "♥ 공감 받음",

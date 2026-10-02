@@ -2,7 +2,7 @@ import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { attendances } from "@/db/schema";
 import { formatDate } from "@/lib/format";
-import { ATTENDANCE_STREAK_BONUS_EVERY, currentStreak, REWARD_RULES, todayKST } from "@/lib/game";
+import { ATTENDANCE_RANK_BONUS_TOP, ATTENDANCE_STREAK_BONUS_EVERY, currentStreak, REWARD_RULES, todayKST } from "@/lib/game";
 import { requireMember } from "@/server/dal";
 import { AttendButton } from "./attend-button";
 
@@ -48,7 +48,7 @@ export default async function AttendancePage() {
       <h1 className="font-display text-3xl">📮 출석 체크</h1>
       <p className="mt-1 text-ink-soft">
         하루 한 번 ✨ {REWARD_RULES.attendance.exp} · 🪙 {REWARD_RULES.attendance.coins}, {ATTENDANCE_STREAK_BONUS_EVERY}일 연속마다 🪙{" "}
-        {REWARD_RULES.attendance_streak.coins} 보너스
+        {REWARD_RULES.attendance_streak.coins} 보너스, 매일 먼저 출석한 {ATTENDANCE_RANK_BONUS_TOP}명은 🪙 {REWARD_RULES.attendance_rank.coins} 더
       </p>
 
       <section className="card mt-6 flex min-h-48 flex-col items-center justify-center p-8">

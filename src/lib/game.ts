@@ -24,13 +24,14 @@ export function levelProgress(exp: number) {
   return { level, current: exp - base, needed: next - base, ratio: (exp - base) / (next - base), isMax: false };
 }
 
-export type RewardReason = "signup" | "attendance" | "attendance_streak" | "post" | "comment" | "like_received";
+export type RewardReason = "signup" | "attendance" | "attendance_streak" | "attendance_rank" | "post" | "comment" | "like_received";
 
 /** 활동 보상 규칙. dailyLimit: 하루에 보상받을 수 있는 최대 횟수 */
 export const REWARD_RULES: Record<RewardReason, { exp: number; coins: number; dailyLimit: number }> = {
   signup: { exp: 0, coins: 100, dailyLimit: 1 },
   attendance: { exp: 10, coins: 20, dailyLimit: 1 },
   attendance_streak: { exp: 0, coins: 50, dailyLimit: 1 },
+  attendance_rank: { exp: 0, coins: 100, dailyLimit: 1 },
   post: { exp: 30, coins: 30, dailyLimit: 3 },
   comment: { exp: 5, coins: 5, dailyLimit: 10 },
   like_received: { exp: 2, coins: 2, dailyLimit: 20 },
@@ -41,6 +42,9 @@ export const POST_REWARD_MIN_LENGTH = 100;
 
 /** 연속 출석 보너스를 주는 주기 (7일마다) */
 export const ATTENDANCE_STREAK_BONUS_EVERY = 7;
+
+/** 그날(한국 시간) 이 순위 안으로 출석하면 attendance_rank 보너스를 준다 (1·2·3등) */
+export const ATTENDANCE_RANK_BONUS_TOP = 3;
 
 /** YYYY-MM-DD의 하루 전 날짜 */
 export function previousDay(date: string): string {

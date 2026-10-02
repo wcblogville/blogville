@@ -279,7 +279,7 @@ COMMIT
 | `user_role` | `user`, `admin` |
 | `item_type` | `character`, `background`, `furniture` |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`, `post`, `comment`, `like_received`, `purchase` |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`, `attendance_rank`, `post`, `comment`, `like_received`, `purchase` |
 
 정해진 값만 들어가도록 PostgreSQL ENUM 타입을 쓴다. 어제 SQLite 블로그에서 `post_types` 코드 테이블로 했던 일을 DB 타입으로 처리하는 방법이다.
 
