@@ -14,6 +14,25 @@ const before = await coins(a);
 
 await a.goto(`${BASE}/write`);
 await a.locator(".ProseMirror").waitFor();
+
+// 발행이 오류로 막혀도 제목·카테고리·태그 입력값이 남는다 (POST-01, #16)
+await a.getByPlaceholder("제목").fill("본문 없이 발행");
+await a.getByLabel("카테고리").selectOption({ label: "일상" });
+await a.getByPlaceholder(/태그/).fill("남아야 하는 태그");
+await a.getByRole("button", { name: "발행하기" }).click();
+await a.getByText("본문을 적어 주세요").waitFor();
+await a.waitForTimeout(300); // React가 폼을 되돌리는 시점 뒤에 읽는다
+const kept = {
+  title: await a.getByPlaceholder("제목").inputValue(),
+  category: await a.getByLabel("카테고리").evaluate((s) => s.selectedOptions[0].text),
+  tags: await a.getByPlaceholder(/태그/).inputValue(),
+};
+if (kept.title !== "본문 없이 발행" || kept.category !== "일상" || kept.tags !== "남아야 하는 태그") {
+  throw new Error(`오류 뒤 입력값이 사라졌어요: ${JSON.stringify(kept)}`);
+}
+console.log("오류 뒤 입력값 유지:", kept);
+await a.getByLabel("카테고리").selectOption({ label: "카테고리 없음" });
+
 await a.getByPlaceholder("제목").fill("Git 충돌 해결해 본 날");
 await a.locator(".ProseMirror").click();
 await a.getByRole("button", { name: "H2" }).click();
@@ -62,6 +81,16 @@ await b.screenshot({ path: `${outDir}/14-feed.png`, fullPage: true });
 await a.reload();
 await a.waitForLoadState("networkidle");
 console.log("tester1 coins after like:", await coins(a));
+
+// 빈 본문에는 안내 문구가 보인다 (POST-01, #17)
+await a.goto(`${BASE}/write`);
+await a.locator(".ProseMirror").waitFor();
+const placeholder = await a
+  .locator(".tiptap .is-editor-empty")
+  .first()
+  .evaluate((el) => getComputedStyle(el, "::before").content);
+if (!placeholder.includes("무엇이든 적어 보세요")) throw new Error(`본문 안내 문구가 보이지 않아요: ${placeholder}`);
+console.log("본문 안내 문구:", placeholder);
 
 console.log("errors:", [...errA, ...errB].length ? [...errA, ...errB] : "none");
 await browser.close();
