@@ -6,6 +6,7 @@ AI응용프로젝트 개인 프로젝트입니다. [Tistory](https://www.tistory
 
 - 요구사항 명세서: [docs/01-requirements.md](docs/01-requirements.md)
 - ERD(데이터베이스 설계): [docs/02-erd.md](docs/02-erd.md)
+- 협업 가이드(브랜치·PR·리뷰 규칙): [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 주요 기능
 
