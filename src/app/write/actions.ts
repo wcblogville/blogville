@@ -20,7 +20,11 @@ const schema = z.object({
   visibility: z.enum(["public", "private"]),
 });
 
-export type SavePostState = { error?: string };
+// 오류가 나면 입력값을 돌려준다. React 19는 폼 액션 뒤 입력칸을 처음 값으로 되돌리므로 (POST-01, #16)
+export type SavePostState = {
+  error?: string;
+  values?: { title: string; categoryId: string; tags: string };
+};
 
 function parseTags(raw: string) {
   const names = raw
@@ -32,6 +36,11 @@ function parseTags(raw: string) {
 
 export async function savePost(_prev: SavePostState, formData: FormData): Promise<SavePostState> {
   const viewer = await requireMember();
+  const values = {
+    title: String(formData.get("title") ?? ""),
+    categoryId: String(formData.get("categoryId") ?? ""),
+    tags: String(formData.get("tags") ?? ""),
+  };
   const parsed = schema.safeParse({
     postId: formData.get("postId") || undefined,
     title: formData.get("title") ?? "",
@@ -40,12 +49,12 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
     tags: formData.get("tags") ?? "",
     visibility: formData.get("visibility") ?? "public",
   });
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: parsed.error.issues[0].message, values };
   const input = parsed.data;
 
   const contentHtml = sanitizePostHtml(input.contentHtml);
   const contentText = htmlToText(contentHtml);
-  if (!contentText) return { error: "본문을 적어 주세요" };
+  if (!contentText) return { error: "본문을 적어 주세요", values };
 
   const blogId = viewer.profile.blogId;
   const tagNames = parseTags(input.tags);
