@@ -39,7 +39,7 @@ await a.screenshot({ path: `${outDir}/11-post.png`, fullPage: true });
 const ctxB = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const b = await ctxB.newPage();
 const errB = collectErrors(b);
-await loginDev(b, "tester2", "강아지");
+await loginDev(b, "tester2", "여자 주민");
 const bBefore = await coins(b);
 await b.goto(postUrl);
 await b.getByRole("button", { name: /공감/ }).click();

@@ -29,7 +29,7 @@ if (page.url().includes("onboarding")) {
   await page.locator('input[name="nickname"]').fill(devId.slice(0, 12));
   await page.locator('input[name="blogTitle"]').fill(`${devId}의 블로그`);
   await page.locator('input[name="slug"]').fill(devId.toLowerCase());
-  await page.locator("label", { hasText: "고양이" }).click();
+  await page.locator("label", { hasText: "남자 주민" }).click();
   await page.getByRole("button", { name: /광장으로 출발/ }).click();
   await page.waitForURL(/town/);
 }

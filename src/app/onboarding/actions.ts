@@ -27,7 +27,7 @@ export type OnboardingState = {
   values?: Record<string, string>;
 };
 
-const RESERVED_SLUGS = new Set(["admin", "api", "town", "feed", "shop", "closet", "write", "settings", "blog", "onboarding"]);
+const RESERVED_SLUGS = new Set(["admin", "api", "town", "feed", "shop", "closet", "write", "settings", "blog", "onboarding", "farm"]);
 
 export async function completeOnboarding(_prev: OnboardingState, formData: FormData): Promise<OnboardingState> {
   const viewer = await requireUser();
@@ -61,13 +61,9 @@ export async function completeOnboarding(_prev: OnboardingState, formData: FormD
 
       const [background] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "bg_meadow"));
 
-      // 기본 캐릭터는 3종 모두 지급하고, 고른 캐릭터를 장착한다 (GAME-01)
-      const starters = await tx
-        .select({ id: items.id })
-        .from(items)
-        .where(and(eq(items.type, "character"), eq(items.isStarter, true)));
+      // 고른 캐릭터(남자/여자) 하나만 지급하고 장착한다 (GAME-01)
       await tx.insert(userItems).values([
-        ...starters.map((s) => ({ userId: viewer.userId, itemId: s.id })),
+        { userId: viewer.userId, itemId: character.id },
         { userId: viewer.userId, itemId: background.id },
       ]);
       await tx.insert(profiles).values({

@@ -35,7 +35,7 @@ export default async function TownPage(props: PageProps<"/town">) {
           <span className="text-3xl">🎉</span>
           <p>
             <b>{member.profile.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요.
-            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 위쪽 <b>게시판</b>에서 출석 도장도 받을 수 있어요.
+            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 위쪽 <b>게시판</b>에서 출석 도장도 받을 수 있어요. 왼쪽 <b>동물 농장</b>은 곧 문을 열어요.
           </p>
         </div>
       )}

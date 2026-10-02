@@ -1,4 +1,4 @@
-// 2026-10-02 팀 결정 구현 확인: GAME-01, GAME-02, GAME-04, GAME-07, SHOP-04, TOWN-02, TOWN-04
+// 2026-10-02 팀 결정 구현 확인: TOWN-01, GAME-01, GAME-02, GAME-04, GAME-07, SHOP-04, TOWN-02, TOWN-04
 // 사용: npm run db:reset && npm run admin:create 후 node e2e/decisions.mjs <스크린샷 폴더>
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
@@ -21,14 +21,16 @@ const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
 const page = await ctx.newPage();
 const errors = collectErrors(page);
 
-// ── GAME-01: 기본 캐릭터 3종 모두 지급, 고른 캐릭터 장착 ──
-await loginDev(page, "decide01", "강아지");
+// ── GAME-01: 가입할 때 남자/여자 중 고른 캐릭터 하나만 받고 장착 ──
+await loginDev(page, "decide01", "여자 주민");
 await page.goto(`${BASE}/closet`);
 const characterNames = await page.locator("section", { hasText: "내 캐릭터" }).getByRole("button").allInnerTexts();
-check("GAME-01 가입하면 기본 캐릭터 3종 보유", characterNames.length === 3, characterNames.join(", ").replace(/\n/g, " "));
-check("GAME-01 고른 캐릭터(강아지)가 장착됨", characterNames.some((t) => t.includes("✓") && t.includes("강아지")));
+check("GAME-01 가입하면 고른 캐릭터 1개만 보유", characterNames.length === 1, characterNames.join(", ").replace(/\n/g, " "));
+check("GAME-01 고른 캐릭터(여자 주민)가 장착됨", characterNames.some((t) => t.includes("✓") && t.includes("여자 주민")));
 
-// ── SHOP-04: 장착 저장 확인 표시 ──
+// ── SHOP-04: 장착 저장 확인 표시 (바꿔 낄 캐릭터를 하나 더 넣어 둔다) ──
+await db.query("INSERT INTO user_items (user_id, item_id) SELECT u.id, i.id FROM users u, items i WHERE u.username = 'decide01' AND i.code = 'char_cat'");
+await page.reload();
 await page.getByRole("button", { name: /고양이/ }).click();
 const saved = await page.getByRole("status").filter({ hasText: "저장했어요" }).waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
 check("SHOP-04 장착하면 '저장했어요' 표시", saved);
@@ -78,7 +80,7 @@ check("GAME-02 진행 막대 MAX", await page.getByText("MAX", { exact: true }).
 // ── TOWN-04: 공개 글이 없는 블로그는 광장에 안 보임 ──
 const other = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const op = await other.newPage();
-await loginDev(op, "quiet01", "모험가");
+await loginDev(op, "quiet01", "남자 주민");
 await page.goto(`${BASE}/town`);
 const neighborsBefore = await page.locator("section", { hasText: "이웃집" }).innerText().catch(() => "");
 check("TOWN-04 글 없는 블로그(quiet01)는 이웃집에 없음", !neighborsBefore.includes("quiet01"));
@@ -121,6 +123,18 @@ await mp.waitForTimeout(800);
 await mp.mouse.up();
 await mp.waitForTimeout(400);
 await mp.screenshot({ path: `${outDir}/56-town-mobile-after.png` });
+
+// ── TOWN-01: 광장이 메인. 헤더에는 이동 메뉴가 없고, 광장 밖에서는 "나가기"로 돌아온다 ──
+await page.goto(`${BASE}/town`);
+const banner = page.getByRole("banner");
+check("TOWN-01 헤더에 이동 메뉴 없음", (await banner.getByRole("link", { name: /마을 소식|상점|꾸미기|글쓰기/ }).count()) === 0);
+check("TOWN-01 광장에서는 나가기 버튼 없음", (await banner.getByRole("link", { name: /나가기/ }).count()) === 0);
+for (const path of ["/feed", "/attendance", "/shop", "/farm"]) {
+  await page.goto(`${BASE}${path}`);
+  await banner.getByRole("link", { name: /나가기/ }).click();
+  await page.waitForURL(/\/town$/);
+  check(`TOWN-01 ${path} → 나가기 → 광장`, page.url().endsWith("/town"));
+}
 
 check("콘솔 오류 없음", errors.length === 0 && mErrors.length === 0, [...errors, ...mErrors].join(" | "));
 console.log(results.join("\n"));
