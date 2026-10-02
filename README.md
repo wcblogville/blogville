@@ -11,7 +11,8 @@ AI응용프로젝트 개인 프로젝트입니다. [Tistory](https://www.tistory
 
 | 분류 | 기능 |
 |---|---|
-| 회원 | 네이버·카카오·구글 소셜 로그인, 온보딩(닉네임·블로그 주소·기본 캐릭터) |
+| 회원 | 아이디·비밀번호 회원가입/로그인, 네이버·카카오·구글 소셜 로그인, 온보딩(닉네임·블로그 주소·기본 캐릭터) |
+| 관리자 | 통계, 회원 목록, 글 삭제 (`/admin`) |
 | 광장 | Phaser 2D 마을. 방향키·WASD·클릭으로 이동, 건물에 들어가 기능 이용, 최근 글 쓴 이웃집 |
 | 블로그 | `/@주소` 블로그 홈, 미니룸, 카테고리, 글쓰기 에디터(Tiptap), 공개/비공개, 태그 |
 | 교류 | 공감, 댓글·답글, 이웃 추가, 마을 소식, 이웃 새 글, 태그별 글 |
@@ -45,10 +46,13 @@ createdb blogville
 cp .env.example .env.local      # DATABASE_URL, BETTER_AUTH_SECRET 채우기
 npm run db:migrate              # 테이블 만들기
 npm run db:seed                 # 캐릭터·배경 아이템 넣기
+npm run admin:create            # 관리자 계정 만들기 (.env.local의 ADMIN_USERNAME / ADMIN_PASSWORD)
 npm run dev                     # http://localhost:3000
 ```
 
-개발 중에는 첫 화면의 **개발용 로그인**으로 소셜 로그인 키 없이 테스트할 수 있습니다. (배포 환경에서는 꺼짐)
+첫 화면에서 **회원가입** 탭으로 아이디를 만들어 바로 쓸 수 있습니다. 관리자로 로그인하면 헤더에 **👑 관리자** 버튼이 생깁니다.
+
+> 관리자 비밀번호는 코드가 아니라 `.env.local`(Git에 올리지 않는 파일)에 둡니다. 배포 전에는 반드시 길고 복잡한 비밀번호로 바꾸고 `npm run admin:create`를 다시 실행하세요.
 
 ### 소셜 로그인 설정
 
@@ -71,9 +75,11 @@ npm run dev                     # http://localhost:3000
 | `npm run db:generate` | `src/db/schema.ts` 변경 → 마이그레이션 SQL 생성 |
 | `npm run db:migrate` | 마이그레이션 적용 |
 | `npm run db:seed` | 아이템 카탈로그 넣기 (여러 번 실행해도 안전) |
-| `npm run db:reset` | (로컬 전용) 회원·글 데이터 비우기 |
+| `npm run db:reset` | (로컬 전용) 회원·글 데이터 비우기 (관리자도 지워지므로 `admin:create` 다시 실행) |
+| `npm run admin:create` | 관리자 계정 생성·비밀번호 갱신 (여러 번 실행해도 안전) |
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
-| `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E (개발 서버 실행 중) |
+| `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
+| `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
 
 ## 폴더 구조

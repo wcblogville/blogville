@@ -3,7 +3,7 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/db";
 import { blogs, items, profiles } from "@/db/schema";
@@ -47,4 +47,11 @@ export async function requireMember() {
   const viewer = await requireUser();
   if (!viewer.profile) redirect("/onboarding");
   return { ...viewer, profile: viewer.profile };
+}
+
+/** 관리자만 통과. 아니면 404처럼 보이게 한다 (관리자 페이지가 있다는 것도 숨김) */
+export async function requireAdmin() {
+  const viewer = await requireMember();
+  if (viewer.user.role !== "admin") notFound();
+  return viewer;
 }

@@ -2,10 +2,9 @@ import "server-only";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { username } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-
-const isDev = process.env.NODE_ENV !== "production";
 
 // 키가 설정된 소셜 로그인만 켠다
 function provider<T extends object>(id: string, extra?: T) {
@@ -48,9 +47,23 @@ export const auth = betterAuth({
     ...(kakao && { kakao }),
     ...(naver && { naver }),
   },
-  // 개발용 임시 계정 로그인: 소셜 로그인 키를 받기 전 테스트용, 배포 환경에서는 꺼진다
-  emailAndPassword: { enabled: isDev },
-  plugins: [nextCookies()], // Server Action에서 로그인 쿠키를 설정할 수 있게 한다 (마지막에 둔다)
+  // 사이트 자체 회원가입: 아이디 + 비밀번호 (username 플러그인이 이메일·비밀번호 로그인 위에 아이디를 얹는다)
+  emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 64 },
+  user: {
+    additionalFields: {
+      // 관리자 여부. 가입 요청으로는 바꿀 수 없다 (input: false)
+      role: { type: "string", required: false, defaultValue: "user", input: false },
+    },
+  },
+  plugins: [
+    username({
+      minUsernameLength: 4,
+      maxUsernameLength: 20,
+      usernameValidator: (name) => /^[a-z0-9_]+$/.test(name), // 소문자로 정규화된 뒤 검사
+      validationOrder: { username: "post-normalization" },
+    }),
+    nextCookies(), // Server Action에서 로그인 쿠키를 설정할 수 있게 한다 (마지막에 둔다)
+  ],
 });
 
 export type Session = typeof auth.$Infer.Session;

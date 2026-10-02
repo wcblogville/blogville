@@ -1,79 +1,94 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useActionState, useState } from "react";
+import { signIn, signUp, type AuthFormState } from "@/app/(auth)/actions";
 import { authClient } from "@/lib/auth-client";
 
 type Providers = { google: boolean; kakao: boolean; naver: boolean };
 
 const SOCIAL = [
-  { id: "kakao", label: "카카오로 시작하기", className: "bg-[#FEE500] text-[#191919]" },
-  { id: "naver", label: "네이버로 시작하기", className: "bg-[#03C75A] text-white" },
-  { id: "google", label: "Google로 시작하기", className: "bg-white text-ink border-2 border-line" },
+  { id: "kakao", label: "카카오", className: "bg-[#FEE500] text-[#191919]" },
+  { id: "naver", label: "네이버", className: "bg-[#03C75A] text-white" },
+  { id: "google", label: "Google", className: "bg-white text-ink border-2 border-line" },
 ] as const;
 
-export function LoginButtons({ providers, devLogin }: { providers: Providers; devLogin: boolean }) {
-  const router = useRouter();
-  const [devId, setDevId] = useState("tester1");
-  const [error, setError] = useState("");
-  const [pending, setPending] = useState(false);
+const input = "w-full rounded-xl border-2 border-line bg-white px-3 py-2.5 outline-none focus:border-sun";
 
-  // 개발용: 같은 아이디면 같은 계정으로 로그인, 처음이면 새로 만든다
-  async function signInDev() {
-    setPending(true);
-    setError("");
-    const email = `${devId.trim().toLowerCase()}@dev.blogville.local`;
-    const password = "dev-password-1234";
-    const signIn = await authClient.signIn.email({ email, password });
-    if (signIn.error) {
-      const signUp = await authClient.signUp.email({ email, password, name: devId.trim() });
-      if (signUp.error) {
-        setError(signUp.error.message ?? "로그인하지 못했어요");
-        setPending(false);
-        return;
-      }
-    }
-    router.push("/town");
-    router.refresh();
-  }
+function SignInForm() {
+  const [state, action, pending] = useActionState<AuthFormState, FormData>(signIn, {});
+  return (
+    <form action={action} className="space-y-3">
+      <input name="username" defaultValue={state.values?.username} placeholder="아이디" autoComplete="username" required className={input} aria-label="아이디" />
+      <input name="password" type="password" placeholder="비밀번호" autoComplete="current-password" required className={input} aria-label="비밀번호" />
+      {state.error && <p className="text-sm font-bold text-berry">{state.error}</p>}
+      <button disabled={pending} className="btn w-full bg-leaf py-3 text-white">
+        {pending ? "들어가는 중..." : "로그인"}
+      </button>
+    </form>
+  );
+}
+
+function SignUpForm() {
+  const [state, action, pending] = useActionState<AuthFormState, FormData>(signUp, {});
+  return (
+    <form action={action} className="space-y-3">
+      <div>
+        <input name="username" defaultValue={state.values?.username} placeholder="아이디" autoComplete="username" required minLength={4} maxLength={20} className={input} aria-label="아이디" />
+        <p className="mt-1 text-xs text-ink-soft">영문 소문자, 숫자, _ 로 4~20자</p>
+      </div>
+      <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autoComplete="new-password" required minLength={8} maxLength={64} className={input} aria-label="비밀번호" />
+      <input name="passwordConfirm" type="password" placeholder="비밀번호 확인" autoComplete="new-password" required className={input} aria-label="비밀번호 확인" />
+      {state.error && <p className="text-sm font-bold text-berry">{state.error}</p>}
+      <button disabled={pending} className="btn w-full bg-sun py-3 text-ink">
+        {pending ? "가입하는 중..." : "회원가입"}
+      </button>
+    </form>
+  );
+}
+
+export function LoginButtons({ providers }: { providers: Providers }) {
+  const [tab, setTab] = useState<"signin" | "signup">("signin");
+  const anySocial = providers.google || providers.kakao || providers.naver;
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-3">
-      {SOCIAL.map((p) => (
-        <button
-          key={p.id}
-          type="button"
-          disabled={!providers[p.id]}
-          title={providers[p.id] ? undefined : "아직 키가 설정되지 않았어요"}
-          className={`btn w-full py-3 ${p.className}`}
-          onClick={() => authClient.signIn.social({ provider: p.id, callbackURL: "/town" })}
-        >
-          {p.label}
-        </button>
-      ))}
+    <div className="w-full max-w-sm">
+      <div className="mb-4 grid grid-cols-2 rounded-xl bg-cream p-1" role="tablist">
+        {(["signin", "signup"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => setTab(t)}
+            className={`rounded-lg py-2 font-bold ${tab === t ? "bg-white text-ink shadow-sm" : "text-ink-soft"}`}
+          >
+            {t === "signin" ? "로그인" : "회원가입"}
+          </button>
+        ))}
+      </div>
 
-      {devLogin && (
-        <div className="mt-3 rounded-2xl border-2 border-dashed border-line p-4">
-          <p className="mb-2 text-sm font-bold text-ink-soft">🛠 개발용 로그인 (배포 환경에서는 보이지 않아요)</p>
-          <div className="flex gap-2">
-            <input
-              value={devId}
-              onChange={(e) => setDevId(e.target.value)}
-              className="min-w-0 flex-1 rounded-xl border-2 border-line bg-white px-3 py-2"
-              aria-label="개발용 아이디"
-            />
-            <button
-              type="button"
-              disabled={pending || !/^[a-z0-9_]{2,20}$/i.test(devId.trim())}
-              onClick={signInDev}
-              className="btn bg-ink text-cream"
-            >
-              입장
-            </button>
-          </div>
-          {error && <p className="mt-2 text-sm text-berry">{error}</p>}
-        </div>
-      )}
+      {tab === "signin" ? <SignInForm /> : <SignUpForm />}
+
+      <div className="my-5 flex items-center gap-3 text-xs text-ink-soft">
+        <span className="h-px flex-1 bg-line" />
+        간편 로그인
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {SOCIAL.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            disabled={!providers[p.id]}
+            title={providers[p.id] ? `${p.label}로 시작하기` : "아직 연결 준비 중이에요"}
+            className={`btn py-2.5 text-sm ${p.className}`}
+            onClick={() => authClient.signIn.social({ provider: p.id, callbackURL: "/town" })}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {!anySocial && <p className="mt-2 text-center text-xs text-ink-soft">간편 로그인은 준비 중이에요</p>}
     </div>
   );
 }

@@ -35,7 +35,7 @@ export default async function LandingPage() {
           🧑🐱🐶
         </div>
         <h2 className="font-display text-2xl">마을에 들어가기</h2>
-        <LoginButtons providers={enabledProviders} devLogin={process.env.NODE_ENV !== "production"} />
+        <LoginButtons providers={enabledProviders} />
       </section>
     </div>
   );

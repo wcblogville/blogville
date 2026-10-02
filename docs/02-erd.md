@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 0.2 (2026-10-02, 구현 반영)
+- 버전: 0.3 (2026-10-02, 사이트 자체 로그인·관리자 추가)
 - 근거: [요구사항 명세서](01-requirements.md)
 
 ## 1. 전체 관계도
@@ -44,16 +44,19 @@ erDiagram
         text email UK
         boolean email_verified
         text image
+        text username UK "사이트 자체 로그인 아이디"
+        user_role role "user / admin"
         timestamptz created_at
         timestamptz updated_at
     }
     accounts {
         text id PK
         text user_id FK
-        text provider_id "naver / kakao / google"
+        text provider_id "credential / naver / kakao / google"
         text account_id "소셜 서비스의 사용자 ID"
         text access_token
         text refresh_token
+        text password "아이디 로그인일 때만 (해시)"
         timestamptz created_at
     }
     sessions {
@@ -175,6 +178,13 @@ erDiagram
 - 소셜 로그인 직후에는 `users`만 있고 `profiles`가 없다 → **온보딩이 필요한 상태**를 별도 컬럼 없이 알 수 있다.
 - 로그인 라이브러리 테이블을 건드리지 않아서, 라이브러리를 업데이트해도 우리 데이터 구조가 깨지지 않는다.
 
+### 3.1-2 로그인 방식이 여러 개여도 회원은 하나
+
+- 사이트 아이디로 가입하면 `users.username`에 아이디, `accounts`에 `provider_id = 'credential'` 행과 비밀번호 **해시**가 저장된다.
+- 소셜 로그인은 같은 `accounts` 테이블에 `provider_id = 'kakao'` 같은 행으로 저장된다.
+- 그래서 "회원 1명 ── 로그인 수단 N개" 구조가 된다. 비밀번호 원문은 어디에도 저장하지 않는다.
+- 관리자는 `users.role = 'admin'`. 가입 요청으로는 바꿀 수 없고 관리자 생성 스크립트로만 정한다.
+
 ### 3.2 회원 한 명당 블로그 하나 (1:1)
 
 `blogs.owner_id`에 **UNIQUE**를 걸어서 1:1 관계를 DB가 보장한다. (AUTH-01, BLOG-01)
@@ -266,6 +276,7 @@ COMMIT
 
 | 타입 | 값 |
 |---|---|
+| `user_role` | `user`, `admin` |
 | `item_type` | `character`, `background`, `furniture` |
 | `visibility` | `public`, `private` |
 | `ledger_reason` | `signup`, `attendance`, `attendance_streak`, `post`, `comment`, `like_received`, `purchase` |

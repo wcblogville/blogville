@@ -11,12 +11,28 @@ export function collectErrors(page) {
   return errors;
 }
 
-/** 개발용 로그인 후, 처음이면 온보딩까지 마친다 */
-export async function loginDev(page, devId, character = "고양이") {
+/** 아이디로 로그인하고, 없는 계정이면 회원가입 + 온보딩까지 마친다 */
+export async function loginDev(page, devId, character = "고양이", password = "test-password-1234") {
   await page.goto(BASE);
-  await page.getByLabel("개발용 아이디").fill(devId);
-  await page.getByRole("button", { name: "입장" }).click();
-  await page.locator('canvas, input[name="nickname"]').first().waitFor({ timeout: 20000 });
+  await page.getByLabel("아이디").fill(devId);
+  await page.getByLabel("비밀번호", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  // 로그인 성공(광장/온보딩) 또는 실패 메시지 중 먼저 나오는 것
+  await page
+    .locator('canvas, input[name="nickname"]')
+    .or(page.getByText("아이디 또는 비밀번호가"))
+    .first()
+    .waitFor({ timeout: 20000 });
+
+  if (await page.getByText("아이디 또는 비밀번호가").isVisible()) {
+    await page.getByRole("tab", { name: "회원가입" }).click();
+    await page.getByLabel("아이디").fill(devId);
+    await page.getByLabel("비밀번호", { exact: true }).fill(password);
+    await page.getByLabel("비밀번호 확인").fill(password);
+    await page.getByRole("button", { name: "회원가입", exact: true }).click();
+    await page.locator('input[name="nickname"]').waitFor({ timeout: 20000 });
+  }
+
   if (page.url().includes("onboarding")) {
     await page.locator('input[name="nickname"]').fill(devId.slice(0, 12));
     await page.locator('input[name="blogTitle"]').fill(`${devId}의 블로그`);

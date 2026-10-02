@@ -13,7 +13,7 @@ if (process.env.NODE_ENV === "production" || !/localhost|127\.0\.0\.1/.test(proc
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   await pool.query("TRUNCATE users, tags RESTART IDENTITY CASCADE");
-  console.log("✔ 회원·글 데이터를 비웠어요");
+  console.log("✔ 회원·글 데이터를 비웠어요 (관리자 계정도 지워졌으니 npm run admin:create 를 다시 실행하세요)");
   await pool.end();
 }
 

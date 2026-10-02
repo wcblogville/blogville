@@ -50,6 +50,11 @@ export async function SiteHeader() {
             <span className="rounded-full bg-white px-2.5 py-1 text-sm font-bold shadow-sm" title="코인">
               🪙 {wallet.coins.toLocaleString()}
             </span>
+            {member.user.role === "admin" && (
+              <Link href="/admin" className="rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-cream">
+                👑 관리자
+              </Link>
+            )}
             <CharacterBadge asset={member.profile.characterAsset} size={32} />
             <SignOutButton />
           </div>

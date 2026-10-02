@@ -19,4 +19,5 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 - **헤더 갱신**: 코인·캐릭터가 바뀌는 Server Action은 `revalidatePath("/", "layout")`을 호출한다 (루트 레이아웃은 이동만으로 다시 그려지지 않는다).
 - **글 HTML**: 저장 전에 `sanitizePostHtml()`로 정화한다. 허용 태그를 늘리면 에디터와 `src/server/sanitize.ts`를 같이 고친다.
 - **그림**: DB에는 `asset_key`만. 실제 모양은 `src/lib/assets.ts` (현재 이모지·그라데이션, 나중에 스프라이트로 교체 예정).
-- **검증**: `npx tsc --noEmit`, `npx eslint`, 개발 서버를 띄운 상태에서 `npm run db:reset` 후 `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. 화면 변경은 스크린샷으로 확인한다.
+- **로그인**: 아이디 로그인은 Better Auth `username` 플러그인 (가입은 `src/app/(auth)/actions.ts`, 대체 이메일 `아이디@users.blogville.invalid`). 관리자는 `users.role = 'admin'`, `requireAdmin()`. 관리자 계정은 `npm run admin:create` (비밀번호는 `.env.local`에만, 코드·문서에 쓰지 않는다).
+- **검증**: `npx tsc --noEmit`, `npx eslint`, 개발 서버를 띄운 상태에서 `npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>`, `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. 화면 변경은 스크린샷으로 확인한다.

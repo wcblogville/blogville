@@ -25,6 +25,7 @@ const updatedAt = () =>
 // ===== 열거형 =====
 export const itemType = pgEnum("item_type", ["character", "background", "furniture"]);
 export const visibility = pgEnum("visibility", ["public", "private"]);
+export const userRole = pgEnum("user_role", ["user", "admin"]);
 export const ledgerReason = pgEnum("ledger_reason", [
   "signup",
   "attendance",
@@ -42,6 +43,10 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  // 사이트 자체 아이디 로그인 (소셜 로그인 회원은 NULL)
+  username: text("username").unique(),
+  displayUsername: text("display_username"),
+  role: userRole("role").notNull().default("user"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

@@ -12,7 +12,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:studio": "drizzle-kit studio",
     "typecheck": "tsc --noEmit",
-    "db:reset": "tsx scripts/reset-dev.ts"
+    "db:reset": "tsx scripts/reset-dev.ts",
+    "admin:create": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
     "@tiptap/extensions": "^3.31.4",
