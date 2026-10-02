@@ -53,28 +53,6 @@ export default async function TownPage(props: PageProps<"/town">) {
 
       <TownGame data={data} />
 
-      {/* 게임을 쓰기 어려운 환경(키보드, 화면 낭독기, 작은 화면)을 위한 바로가기 */}
-      <nav className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="광장 바로가기">
-        {myHouse && (
-          <Link href={`/@${myHouse.slug}`} className="card p-4 hover:-translate-y-0.5">
-            🏠 <b>내 집</b>
-            <span className="block truncate text-sm text-ink-soft">{myHouse.title}</span>
-          </Link>
-        )}
-        <Link href="/feed" className="card p-4 hover:-translate-y-0.5">
-          📋 <b>마을 게시판</b>
-          <span className="block text-sm text-ink-soft">마을 최신 글</span>
-        </Link>
-        <Link href={member ? "/attendance" : "/"} className="card p-4 hover:-translate-y-0.5">
-          📮 <b>출석 체크</b>
-          <span className="block text-sm text-ink-soft">게시판 · {attendedToday ? "오늘 출석 완료 ✅" : "출석 보상 받기 🎁"}</span>
-        </Link>
-        <Link href={member ? "/shop" : "/"} className="card p-4 hover:-translate-y-0.5">
-          🏪 <b>상점</b>
-          <span className="block text-sm text-ink-soft">캐릭터·배경</span>
-        </Link>
-      </nav>
-
       {neighbors.length > 0 && (
         <section className="mt-6">
           <h2 className="mb-2 font-display text-xl">🏘 이웃집</h2>
