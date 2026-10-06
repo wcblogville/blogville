@@ -17,9 +17,9 @@ export async function loginDev(page, devId, character = "남자 주민", passwor
   await page.getByLabel("아이디").fill(devId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
-  // 로그인 성공(광장/온보딩) 또는 실패 메시지 중 먼저 나오는 것
+  // 로그인 성공(광장/휴대폰 메뉴/온보딩) 또는 실패 메시지 중 먼저 나오는 것
   await page
-    .locator('canvas, input[name="nickname"]')
+    .locator('canvas, [data-town-menu]:visible, input[name="nickname"]')
     .or(page.getByText("아이디 또는 비밀번호가"))
     .first()
     .waitFor({ timeout: 20000 });

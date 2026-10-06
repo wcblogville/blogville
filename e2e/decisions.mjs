@@ -96,11 +96,12 @@ const neighborsAfter = await page.locator("section", { hasText: "이웃집" }).i
 check("TOWN-04 공개 글을 쓰면 이웃집에 나타남", neighborsAfter.includes("quiet01"));
 
 // ── TOWN-02: 가상 조이스틱 (터치 화면에만) ──
+// 휴대폰은 광장 대신 간단 메뉴를 보여주므로(e2e/mobile.mjs), 조이스틱은 터치 태블릿에서 확인한다
 await page.goto(`${BASE}/town`);
 await page.waitForSelector("canvas");
 await page.waitForTimeout(1500);
 await page.screenshot({ path: `${outDir}/53-town-desktop.png` });
-const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const mobile = await browser.newContext({ viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true });
 const mp = await mobile.newPage();
 const mErrors = collectErrors(mp);
 await loginDev(mp, "decide01");
@@ -108,7 +109,7 @@ await mp.goto(`${BASE}/town`);
 const canvas = mp.locator("canvas");
 await canvas.waitFor();
 await mp.waitForTimeout(1500);
-check("TOWN-02 휴대폰은 pointer: coarse", await mp.evaluate(() => matchMedia("(pointer: coarse)").matches));
+check("TOWN-02 터치 태블릿은 pointer: coarse", await mp.evaluate(() => matchMedia("(pointer: coarse)").matches));
 await mp.screenshot({ path: `${outDir}/54-town-mobile-before.png` });
 // 조이스틱 중심(왼쪽 아래)에서 오른쪽 위로 끌기
 const box = await canvas.boundingBox();
