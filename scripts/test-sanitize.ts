@@ -54,6 +54,8 @@ if (failed) process.exit(1);
     out.includes('data-name="보고서 최종.pdf"') && out.includes('data-size="1258291"') && out.includes('data-size-label="1.2MB"') &&
       out.includes('data-ext="pdf"') && out.includes('aria-label="보고서 최종.pdf 내려받기 (1.2MB)"') && !out.includes("onclick") && !out.includes("target"),
   );
+  out = s(`<a href="/files/${"c".repeat(32)}" data-file="" data-name="없는파일.pdf"></a>`);
+  expect("DB에 없는 파일 카드 뺌", out, out === "");
   out = s('<a href="https://evil.example/x.pdf" data-file="" data-name="x.pdf"></a>');
   expect("다른 주소 파일 카드 뺌", out, out === "");
   out = s('<p><a href="https://example.com">링크</a></p>');

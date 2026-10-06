@@ -1,6 +1,7 @@
 // 글 첨부: 사진(POST-07)·파일(POST-09)을 버튼·붙여 넣기·끌어다 놓기로 여러 개 올리고, 원래 이름으로 내려받는다
 // 사용: 개발 서버를 띄운 상태에서 node e2e/attachments.mjs <스크린샷 폴더>  (실행마다 새 회원)
 import { readFileSync } from "node:fs";
+import http from "node:http";
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
@@ -41,6 +42,9 @@ await page.getByLabel("사진 고르기").setInputFiles([file("광장.png", PHOT
 await page.waitForFunction(() => document.querySelectorAll(".ProseMirror img").length >= 2, null, { timeout: 30000 });
 await idle();
 check("버튼: 사진 2장을 한 번에", (await editorImages()) === 2);
+// 넣은 직후 바로 글자를 쳐도 사진이 지워지지 않는다 (커서가 사진 뒤 글자 자리로 간다)
+await page.keyboard.type("사진 다음 글");
+check("올린 직후 글자를 쳐도 사진이 남음", (await editorImages()) === 2 && (await page.locator(".ProseMirror").innerText()).includes("사진 다음 글"));
 
 // 2) 붙여 넣기(Ctrl+V)로 사진
 const send = (mode, files) =>
@@ -67,6 +71,16 @@ await send("drop", [file("보고서 최종본.pdf", PDF, "application/pdf"), fil
 await page.waitForFunction(() => document.querySelectorAll(".ProseMirror a[data-file]").length >= 2, null, { timeout: 30000 });
 await idle();
 check("끌어다 놓기: 파일 2개를 한 번에", (await editorCards()) === 2);
+
+// 3-1) 붙여 넣은 HTML의 위험한 파일 카드(javascript:·다른 사이트 주소)는 카드가 되지 않는다
+await page.evaluate(() => {
+  const dt = new DataTransfer();
+  dt.setData("text/html", '<a data-file data-name="보고서.pdf" data-size="1" href="javascript:document.title=1">x</a><a data-file data-name="a.pdf" href="https://evil.example/a.pdf">y</a>');
+  dt.setData("text/plain", "xy");
+  document.querySelector(".ProseMirror").dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
+});
+await page.waitForTimeout(300);
+check("붙여 넣은 위험한 파일 카드는 카드가 되지 않음", (await editorCards()) === 2 && !(await page.locator('.ProseMirror a[href^="javascript:"]').count()));
 
 // 4) 받지 않는 파일: 확장자만 바꾼 SVG(서버가 거부), 10MB 넘는 사진(브라우저가 거부), .exe(브라우저가 거부)
 await page.getByLabel("사진 고르기").setInputFiles([file("가짜.png", SVG, "image/png"), file("큰사진.png", BIG, "image/png")]);
@@ -108,7 +122,7 @@ check("내려받기: 내용 그대로", readFileSync(savedPath).equals(PDF));
 // 7) DB에는 주소만, 응답 머리글은 안전하게
 const { rows } = await db.query("SELECT content_html, content_text FROM posts WHERE id = $1", [postId]);
 check("DB 본문에는 /files/ 주소만 (data: 없음)", rows[0].content_html.includes("/files/") && !rows[0].content_html.includes("data:"));
-check("첨부는 보상 글자 수에 들어가지 않음", rows[0].content_text === "사진과 파일을 붙인 글", JSON.stringify(rows[0].content_text));
+check("첨부는 보상 글자 수에 들어가지 않음", rows[0].content_text.split(/\n+/).join("|") === "사진과 파일을 붙인 글|사진 다음 글", JSON.stringify(rows[0].content_text));
 const imgSrc = await page.locator(".prose-blog img").first().getAttribute("src");
 const imgRes = await page.request.get(`${BASE}${imgSrc}`);
 check("사진 응답: image/png·nosniff·화면에 표시", imgRes.headers()["content-type"] === "image/png" && imgRes.headers()["x-content-type-options"] === "nosniff" && imgRes.headers()["content-disposition"].startsWith("inline"));
@@ -129,6 +143,20 @@ check("30MB 넘는 파일 직접 요청 거부(413)", (await up(page.request, "b
 const anon = await browser.newContext();
 check("로그인하지 않으면 거부(401)", (await up(anon.request, "a.png", PNG)).status() === 401);
 await anon.close();
+check("Origin: null 은 거부(403)", (await up(page.request, "a.png", PNG, { Origin: "null" })).status() === 403);
+// 크기를 밝히지 않고 나눠 보내는 요청(chunked)은 본문을 읽기 전에 거부(411)
+const cookie = (await page.context().cookies()).map((c) => `${c.name}=${c.value}`).join("; ");
+const chunked = await new Promise((resolve) => {
+  const req = http.request(`${BASE}/api/uploads`, { method: "POST", headers: { Origin: BASE, Cookie: cookie, "Content-Type": "multipart/form-data; boundary=x", "Transfer-Encoding": "chunked" } }, (res) => resolve(res.statusCode));
+  req.on("error", () => resolve(0));
+  req.write("--x\r\n");
+  req.end();
+});
+check("크기 정보 없는(chunked) 요청 거부(411)", chunked === 411, `HTTP ${chunked}`);
+// 괄호·따옴표가 든 이름도 원래 이름으로 (RFC 8187)
+const odd = await (await up(page.request, "철수's 발표 (최종).pdf", PDF)).json();
+const oddRes = await page.request.get(`${BASE}${odd.url}`);
+check("괄호·따옴표 이름도 filename*에 인코딩", oddRes.headers()["content-disposition"].includes("%27s%20%EB%B0%9C%ED%91%9C%20%28%EC%B5%9C%EC%A2%85%29.pdf"), oddRes.headers()["content-disposition"]);
 check("없는 파일 주소는 404", (await page.request.get(`${BASE}/files/${"0".repeat(32)}`)).status() === 404);
 
 // 일부러 거부시킨 가짜 SVG의 415 응답은 브라우저가 콘솔에 남기므로 뺀다

@@ -16,7 +16,7 @@ export async function GET(_request: Request, ctx: RouteContext<"/files/[key]">) 
   if (!body) return notFound();
 
   // 한글 이름은 filename*(UTF-8)로, 옛 브라우저용 filename에는 영문·숫자만 남긴다
-  const encoded = encodeURIComponent(row.name);
+  const encoded = encodeURIComponent(row.name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   const ascii = row.name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   const disposition = `${row.kind === "image" ? "inline" : "attachment"}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
 

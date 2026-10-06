@@ -32,15 +32,25 @@ function isRealImage(bytes: Uint8Array, ext: string) {
 
 export async function POST(request: Request) {
   // 다른 사이트에서 몰래 보낸 요청 막기 (CSRF)
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (!origin || !host || new URL(origin).host !== host) return fail(403, "잘못된 요청이에요");
+  // Server Action과 같은 기준: 프록시 뒤라면 x-forwarded-host, 아니면 host와 비교한다
+  const expected = request.headers.get("x-forwarded-host")?.split(",")[0].trim() || request.headers.get("host");
+  let originHost: string | null = null;
+  try {
+    const origin = request.headers.get("origin");
+    originHost = origin && origin !== "null" ? new URL(origin).host : null;
+  } catch {
+    originHost = null;
+  }
+  if (!originHost || !expected || originHost !== expected) return fail(403, "잘못된 요청이에요");
 
   const viewer = await getViewer();
   if (!viewer?.profile) return fail(401, ATTACH_MESSAGES.login);
 
-  // 본문 전체를 읽기 전에 크기부터 본다 (파일 30MB + 폼 여유분)
-  const length = Number(request.headers.get("content-length") ?? 0);
+  // 본문 전체를 읽기 전에 크기부터 본다 (파일 30MB + 폼 여유분).
+  // 크기를 밝히지 않고 나눠 보내는 요청(chunked)은 끝없이 메모리에 쌓일 수 있어 받지 않는다
+  const raw = request.headers.get("content-length");
+  const length = raw === null ? NaN : Number(raw);
+  if (!Number.isFinite(length)) return fail(411, ATTACH_MESSAGES.failed);
   if (length > FILE_MAX_BYTES + 1024 * 1024) return fail(413, ATTACH_MESSAGES.fileSize);
 
   let file: FormDataEntryValue | null;
@@ -53,7 +63,7 @@ export async function POST(request: Request) {
 
   const name = cleanFileName(file.name);
   const problem = name ? attachmentProblem(name, file.size) : ATTACH_MESSAGES.type;
-  if (problem) return fail(problem === ATTACH_MESSAGES.type ? 415 : 413, problem);
+  if (problem) return fail(problem === ATTACH_MESSAGES.type ? 415 : problem === ATTACH_MESSAGES.empty ? 400 : 413, problem);
 
   const kind = attachmentKind(name)!;
   const ext = extensionOf(name);

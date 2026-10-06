@@ -6,12 +6,23 @@ import StarterKit from "@tiptap/starter-kit";
 import { postTextLength } from "@/lib/text-length";
 import Image from "@tiptap/extension-image";
 import { useEffect, useRef } from "react";
-import { FILE_TYPES, IMAGE_TYPES } from "@/lib/attachments";
+import { attachmentPath, FILE_TYPES, IMAGE_TYPES } from "@/lib/attachments";
 import { FileCard } from "./file-card";
 import { filesFrom, useAttachmentUpload } from "./use-attachment-upload";
 
 const IMAGE_ACCEPT = Object.keys(IMAGE_TYPES).map((e) => `.${e}`).join(",");
 const FILE_ACCEPT = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(",");
+
+// 사진은 이 사이트에 올린 것(/files/키)만 에디터에 둔다. 저장할 때 빠질 다른 사이트 사진이 보였다가 사라지지 않게
+const imagePath = (src: string | null) => attachmentPath(src, typeof window === "undefined" ? "http://localhost" : window.location.origin);
+const PostImage = Image.extend({
+  parseHTML() {
+    return [{ tag: "img[src]", getAttrs: (el) => (imagePath((el as HTMLElement).getAttribute("src")) ? null : false) }];
+  },
+  addAttributes() {
+    return { ...this.parent?.(), src: { default: null, parseHTML: (el) => imagePath(el.getAttribute("src")) } };
+  },
+});
 
 type ToolButton = {
   label: string;
@@ -54,15 +65,18 @@ const TOOLS: (ToolButton | "sep")[] = [
 export function RichEditor({
   initialHtml,
   onChange,
+  onUploadingChange,
 }: {
   initialHtml: string;
   onChange: (html: string, textLength: number) => void;
+  /** 첨부를 올리는 동안 true (그동안 발행 버튼을 막는다) */
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   // 붙여 넣기·끌어다 놓기는 에디터 설정(처음 한 번 만들어짐) 안에서 불리므로 최신 함수를 ref로 넘긴다
   const uploadRef = useRef<(files: File[], at?: number) => void>(() => {});
   const editor = useEditor({
     extensions: [
-      Image.configure({ inline: false, allowBase64: false }), // 사진 (POST-07)
+      PostImage.configure({ inline: false, allowBase64: false }), // 사진 (POST-07)
       FileCard, // 파일 카드 (POST-09)
       StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: true } }),
       Placeholder.configure({ placeholder: "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️" }),
@@ -78,6 +92,9 @@ export function RichEditor({
       handlePaste: (_view, event) => {
         const files = filesFrom(event.clipboardData?.files);
         if (!files.length) return false;
+        // 엑셀·키노트처럼 글자와 그림을 함께 복사하면 글자를 붙여 넣는다 (스크린샷·파일 복사는 글자가 없다)
+        const html = event.clipboardData?.getData("text/html") ?? "";
+        if (html && new DOMParser().parseFromString(html, "text/html").body.textContent?.trim()) return false;
         uploadRef.current(files);
         return true;
       },
@@ -87,6 +104,13 @@ export function RichEditor({
         event.preventDefault();
         uploadRef.current(files, view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos);
         return true;
+      },
+      // 에디터 안에서 파일 카드를 누르면 내려받지 않고 고르기만 한다 (링크로 이동하지 않게)
+      handleDOMEvents: {
+        click: (_view, event) => {
+          if ((event.target as Element | null)?.closest?.("a[data-file]")) event.preventDefault();
+          return false;
+        },
       },
     },
     // 글자 수는 서버가 보상을 판단하는 규칙과 같게 센다 (#18)
@@ -98,6 +122,21 @@ export function RichEditor({
   useEffect(() => {
     uploadRef.current = upload;
   }, [upload]);
+  useEffect(() => {
+    onUploadingChange?.(!!progress);
+  }, [progress, onUploadingChange]);
+  // 파일을 에디터 밖(제목·여백)에 떨어뜨려도 브라우저가 그 파일을 열어 쓰던 글을 잃지 않게 막는다
+  useEffect(() => {
+    const stop = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) e.preventDefault();
+    };
+    window.addEventListener("dragover", stop);
+    window.addEventListener("drop", stop);
+    return () => {
+      window.removeEventListener("dragover", stop);
+      window.removeEventListener("drop", stop);
+    };
+  }, []);
   const imageInput = useRef<HTMLInputElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const pick = (input: HTMLInputElement | null) => {
@@ -114,7 +153,7 @@ export function RichEditor({
   });
 
   return (
-    <div className="overflow-hidden rounded-2xl border-2 border-line bg-white focus-within:border-sun">
+    <div data-rich-editor className="overflow-hidden rounded-2xl border-2 border-line bg-white focus-within:border-sun">
       <div className="flex flex-wrap items-center gap-1 border-b-2 border-line bg-cream/60 p-2" role="toolbar" aria-label="글꼴 도구">
         {TOOLS.map((tool, i) =>
           tool === "sep" ? (

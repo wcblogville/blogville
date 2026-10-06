@@ -79,8 +79,19 @@ export function attachmentProblem(name: string, size: number): string | null {
 /** 1234567 → "1.2MB" */
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+  const kb = Math.round(bytes / 1024);
+  if (kb < 1024) return `${kb}KB`;
   return `${(bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, "")}MB`;
+}
+
+/** 주소가 이 사이트의 첨부(/files/키)면 경로("/files/키"), 아니면 null. 다른 사이트·javascript: 주소를 걸러낸다 */
+export function attachmentPath(url: string | null | undefined, origin: string): string | null {
+  try {
+    const u = new URL(url ?? "", origin);
+    return u.origin === origin && ATTACHMENT_URL_RE.test(u.pathname) ? u.pathname : null;
+  } catch {
+    return null;
+  }
 }
 
 /** 파일 카드의 화면 읽기용 이름 */
@@ -89,7 +100,6 @@ export const fileCardLabel = (name: string, size: number) => `${name} 내려받�
 /** 파일 이름에서 경로·제어 문자를 빼고 길이를 줄인다 */
 export function cleanFileName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // eslint-disable-next-line no-control-regex
   const cleaned = base.normalize("NFC").replace(/[\u0000-\u001f\u007f]/g, "").trim();
   if (cleaned.length <= FILE_NAME_MAX) return cleaned;
   const ext = extensionOf(cleaned);

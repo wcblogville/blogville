@@ -21,6 +21,7 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
   const [html, setHtml] = useState(initial.contentHtml);
   const [length, setLength] = useState(0);
   const [visibility, setVisibility] = useState(initial.visibility);
+  const [uploading, setUploading] = useState(false); // 첨부를 올리는 중에는 발행하지 않는다 (POST-07)
   const isNew = !initial.postId;
   // 오류로 돌아오면 서버가 돌려준 입력값을, 아니면 처음 값을 쓴다
   const v = state.values;
@@ -80,6 +81,7 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
           setHtml(h);
           setLength(n);
         }}
+        onUploadingChange={setUploading}
       />
 
       <input
@@ -110,8 +112,8 @@ export function PostForm({ categories, initial }: { categories: Category[]; init
         </p>
         <div className="flex items-center gap-3">
           {state.error && <span className="text-sm font-bold text-berry">{state.error}</span>}
-          <button type="submit" disabled={pending} className="btn bg-leaf text-white">
-            {pending ? "저장하는 중..." : isNew ? "발행하기" : "수정 완료"}
+          <button type="submit" disabled={pending || uploading} className="btn bg-leaf text-white">
+            {uploading ? "첨부를 올리는 중..." : pending ? "저장하는 중..." : isNew ? "발행하기" : "수정 완료"}
           </button>
         </div>
       </div>
