@@ -137,7 +137,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * 방문자도 불러야 해서 requireMember()가 없다 (signUp·signIn처럼). 블로그 주인은 서버에서 다시 확인해 세지 않는다.
  * 쿠키를 새로 만들 수 있어야 해서 서버 컴포넌트가 아니라 Server Action에서 센다 (Next.js 16 cookies 규칙)
  */
-export async function recordBlogVisit(blogId: number): Promise<{ today: number; total: number } | null> {
+export async function recordBlogVisit(blogId: number): Promise<{ today: number; yesterday: number; total: number } | null> {
   const id = parseId(blogId);
   if (id === null) return null;
   const [blog] = await db.select({ ownerId: blogs.ownerId }).from(blogs).where(eq(blogs.id, id));

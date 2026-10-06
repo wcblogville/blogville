@@ -4,7 +4,7 @@
 
 - 팀: 이진행(ehgo508), chang0580, jiwon934
 - 작성일: 2026-10-02
-- 버전: 1.8 (BLOG-06 방문자 수 구현)
+- 버전: 1.8 (BLOG-06 방문자 수 구현: 오늘·어제·전체, 글 상세 포함, 최근 7일 그래프)
 
 ### 변경 이력
 
@@ -26,7 +26,7 @@
 | 1.5 | 2026-10-06 | POST-07 사진 첨부 구현(✅)으로 명세를 실제 동작 기준으로 다시 씀, 파일 첨부를 새 ID POST-09로 추가(✅), 에디터 도구·NF-03 갱신 | chang0580 |
 | 1.6 | 2026-10-06 | 10/6 회의 결정 반영 + 동물 농장 1차 구현(TOWN-09): 알 받기(첫 알·5레벨마다·코인 100)·랜덤 부화·돌보기 3가지·글쓰기 연동·다 키우면 종류별 보상과 카드, 한 번에 5마리 | 이진행 |
 | 1.7 | 2026-10-06 | 첨부 기능 merge 뒤 정리: 6장 화면 목록에 `/files/[키]`, NF-12 측정 기록에 `POST /api/uploads` Origin 확인 추가 (1.3은 닫힌 #34가 쓰려던 번호라 비어 있음) | chang0580 |
-| 1.8 | 2026-10-06 | BLOG-06 방문자 수 구현(✅): 목표 명세를 실제 동작으로, 수용 기준 [x](`e2e/visits.mjs`), 열린 질문 처음 세 가지 결정 | chang0580 |
+| 1.8 | 2026-10-06 | BLOG-06 방문자 수 구현(✅): 오늘·어제·전체 표시, 블로그 홈과 글 상세 방문을 하루 1번 세기, 블로그 관리에 최근 7일 그래프. 목표 명세를 실제 동작으로, 수용 기준 [x](`e2e/visits.mjs`), 열린 질문 결정 | chang0580 |
 
 ### 이 문서를 함께 고치는 방법
 
@@ -859,16 +859,17 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 우선 / 상태 / 담당 | C / ✅ / chang0580 |
 | 사용자 | 보기: 모두 (방문자 · 회원 · 관리자) / 세는 대상: 블로그 주인이 아닌 사람 |
 | 선행 조건 | 없음 |
-| 관련 | 화면 `/@주소` (블로그 홈 상단) · 테이블 `blog_visits`(마이그레이션 `0006_blog_visits`) · POST-06(글 조회수), NF-02, NF-06, NF-11, NF-12, NF-15, NF-26 |
+| 관련 | 화면 `/@주소` (블로그 홈 상단), 글 상세 `/@주소/글ID`(세기만), 블로그 관리 `/settings/blog`(최근 7일 그래프) · 테이블 `blog_visits`(마이그레이션 `0006_blog_visits`) · POST-06(글 조회수), NF-02, NF-06, NF-11, NF-12, NF-15, NF-26 |
 
-**구현** (2026-10-06): 아래는 실제 동작이다. 열린 질문의 처음 세 가지(방문 기준, 구별 방법, 저장 방법)는 본문 제안대로 정해 구현했다.
+**구현** (2026-10-06): 아래는 실제 동작이다. 열린 질문의 처음 세 가지(방문 기준, 구별 방법, 저장 방법)와 어제 방문 표시·최근 7일 그래프·글 상세 방문 세기는 본문 제안대로 정해 구현했다.
 
 **기본 흐름**
-1. 누군가 블로그 홈(`/@주소`)을 연다. `?category=`, `?page=`가 붙어도 같다.
+1. 누군가 블로그 홈(`/@주소`)이나 그 블로그의 글 상세(`/@주소/글ID`)를 연다. `?category=`, `?page=`가 붙어도 같다. 마을 소식·이웃 새 글·태그 목록의 글 카드는 글 상세로 바로 가므로, 글 상세도 세야 실제 방문자에 가깝다.
 2. 화면이 브라우저에 열리면 방문 기록 요청을 서버에 보낸다.
 3. 시스템이 방문자 쿠키로 사람을 구별한다. 쿠키가 없으면 새로 만든다.
 4. 이 블로그에 **오늘(한국 시간 0시 이후) 처음 온 사람**이면 1번 기록한다.
-5. 블로그 상단 정보 줄의 `오늘 방문 N · 전체 방문 N`이 새로고침 없이 바뀐다.
+5. 블로그 홈이면 상단 정보 줄의 `오늘 방문 N · 어제 방문 N · 전체 방문 N`이 새로고침 없이 바뀐다. 글 상세에서는 숫자를 보여주지 않고 세기만 한다.
+6. 블로그 주인은 블로그 관리(`/settings/blog`) 맨 위 `방문자` 카드에서 `오늘 N · 어제 N · 전체 N`과 최근 7일 막대그래프를 본다.
 
 **예외 흐름**
 
@@ -892,7 +893,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 서버가 받는 값: `blogId`(1\~2147483647 정수, `parseId`), 쿠키 `bv_visitor`(UUID 형식)
 
 **표시 규칙**
-- 위치: 블로그 홈 상단 정보 줄 끝. `@주소 · 글 N · 이웃 N · 오늘 방문 N · 전체 방문 N`
+- 위치: 블로그 홈 상단 정보 줄 끝. `@주소 · 글 N · 이웃 N · 오늘 방문 N · 어제 방문 N · 전체 방문 N`
+- 같은 사람이 같은 날 블로그 홈과 글 상세를 오가도 1번이다 (같은 쿠키, 같은 블로그, 같은 날)
+- 블로그 관리 `방문자` 카드: 오른쪽 위 `오늘 N · 어제 N · 전체 N`, 아래 최근 7일 막대그래프. 방문이 없는 날도 0으로 7칸, 막대 위에 숫자, 아래에 날짜(`10/5`), 마지막 칸은 `오늘`(노란 막대, 굵은 글씨). 막대 높이는 7일 중 가장 많은 날 기준, 0인 날도 얇게 보인다. 아래 안내 `같은 사람은 하루 1번만 셉니다. 블로그 홈이나 글을 연 사람이 방문자이고, 내 방문은 세지 않아요.`
 - 숫자는 천 단위 쉼표. 클라이언트 컴포넌트라 서버와 브라우저 결과가 같도록 `toLocaleString("ko-KR")`로 locale을 정해 둔다
 - 방문이 없으면 `0`. 빈 화면 문구는 없다
 - 주인·회원·방문자 모두 같은 숫자를 본다
@@ -903,10 +906,11 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 | 항목 | 내용 |
 |---|---|
-| 화면 | `src/app/blog/[slug]/page.tsx`(서버)의 `Promise.all`에 `getBlogVisitStats(blog.id)`(`src/server/blog.ts`)를 더해 `BlogHeader`로 넘긴다. `BlogHeader`의 `Blog` 타입에 `id`를 더했다. 숫자 부분만 클라이언트 컴포넌트 `VisitCount`(`src/components/blog/visit-count.tsx`): 서버가 준 숫자로 시작 → `useEffect` + `startTransition`으로 `recordBlogVisit` 호출 → 돌려받은 숫자로 바꾼다 (Next.js 문서 `mutating-data`의 조회수 예시와 같은 방식). 주인이면 부르지 않는다 |
+| 화면 | 블로그 홈 `src/app/blog/[slug]/page.tsx`(서버)의 `Promise.all`에 `getBlogVisitStats(blog.id)`(`src/server/blog.ts`)를 더해 `BlogHeader`로 넘긴다. `BlogHeader`의 `Blog` 타입에 `id`를 더했다. 숫자 부분만 클라이언트 컴포넌트 `VisitCount`(`src/components/blog/visit-count.tsx`): 서버가 준 숫자로 시작 → `useEffect` + `startTransition`으로 `recordBlogVisit` 호출 → 돌려받은 숫자로 바꾼다 (Next.js 문서 `mutating-data`의 조회수 예시와 같은 방식). 주인이면 부르지 않는다 |
 | 처리 | `recordBlogVisit(blogId)` (`src/app/blog/actions.ts`): `parseId`로 `blogId` 확인 → 블로그 조회 (없으면 `null`) → `getViewer()`로 주인이면 기록 없이 숫자만 돌려줌 → 쿠키 `bv_visitor` 읽기. 없거나 UUID가 아니면 `crypto.randomUUID()`로 만들어 `(await cookies()).set` → `blog_visits` INSERT `onConflictDoNothing()` → `getBlogVisitStats` 결과 `{ today, total }` 반환 |
 | 왜 Server Action인가 | Next.js 16에서 서버 컴포넌트는 쿠키를 **읽기만** 할 수 있다. `cookies().set`은 Server Action·Route Handler에서 쓴다 (문서 `cookies`). 그리고 화면이 브라우저에 실제로 열릴 때만 불리므로 링크 미리 불러오기(prefetch)로는 세지 않는다 |
-| 데이터 | 새 테이블 `blog_visits`: `blog_id`(→ `blogs.id`, `ON DELETE CASCADE`) · `date`(한국 날짜, `todayKST()`) · `visitor_id`(쿠키 값). `getBlogVisitStats`가 한 쿼리로 오늘(`COUNT(*) FILTER (WHERE date = 오늘)`)과 전체(`COUNT(*)`)를 센다 (`WHERE blog_id`). 기본 키 인덱스(`blog_id`가 맨 앞)를 쓴다 |
+| 글 상세·관리 | 글 상세 `src/app/blog/[slug]/[postId]/page.tsx`: 주인이 아니면 `RecordVisit`(`src/components/blog/record-visit.tsx`, 아무것도 그리지 않는 클라이언트 컴포넌트)가 `recordBlogVisit(blog.id)`을 부른다. 블로그 관리 `src/app/settings/blog/page.tsx`: `getBlogVisitDays(blog.id)`(최근 7일, `GROUP BY date` 한 번, 빠진 날은 0)와 `getBlogVisitStats`로 그래프를 그린다 |
+| 데이터 | 새 테이블 `blog_visits`: `blog_id`(→ `blogs.id`, `ON DELETE CASCADE`) · `date`(한국 날짜, `todayKST()`) · `visitor_id`(쿠키 값). `getBlogVisitStats`가 한 쿼리로 오늘·어제(`COUNT(*) FILTER (WHERE date = …)`, 어제는 `previousDay(todayKST())`)와 전체(`COUNT(*)`)를 센다 (`WHERE blog_id`). 기본 키 인덱스(`blog_id`가 맨 앞)를 쓴다 |
 | 무결성 | 기본 키 `(blog_id, date, visitor_id)`로 "같은 사람 하루 1번"을 DB가 보장한다 (NF-15, 출석 `attendances`의 기본 키 `(user_id, date)`와 같은 방식). 같은 쿠키로 동시에 여러 번 불려도 1줄만 남는다. IP는 저장하지 않는다 (NF-26) |
 | 쿠키 | `bv_visitor`: 무작위 UUID(회원 정보와 연결하지 않음) · `HttpOnly` · `SameSite=Lax` · `Path=/` · 1년(`Max-Age=31536000`). 배포에서는 `Secure` (NF-11과 같은 기준). 쿠키를 새로 만들 때마다 화면을 한 번 더 그리므로(아래 갱신) 길게 둔다 |
 | 검증 | 서버: `blogId` 정수, 쿠키 UUID 형식. 주인인지는 서버에서 다시 확인한다 (화면이 부르지 않는 것만 믿지 않는다). 방문자도 불러야 해서 첫 줄에 `requireMember()`가 없다 (`signUp`·`signIn`처럼). 다른 사이트에서 보낸 요청은 Next.js가 거부한다 (NF-12) |
@@ -924,6 +928,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] `blog_visits`에 같은 `(blog_id, date, visitor_id)`를 두 번 넣으면 DB가 거부한다. (`e2e/visits.mjs`)
 - [x] 응답의 `Set-Cookie`에서 방문자 쿠키는 `HttpOnly; SameSite=Lax; Max-Age=31536000`이고, 값은 무작위 UUID다. (`e2e/visits.mjs`)
 - [x] `blogs` 행이 지워지면 (회원 삭제 → `ON DELETE CASCADE`) 그 블로그의 `blog_visits` 행도 함께 지워진다. (회원 탈퇴 AUTH-06은 아직 없으므로 DB에서 직접 지워 확인) (외래 키 `ON DELETE CASCADE`) (코드 확인)
+- [x] 글 상세를 연 사람도 방문자로 1 오르고, 같은 사람이 이어서 블로그 홈을 열어도 더 오르지 않는다. (`e2e/visits.mjs`)
+- [x] 어제 방문이 블로그 홈에 `어제 방문 N`으로 보인다. (`e2e/visits.mjs`)
+- [x] 블로그 관리의 최근 7일 그래프는 7칸이고 마지막 칸이 `오늘`이며, 오늘·어제 숫자가 DB와 같다. (`e2e/visits.mjs`)
 - [x] 375px에서 블로그 홈에 가로 스크롤이 생기지 않는다 (NF-06). (`e2e/visits.mjs`)
 
 
@@ -934,9 +941,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 로그인한 회원은 쿠키 대신 회원 ID로 셀까? 지금 제안대로라면 같은 회원이 휴대폰과 PC에서 보면 2명으로 센다.
 - POST-06 조회수는 새로고침할 때마다 오른다. 방문자 수와 같은 기준(같은 쿠키, 하루 1번)으로 맞출까? (POST-06 열린 질문과 같음)
 - `signUp`·`signIn`에 이어 로그인 없이 부르는 Server Action이 하나 늘어난다. NF-02 검증 방법("모든 Server Action 첫 줄이 `requireMember()`/`requireAdmin()`")과 CLAUDE.md 인증 규칙("페이지와 Server Action마다 `requireMember()` / `requireUser()`")에 예외로 적을까?
-- (제안) 표시를 전체·오늘 2개 → 전체·오늘·**어제** 3개로? (chang0580의 my-blog에서 써 본 방식)
-- (제안) 블로그 관리(`/settings/blog`, 지금은 기본 정보·카테고리만 있음)에 **최근 7일 방문자 막대그래프**를 둘까? 방문이 없는 날도 0으로 채워 7칸, 마지막 칸 이름은 `오늘`. 위 테이블이면 `GROUP BY date` 한 번으로 된다. (chang0580의 my-blog에서 써 본 방식)
-- (제안) 블로그 홈뿐 아니라 **글 상세**(`/@주소/글ID`)를 연 사람도 그 블로그 방문자로 셀까? 마을 소식·이웃 새 글·태그 목록의 글 카드는 누르면 글 상세로 바로 간다 (블로그 홈으로 가는 건 카드 위 작성자 줄뿐). 그래서 홈만 세면 실제보다 적게 나온다. (chang0580의 my-blog에서 써 본 방식)
+- (결정, 구현) 표시를 전체·오늘·**어제** 3개로 → 블로그 홈 정보 줄과 블로그 관리에 `어제` 추가
+- (결정, 구현) 블로그 관리에 **최근 7일 방문자 막대그래프** → 방문이 없는 날도 0으로 7칸, 마지막 칸 `오늘` (`GROUP BY date` 한 번)
+- (결정, 구현) 블로그 홈뿐 아니라 **글 상세**(`/@주소/글ID`)를 연 사람도 그 블로그 방문자로 센다 (같은 사람은 홈과 합쳐 하루 1번)
 
 ##### 블로그 홈 화면 (BLOG-01~05 공통)
 

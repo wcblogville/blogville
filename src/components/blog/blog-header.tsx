@@ -26,7 +26,7 @@ export function BlogHeader({
   blog: Blog;
   viewerId: string | null;
   following: boolean;
-  visits: { today: number; total: number };
+  visits: { today: number; yesterday: number; total: number };
 }) {
   const isOwner = viewerId === blog.ownerId;
   return (

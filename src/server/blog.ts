@@ -15,7 +15,7 @@ import {
   profiles,
   tags,
 } from "@/db/schema";
-import { todayKST } from "@/lib/game";
+import { previousDay, todayKST } from "@/lib/game";
 
 const characterItem = alias(items, "character_item");
 const backgroundItem = alias(items, "background_item");
@@ -46,16 +46,31 @@ export async function getBlogBySlug(slug: string) {
   return row ?? null;
 }
 
-/** 블로그 방문자 수: 오늘(한국 시간)과 전체 (BLOG-06) */
+/** 블로그 방문자 수: 오늘·어제(한국 시간)와 전체 (BLOG-06) */
 export async function getBlogVisitStats(blogId: number) {
+  const today = todayKST();
   const [row] = await db
     .select({
-      today: sql<number>`COUNT(*) FILTER (WHERE ${blogVisits.date} = ${todayKST()})::int`,
+      today: sql<number>`COUNT(*) FILTER (WHERE ${blogVisits.date} = ${today})::int`,
+      yesterday: sql<number>`COUNT(*) FILTER (WHERE ${blogVisits.date} = ${previousDay(today)})::int`,
       total: sql<number>`COUNT(*)::int`,
     })
     .from(blogVisits)
     .where(eq(blogVisits.blogId, blogId));
-  return { today: row?.today ?? 0, total: row?.total ?? 0 };
+  return { today: row?.today ?? 0, yesterday: row?.yesterday ?? 0, total: row?.total ?? 0 };
+}
+
+/** 최근 7일(오늘 포함) 날짜별 방문자 수. 방문이 없는 날은 0 (블로그 관리 그래프, BLOG-06) */
+export async function getBlogVisitDays(blogId: number, days = 7) {
+  const dates = [todayKST()];
+  while (dates.length < days) dates.unshift(previousDay(dates[0]));
+  const rows = await db
+    .select({ date: blogVisits.date, count: sql<number>`COUNT(*)::int` })
+    .from(blogVisits)
+    .where(and(eq(blogVisits.blogId, blogId), sql`${blogVisits.date} >= ${dates[0]}`))
+    .groupBy(blogVisits.date);
+  const byDate = new Map(rows.map((r) => [String(r.date), r.count]));
+  return dates.map((date) => ({ date, count: byDate.get(date) ?? 0 }));
 }
 
 export async function getBlogByOwner(ownerId: string) {

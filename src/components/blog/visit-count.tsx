@@ -3,11 +3,11 @@
 import { useEffect, useState, useTransition } from "react";
 import { recordBlogVisit } from "@/app/blog/actions";
 
-type Stats = { today: number; total: number };
+type Stats = { today: number; yesterday: number; total: number };
 const n = (v: number) => v.toLocaleString("ko-KR");
 
 /**
- * 블로그 상단의 `오늘 방문 N · 전체 방문 N` (BLOG-06).
+ * 블로그 상단의 `오늘 방문 N · 어제 방문 N · 전체 방문 N` (BLOG-06).
  * 서버가 그린 숫자로 시작하고, 화면이 열리면 방문을 기록한 뒤 돌려받은 숫자로 바꾼다. 주인이면 기록하지 않는다
  */
 export function VisitCount({ blogId, initial, isOwner }: { blogId: number; initial: Stats; isOwner: boolean }) {
@@ -26,7 +26,7 @@ export function VisitCount({ blogId, initial, isOwner }: { blogId: number; initi
 
   return (
     <>
-      오늘 방문 {n(stats.today)} · 전체 방문 {n(stats.total)}
+      오늘 방문 {n(stats.today)} · 어제 방문 {n(stats.yesterday)} · 전체 방문 {n(stats.total)}
     </>
   );
 }
