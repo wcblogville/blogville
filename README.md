@@ -81,6 +81,7 @@ npm run dev                     # http://localhost:3000
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
 | `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E |
+| `node e2e/write-count.mjs <폴더>` | 글쓰기 화면 글자 수·보상 안내가 서버의 실제 보상 판단과 같은지 E2E (실행마다 새 회원) |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
 | `node e2e/social.mjs <폴더>` | 이웃 추가·취소, 조작한 이웃 요청 거부 E2E (`e2e/blog.mjs` 다음에) |
 | `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
