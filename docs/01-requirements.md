@@ -447,7 +447,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 > - (`npm run test:sanitize`): HTML 정화 테스트(`scripts/test-sanitize.ts`)를 실행해서 확인한 것
 > - (코드 확인): 코드만 읽고 판단한 것 → **나중에 테스트를 추가할 대상**
 >
-> 열린 질문의 **(제안)** 은 chang0580의 개인 블로그 프로젝트(my-blog)에서 먼저 만들어 본 방식을 바탕으로 한 제안이다. 팀에서 정하기 전까지는 본문(현재 동작)에 넣지 않았다. 미구현(⬜) 항목(BLOG-06, POST-07, POST-08)의 소제목 옆 (제안)은 이와 달리 만들 때의 목표 명세라는 뜻이다 (4.5 GAME-06·GAME-07과 같은 표기).
+> 열린 질문의 **(제안)** 은 chang0580의 개인 블로그 프로젝트(my-blog)에서 먼저 만들어 본 방식을 바탕으로 한 제안이다. 팀에서 정하기 전까지는 본문(현재 동작)에 넣지 않았다. 미구현(⬜) 항목(BLOG-06, POST-08)의 소제목 옆 (제안)은 이와 달리 만들 때의 목표 명세라는 뜻이다 (4.5 GAME-06·GAME-07과 같은 표기).
 
 ##### BLOG-01 회원당 블로그 하나
 
@@ -685,7 +685,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 소개 길이는 브라우저(`maxLength`)와 서버(zod)에서만 막고 DB CHECK가 없다. 이름처럼 DB CHECK(0~160자)를 더할까? (스키마 변경이라 `docs/02-erd.md`도 함께)
 - (제안) 소개 최대 길이 현재 160자 → 200자로?
 - (제안) 이 화면에서 닉네임도 바꿀 수 있게 할까? 지금은 온보딩(AUTH-02)에서 정하면 바꿀 곳이 없다. 바꾼다면 온보딩과 같은 규칙(2~12자, 중복 불가 AUTH-03)으로. (AUTH-02 열린 질문과 함께 정하기)
-- (제안) 프로필 사진(PNG·JPG·GIF·WEBP, 10MB 이하)을 올리고 지울 수 있게 해서 블로그 상단에 보여줄까? 지금은 캐릭터(미니룸·`CharacterBadge`)가 프로필 역할을 한다. 파일 저장소가 필요해서 POST-07(⬜)과 같이 정해야 한다.
+- (제안) 프로필 사진(PNG·JPG·GIF·WEBP, 10MB 이하)을 올리고 지울 수 있게 해서 블로그 상단에 보여줄까? 지금은 캐릭터(미니룸·`CharacterBadge`)가 프로필 역할을 한다. 파일 저장소는 POST-07(✅)의 `src/server/storage.ts`·`POST /api/uploads`를 같이 쓸 수 있다 (저장 위치는 POST-07 열린 질문).
 
 ##### BLOG-04 미니룸
 
@@ -1102,9 +1102,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 **입력 규칙**
 - 제목 1~100자 (앞뒤 공백 제거)
 - 본문: HTML 최대 200,000자. 저장할 때 허용된 태그만 남긴다 (NF-03)
-  - 허용: `p br h1 h2 h3 strong em u s code pre blockquote ul ol li a hr`
-  - 링크(`a`)는 `http`, `https`, `mailto`만 허용하고, 저장할 때 `target="_blank" rel="noopener noreferrer nofollow"`를 붙인다 (새 탭에서 열림)
-  - 이미지(`img`)는 지금 저장되지 않는다 (POST-07)
+  - 허용: `p br h1 h2 h3 strong em u s code pre blockquote ul ol li a hr img`
+  - 링크(`a`)는 `http`, `https`, `mailto`와 상대 주소(`/…`)만 남기고, 저장할 때 `target="_blank" rel="noopener noreferrer nofollow"`를 붙인다 (새 탭에서 열림). 파일 카드(`a[data-file]`)에는 붙이지 않는다 (POST-09)
+  - 사진(`img`)은 `src`가 `/files/키`이고 `attachments`에 `kind = 'image'`로 있는 것만 남기고, 속성은 `src`·`alt`만 둔다 (POST-07)
   - 정화한 뒤 태그를 뺀 글자(`content_text`)가 비어 있으면 저장하지 않는다
 - 카테고리: 내 블로그 카테고리 하나 또는 `카테고리 없음` (POST-03)
 - 공개 설정: `public` / `private`, 기본 공개 (POST-02)
@@ -1125,13 +1125,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 항목 | 내용 |
 |---|---|
 | 화면 | `src/app/write/page.tsx`, `src/app/write/[postId]/page.tsx` (서버, `requireMember()`) + `PostForm`(클라이언트, `useActionState`) + `RichEditor`(Tiptap 3, `src/components/editor/`). 수정 화면은 `getPost(내 블로그 ID, 글ID)`(`src/server/blog.ts`)로 찾고 없으면 `notFound()` |
-| 처리 | `savePost` (`src/app/write/actions.ts`): `requireMember()` → zod 검증(첫 번째 문구만 돌려줌) → **HTML 정화**(`sanitizePostHtml`) → 태그를 뺀 글자(`content_text`, `htmlToText`) 추출, 비었으면 중단 → 트랜잭션 [회원 잠금 → 카테고리가 내 블로그 것인지 확인 → INSERT 또는 `UPDATE ... WHERE id AND blog_id = 내 블로그` → 새 공개 글이고 `content_text` 100자 이상이면 `grantReward(..., "post", 글ID)` (하루 상한은 `grantReward`가 확인) → 태그 연결] |
+| 처리 | `savePost` (`src/app/write/actions.ts`): `requireMember()` → zod 검증(첫 번째 문구만 돌려줌) → 본문의 첨부 키를 `attachments`에서 조회(`attachmentKeysIn`, POST-07·POST-09) → **HTML 정화**(`sanitizePostHtml(html, known)`) → 태그를 뺀 글자(`content_text`, `htmlToText`) 추출, 비었으면 중단 → 트랜잭션 [회원 잠금 → 카테고리가 내 블로그 것인지 확인 → INSERT 또는 `UPDATE ... WHERE id AND blog_id = 내 블로그` → 새 공개 글이고 `content_text` 100자 이상이면 `grantReward(..., "post", 글ID)` (하루 상한은 `grantReward`가 확인) → 태그 연결] |
 | 삭제 | `DeletePostButton` (`src/components/blog/delete-post-button.tsx`, 클라이언트): `confirm(...)` → `deletePost(postId)` (`src/app/write/actions.ts`): `requireMember()` → `DELETE ... WHERE id AND blog_id = 내 블로그` |
 | 데이터 | `posts.content_html`(정화된 HTML), `posts.content_text`(요약·검색·글자 수용). 수정하면 `updated_at`이 바뀐다(Drizzle `$onUpdate`). 화면에는 쓰지 않는다 |
 | 무결성 | 삭제는 `deletePost`: `DELETE WHERE id AND blog_id = 내 블로그`. 댓글·공감·태그 연결은 `ON DELETE CASCADE`로 함께 지워진다. 받은 보상은 회수하지 않는다 (`point_ledger.ref_id`는 FK가 아님). 수정할 글이 내 것이 아니면 `throw new Error("NOT_FOUND")`로 트랜잭션 전체 취소 |
 | 검증 | 브라우저 `maxLength`(제목 100·태그 300)·`required`(제목만) / 서버 zod(제목 1\~100자, 본문 HTML 200,000자, 태그 칸 300자, 공개 설정 enum) + 정화 / DB CHECK `posts_title_check`(제목 1\~100자) |
 | 갱신 | `revalidatePath("/", "layout")` 후 `/@주소/글ID?new=reward` (보상 받음) 또는 `?new=1` 로 이동. 수정이면 쿼리 없이 `/@주소/글ID`, 삭제면 `/@주소` |
-| 에디터 | `StarterKit`(제목은 H2·H3만, 링크 `openOnClick: false`·`autolink: true`) + `Placeholder` + `CharacterCount`. 내용이 바뀔 때마다 HTML과 글자 수를 `PostForm`으로 올려 숨은 칸 `contentHtml`에 담는다. 버튼이 포커스를 가져가 커서를 잃지 않도록 `onMouseDown`에서 `preventDefault` |
+| 에디터 | 사진 `Image`(`@tiptap/extension-image`, `/files/키` 주소만, POST-07) + 파일 카드 `FileCard`(POST-09) + `StarterKit`(제목은 H2·H3만, 링크 `openOnClick: false`·`autolink: true`) + `Placeholder` + `CharacterCount`. 내용이 바뀔 때마다 HTML과 글자 수를 `PostForm`으로 올려 숨은 칸 `contentHtml`에 담는다. 버튼이 포커스를 가져가 커서를 잃지 않도록 `onMouseDown`에서 `preventDefault` |
 
 **수용 기준**
 - [x] 글을 발행하면 그 글 상세(`/@주소/글ID`)로 이동하고 위에 발행 안내가 보인다. (`e2e/blog.mjs`: 이동은 주소로, 안내는 스크린샷 `11-post.png`로 확인)
@@ -1494,7 +1494,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - (제안) 넓은 화면(901px 이상)에서는 카드를 1열 → 2열로? 한 페이지 8개면 2열 × 4줄로 맞는다.
 - (제안) 요약 2줄 → 3줄로?
 - (제안) 요약에서 코드 블록 글자는 뺄까? 지금은 `content_text`에 코드 블록 글자도 들어 있어서, 코드로 시작하는 글은 요약도 코드로 시작한다.
-- (제안) POST-07(이미지 첨부)이 생기면 본문 첫 이미지를 카드 맨 위 썸네일(16:9)로 보여줄까? 이미지가 없는 글은 지금처럼 글자만.
+- (제안) 본문 첫 사진(POST-07)을 카드 맨 위 썸네일(16:9)로 보여줄까? 사진이 없는 글은 지금처럼 글자만. (POST-07 열린 질문과 같음)
 
 ##### POST-06 조회수
 
@@ -1578,9 +1578,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
    - 도구 모음 [🖼 사진]을 눌러 고르기
    - 복사한 사진·스크린샷을 본문에 붙여 넣기(`Ctrl+V` / `⌘V`)
    - 파일을 본문에 끌어다 놓기 (놓은 자리에 들어간다)
-2. 브라우저가 형식·크기를 먼저 확인하고, 맞는 파일만 한 장씩 차례로 서버에 올린다. 그동안 도구 모음 아래에 `올리는 중... (1/3)`이 보이고 [🖼 사진]·[📎 파일]은 눌리지 않는다.
+2. 브라우저가 형식·크기를 먼저 확인하고, 맞는 파일만 한 장씩 차례로 서버에 올린다. 그동안 도구 모음 아래에 `올리는 중... (1/3)`이 보이고, [🖼 사진]·[📎 파일]은 눌리지 않으며 발행 버튼은 `첨부를 올리는 중...`으로 바뀌어 눌리지 않는다.
 3. 서버가 회원·요청 출처·형식·크기와 파일 앞부분(진짜 사진인지)을 다시 확인하고, 무작위 이름으로 저장한 뒤 주소(`/files/키`)를 돌려준다.
-4. 사진이 커서 위치(끌어다 놓았으면 놓은 위치)에 들어간다. 여러 장이면 올린 순서대로 이어서 들어간다. 지울 때는 사진을 눌러 고른 뒤(노란 테두리) 지운다.
+4. 사진이 커서 위치(끌어다 놓았으면 놓은 위치)에 들어간다. 여러 장이면 올린 순서대로 이어서 들어가고, 커서는 마지막 사진 뒤 글자 자리로 옮겨져 바로 이어서 쓸 수 있다. 올리는 동안 글을 고쳐도 넣을 자리가 따라간다. 지울 때는 사진을 눌러 고른 뒤(노란 테두리) 지운다.
 5. [발행하기] / [수정 완료]는 POST-01과 같다. 본문 HTML에는 파일 내용이 아니라 `<img src="/files/키" alt="">`만 저장된다.
 6. 글 상세에서 사진은 본문 폭에 맞춰 보인다.
 
@@ -1594,8 +1594,15 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 네트워크·저장소 오류 | 올리지 못했어요. 다시 시도해 주세요 (쓰던 제목·본문은 그대로) |
 | 여러 장 중 일부만 문제 | 문제없는 사진은 들어가고, 문제 있는 사진만 문구가 남는다. [✕]로 문구를 닫는다 |
 | 로그인하지 않았거나 온보딩 전에 올리기 요청 | 저장하지 않는다: 로그인한 회원만 올릴 수 있어요 (HTTP 401) |
-| 다른 사이트에서 올리기 요청을 보냄 | 저장하지 않는다: 잘못된 요청이에요 (`Origin`이 이 사이트가 아니면 HTTP 403) |
-| 다른 사이트 주소·`data:`·`javascript:` 주소의 `<img>`, 또는 올린 적 없는 `/files/키`를 요청에 섞어 보냄 | 저장할 때 그 사진을 뺀다 |
+| 다른 사이트에서 올리기 요청을 보냄 | 저장하지 않는다: 잘못된 요청이에요 (`Origin`이 없거나 `null`이거나, 이 사이트 주소(`Host`, 프록시 뒤면 `X-Forwarded-Host`)와 다르면 HTTP 403) |
+| 크기를 밝히지 않고 나눠 보내는 요청 (`Content-Length` 없음) | 본문을 읽기 전에 거절 (HTTP 411). 끝없이 큰 요청으로 서버 메모리를 채우지 못하게 한다 |
+| 확장자와 실제 형식이 다름 (예: 내용은 WEBP인데 이름이 `.jpg`) | 사진 파일이 아니에요… (HTTP 415). 확장자를 실제 형식에 맞게 바꾸면 올라간다 |
+| 올리는 중에 다른 파일을 붙여 넣거나 끌어다 놓음 | 넣지 않고 `다른 파일을 올리는 중이에요. 끝난 뒤 다시 넣어 주세요` |
+| 파일을 에디터 밖(제목·여백)에 떨어뜨림 | 아무 일도 없다 (브라우저가 그 파일을 열어 쓰던 글을 잃지 않게 막는다) |
+| 엑셀·키노트처럼 글자와 그림을 함께 복사해 붙여 넣음 | 그림을 올리지 않고 글자를 붙여 넣는다 (스크린샷·파일 복사처럼 글자가 없으면 올린다) |
+| 다른 사이트 사진이 든 HTML을 붙여 넣음 | 에디터에 그 사진이 들어가지 않는다 (`/files/키` 사진만. 저장할 때 빠질 사진을 미리 보여주지 않는다) |
+| 다른 사이트 주소·`data:`·`javascript:` 주소의 `<img>`, 또는 `attachments`에 없는(아무도 올린 적 없는) `/files/키`를 요청에 섞어 보냄 | 저장할 때 그 사진을 뺀다 |
+| 다른 회원이 올린 `/files/키`를 본문에 넣음 (다른 글을 복사해 붙여 넣기 등) | 그대로 남는다. 올린 사람은 확인하지 않는다 |
 | 사진만 있고 글자가 없음 | 본문을 적어 주세요 (사진은 `content_text`에 들어가지 않는다. 아래 열린 질문) |
 | 없는 사진 주소(`/files/키`)를 엶 | 404 `파일을 찾을 수 없어요` |
 
@@ -1618,10 +1625,10 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 화면 | `RichEditor`(`src/components/editor/rich-editor.tsx`): `@tiptap/extension-image`(블록, `allowBase64: false`), [🖼 사진] 버튼 + 숨긴 `<input type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp">`, `handlePaste`·`handleDrop`. 올리기는 `useAttachmentUpload`(`src/components/editor/use-attachment-upload.ts`)가 파일마다 `fetch("/api/uploads")` 후 `insertContentAt` |
 | 규칙 | `src/lib/attachments.ts`: 형식·크기·문구를 브라우저와 서버가 같이 쓴다 (`IMAGE_TYPES`, `IMAGE_MAX_BYTES`, `ATTACH_MESSAGES`, `attachmentProblem`) |
-| 처리 | `POST /api/uploads`(`src/app/api/uploads/route.ts`): `Origin` 확인 → `getViewer()`로 온보딩 마친 회원 확인 → `Content-Length`가 31MB를 넘으면 바로 거절 → `formData()`의 `file` → 이름 정리(`cleanFileName`) → 형식·크기 → 사진이면 파일 앞부분 확인 → 무작위 키 → 저장소에 저장 → `attachments` INSERT → `{ key, url, kind, name, size }`. 30MB까지 받아야 해서 1MB 상한이 있는 Server Action 대신 Route Handler를 쓴다 (그래서 Server Action이 해 주던 Origin 확인을 직접 한다) |
+| 처리 | `POST /api/uploads`(`src/app/api/uploads/route.ts`): `Origin`을 `X-Forwarded-Host`(없으면 `Host`)와 비교 → `getViewer()`로 온보딩 마친 회원 확인 → `Content-Length`가 없으면 411, 31MB를 넘으면 413으로 본문을 읽기 전에 거절 → `formData()`의 `file` → 이름 정리(`cleanFileName`) → 형식·크기 → 사진이면 파일 앞부분 확인 → 무작위 키 → 저장소에 저장 → `attachments` INSERT → `{ key, url, kind, name, size }`. 30MB까지 받아야 해서 1MB 상한이 있는 Server Action 대신 Route Handler를 쓴다 (그래서 Server Action이 해 주던 Origin 확인을 같은 기준으로 직접 한다) |
 | 저장소 | `src/server/storage.ts`: 지금은 서버 디스크 `UPLOAD_DIR`(기본 `storage/uploads`, git 제외). 배포 서비스가 정해지면 이 파일만 바꾼다 (열린 질문) |
 | 보여주기 | `GET /files/[키]`(`src/app/files/[key]/route.ts`): 키 형식 확인 → `attachments` 조회 → 파일 스트림. 머리글 `Content-Type`(DB의 형식), `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; …; sandbox`, `Cache-Control: public, max-age=31536000, immutable` |
-| 데이터 | 새 테이블 `attachments`(`key` PK, `user_id` FK CASCADE, `kind` image/file, `name`, `mime`, `size`, `created_at`) · 마이그레이션 `0004_attachments` · ERD 3.11 |
+| 데이터 | 새 테이블 `attachments`(`key` PK, `user_id` FK CASCADE, `kind` image/file, `name`, `mime`, `size`, `created_at`) · 인덱스 `(user_id, created_at)` · 마이그레이션 `0004_attachments` · ERD 3.11 |
 | 정화 | `sanitizePostHtml(html, known)`: `img`(`src`·`alt`)를 허용하되 `src`가 `/files/키` 형식이고, 저장할 때는 `attachments`에 있는 `kind = 'image'` 키만 남긴다. `savePost`가 본문의 키를 모아(`attachmentKeysIn`) DB에서 찾아 넘긴다 |
 | 무결성 | 파일은 올릴 때, 글은 발행할 때 따로 저장된다. 글을 저장하지 않거나 사진을 지워도 파일은 남는다 (열린 질문). 회원을 지우면 `attachments` 행은 지워지지만 파일은 남는다 |
 | 검증 | 브라우저: `accept`·형식·크기 / 서버: Origin·회원·크기·형식·파일 앞부분 / 저장 전 정화(DB에 있는 첨부만) / DB CHECK(키 형식, 종류, 이름 1~255자, 크기 > 0) |
@@ -1632,7 +1639,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 사진을 붙여 넣으면(`Ctrl+V`) 본문에 들어간다. (`e2e/attachments.mjs`)
 - [x] 발행한 뒤 글 상세에서 사진이 보이고, 수정 화면을 열면 에디터에 그대로 있다. (`e2e/attachments.mjs`)
 - [x] 확장자만 `.png`인 SVG는 `사진 파일이 아니에요…`로 거부되고, 10MB 넘는 사진은 `사진은 10MB까지 올릴 수 있어요`로 거부된다. 거부된 사진은 본문에 들어가지 않는다. (`e2e/attachments.mjs`)
-- [x] 브라우저 확인을 건너뛰고 직접 요청을 보내도: 다른 사이트 Origin은 403, 로그인 안 하면 401, 확장자만 바꾼 SVG·HTML은 415. (`e2e/attachments.mjs`)
+- [x] 브라우저 확인을 건너뛰고 직접 요청을 보내도: 다른 사이트 Origin·`Origin: null`은 403, 로그인 안 하면 401, 크기를 밝히지 않은 요청은 411, 확장자만 바꾼 SVG(`x.png`)와 HTML 파일(`x.html`)은 415. (`e2e/attachments.mjs`)
 - [x] `posts.content_html`에는 `/files/키` 주소만 있고 `data:`가 없다. 사진은 보상 글자 수(`content_text`)에 들어가지 않는다. (`e2e/attachments.mjs`)
 - [x] `onerror` 속성, `javascript:`·`data:`·다른 사이트 주소, DB에 없는 키, 파일을 사진으로 쓴 `<img>`는 저장된 HTML에 남지 않는다. (`npm run test:sanitize`)
 - [x] 사진 주소는 `image/png` 등 실제 형식과 `nosniff`로 응답한다. (`e2e/attachments.mjs`)
@@ -1752,7 +1759,8 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 파일이 30MB 초과 | 파일은 30MB까지 올릴 수 있어요 (서버도 413. `Content-Length`가 31MB를 넘으면 본문을 읽기 전에 거절) |
 | 빈 파일·네트워크 오류·로그인 안 함·다른 사이트 요청 | POST-07과 같다 |
 | 요청을 조작해 파일 카드의 이름·크기를 바꿔 보냄 | 저장할 때 DB의 원래 이름·크기로 바꾼다. 내려받는 이름도 DB 값이다 |
-| 다른 사이트 주소이거나 올린 적 없는 키의 파일 카드 | 저장할 때 뺀다 |
+| 다른 사이트 주소이거나 `attachments`에 없는 키의 파일 카드 | 저장할 때 뺀다 |
+| `javascript:`·다른 사이트 주소의 파일 카드가 든 HTML을 붙여 넣음 | 파일 카드가 되지 않는다 (보통 링크 규칙으로 처리) |
 
 **입력 규칙**
 - 형식(확장자): PDF, 한글(HWP·HWPX), 워드(DOC·DOCX), 엑셀(XLS·XLSX), 파워포인트(PPT·PPTX), 키노트(KEY), ZIP, TXT, CSV, MD, JSON, MP3, MP4. 열리거나 실행될 수 있는 형식은 받지 않는다.
@@ -1760,9 +1768,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 원래 이름: 경로(`/`, `\`)와 제어 문자를 빼고, 255자가 넘으면 확장자를 남기고 줄인다 (`cleanFileName`).
 
 **표시 규칙**
-- 파일 카드: 흰 카드(노란 그림자), 왼쪽 아이콘(📕 PDF, 📘 한글, 📝 워드, 📊 엑셀·CSV, 📽️ 파워포인트·키노트, 🗜️ ZIP, 🎵 MP3, 🎬 MP4, 그 밖 📄), 오른쪽 두 줄 `원래 이름` / `1.2MB · 내려받기`. 최대 폭 30rem, 긴 이름은 줄바꿈. 375px에서도 가로 스크롤 없음.
+- 파일 카드: 흰 카드(베이지 테두리와 아래 그림자 `--shadow-pop`, 마우스를 올리면 노란 테두리), 왼쪽 아이콘(📕 PDF, 📘 한글, 📝 워드, 📊 엑셀·CSV, 📽️ 파워포인트·키노트, 🗜️ ZIP, 🎵 MP3, 🎬 MP4, 그 밖 📄), 오른쪽 두 줄 `원래 이름` / `1.2MB · 내려받기`. 최대 폭 30rem, 긴 이름은 줄바꿈. 375px에서도 가로 스크롤 없음.
 - 카드 글자는 HTML 글자가 아니라 속성(`data-name`, `data-size-label`)을 CSS로 그린 것이라 보상 글자 수에 들어가지 않는다. 화면 낭독기는 `aria-label`(`보고서 최종본.pdf 내려받기 (1.2MB)`)을 읽는다.
-- 에디터에서는 카드를 눌러 고르면 노란 테두리가 생기고, 지우거나 끌어서 옮길 수 있다.
+- 에디터에서는 카드를 눌러도 내려받지 않고 고르기만 한다(노란 테두리). 고른 뒤 지우거나 끌어서 옮길 수 있다.
 - 크기 표시: 1KB 미만 `45B`, 1MB 미만 `340KB`, 그 이상 `1.2MB` (`formatBytes`).
 
 **구현 방식**
@@ -1771,7 +1779,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 화면 | 파일 카드 노드 `FileCard`(`src/components/editor/file-card.ts`, 블록·atom·끌기 가능). HTML: `<a href="/files/키" data-file data-name data-size data-size-label data-ext aria-label></a>` (글자 없음). [📎 파일] 버튼 + 숨긴 `<input type="file" multiple accept=".pdf,.hwp,…">` |
 | 처리 | POST-07과 같은 `POST /api/uploads`. 형식은 확장자로 정하고(`FILE_TYPES`), 응답 형식도 이 표의 값을 쓴다 (올린 브라우저가 알려 준 형식은 믿지 않는다) |
-| 내려받기 | `GET /files/[키]`: `Content-Disposition: attachment; filename="영문만"; filename*=UTF-8''원래이름` → 한글 이름 그대로 저장된다. `nosniff`·`sandbox` 머리글은 POST-07과 같다 |
+| 내려받기 | `GET /files/[키]`: `Content-Disposition: attachment; filename="ASCII 대체 이름"; filename*=UTF-8''원래이름` → 한글 이름 그대로 저장된다. 대체 이름은 ASCII 밖 글자와 `"`·`\`를 `_`로 바꾼 것이고, `filename*`는 `'` `(` `)` `*`까지 인코딩한다 (RFC 8187, 예: `철수's 발표 (최종).pdf`). `nosniff`·`sandbox` 머리글은 POST-07과 같다 |
 | 정화 | `sanitizePostHtml`: `a[data-file]`은 `/files/키` 주소이고 DB에 `kind = 'file'`로 있는 것만 남기고, `data-name`·`data-size`·`data-size-label`·`data-ext`·`aria-label`을 DB 값으로 다시 쓴다. `target`·`rel`은 붙이지 않는다 (보통 링크는 그대로 새 탭) |
 | 데이터·무결성·갱신 | POST-07과 같다 (`attachments.kind = 'file'`) |
 
