@@ -145,7 +145,7 @@ erDiagram
     attendances {
         text user_id PK, FK
         date date PK
-        int streak "연속 출석 일수"
+        int streak "연속 출석 일수 (7일 주기로 변경 결정, 3.13)"
     }
     point_ledger {
         int id PK
@@ -327,6 +327,41 @@ COMMIT
 - 사람은 회원 ID가 아니라 방문자 쿠키(`bv_visitor`, 무작위 UUID)로 구별한다. 로그인하지 않은 방문자도 세야 하기 때문이다. IP는 저장하지 않는다 (NF-26).
 - 숫자만 쌓는 `count` 컬럼을 두지 않은 이유: 이미 센 사람인지 알 수 없어 "하루 1번"을 지킬 수 없다. 오늘·전체는 `COUNT(*)`로 센다.
 - 블로그가 지워지면 방문 기록도 지워진다 (`ON DELETE CASCADE`).
+
+### 3.13 출석 7일 주기 (설계 변경 결정, 미구현 · GAME-04)
+
+> 위 1장 관계도는 **지금 DB** 기준이다. 아래는 2026-10-06에 정한 변경안이고, 구현하면 1장에 반영한다.
+
+출석 보상을 1~7일차로 점점 키우고, 7일 달성이나 하루 빠짐이면 1일차로 돌아가게 바꾼다. 이에 맞춰 출석을 **식별 관계에서 비식별 관계로** 바꾸고 **일차별 보상표**를 둔다.
+
+```mermaid
+erDiagram
+    users ||--o{ attendances : "출석"
+    attendance_rewards ||--o{ attendances : "그날 일차의 보상"
+
+    attendances {
+        int id PK "자동 증가"
+        text user_id FK
+        date date "UNIQUE (user_id, date)"
+        int cycle_day FK "1~7"
+    }
+    attendance_rewards {
+        int day PK "1~7"
+        int exp
+        int coins
+    }
+```
+
+| 바뀌는 것 | 지금 | 변경안 | 이유 |
+|---|---|---|---|
+| 출석 PK | `(user_id, date)` (식별) | `id` 자동 증가 (비식별) | 원장(`point_ledger.ref_id`)이 출석 한 건을 번호 하나로 가리킬 수 있다 |
+| 하루 한 번 | PK가 지킴 | **UNIQUE (`user_id`, `date`)**가 지킴 | PK에서 빠져도 규칙은 그대로 DB가 막는다 |
+| 연속 값 | `streak` (1, 2, … 계속 커짐) | `cycle_day` (1~7, CHECK) | 7일마다 처음으로 돌아가는 규칙 |
+| 보상 숫자 | 코드(`REWARD_RULES`)에 하루 1종 | `attendance_rewards` 표 (일차마다) | 일차별 보상이 ERD에서 보이고, 숫자를 바꿀 때 표만 고친다 |
+
+**일차 정하기**: 내 마지막 출석이 어제이고 1~6일차면 +1, 그 밖(처음, 7일차 다음 날, 하루 이상 빠짐)은 1. 마지막 출석 1건만 읽으면 되도록 `UNIQUE (user_id, date)` 인덱스를 그대로 쓴다.
+
+**식별 → 비식별로 바꿀 때 주의**: 자기 번호(`id`)만 PK로 두면 "같은 사람·같은 날" 줄이 두 번 들어가도 DB가 막지 않는다. 그래서 **UNIQUE를 꼭 함께** 건다.
 
 ## 4. 데이터 마이그레이션
 
