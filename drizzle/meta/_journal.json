@@ -43,6 +43,13 @@
       "when": 1791250304190,
       "tag": "0005_animal_farm",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791251144280,
+      "tag": "0006_blog_visits",
+      "breakpoints": true
     }
   ]
 }

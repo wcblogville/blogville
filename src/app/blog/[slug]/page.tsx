@@ -4,7 +4,7 @@ import { BlogHeader } from "@/components/blog/blog-header";
 import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
 import { parseId } from "@/lib/ids";
-import { getBlogBySlug, getCategories, isFollowing, listBlogPosts } from "@/server/blog";
+import { getBlogBySlug, getBlogVisitStats, getCategories, isFollowing, listBlogPosts } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
@@ -25,17 +25,18 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const page = parsePage(sp.page);
   const categoryId = parseId(sp.category) ?? undefined; // 이상한 값이면 전체 글
 
-  const [cats, list, following] = await Promise.all([
+  const [cats, list, following, visits] = await Promise.all([
     getCategories(blog.id, isOwner),
     listBlogPosts({ blogId: blog.id, isOwner, categoryId, page }),
     viewerId && !isOwner ? isFollowing(viewerId, blog.ownerId) : false,
+    getBlogVisitStats(blog.id),
   ]);
   const currentCat = cats.find((c) => c.id === categoryId);
   const base = `/@${blog.slug}`;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <BlogHeader blog={blog} viewerId={viewerId} following={following} />
+      <BlogHeader blog={blog} viewerId={viewerId} following={following} visits={visits} />
 
       <div className="mt-6 grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="md:sticky md:top-20 md:self-start">

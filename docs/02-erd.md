@@ -38,6 +38,7 @@ erDiagram
     users ||--o{ attendances : "출석"
     users ||--o{ point_ledger : "경험치·코인 기록"
     users ||--o{ attachments : "올린 사진·파일"
+    blogs ||--o{ blog_visits : "방문 기록"
 
     users {
         text id PK
@@ -155,6 +156,12 @@ erDiagram
         text ref_id "관련 글·아이템 ID"
         timestamptz created_at
     }
+    blog_visits {
+        int blog_id PK,FK
+        date date PK "한국 날짜"
+        uuid visitor_id PK "방문자 쿠키"
+        timestamptz created_at
+    }
     attachments {
         text key PK "무작위 32자 = 주소 /files/키"
         text user_id FK
@@ -176,6 +183,7 @@ erDiagram
 | 아이템 | `items`, `user_items` | GAME-01, SHOP |
 | 보상 | `attendances`, `point_ledger` | GAME-02~05 |
 | 첨부 | `attachments` | POST-07, POST-09 |
+| 방문자 | `blog_visits` | BLOG-06 |
 
 인증 테이블 4개는 로그인 라이브러리(Better Auth)가 정한 구조를 따르고, 나머지는 직접 설계했다.
 `verifications`는 로그인 과정의 임시 값을 담는 라이브러리 내부용이라 관계도에서 뺐다.
@@ -312,6 +320,13 @@ COMMIT
 - `key`는 서버가 만든 무작위 32자(16진수)이고, 저장 이름이자 주소(`/files/키`)다. 올린 파일 이름을 주소·저장 이름에 쓰지 않아 덮어쓰기·경로 조작을 막는다. CHECK로 형식을 강제한다.
 - 글 본문(`posts.content_html`)에는 `<img src="/files/키">`, `<a href="/files/키" data-file …>`처럼 주소만 들어간다. 글과 첨부를 잇는 테이블은 두지 않았다. 저장할 때 본문의 키를 `attachments`에서 확인한다 (DB에 없는 키는 정화에서 뺀다).
 - 내려받는 이름은 `attachments.name`(원래 이름)을 쓰므로, 본문을 조작해도 바뀌지 않는다.
+
+### 3.12 방문자 수는 "사람·날짜마다 한 줄" (BLOG-06)
+
+- `blog_visits` 기본 키 `(blog_id, date, visitor_id)`로 "같은 사람은 하루 1번"을 DB가 보장한다. 출석 `attendances (user_id, date)`와 같은 방식이다.
+- 사람은 회원 ID가 아니라 방문자 쿠키(`bv_visitor`, 무작위 UUID)로 구별한다. 로그인하지 않은 방문자도 세야 하기 때문이다. IP는 저장하지 않는다 (NF-26).
+- 숫자만 쌓는 `count` 컬럼을 두지 않은 이유: 이미 센 사람인지 알 수 없어 "하루 1번"을 지킬 수 없다. 오늘·전체는 `COUNT(*)`로 센다.
+- 블로그가 지워지면 방문 기록도 지워진다 (`ON DELETE CASCADE`).
 
 ## 4. 데이터 마이그레이션
 

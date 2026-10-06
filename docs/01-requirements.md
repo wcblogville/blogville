@@ -4,7 +4,7 @@
 
 - 팀: 이진행(ehgo508), chang0580, jiwon934
 - 작성일: 2026-10-02
-- 버전: 1.7 (첨부 주소를 화면 목록·NF-12에 추가)
+- 버전: 1.8 (BLOG-06 방문자 수 구현)
 
 ### 변경 이력
 
@@ -26,6 +26,7 @@
 | 1.5 | 2026-10-06 | POST-07 사진 첨부 구현(✅)으로 명세를 실제 동작 기준으로 다시 씀, 파일 첨부를 새 ID POST-09로 추가(✅), 에디터 도구·NF-03 갱신 | chang0580 |
 | 1.6 | 2026-10-06 | 10/6 회의 결정 반영 + 동물 농장 1차 구현(TOWN-09): 알 받기(첫 알·5레벨마다·코인 100)·랜덤 부화·돌보기 3가지·글쓰기 연동·다 키우면 종류별 보상과 카드, 한 번에 5마리 | 이진행 |
 | 1.7 | 2026-10-06 | 첨부 기능 merge 뒤 정리: 6장 화면 목록에 `/files/[키]`, NF-12 측정 기록에 `POST /api/uploads` Origin 확인 추가 (1.3은 닫힌 #34가 쓰려던 번호라 비어 있음) | chang0580 |
+| 1.8 | 2026-10-06 | BLOG-06 방문자 수 구현(✅): 목표 명세를 실제 동작으로, 수용 기준 [x](`e2e/visits.mjs`), 열린 질문 처음 세 가지 결정 | chang0580 |
 
 ### 이 문서를 함께 고치는 방법
 
@@ -437,7 +438,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | BLOG-03 | 블로그 이름과 소개를 수정할 수 있다 | M | ✅ | chang0580 |
 | BLOG-04 | 블로그 상단에 **미니룸**(장착한 배경과 캐릭터)이 보인다 | M | ✅ | chang0580 |
 | BLOG-05 | 블로그마다 카테고리를 만들고 순서를 바꿀 수 있다 | S | ✅ | chang0580 |
-| BLOG-06 | 블로그 방문자 수(전체, 오늘)를 보여준다 | C | ⬜ | chang0580 |
+| BLOG-06 | 블로그 방문자 수(전체, 오늘)를 보여준다 | C | ✅ | chang0580 |
 | BLOG-07 | 내 블로그에서 마을의 글·블로그를 검색한다 (검색은 내 집 안에서만 한다) | S | ⬜ | ehgo508 |
 
 #### 상세 명세
@@ -855,21 +856,21 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 | 항목 | 내용 |
 |---|---|
-| 우선 / 상태 / 담당 | C / ⬜ / chang0580 |
+| 우선 / 상태 / 담당 | C / ✅ / chang0580 |
 | 사용자 | 보기: 모두 (방문자 · 회원 · 관리자) / 세는 대상: 블로그 주인이 아닌 사람 |
 | 선행 조건 | 없음 |
-| 관련 | 화면 `/@주소` (블로그 홈 상단) · 테이블 `blog_visits`(새로 만듦) · POST-06(글 조회수), NF-02, NF-06, NF-11, NF-12, NF-15, NF-26 |
+| 관련 | 화면 `/@주소` (블로그 홈 상단) · 테이블 `blog_visits`(마이그레이션 `0006_blog_visits`) · POST-06(글 조회수), NF-02, NF-06, NF-11, NF-12, NF-15, NF-26 |
 
-**현재 상태**: 없음. 글마다 조회수(POST-06)만 있다. 방문자를 구별할 쿠키도 없다 (`src/`에 `cookies()`를 쓰는 코드가 없다). 아래는 만들 때의 **목표 명세**(제안)다.
+**구현** (2026-10-06): 아래는 실제 동작이다. 열린 질문의 처음 세 가지(방문 기준, 구별 방법, 저장 방법)는 본문 제안대로 정해 구현했다.
 
-**기본 흐름** (제안)
+**기본 흐름**
 1. 누군가 블로그 홈(`/@주소`)을 연다. `?category=`, `?page=`가 붙어도 같다.
 2. 화면이 브라우저에 열리면 방문 기록 요청을 서버에 보낸다.
 3. 시스템이 방문자 쿠키로 사람을 구별한다. 쿠키가 없으면 새로 만든다.
 4. 이 블로그에 **오늘(한국 시간 0시 이후) 처음 온 사람**이면 1번 기록한다.
 5. 블로그 상단 정보 줄의 `오늘 방문 N · 전체 방문 N`이 새로고침 없이 바뀐다.
 
-**예외 흐름** (제안)
+**예외 흐름**
 
 화면에 보여줄 오류 문구는 없다. 세는 일이 실패해도 블로그는 그대로 보여야 한다.
 
@@ -886,11 +887,11 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 없는 블로그 ID로 요청을 조작해 보냄 | 아무것도 기록하지 않는다 |
 | 쿠키 값이 UUID 형식이 아님 (조작) | 새 쿠키를 만들어 덮어쓴다 |
 
-**입력 규칙** (제안)
+**입력 규칙**
 - 사용자가 입력하는 값은 없다.
-- 서버가 받는 값: `blogId`(양의 정수), 쿠키 `bv_visitor`(UUID 형식)
+- 서버가 받는 값: `blogId`(1\~2147483647 정수, `parseId`), 쿠키 `bv_visitor`(UUID 형식)
 
-**표시 규칙** (제안)
+**표시 규칙**
 - 위치: 블로그 홈 상단 정보 줄 끝. `@주소 · 글 N · 이웃 N · 오늘 방문 N · 전체 방문 N`
 - 숫자는 천 단위 쉼표. 클라이언트 컴포넌트라 서버와 브라우저 결과가 같도록 `toLocaleString("ko-KR")`로 locale을 정해 둔다
 - 방문이 없으면 `0`. 빈 화면 문구는 없다
@@ -898,39 +899,38 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - `오늘`은 한국 시간 0시부터 센다 (`todayKST()`, `src/lib/game.ts`)
 - 375px에서 줄이 넘치면 다음 줄로 내려간다 (가로 스크롤 없음, NF-06)
 
-**구현 방식** (제안)
+**구현 방식**
 
 | 항목 | 내용 |
 |---|---|
-| 화면 | `src/app/blog/[slug]/page.tsx`(서버)의 `Promise.all`에 `getBlogVisitStats(blog.id)`(새로 만듦, `src/server/blog.ts`)를 더해 `BlogHeader`로 넘긴다. `BlogHeader`의 `Blog` 타입에는 지금 `id`가 없어서 추가해야 한다. 숫자 부분만 클라이언트 컴포넌트 `VisitCount`(새로 만듦, `src/components/blog/visit-count.tsx`): 서버가 준 숫자로 시작 → `useEffect` + `startTransition`으로 `recordBlogVisit` 호출 → 돌려받은 숫자로 바꾼다 (Next.js 문서 `mutating-data`의 조회수 예시와 같은 방식). 주인이면 부르지 않는다 |
-| 처리 | `recordBlogVisit(blogId)` (새로 만듦, `src/app/blog/actions.ts`): zod로 `blogId` 확인 → 블로그 조회 (없으면 `null`) → `getViewer()`로 주인이면 기록 없이 숫자만 돌려줌 → 쿠키 `bv_visitor` 읽기. 없거나 UUID가 아니면 `crypto.randomUUID()`로 만들어 `(await cookies()).set` → `blog_visits` INSERT `onConflictDoNothing()` → `getBlogVisitStats` 결과 `{ today, total }` 반환 |
+| 화면 | `src/app/blog/[slug]/page.tsx`(서버)의 `Promise.all`에 `getBlogVisitStats(blog.id)`(`src/server/blog.ts`)를 더해 `BlogHeader`로 넘긴다. `BlogHeader`의 `Blog` 타입에 `id`를 더했다. 숫자 부분만 클라이언트 컴포넌트 `VisitCount`(`src/components/blog/visit-count.tsx`): 서버가 준 숫자로 시작 → `useEffect` + `startTransition`으로 `recordBlogVisit` 호출 → 돌려받은 숫자로 바꾼다 (Next.js 문서 `mutating-data`의 조회수 예시와 같은 방식). 주인이면 부르지 않는다 |
+| 처리 | `recordBlogVisit(blogId)` (`src/app/blog/actions.ts`): `parseId`로 `blogId` 확인 → 블로그 조회 (없으면 `null`) → `getViewer()`로 주인이면 기록 없이 숫자만 돌려줌 → 쿠키 `bv_visitor` 읽기. 없거나 UUID가 아니면 `crypto.randomUUID()`로 만들어 `(await cookies()).set` → `blog_visits` INSERT `onConflictDoNothing()` → `getBlogVisitStats` 결과 `{ today, total }` 반환 |
 | 왜 Server Action인가 | Next.js 16에서 서버 컴포넌트는 쿠키를 **읽기만** 할 수 있다. `cookies().set`은 Server Action·Route Handler에서 쓴다 (문서 `cookies`). 그리고 화면이 브라우저에 실제로 열릴 때만 불리므로 링크 미리 불러오기(prefetch)로는 세지 않는다 |
-| 데이터 | 새 테이블 `blog_visits`: `blog_id`(→ `blogs.id`, `ON DELETE CASCADE`) · `date`(한국 날짜, `todayKST()`) · `visitor_id`(쿠키 값). 오늘 = `COUNT(*) WHERE blog_id AND date = 오늘`, 전체 = `COUNT(*) WHERE blog_id`. 두 쿼리 모두 기본 키 인덱스(`blog_id`가 맨 앞)를 쓴다 |
+| 데이터 | 새 테이블 `blog_visits`: `blog_id`(→ `blogs.id`, `ON DELETE CASCADE`) · `date`(한국 날짜, `todayKST()`) · `visitor_id`(쿠키 값). `getBlogVisitStats`가 한 쿼리로 오늘(`COUNT(*) FILTER (WHERE date = 오늘)`)과 전체(`COUNT(*)`)를 센다 (`WHERE blog_id`). 기본 키 인덱스(`blog_id`가 맨 앞)를 쓴다 |
 | 무결성 | 기본 키 `(blog_id, date, visitor_id)`로 "같은 사람 하루 1번"을 DB가 보장한다 (NF-15, 출석 `attendances`의 기본 키 `(user_id, date)`와 같은 방식). 같은 쿠키로 동시에 여러 번 불려도 1줄만 남는다. IP는 저장하지 않는다 (NF-26) |
 | 쿠키 | `bv_visitor`: 무작위 UUID(회원 정보와 연결하지 않음) · `HttpOnly` · `SameSite=Lax` · `Path=/` · 1년(`Max-Age=31536000`). 배포에서는 `Secure` (NF-11과 같은 기준). 쿠키를 새로 만들 때마다 화면을 한 번 더 그리므로(아래 갱신) 길게 둔다 |
 | 검증 | 서버: `blogId` 정수, 쿠키 UUID 형식. 주인인지는 서버에서 다시 확인한다 (화면이 부르지 않는 것만 믿지 않는다). 방문자도 불러야 해서 첫 줄에 `requireMember()`가 없다 (`signUp`·`signIn`처럼). 다른 사이트에서 보낸 요청은 Next.js가 거부한다 (NF-12) |
 | 갱신 | `revalidatePath`를 부르지 않는다 (헤더·코인과 관계없음). 쿠키를 **새로 만든** 첫 방문에는 Next.js가 현재 화면을 서버에서 다시 그린다 (Server Action에서 쿠키를 바꿀 때의 기본 동작). 그래서 `useEffect` 의존성은 `[blogId]`만 두어 두 번 부르지 않게 한다 |
-| 스키마 | `src/db/schema.ts` 수정 → `npm run db:generate` → `npm run db:migrate`. `docs/02-erd.md`도 함께 고친다 (CLAUDE.md 규칙) |
+| 스키마 | `src/db/schema.ts`의 `blogVisits` → 마이그레이션 `drizzle/0006_blog_visits.sql` (배포할 때 `npm run db:migrate`) · ERD 3.12 |
 
-**수용 기준** (제안)
-- [ ] 처음 온 방문자가 블로그 홈을 열면 `오늘 방문`과 `전체 방문`이 각각 1 오르고, 새로고침 없이 화면에 보인다.
-- [ ] 같은 브라우저로 같은 날 새로고침하거나 카테고리·페이지를 옮겨도 더 오르지 않는다.
-- [ ] 다른 브라우저(쿠키가 다른 사람)로 열면 1 오른다.
-- [ ] 블로그 주인이 자기 블로그를 열면 오르지 않는다. 주인이 `recordBlogVisit`을 직접 불러도 기록되지 않는다.
-- [ ] 로그인하지 않은 방문자도 숫자를 보고, 방문자 수에 들어간다.
-- [ ] 자바스크립트를 실행하지 않는 요청(예: `curl`로 블로그 홈 GET)으로는 오르지 않는다.
-- [ ] 한국 시간 0시가 지나면 `오늘 방문`은 0부터 다시 세고, `전체 방문`은 줄지 않는다.
-- [ ] `blog_visits`에 같은 `(blog_id, date, visitor_id)`를 두 번 넣으면 DB가 거부한다.
-- [ ] 응답의 `Set-Cookie`에서 방문자 쿠키는 `HttpOnly; SameSite=Lax; Max-Age=31536000`이고, 값은 무작위 UUID다.
-- [ ] `blogs` 행이 지워지면 (회원 삭제 → `ON DELETE CASCADE`) 그 블로그의 `blog_visits` 행도 함께 지워진다. (회원 탈퇴 AUTH-06은 아직 없으므로 DB에서 직접 지워 확인)
-- [ ] 375px에서 블로그 홈에 가로 스크롤이 생기지 않는다 (NF-06).
+**수용 기준**
+- [x] 처음 온 방문자가 블로그 홈을 열면 `오늘 방문`과 `전체 방문`이 각각 1 오르고, 새로고침 없이 화면에 보인다. (`e2e/visits.mjs`)
+- [x] 같은 브라우저로 같은 날 새로고침하거나 카테고리·페이지를 옮겨도 더 오르지 않는다. (`e2e/visits.mjs`)
+- [x] 다른 브라우저(쿠키가 다른 사람)로 열면 1 오른다. (`e2e/visits.mjs`)
+- [x] 블로그 주인이 자기 블로그를 열면 오르지 않는다. 주인이 `recordBlogVisit`을 직접 불러도 기록되지 않는다. (`e2e/visits.mjs`)
+- [x] 로그인하지 않은 방문자도 숫자를 보고, 방문자 수에 들어간다. (`e2e/visits.mjs`)
+- [x] 자바스크립트를 실행하지 않는 요청(예: `curl`로 블로그 홈 GET)으로는 오르지 않는다. (`e2e/visits.mjs`)
+- [x] 한국 시간 0시가 지나면 `오늘 방문`은 0부터 다시 세고, `전체 방문`은 줄지 않는다. (`todayKST()`로 날짜를 정한다) (코드 확인)
+- [x] `blog_visits`에 같은 `(blog_id, date, visitor_id)`를 두 번 넣으면 DB가 거부한다. (`e2e/visits.mjs`)
+- [x] 응답의 `Set-Cookie`에서 방문자 쿠키는 `HttpOnly; SameSite=Lax; Max-Age=31536000`이고, 값은 무작위 UUID다. (`e2e/visits.mjs`)
+- [x] `blogs` 행이 지워지면 (회원 삭제 → `ON DELETE CASCADE`) 그 블로그의 `blog_visits` 행도 함께 지워진다. (회원 탈퇴 AUTH-06은 아직 없으므로 DB에서 직접 지워 확인) (외래 키 `ON DELETE CASCADE`) (코드 확인)
+- [x] 375px에서 블로그 홈에 가로 스크롤이 생기지 않는다 (NF-06). (`e2e/visits.mjs`)
 
-> 구현해서 [x]로 바꿀 때는 4.2 머리말의 표기로 확인 방법을 붙인다: (`e2e/파일명`), (개발 서버 확인) 또는 (코드 확인). 방문자 구분은 `e2e/blog.mjs`처럼 브라우저 컨텍스트를 나눠서 확인할 수 있다.
 
 **열린 질문**
-- "방문"을 무엇으로 셀까? 블로그 홈을 연 횟수 / 하루에 같은 사람은 1번 → 본문은 **하루에 같은 사람 1번**으로 제안
-- 로그인하지 않은 방문자는 어떻게 구별할까? (쿠키, IP) → 본문은 **쿠키**로 제안. IP는 개인정보라 저장하지 않는다 (NF-26)
-- 저장 방법: 예) `blog_visits(blog_id, date, count)` → 정해지면 ERD에 추가 → `count`만 두면 이미 센 사람인지 알 수 없어서 "하루 1번"을 지킬 수 없다. 본문은 방문자마다 한 줄(`visitor_id`)로 제안
+- (결정, 구현) "방문"을 무엇으로 셀까? 블로그 홈을 연 횟수 / 하루에 같은 사람은 1번 → 본문은 **하루에 같은 사람 1번**으로 제안
+- (결정, 구현) 로그인하지 않은 방문자는 어떻게 구별할까? (쿠키, IP) → 본문은 **쿠키**로 제안. IP는 개인정보라 저장하지 않는다 (NF-26)
+- (결정, 구현) 저장 방법: 예) `blog_visits(blog_id, date, count)` → 정해지면 ERD에 추가 → `count`만 두면 이미 센 사람인지 알 수 없어서 "하루 1번"을 지킬 수 없다. 본문은 방문자마다 한 줄(`visitor_id`)로 제안
 - 로그인한 회원은 쿠키 대신 회원 ID로 셀까? 지금 제안대로라면 같은 회원이 휴대폰과 PC에서 보면 2명으로 센다.
 - POST-06 조회수는 새로고침할 때마다 오른다. 방문자 수와 같은 기준(같은 쿠키, 하루 1번)으로 맞출까? (POST-06 열린 질문과 같음)
 - `signUp`·`signIn`에 이어 로그인 없이 부르는 Server Action이 하나 늘어난다. NF-02 검증 방법("모든 Server Action 첫 줄이 `requireMember()`/`requireAdmin()`")과 CLAUDE.md 인증 규칙("페이지와 Server Action마다 `requireMember()` / `requireUser()`")에 예외로 적을까?

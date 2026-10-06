@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { MiniRoom } from "@/components/character";
 import { toggleFollow } from "@/app/blog/actions";
+import { VisitCount } from "./visit-count";
 
 type Blog = {
+  id: number;
   slug: string;
   title: string;
   description: string;
@@ -15,7 +17,17 @@ type Blog = {
 };
 
 /** 블로그 상단: 미니룸 + 블로그 정보 */
-export function BlogHeader({ blog, viewerId, following }: { blog: Blog; viewerId: string | null; following: boolean }) {
+export function BlogHeader({
+  blog,
+  viewerId,
+  following,
+  visits,
+}: {
+  blog: Blog;
+  viewerId: string | null;
+  following: boolean;
+  visits: { today: number; total: number };
+}) {
   const isOwner = viewerId === blog.ownerId;
   return (
     <section className="card overflow-hidden">
@@ -32,7 +44,8 @@ export function BlogHeader({ blog, viewerId, following }: { blog: Blog; viewerId
           </Link>
           {blog.description && <p className="mt-1 text-ink-soft">{blog.description}</p>}
           <p className="mt-2 text-sm text-ink-soft">
-            @{blog.slug} · 글 {blog.postCount} · 이웃 {blog.followerCount}
+            @{blog.slug} · 글 {blog.postCount} · 이웃 {blog.followerCount} ·{" "}
+            <VisitCount blogId={blog.id} initial={visits} isOwner={isOwner} />
           </p>
         </div>
         <div className="flex gap-2">

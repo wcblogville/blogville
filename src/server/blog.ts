@@ -4,6 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import {
   blogs,
+  blogVisits,
   categories,
   comments,
   follows,
@@ -14,6 +15,7 @@ import {
   profiles,
   tags,
 } from "@/db/schema";
+import { todayKST } from "@/lib/game";
 
 const characterItem = alias(items, "character_item");
 const backgroundItem = alias(items, "background_item");
@@ -42,6 +44,18 @@ export async function getBlogBySlug(slug: string) {
     .innerJoin(backgroundItem, eq(backgroundItem.id, blogs.backgroundItemId))
     .where(eq(blogs.slug, slug));
   return row ?? null;
+}
+
+/** 블로그 방문자 수: 오늘(한국 시간)과 전체 (BLOG-06) */
+export async function getBlogVisitStats(blogId: number) {
+  const [row] = await db
+    .select({
+      today: sql<number>`COUNT(*) FILTER (WHERE ${blogVisits.date} = ${todayKST()})::int`,
+      total: sql<number>`COUNT(*)::int`,
+    })
+    .from(blogVisits)
+    .where(eq(blogVisits.blogId, blogId));
+  return { today: row?.today ?? 0, total: row?.total ?? 0 };
 }
 
 export async function getBlogByOwner(ownerId: string) {
