@@ -6,6 +6,7 @@ import { LikeButton } from "@/components/blog/like-button";
 import { CharacterBadge } from "@/components/character";
 import { formatDateTime } from "@/lib/format";
 import { REWARD_RULES } from "@/lib/game";
+import { parseId } from "@/lib/ids";
 import {
   getAdjacentPosts,
   getBlogBySlug,
@@ -19,8 +20,8 @@ import { getViewer } from "@/server/dal";
 
 async function load(props: PageProps<"/blog/[slug]/[postId]">) {
   const { slug, postId } = await props.params;
-  const id = Number(postId);
-  if (!Number.isInteger(id) || id <= 0) return null;
+  const id = parseId(postId);
+  if (id === null) return null;
   const blog = await getBlogBySlug(slug);
   if (!blog) return null;
   const post = await getPost(blog.id, id);
