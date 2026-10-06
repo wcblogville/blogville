@@ -183,7 +183,7 @@ export function lampSvg(): string {
   );
 }
 
-// ===== 동물 농장 (틀만: 울타리·헛간·간판. 동물은 아직 없다) =====
+// ===== 동물 농장: 울타리, 헛간, 간판, 울타리 안 동물 =====
 export const FARM_SIZE = { width: 260, height: 170 };
 export function farmSvg(): string {
   const { width: w, height: h } = FARM_SIZE;
@@ -213,12 +213,13 @@ export function farmSvg(): string {
     `<rect x="104" y="80" width="30" height="20" rx="5" fill="#f0c75e" ${S}/><path d="M108 86h22M108 93h22" stroke="#c99a2e" stroke-width="2"/>` +
     `<path d="M196 112h36l-4 14h-28z" fill="#a9733f" ${S}/><path d="M199 116h30" stroke="#6cb4ee" stroke-width="3"/>` +
     front +
-    // 간판 + "준비 중" 띠
+    // 울타리 안 동물 (병아리, 아기 돼지)
+    `<circle cx="66" cy="128" r="7" fill="#ffd84d" stroke="${O}" stroke-width="1.5"/><path d="M71 128l4 1.5l-4 1.5z" fill="#f08a24"/><circle cx="68" cy="126" r="1" fill="${O}"/>` +
+    `<ellipse cx="214" cy="136" rx="11" ry="8" fill="#ffc7d6" stroke="${O}" stroke-width="1.5"/><ellipse cx="223" cy="136" rx="3.5" ry="2.6" fill="#ff9fb8" stroke="${O}" stroke-width="1.2"/><circle cx="217" cy="132" r="1" fill="${O}"/>` +
+    // 간판
     `<rect x="166" y="100" width="6" height="40" fill="#8d6040" ${S}/>` +
     `<rect x="128" y="74" width="82" height="34" rx="6" fill="#f5e6c8" ${S}/>` +
-    `<text x="169" y="96" text-anchor="middle" font-size="14" fill="#2f7d32" ${FONT}>동물 농장</text>` +
-    `<g transform="rotate(-8 169 108)"><rect x="124" y="101" width="90" height="13" fill="#ffd400" stroke="${O}" stroke-width="1.5"/>` +
-    `<text x="169" y="111" text-anchor="middle" font-size="9" fill="${O}" ${FONT}>🚧 준비 중 🚧</text></g>`;
+    `<text x="169" y="96" text-anchor="middle" font-size="14" fill="#2f7d32" ${FONT}>동물 농장</text>`;
   return wrap(w, h, body);
 }
 

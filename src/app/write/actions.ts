@@ -9,6 +9,7 @@ import { attachments, categories, posts, postTags, tags } from "@/db/schema";
 import { POST_REWARD_MIN_LENGTH } from "@/lib/game";
 import { parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
+import { growForPost } from "@/server/farm";
 import { grantReward, lockUser } from "@/server/points";
 import { attachmentKeysIn, htmlToText, sanitizePostHtml, type KnownAttachments } from "@/server/sanitize";
 
@@ -109,6 +110,8 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
       // 새 공개 글이 충분히 길면 보상 (하루 상한은 grantReward가 확인)
       if (input.visibility === "public" && contentText.length >= POST_REWARD_MIN_LENGTH) {
         rewarded = (await grantReward(tx, viewer.userId, "post", id)).granted;
+        // 글쓰기 보상을 받으면 농장에서 키우는 동물도 함께 자란다 (TOWN-09)
+        if (rewarded) await growForPost(tx, viewer.userId);
       }
     }
 

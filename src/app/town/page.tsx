@@ -39,7 +39,7 @@ export default async function TownPage(props: PageProps<"/town">) {
           <span className="text-3xl">🎉</span>
           <p className="flex-1 text-sm sm:text-base">
             <b>{member.profile.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요.
-            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 위쪽 <b>게시판</b>에서 출석 도장도 받을 수 있어요. 왼쪽 <b>동물 농장</b>은 곧 문을 열어요.
+            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 위쪽 <b>게시판</b>에서 출석 도장도 받을 수 있어요. 왼쪽 <b>동물 농장</b>에서 첫 알을 받아 동물을 키워 보세요.
           </p>
           <Link href="/town" className="shrink-0 rounded-lg px-2 py-1 text-ink-soft hover:bg-white" aria-label="환영 문구 닫기">
             ✕

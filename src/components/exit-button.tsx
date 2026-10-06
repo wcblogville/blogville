@@ -11,7 +11,7 @@ export function ExitButton() {
   if (HIDDEN_ON.has(pathname)) return null;
   return (
     <Link href="/town" className="btn shrink-0 bg-white py-1.5 text-sm text-ink">
-      ← <span className="hidden sm:inline">광장으로&nbsp;</span>나가기
+      <span>← <span className="hidden sm:inline">광장으로 </span>나가기</span>
     </Link>
   );
 }

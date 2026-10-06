@@ -86,6 +86,7 @@ npm run dev                     # http://localhost:3000
 | `node e2e/write-count.mjs <폴더>` | 글쓰기 화면 글자 수·보상 안내가 서버의 실제 보상 판단과 같은지 E2E (실행마다 새 회원) |
 | `node e2e/attachments.mjs <폴더>` | 글 첨부 E2E: 사진·파일을 버튼·붙여 넣기·끌어다 놓기로 올리고 원래 이름으로 내려받기, 조작한 올리기 요청 거부 (실행마다 새 회원) |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
+| `node e2e/farm.mjs <폴더>` | 동물 농장: 알 받기·부화·돌보기·다 키움·알 사기·5마리 제한·글쓰기 연동 E2E (실행마다 새 회원) |
 | `node e2e/social.mjs <폴더>` | 이웃 추가·취소, 조작한 이웃 요청 거부 E2E (`e2e/blog.mjs` 다음에) |
 | `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
 | `npm test` | 아래 세 테스트를 함께 실행 |

@@ -24,7 +24,7 @@ export function levelProgress(exp: number) {
   return { level, current: exp - base, needed: next - base, ratio: (exp - base) / (next - base), isMax: false };
 }
 
-export type RewardReason = "signup" | "attendance" | "attendance_streak" | "post" | "comment" | "like_received";
+export type RewardReason = "signup" | "attendance" | "attendance_streak" | "post" | "comment" | "like_received" | "farm_care";
 
 /** 활동 보상 규칙. dailyLimit: 하루에 보상받을 수 있는 최대 횟수 */
 export const REWARD_RULES: Record<RewardReason, { exp: number; coins: number; dailyLimit: number }> = {
@@ -34,6 +34,7 @@ export const REWARD_RULES: Record<RewardReason, { exp: number; coins: number; da
   post: { exp: 30, coins: 30, dailyLimit: 3 },
   comment: { exp: 5, coins: 5, dailyLimit: 10 },
   like_received: { exp: 2, coins: 2, dailyLimit: 20 },
+  farm_care: { exp: 2, coins: 0, dailyLimit: 15 }, // 동물 돌보기 (5마리 × 3가지)
 };
 
 /** 글 작성 보상을 받으려면 본문이 이 글자 수 이상이어야 한다 */
