@@ -87,7 +87,7 @@ export function ClosetView({
         characterAsset={character?.assetKey ?? ""}
         backgroundAsset={background?.assetKey ?? ""}
         nickname={nickname}
-        className="h-60 shadow-[0_4px_0_0_var(--color-line)]"
+        className="h-60 rounded-2xl border-2 border-line shadow-[0_4px_0_0_var(--color-line)]"
       />
       <p role="status" aria-live="polite" className={`mt-3 min-h-6 text-center font-bold ${message?.ok ? "text-leaf-dark" : "text-berry"}`}>
         {message?.text}

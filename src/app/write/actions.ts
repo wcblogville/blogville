@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { attachments, categories, posts, postTags, tags } from "@/db/schema";
 import { POST_REWARD_MIN_LENGTH } from "@/lib/game";
+import { parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
 import { grantReward, lockUser } from "@/server/points";
 import { attachmentKeysIn, htmlToText, sanitizePostHtml, type KnownAttachments } from "@/server/sanitize";
@@ -51,6 +52,10 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message, values };
   const input = parsed.data;
+  // 글·카테고리 ID가 DB integer 범위 밖이면 쿼리 오류(500)가 나므로 먼저 막는다 (#21)
+  if ((input.postId && parseId(input.postId) === null) || (input.categoryId && parseId(input.categoryId) === null)) {
+    return { error: "잘못된 요청이에요", values };
+  }
 
   // 본문의 사진·파일은 실제로 올라간 첨부만 남기고, 파일 카드 이름·크기는 DB 값으로 맞춘다 (POST-07, POST-09)
   const keys = attachmentKeysIn(input.contentHtml);
@@ -131,6 +136,7 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
 
 export async function deletePost(postId: number) {
   const viewer = await requireMember();
+  if (parseId(postId) === null) return;
   await db.delete(posts).where(and(eq(posts.id, postId), eq(posts.blogId, viewer.profile.blogId)));
   revalidatePath("/", "layout");
   redirect(`/@${viewer.profile.blogSlug}`);

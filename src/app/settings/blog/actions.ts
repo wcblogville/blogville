@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { blogs, categories } from "@/db/schema";
+import { parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
 import { uniqueViolation } from "@/server/db-errors";
 
@@ -46,6 +47,7 @@ export async function addCategory(_prev: FormState, formData: FormData): Promise
 
 export async function renameCategory(categoryId: number, name: string): Promise<FormState> {
   const viewer = await requireMember();
+  if (parseId(categoryId) === null) return { error: "잘못된 요청이에요" };
   const parsed = nameSchema.safeParse(name);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
@@ -64,6 +66,7 @@ export async function renameCategory(categoryId: number, name: string): Promise<
 /** 글은 남기고 카테고리만 지운다 (posts.category_id → NULL) */
 export async function deleteCategory(categoryId: number) {
   const viewer = await requireMember();
+  if (parseId(categoryId) === null) return;
   await db.delete(categories).where(and(eq(categories.id, categoryId), eq(categories.blogId, viewer.profile.blogId)));
   revalidatePath("/", "layout");
 }
@@ -71,6 +74,7 @@ export async function deleteCategory(categoryId: number) {
 /** 바로 위/아래 카테고리와 순서를 바꾼다 */
 export async function moveCategory(categoryId: number, direction: -1 | 1) {
   const viewer = await requireMember();
+  if (parseId(categoryId) === null || (direction !== -1 && direction !== 1)) return;
   await db.transaction(async (tx) => {
     const list = await tx
       .select({ id: categories.id })

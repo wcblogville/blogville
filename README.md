@@ -83,14 +83,17 @@ npm run dev                     # http://localhost:3000
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
 | `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E |
+| `node e2e/write-count.mjs <폴더>` | 글쓰기 화면 글자 수·보상 안내가 서버의 실제 보상 판단과 같은지 E2E (실행마다 새 회원) |
 | `node e2e/attachments.mjs <폴더>` | 글 첨부 E2E: 사진·파일을 버튼·붙여 넣기·끌어다 놓기로 올리고 원래 이름으로 내려받기, 조작한 올리기 요청 거부 (실행마다 새 회원) |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
 | `node e2e/social.mjs <폴더>` | 이웃 추가·취소, 조작한 이웃 요청 거부 E2E (`e2e/blog.mjs` 다음에) |
 | `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
-| `npm test` | 아래 두 테스트를 함께 실행 |
+| `npm test` | 아래 세 테스트를 함께 실행 |
 | `npm run test:game` | 레벨(최고 99)·연속 출석 계산 테스트 |
+| `npm run test:ids` | 주소·요청의 숫자 ID 검사(1 ~ 2147483647) 테스트 |
 | `npm run test:sanitize` | 글 HTML 정화(XSS 방지) 테스트 |
 | `node e2e/decisions.mjs <폴더>` | 팀 결정 구현 E2E: 3종 지급, 장착 표시, 연속 출석, 내역, 최고 레벨, 광장 이웃집, 조이스틱 |
+| `node e2e/params.mjs <폴더>` | 범위 밖·이상한 숫자(글 번호, 카테고리, 페이지, Server Action 인자)에서 500이 나지 않는지 E2E (`e2e/blog.mjs` 다음에) |
 
 ## 폴더 구조
 
