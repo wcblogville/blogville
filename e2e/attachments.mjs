@@ -122,7 +122,7 @@ check("내려받기: 내용 그대로", readFileSync(savedPath).equals(PDF));
 // 7) DB에는 주소만, 응답 머리글은 안전하게
 const { rows } = await db.query("SELECT content_html, content_text FROM posts WHERE id = $1", [postId]);
 check("DB 본문에는 /files/ 주소만 (data: 없음)", rows[0].content_html.includes("/files/") && !rows[0].content_html.includes("data:"));
-check("첨부는 보상 글자 수에 들어가지 않음", rows[0].content_text.split(/\n+/).join("|") === "사진과 파일을 붙인 글|사진 다음 글", JSON.stringify(rows[0].content_text));
+check("첨부는 보상 글자 수에 들어가지 않음", rows[0].content_text.split(/\n+/).join("|") === "사진과 파일을 붙인 글|사진 다음 글|xy", JSON.stringify(rows[0].content_text));
 const imgSrc = await page.locator(".prose-blog img").first().getAttribute("src");
 const imgRes = await page.request.get(`${BASE}${imgSrc}`);
 check("사진 응답: image/png·nosniff·화면에 표시", imgRes.headers()["content-type"] === "image/png" && imgRes.headers()["x-content-type-options"] === "nosniff" && imgRes.headers()["content-disposition"].startsWith("inline"));
