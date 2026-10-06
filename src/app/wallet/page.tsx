@@ -15,6 +15,9 @@ const REASON_LABEL: Record<string, string> = {
   comment: "💬 댓글 작성",
   like_received: "♥ 공감 받음",
   purchase: "🏪 아이템 구매",
+  farm_care: "🥕 동물 돌보기",
+  farm_grown: "🏅 동물 다 키움",
+  egg_purchase: "🥚 알 구매",
 };
 
 const signed = (n: number) => (n > 0 ? `+${n.toLocaleString()}` : `−${Math.abs(n).toLocaleString()}`);

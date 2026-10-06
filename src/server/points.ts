@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { items, pointLedger } from "@/db/schema";
 import { levelProgress, REWARD_RULES, type RewardReason } from "@/lib/game";
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | Tx;
 
 /** 한국 시간 기준 오늘 0시 (timestamptz) */

@@ -13,6 +13,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -34,7 +35,14 @@ export const ledgerReason = pgEnum("ledger_reason", [
   "comment",
   "like_received",
   "purchase",
+  "farm_care",
+  "farm_grown",
+  "egg_purchase",
 ]);
+// 동물 농장 (TOWN-09)
+export const animalStatus = pgEnum("animal_status", ["egg", "growing", "grown"]);
+export const eggSource = pgEnum("egg_source", ["starter", "level", "shop"]);
+export const careAction = pgEnum("care_action", ["feed", "water", "pet"]);
 
 // ===== 인증 (Better Auth가 요구하는 구조) =====
 export const users = pgTable("users", {
@@ -345,4 +353,67 @@ export const pointLedger = pgTable(
     index("point_ledger_user_reason_created_idx").on(t.userId, t.reason, t.createdAt),
     index("point_ledger_user_created_idx").on(t.userId, t.createdAt.desc()), // 내역 화면 최신순 (GAME-07)
   ],
+);
+
+// ===== 동물 농장 (TOWN-09) =====
+// 동물 종류 카탈로그. 다 자라는 데 필요한 성장치와 다 키웠을 때 보상이 종류마다 다르다
+export const animalSpecies = pgTable(
+  "animal_species",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    assetKey: text("asset_key").notNull(),
+    growExp: integer("grow_exp").notNull(), // 다 자라는 데 필요한 성장치
+    rewardExp: integer("reward_exp").notNull(), // 다 키웠을 때 받는 경험치
+    rewardCoins: integer("reward_coins").notNull(),
+    hatchWeight: integer("hatch_weight").notNull(), // 알에서 나올 확률 비중 (클수록 흔함)
+  },
+  (t) => [
+    check("animal_species_grow_check", sql`${t.growExp} > 0`),
+    check("animal_species_reward_check", sql`${t.rewardExp} >= 0 AND ${t.rewardCoins} >= 0`),
+    check("animal_species_weight_check", sql`${t.hatchWeight} > 0`),
+  ],
+);
+
+// 회원이 가진 알·동물. 알일 때는 종류가 정해지지 않았다가 부화할 때 랜덤으로 정해진다
+export const userAnimals = pgTable(
+  "user_animals",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    speciesId: integer("species_id").references(() => animalSpecies.id),
+    status: animalStatus("status").notNull().default("egg"),
+    growth: integer("growth").notNull().default(0),
+    source: eggSource("source").notNull(),
+    sourceLevel: integer("source_level"), // 레벨 보상 알이면 몇 레벨 보상인지
+    createdAt: createdAt(),
+    hatchedAt: timestamp("hatched_at", { withTimezone: true }),
+    grownAt: timestamp("grown_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("user_animals_species_check", sql`(${t.status} = 'egg') = (${t.speciesId} IS NULL)`),
+    check("user_animals_growth_check", sql`${t.growth} >= 0`),
+    check("user_animals_level_check", sql`(${t.source} = 'level') = (${t.sourceLevel} IS NOT NULL)`),
+    // 첫 알은 한 번, 레벨 보상 알은 레벨마다 한 번만
+    uniqueIndex("user_animals_starter_uq").on(t.userId).where(sql`${t.source} = 'starter'`),
+    uniqueIndex("user_animals_level_uq").on(t.userId, t.sourceLevel).where(sql`${t.source} = 'level'`),
+    index("user_animals_user_status_idx").on(t.userId, t.status),
+  ],
+);
+
+// 돌보기 기록: 동물 한 마리에 같은 돌보기는 하루 한 번
+export const animalCares = pgTable(
+  "animal_cares",
+  {
+    animalId: integer("animal_id")
+      .notNull()
+      .references(() => userAnimals.id, { onDelete: "cascade" }),
+    action: careAction("action").notNull(),
+    date: date("date").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.animalId, t.action, t.date] })],
 );
