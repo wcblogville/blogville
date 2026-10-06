@@ -22,7 +22,8 @@
 | 1.0 | 2026-10-02 | 광장 개편: 창작 SVG 그림(캐릭터·배경·건물), 우체통 → 게시판 출석 체크, 헤더 이동 메뉴·광장 바로가기 카드 제거 + 나가기 버튼, 광장 전체 화면, 이웃집 패널 유지(즐겨찾기는 TOWN-04·08 결정 따름)·내 블로그 검색(BLOG-07) 방향, 동물 농장 자리(TOWN-09), 기본 캐릭터 남자/여자 2종(고른 1종만 지급), 모험가·고양이·강아지 상점 판매. 0.8·0.9를 합치면서 BLOG·POST·SOC 본문의 그림·헤더 설명을 현재 코드에 맞춤 | 이진행 |
 | 1.1 | 2026-10-02 | POST-01 버그 수정 반영: 오류 뒤 입력값 유지(#16)·빈 본문 안내 문구(#17) 수용 기준 [x], 예외 흐름·표시 규칙·POST-08 열린 질문을 고친 동작에 맞춤 | chang0580 |
 | 1.2 | 2026-10-02 | 버그 수정 반영: 태그 300자 한국어 안내(#19)·`%` 태그 페이지 탭 제목(#20)·이웃 추가 때 상대 확인(#22). POST-01·POST-04·SOC-04 수용 기준 [x], 예외 흐름·입력 규칙·구현 방식을 고친 동작에 맞춤 | chang0580 |
-| 1.5 | 2026-10-02 | POST-07 사진 첨부 구현(✅)으로 명세를 실제 동작 기준으로 다시 씀, 파일 첨부를 새 ID POST-09로 추가(✅), 에디터 도구·NF-03 갱신 | chang0580 |
+| 1.4 | 2026-10-06 | 버그 수정·오류 화면 반영: 숫자 값 500 → 404·기본값(#21, BLOG-02·BLOG-05·블로그 홈·POST-01·POST-03·POST-05·SOC), 글쓰기 글자 수를 서버 기준으로(#18, POST-01), 블로그 홈 미니룸 아래쪽 선만(#23, BLOG-04), Blogville 오류 화면 `error.tsx`(#35). 수용 기준 [x], 예외 흐름·입력 규칙·구현 방식·열린 질문을 고친 동작에 맞춤 | chang0580 |
+| 1.5 | 2026-10-06 | POST-07 사진 첨부 구현(✅)으로 명세를 실제 동작 기준으로 다시 씀, 파일 첨부를 새 ID POST-09로 추가(✅), 에디터 도구·NF-03 갱신 | chang0580 |
 
 ### 이 문서를 함께 고치는 방법
 
@@ -444,7 +445,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 > **수용 기준 [x] 표시 읽는 법** (4.2~4.4 공통. 4.5의 표기에 (개발 서버 확인)과 (`npm run test:sanitize`)를 더했다)
 > - (`e2e/파일명`): E2E 스크립트를 실행해서 확인한 것
 > - (개발 서버 확인): 개발 서버(`npm run dev`)에 직접 요청해서 확인한 것
-> - (`npm run test:sanitize`): HTML 정화 테스트(`scripts/test-sanitize.ts`)를 실행해서 확인한 것
+> - (`npm run test:sanitize`): HTML 정화 테스트(`scripts/test-sanitize.ts`)를 실행해서 확인한 것. 글쓰기 화면과 서버의 글자 수를 비교하는 `scripts/test-text-length.ts`도 함께 실행된다 (#18)
 > - (코드 확인): 코드만 읽고 판단한 것 → **나중에 테스트를 추가할 대상**
 >
 > 열린 질문의 **(제안)** 은 chang0580의 개인 블로그 프로젝트(my-blog)에서 먼저 만들어 본 방식을 바탕으로 한 제안이다. 팀에서 정하기 전까지는 본문(현재 동작)에 넣지 않았다. 미구현(⬜) 항목(BLOG-06, POST-08)의 소제목 옆 (제안)은 이와 달리 만들 때의 목표 명세라는 뜻이다 (4.5 GAME-06·GAME-07과 같은 표기).
@@ -476,7 +477,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 위 오류 | 블로그를 만들지 않는다. 입력한 값은 그대로 남고 칸 아래에 문구 |
 | 온보딩 처리 중 하나라도 실패 | 블로그도, 프로필·카테고리·아이템·코인도 저장되지 않는다 (트랜잭션) |
 | 온보딩을 마친 회원이 `/onboarding`에 들어감, 또는 열어 둔 온보딩 화면에서 다시 보냄 | 블로그를 새로 만들지 않고 `/town`으로 이동 |
-| 두 탭에서 거의 동시에 [광장으로 출발! 🚀] | 블로그는 1개만 생긴다. 늦은 쪽은 정해진 문구 없이 오류가 난다 (열린 질문) |
+| 두 탭에서 거의 동시에 [광장으로 출발! 🚀] | 블로그는 1개만 생긴다. 늦은 쪽에는 이 상황을 알려 주는 문구 없이 Blogville 오류 화면이 뜬다: 🚧 `잠깐 문제가 생겼어요` / [다시 시도] [광장으로 돌아가기] (헤더는 그대로, `src/app/error.tsx`) (열린 질문) |
 | 같은 회원으로 `blogs`에 한 행 더 INSERT | DB가 거부 (`blogs_owner_id_unique`) |
 
 빈 칸은 브라우저(`required`)가 먼저 막는다. 41자부터는 칸에 입력되지 않는다(`maxLength`). 그래서 위 두 문구는 공백만 적었거나 브라우저 검사를 건너뛴 요청에서 나온다.
@@ -529,7 +530,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 **열린 질문**
 - 블로그를 여러 개(주제별) 가질 수 있게 할까? 그러려면 `blogs_owner_id_unique`를 풀고, "회원 = 블로그 1개"를 전제로 한 곳(광장 `내 집`, `getViewer()`의 INNER JOIN, `WHERE owner_id = 나`로 고치는 Server Action들)을 모두 바꿔야 한다.
 - 블로그만 닫거나(삭제) 처음부터 다시 만들 수 있게 할까? 지금은 블로그를 지우는 화면이 없고, 블로그가 함께 지워지는 회원 탈퇴(AUTH-06)도 아직 없다.
-- 두 탭에서 동시에 온보딩을 보내면 늦은 쪽은 정해진 문구 없이 오류가 난다 (`user_items` 기본 키 위반을 문구로 바꾸지 않고 `throw err`). 늦은 쪽도 `/town`으로 보낼까? (예: 잠근 뒤 `profiles`를 한 번 더 확인)
+- 두 탭에서 동시에 온보딩을 보내면 늦은 쪽에는 Blogville 오류 화면(`잠깐 문제가 생겼어요`)이 뜬다. `user_items` 기본 키 위반을 문구로 바꾸지 않고 `throw err` 하고, `useActionState`가 그 오류를 `src/app/error.tsx`로 넘긴다. 늦은 쪽도 `/town`으로 보낼까? (예: 잠근 뒤 `profiles`를 한 번 더 확인)
 - 관리자 블로그 주소 `notice`는 예약 주소(`RESERVED_SLUGS`)에 없다. 관리자 스크립트보다 먼저 회원이 `notice`를 쓰면 스크립트가 `blogs_slug_unique` 위반으로 실패한다. `notice`를 예약 주소에 넣을까?
 - (제안) 온보딩 `블로그 이름` 칸: 지금은 빈 칸(예시 `예: 진행의 개발 일지`)이라 직접 적어야 한다 → `{닉네임}의 블로그`로 미리 채워 둘까? 닉네임이 최대 12자라 40자 제한 안에 들고, 광장 이웃집 아래 줄도 이미 `{닉네임}의 블로그`로 쓴다(`src/components/town/scene.ts`). (my-blog는 처음 로그인할 때 이 이름으로 블로그를 자동으로 만든다)
 
@@ -555,16 +556,16 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 없는 주소 (`/@nobody_here`) | 404 화면: 🧭 `길을 잃었어요` / `찾는 블로그나 글이 없거나, 비공개 글이에요.` / [광장으로 돌아가기] (→ `/town`) |
 | 대문자가 섞인 주소 (`/@NOTICE`) | 404 (같은 화면). 주소는 소문자로만 저장되고, 들어온 주소를 그대로 비교한다 |
 | 다른 블로그의 글 ID (`/@a/{b 블로그의 글 ID}`) | 404 (같은 화면) |
-| 글 ID가 숫자가 아니거나 0 이하 (`/@notice/abc`, `/@notice/0`) | 404 (같은 화면) |
+| 글 ID가 숫자가 아니거나 0 이하, 또는 앞에 0이 붙거나 `1e1`처럼 씀 (`/@notice/abc`, `/@notice/0`, `/@notice/012`, `/@notice/1e1`) | 404 (같은 화면, #21) |
 | 남의 비공개 글 | 404 (같은 화면, POST-02). 비공개 글이 있다는 것도 알리지 않는다 |
-| 글 ID가 2147483647보다 큼 (`/@notice/2147483648`) | **알려진 문제**: 404가 아니라 오류 화면(500)이 나온다 (아래 구현 방식 참고) |
+| 글 ID가 2147483647(`posts.id` `integer` 최댓값)보다 큼 (`/@notice/2147483648`) | 404 (같은 화면). DB에 묻기 전에 걸러서 오류 화면(500)이 나지 않는다 (#21) |
 
 **입력 규칙** (AUTH-02에서 정함)
 - 영문 소문자·숫자·`_`, 3~20자. 예약어(`admin`, `api`, `town`, `feed`, `shop`, `closet`, `write`, `settings`, `blog`, `onboarding`)는 쓸 수 없다.
 - 앞뒤 공백은 지우고, 대문자로 입력하면 소문자로 바꿔 저장한다. (`JinHaeng` → `jinhaeng`)
 - 오류 문구: 형식이 틀림 `주소는 영문 소문자, 숫자, _ 로 3~20자예요` · 예약어 `이 주소는 쓸 수 없어요` · 이미 있는 주소 `이미 있는 주소예요`
 - 한 번 정하면 바꿀 수 없다.
-- 글 ID: 양의 정수.
+- 글 ID: 숫자만 적힌 1\~2147483647 정수 (`posts.id`가 `integer`). 앞에 0이 붙거나(`012`) `1e1`처럼 쓴 값은 글 ID로 보지 않는다 (`parseId`, #21).
 
 **표시 규칙**
 - 블로그 홈 위, 블로그 이름·소개 아래: `@{주소} · 글 {공개 글 수} · 이웃 {이 블로그 주인을 이웃 추가한 사람 수}`. 블로그 이름을 누르면 `/@주소`
@@ -579,14 +580,14 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 화면 | 실제 페이지는 `/blog/[slug]`, `/blog/[slug]/[postId]` (서버 컴포넌트): `src/app/blog/[slug]/page.tsx`(`BlogHomePage`), `src/app/blog/[slug]/[postId]/page.tsx`(`PostPage`). 로그인 검사 없이 `getViewer()`로 주인인지만 본다. 없으면 `notFound()` → `src/app/not-found.tsx`(사이트 공통 404) |
 | 처리 | Next.js에서 `@`로 시작하는 폴더는 parallel route라는 특수 기능이라 주소로 쓸 수 없다. 그래서 `next.config.ts`의 **rewrite**로 `/@:slug` → `/blog/:slug`, `/@:slug/:postId` → `/blog/:slug/:postId`로 바꿔 보여준다. 주소창에는 `/@slug`가 그대로 남는다 |
-| 조회 | `getBlogBySlug(slug)` (`src/server/blog.ts`): `WHERE blogs.slug = slug`, 들어온 주소를 **그대로** 비교한다 (소문자로 바꾸지 않음). 글은 `load()` (`src/app/blog/[slug]/[postId]/page.tsx`): `Number(postId)`가 양의 정수인지 확인 → `getBlogBySlug` → `getPost(blog.id, id)`: `WHERE posts.id = id AND posts.blog_id = blog.id`. 이어서 `PostPage`가 비공개 글이고 주인이 아니면 `notFound()` |
+| 조회 | `getBlogBySlug(slug)` (`src/server/blog.ts`): `WHERE blogs.slug = slug`, 들어온 주소를 **그대로** 비교한다 (소문자로 바꾸지 않음). 글은 `load()` (`src/app/blog/[slug]/[postId]/page.tsx`): `parseId(postId)`(`src/lib/ids.ts`)로 숫자만 적힌 1\~2147483647 정수인지 확인 → `getBlogBySlug` → `getPost(blog.id, id)`: `WHERE posts.id = id AND posts.blog_id = blog.id`. 이어서 `PostPage`가 비공개 글이고 주인이 아니면 `notFound()` |
 | 데이터 | `blogs.slug` (UNIQUE, CHECK `^[a-z0-9_]{3,20}$`) · `posts.id` (`integer`, 서비스 전체 일련번호) |
 | 무결성 | 주소는 블로그를 만들 때(BLOG-01)만 저장하고, 이 기능은 주소로 찾기만 한다 (글 화면의 조회수 쓰기는 POST-06). 주소가 서비스 전체에서 하나뿐인 것은 DB UNIQUE `blogs_slug_unique`가, 글 ID가 하나뿐인 것은 `posts.id` 기본 키가 보장한다. 주소를 바꾸지 못하게 막는 DB 제약은 없다 (아래 변경 불가) |
 | 검증 | 주소를 정할 때(AUTH-02): 브라우저 `maxLength={20}`, `required` / 서버 zod `trim()` → `toLowerCase()` → 정규식, 이어서 `RESERVED_SLUGS` (`src/app/onboarding/actions.ts`) / DB CHECK `blogs_slug_check` + UNIQUE `blogs_slug_unique` |
 | 변경 불가 | 블로그 관리의 `updateBlogInfo` (`src/app/settings/blog/actions.ts`)는 `title`, `description`만 받는다. 주소를 바꾸는 Server Action은 없다 |
 | 링크 | 사이트 안 링크는 모두 `` `/@${slug}` ``로 만든다 (`src/components/site-header.tsx`, `src/components/blog/post-card.tsx`, `src/components/blog/comment-section.tsx`, `src/app/town/page.tsx`, `src/components/town/scene.ts` 등). `/blog/주소`로 거는 링크는 없다 |
 | 갱신 | `savePost` 발행 뒤 `/@주소/글ID?new=reward`(보상 받음) 또는 `?new=1`, 수정 뒤 `/@주소/글ID`, `deletePost` 삭제 뒤 `/@주소` (`src/app/write/actions.ts`) |
-| 알려진 문제 | 글 ID는 `Number.isInteger`와 `> 0`만 확인한다. `posts.id`는 `integer`(최대 2147483647)라서 그보다 큰 수를 넣으면 DB 오류(`out of range for type integer`)가 나고 404 대신 오류 화면(500)이 나온다 |
+| 글 ID 검사 | `parseId`(`src/lib/ids.ts`)는 문자열이 `^[1-9][0-9]{0,9}$`이고 2147483647(`MAX_DB_INT`) 이하일 때만 숫자로 바꾸고, 아니면 `null` → 404. `posts.id`가 `integer`라서 그보다 큰 수를 DB에 넘기면 `out of range` 오류(500)가 나던 것을 막는다 (#21, `npm run test:ids`) |
 
 **수용 기준**
 - [x] `/@주소`로 들어가면 그 블로그 홈이 열리고, 주소창에는 `/@주소`가 그대로 남는다. (코드 확인)
@@ -597,13 +598,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 글 ID가 숫자가 아니거나 0 이하면(`/@notice/abc`, `/@notice/0`) 404 화면을 보여준다. (코드 확인)
 - [x] 사이트 안의 블로그·글 링크는 모두 `/@주소` 형식이다. (코드 확인)
 - [x] 블로그 관리 화면에서 주소를 바꿀 수 없다 (입력 칸도, Server Action도 없다). (코드 확인)
-- [ ] 글 ID가 2147483647보다 크면(`/@notice/2147483648`) 404 화면을 보여준다. → **버그** (위 구현 방식의 알려진 문제): 지금은 오류 화면(500)이 나온다. (로컬 서버에서 `/@notice/2147483647`은 404, `/@notice/2147483648`은 500 확인)
+- [x] 글 ID가 2147483647보다 크거나(`/@notice/2147483648`) `1e3`처럼 숫자만 적힌 값이 아니면 404 화면을 보여준다. (`e2e/params.mjs`, #21)
 
 **열린 질문**
 - `/blog/주소`로도 들어가지는데, `/@주소`로 이동(redirect)시킬까? (사이트 안 링크는 모두 `/@주소`라서 직접 입력할 때만 열린다)
 - 블로그 주소를 바꿀 수 있게 하려면 옛 주소를 새 주소로 연결해 줘야 한다. 필요할까?
 - 예약어(`RESERVED_SLUGS`)에 지금 있는 화면 `attendance`, `tags`와 공지사항 블로그 주소 `notice`가 없다. 공지사항 블로그가 아직 없을 때 회원이 `notice`를 먼저 쓰면 `npm run admin:create`가 실패한다 (`blogs.slug` UNIQUE). 세 개를 예약어에 넣을까?
-- `/@주소/012`, `/@주소/1e1`도 글 12, 10을 연다 (`Number()` 변환). 숫자만(`^\d+$`) 받게 할까? 위 500 버그와 함께 고치면 된다.
+- (해결됨, #21) `/@주소/012`, `/@주소/1e1`은 이제 404다. `Number()` 대신 `parseId`(`src/lib/ids.ts`)가 `^[1-9][0-9]{0,9}$`이고 2147483647 이하인 값만 받는다. 2147483647보다 큰 ID의 500 오류도 함께 고쳤다.
 - (제안) 대문자 주소: 지금 `/@NOTICE`는 404 → 소문자로 바꿔 찾고 `/@notice`로 이동시킬까?
 - (제안) 없는 블로그 문구: 지금은 없는 글·비공개 글과 같은 404 문구 → 없는 블로그만 `없는 블로그예요.`로 따로 보여줄까? (비공개 글은 있다는 것을 숨기려고 지금처럼 같은 문구로 둔다)
 - (제안) 주소와 아이디: 지금은 따로 정한다 (온보딩 주소 칸 기본값 없음) → 아이디로 가입한 회원은 주소 칸 기본값을 아이디로 채울까? 아이디 규칙(4\~20자)은 주소 규칙(3\~20자) 안에 든다. 다만 예약어와 같은 아이디(`admin`, `town` 등)는 주소로 못 쓰고, 소셜 로그인 회원은 아이디가 없으니 직접 정한다.
@@ -714,14 +715,14 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 **표시 규칙**
 - 위치: 블로그 홈 카드 맨 위. 아래에 블로그 이름·소개·`@주소 · 글 N · 이웃 N`이 이어진다 (블로그 홈 화면 공통).
 - 높이: 모바일 224px, 640px 이상 화면 256px. 가로는 카드 너비를 꽉 채운다.
-- 모서리·테두리: 둥근 모서리는 없앤다(`rounded-none`). 코드는 아래쪽 2px 선만 남기려고 `border-0 border-b-2`를 주지만, 개발 서버가 만든 CSS에서 `MiniRoom` 기본 클래스의 `.border-2`가 `.border-0`보다 뒤에 있어 실제로는 **네 면 모두** 2px 테두리(`border-line`)가 그려진다. (열린 질문 참고. 2026-10-02 그림 교체 뒤에도 `MiniRoom` 기본 클래스 `border-2`와 블로그 홈의 `border-0 border-b-2`는 그대로라 여전히 해당된다)
+- 모서리·테두리: 미니룸에는 아래쪽 2px 선(`border-b-2 border-line`)만 있고 둥근 모서리는 없다. 위·옆 테두리와 둥근 위 모서리는 미니룸을 감싼 블로그 홈 카드(`card overflow-hidden`: 2px 테두리, 둥근 모서리 20px)의 것이다. `MiniRoom` 기본 클래스에는 테두리·둥근 모서리가 없고, 쓰는 쪽이 `className`으로 정한다 (#23).
 - 배경: 장착한 배경의 SVG 장면이 미니룸 전체를 채운다. 넓은 배너라서 가로 760 너비로 그린 장면을 쓰고(확대돼도 흐려지지 않게), 바닥에 맞춰 채운다(`bg-cover bg-bottom`).
 - 캐릭터와 그 아래 닉네임 배지가 가운데에 세로로 놓이고, 이 묶음의 아래 끝이 바닥에서 6% 위다. 캐릭터는 전신 SVG 그림 112px (화면 크기와 상관없이 같음, 옅은 그림자).
 - 닉네임은 캐릭터 아래 흰 배지 (반투명 흰색, 굵은 14px 글씨). 블로그 이름이 아니라 주인의 닉네임이다.
 - 애니메이션: 2초 주기로 튀기 (`animate-bounce` + `[animation-duration:2s]`, Tailwind 기본 1초를 2초로 늘림). 계속 반복하고, 튀는 높이는 캐릭터 높이의 25% (약 28px). 동작 줄이기 설정(`prefers-reduced-motion`)과 상관없이 늘 튄다.
 - 보는 사람(주인·다른 회원·방문자)이 달라도 미니룸 모습은 같다. 주인에게만 보이는 [✏️ 글쓰기] [🎨 꾸미기] [⚙️ 관리] 버튼은 미니룸 아래 정보 줄 오른쪽에 있다. (헤더에는 이동 메뉴가 없어서 글쓰기·꾸미기는 이 버튼으로 들어간다, TOWN-01)
 - 글 화면(`/@주소/글ID`)에는 미니룸이 없다. 글 위 블로그 링크에 캐릭터 얼굴(28px)만 보인다.
-- 꾸미기(`/closet`)에도 같은 `MiniRoom`이 높이 240px로 보인다 (SHOP-04).
+- 꾸미기(`/closet`)에도 같은 `MiniRoom`이 높이 240px로 보인다. 여기서는 네 면 모두 2px 테두리와 둥근 모서리(`rounded-2xl border-2 border-line`), 아래쪽 그림자가 있다 (SHOP-04).
 
 **구현 방식**
 
@@ -740,6 +741,8 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 꾸미기에서 배경을 바꾸면 블로그 미니룸 배경도 바뀐다. (`e2e/game.mjs`: 바닷가 장착 뒤 블로그 홈 스크린샷 `23-blog-beach.png`로 확인, 자동 판정은 없음)
 - [x] 없는 `asset_key`면 캐릭터는 회색 기본 몸통, 배경은 초원으로 보인다. (코드 확인)
 - [x] 미니룸 높이는 640px 미만 화면에서 224px, 640px 이상에서 256px이다. (코드 확인)
+- [x] 블로그 홈 미니룸은 아래쪽에만 2px 선이 있다 (위·오른쪽·왼쪽 테두리는 0px). (`e2e/blog.mjs`, #23)
+- [x] 꾸미기 미니룸은 네 면 모두 2px 테두리와 둥근 모서리가 있다. (코드 확인)
 - [x] 닉네임 배지에는 블로그 이름이 아니라 주인의 닉네임이 보인다. (코드 확인)
 - [x] 캐릭터는 멈추지 않고 2초 주기로 위아래로 튄다. (코드 확인)
 - [x] 375px 화면에서 블로그 홈에 가로 스크롤이 생기지 않는다. (`e2e/nonfunctional.mjs`, 주인으로 로그인한 화면, NF-06)
@@ -749,7 +752,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - ~~이모지 대신 픽셀아트 캐릭터를 쓸까? (NF-25 라이선스와 함께 정하기)~~ → **결정·구현** (2026-10-02): 외부 픽셀아트 대신 코드로 그린 SVG 창작 캐릭터·배경·건물을 쓴다 (`src/lib/art/`). 외부 에셋이 없어 라이선스 문제가 없다.
 - 미니룸에 가구를 놓는 기능(SHOP-05)과 어떻게 합칠까?
 - 캐릭터 칸에 배경 아이템이 들어가는 것은 앱 코드(`equipItem`, 온보딩)만 막는다 (들어가면 캐릭터가 회색 기본 몸통으로 보인다). 종류도 DB 제약으로 막을까? (NF-15)
-- 블로그 홈 미니룸 테두리: 코드 의도는 아래쪽 2px 선만인데(`border-0 border-b-2`), 실제로는 네 면 모두 2px 테두리가 카드 테두리 안쪽에 한 겹 더 그려진다. 의도대로 아래쪽만 남길까? (예: `MiniRoom` 기본 클래스의 `border-2`를 꾸미기 쪽 `className`으로 옮기기)
+- (해결됨, #23) 블로그 홈 미니룸에 네 면 2px 테두리가 카드 테두리 안쪽에 한 겹 더 그려지던 문제는 고쳤다. `MiniRoom` 기본 클래스에서 `rounded-2xl border-2 border-line`을 빼고, 블로그 홈은 `border-b-2 border-line`(아래쪽만), 꾸미기는 `rounded-2xl border-2 border-line`(네 면)을 `className`으로 준다.
 - (제안) 동작 줄이기(`prefers-reduced-motion: reduce`)를 켠 사람에게는 튀기를 멈출까? 지금은 설정과 상관없이 계속 튄다. 예) `motion-reduce:animate-none`
 - (제안) 튀는 폭: 현재 캐릭터 높이의 25%(약 15~18px)·2초 → 3px·3초로 살짝 흔들리게?
 - (제안) 미니룸에 대체 텍스트가 없다 (`role`·`aria-label` 없음. 닉네임은 글자로 읽히지만 캐릭터 그림은 `alt=""`·`aria-hidden`이고 배경은 CSS `background-image`라 읽히지 않는다). `role="img"`와 `aria-label`(예: `미니룸: 바닷가의 고양이`)을 붙일까? 지금 `MiniRoom`은 `asset_key`만 받으므로 아이템 이름(`items.name`)도 넘겨야 한다.
@@ -785,6 +788,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 삭제 확인 창에서 취소 → 아무것도 하지 않는다.
 - 맨 위에서 ▲ / 맨 아래에서 ▼ → 버튼이 비활성. 요청이 서버로 가더라도 아무것도 바꾸지 않는다.
 - 다른 블로그의 카테고리 ID로 이름 바꾸기·삭제·순서 바꾸기 요청 → 아무것도 바뀌지 않는다. 오류 문구도 없다.
+- 카테고리 ID를 1\~2147483647 정수가 아닌 값(`99999999999`, `abc`)으로 조작한 요청 → 아무것도 바뀌지 않는다. 이름 바꾸기는 `잘못된 요청이에요`를 돌려주고, 삭제·순서 바꾸기는 문구 없이 끝난다. 순서 바꾸기의 방향이 `-1`·`1`이 아니어도 그냥 끝난다 (#21).
 - 로그인하지 않음 → `/`로 이동. 온보딩 전 → `/onboarding`으로 이동 (`requireMember()`).
 
 **입력 규칙**
@@ -813,7 +817,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 항목 | 내용 |
 |---|---|
 | 화면 | `src/app/settings/blog/page.tsx`(서버, `requireMember()` → `getBlogByOwner` → `getCategories(blog.id, true)`) + `CategoryManager`(목록과 추가 폼, `useActionState`), `CategoryRow`(줄 하나, `useTransition`) (클라이언트, `src/app/settings/blog/settings-forms.tsx`) |
-| 처리 | `src/app/settings/blog/actions.ts`, 모두 `requireMember()`로 시작한다. `addCategory`: zod `nameSchema` → INSERT, position = 지금 최댓값 + 1 (`COALESCE(MAX(position), -1) + 1`, 처음이면 0). `renameCategory(categoryId, name)`: zod → `UPDATE ... WHERE id AND blog_id`. `deleteCategory(categoryId)`: `DELETE ... WHERE id AND blog_id`. `moveCategory(categoryId, direction)`: 위 `-1`, 아래 `1` (아래 무결성 참고) |
+| 처리 | `src/app/settings/blog/actions.ts`, 모두 `requireMember()`로 시작한다. 이름 바꾸기·삭제·순서 바꾸기는 이어서 `parseId`(`src/lib/ids.ts`)로 카테고리 ID가 1\~2147483647 정수인지 확인하고, 아니면 이름 바꾸기는 `잘못된 요청이에요`를 돌려주고 나머지는 그냥 끝낸다. `moveCategory`는 방향이 `-1`·`1`인지도 확인한다 (#21). `addCategory`: zod `nameSchema` → INSERT, position = 지금 최댓값 + 1 (`COALESCE(MAX(position), -1) + 1`, 처음이면 0). `renameCategory(categoryId, name)`: zod → `UPDATE ... WHERE id AND blog_id`. `deleteCategory(categoryId)`: `DELETE ... WHERE id AND blog_id`. `moveCategory(categoryId, direction)`: 위 `-1`, 아래 `1` (아래 무결성 참고) |
 | 데이터 | `categories(id, blog_id, name, position)`. 글 수는 `getCategories(blogId, includePrivate)` (`src/server/blog.ts`)의 하위 쿼리 `COUNT(*) FROM posts WHERE category_id = 카테고리`. 관리 화면은 비공개 포함(`true`), 블로그 홈은 주인이 볼 때만 포함 |
 | 무결성 | 순서 바꾸기는 트랜잭션 안에서 내 블로그 카테고리를 `position, id` 순으로 읽고 두 개를 맞바꾼 뒤 **전체를 0, 1, 2…로 다시 매긴다**. 행 잠금은 따로 걸지 않는다. `position`에는 UNIQUE 제약이 없다 (같은 값이 생기면 `id` 순). 카테고리를 지우면 그 글들의 `category_id`는 `NULL`이 된다 (`ON DELETE SET NULL`). 블로그가 지워지면 카테고리도 지워진다 (`ON DELETE CASCADE`) |
 | 검증 | 브라우저 `maxLength=20`(추가 칸은 `required`도) / 서버 zod `nameSchema`(앞뒤 공백 제거 후 1\~20자) / DB UNIQUE `categories_blog_name_uq (blog_id, name)`, CHECK `categories_name_check`(`char_length` 1\~20). UNIQUE 위반(23505)은 `uniqueViolation()`(`src/server/db-errors.ts`)으로 잡아 `이미 있는 카테고리예요`로 바꾼다 |
@@ -832,6 +836,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 삭제 확인 창에서 취소하면 지워지지 않는다. (코드 확인)
 - [x] 관리 화면의 (글 수)에는 비공개 글도 들어간다. (코드 확인)
 - [x] 다른 블로그의 카테고리 ID로 이름 바꾸기·삭제·순서 바꾸기를 요청해도 그 카테고리는 바뀌지 않는다. (코드 확인)
+- [x] 카테고리 ID를 범위 밖 값(`99999999999`)으로, 또는 순서 바꾸기 방향을 `-1`·`1`이 아닌 값으로 조작해 이름 바꾸기·삭제·순서 바꾸기를 요청해도 500 오류가 나지 않고 아무것도 바뀌지 않는다. (500이 아님: `e2e/params.mjs` / 바뀌지 않음: 코드 확인, #21)
 - [x] 로그인하지 않고 `/settings/blog`에 들어가면 `/`로 이동한다. (로그아웃 상태로 GET 하면 307 → `/`) (개발 서버 확인)
 
 **열린 질문**
@@ -954,16 +959,15 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 없는 주소, 대문자가 섞인 주소(`/@Notice`) | 404 화면: 🧭 길을 잃었어요 / 찾는 블로그나 글이 없거나, 비공개 글이에요. / [광장으로 돌아가기]. 탭 제목 `블로그를 찾을 수 없어요 \| Blogville` |
 | 로그인했지만 온보딩 전 | 방문자와 똑같이 본다 (버튼 없음). `profiles` 행이 있어야 회원으로 본다 |
-| `?category=`가 숫자가 아님(`abc`)·`0` | 전체 글을 보여준다 |
-| `?category=`가 없는 번호·음수·다른 블로그의 카테고리 | 목록이 비고 제목은 `전체 글 0개`, 왼쪽 목록에는 선택된 항목이 없다. `🌱 아직 글이 없어요.` |
-| `?category=`가 정수가 아님(`1.5`, `Infinity`)·DB `integer` 범위를 넘음(`99999999999`) | **HTTP 500 오류** (개발 서버 확인, 2026-10-02). 정수인지 검사하지 않고 DB 쿼리에 넘기기 때문이다. `src/app`에 `error.tsx`가 없어 Blogville 모양의 오류 화면도 없다 |
-| `?page=`가 숫자가 아니거나 1보다 작음 | 1페이지 (POST-05) |
+| `?category=`가 1\~2147483647 정수가 아님 (`abc`, `0`, `-1`, `1.5`, `Infinity`, `99999999999`. 앞에 0이 붙은 `012`, `1e1`처럼 쓴 값도) | 전체 글을 보여준다 (`parseId`, #21) |
+| `?category=`가 없는 번호·다른 블로그의 카테고리 | 목록이 비고 제목은 `전체 글 0개`, 왼쪽 목록에는 선택된 항목이 없다. `🌱 아직 글이 없어요.` |
+| `?page=`가 1\~2147483647 정수가 아님 (숫자가 아님, 1보다 작음, `99999999999999999999`처럼 아주 큼) | 1페이지 (POST-05, #21) |
 | `?page=`가 마지막 페이지보다 큼 | 목록이 비고 `🌱 아직 글이 없어요.`가 뜬다. 제목의 `N개`는 그대로라 글이 있는데 없다고 보인다. 글이 8개 이하면 페이지 번호도 숨겨져 돌아갈 번호가 없다 |
 
 **입력 규칙** (주소로 받는 값)
 - 주소(slug): BLOG-02 규칙. 소문자로 바꾸지 않고 **그대로** 찾는다.
-- `category`: 그 블로그의 카테고리 ID. `Number()`로 바꿔서 `0`이거나 숫자가 아니면 무시한다. 정수인지는 검사하지 않는다 (위 500 오류).
-- `page`: 1 이상의 정수. 아니면 1 (`parsePage`)
+- `category`: 그 블로그의 카테고리 ID. `parseId`(`src/lib/ids.ts`)로 숫자만 적힌 1\~2147483647 정수만 받고, 아니면 무시해서 전체 글을 보여준다 (#21).
+- `page`: 숫자만 적힌 1\~2147483647 정수. 아니면 1 (`parsePage`, #21)
 
 **표시 규칙**
 - 화면 최대 너비 1152px(`max-w-6xl`), 좌우 여백 16px
@@ -993,7 +997,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 처리 | ① `getBlogBySlug(slug)` → 없으면 `notFound()` ② `getViewer()` (`src/server/dal.ts`): `profile`이 있어야 회원으로 보고, `isOwner = 내 userId === blog.ownerId` ③ `getCategories`, `listBlogPosts`, `isFollowing`(다른 회원일 때만)을 동시에(`Promise.all`) 조회 |
 | 데이터 | `src/server/blog.ts`. `getBlogBySlug`: `blogs` + `profiles` + `items`(캐릭터·배경) 조인, 하위 쿼리로 공개 글 수와 `follows` 수(`followee_id = 주인`). `getCategories(blogId, isOwner)`: `position`, `id` 오름차순, 글 수 하위 쿼리(주인이면 비공개 포함). `listBlogPosts`: POST-05 |
 | 무결성 | 읽기만 한다. 이 화면에서 쓰는 것은 이웃 버튼(`toggleFollow`, SOC-04)뿐 |
-| 검증 | 로그인 검사 없이 누구나 연다 (`requireMember()`를 부르지 않음). 비공개 글은 서버 쿼리에서 `isOwner`일 때만 넣는다 (POST-02). `page`는 `parsePage`가 정수인지 검사하고, `category`는 `Number(sp.category) \|\| undefined`라서 정수 검사가 없다 |
+| 검증 | 로그인 검사 없이 누구나 연다 (`requireMember()`를 부르지 않음). 비공개 글은 서버 쿼리에서 `isOwner`일 때만 넣는다 (POST-02). `page`(`parsePage`)와 `category`(`parseId(sp.category) ?? undefined`) 모두 `parseId`(`src/lib/ids.ts`)로 숫자만 적힌 1\~2147483647 정수만 받는다. 아니면 1페이지·전체 글 (#21) |
 | 갱신 | 이웃 버튼 → `toggleFollow` (`src/app/blog/actions.ts`) → `revalidatePath("/", "layout")` → 같은 화면을 다시 그린다 |
 | 주소 | `?category=카테고리ID&page=N` |
 | 제목 | `generateMetadata`: 브라우저 탭 제목 = `{블로그 이름} \| Blogville` (루트 레이아웃 `template: "%s \| Blogville"`). 없는 블로그면 `블로그를 찾을 수 없어요 \| Blogville`. `getBlogBySlug`는 `cache`로 감싸지 않아서 한 번 열 때 같은 쿼리가 2번(제목 1번, 화면 1번) 나간다 |
@@ -1012,12 +1016,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 글이 없으면 `🌱 아직 글이 없어요.`가 보이고, [첫 글 쓰기]는 주인에게만 보인다. (방문자: 개발 서버 확인 / 주인: 코드 확인)
 - [x] 375px 너비에서 가로 스크롤이 없다. (`e2e/nonfunctional.mjs`, NF-06)
 - [ ] 375px에서 주인 버튼 글자가 두 줄로 쪼개지지 않는다. → **보완 필요**: 지금 "글쓰 / 기"처럼 쪼개진다 (NF-06)
-- [ ] `?category=1.5`, `?category=99999999999`처럼 이상한 값을 넣어도 500 오류가 나지 않는다. → **보완 필요**: 지금은 500 (개발 서버 확인, 2026-10-02)
+- [x] `?category=1.5`, `?category=Infinity`, `?category=99999999999`처럼 이상한 값을 넣어도 500 오류가 나지 않고 전체 글이 보인다. (500이 아님: `e2e/params.mjs` / 전체 글: 코드 확인, #21)
 
 **열린 질문**
 - 주인이 볼 때 **"전체 글 (N)"은 공개 글만 세는데, 목록에는 비공개 글도 나와서** 숫자가 다르다. 주인에게는 비공개 포함 수를 보여줄까?
   - (제안) 주인에게는 `전체 글 (N)`을 비공개 포함 수로 바꿔 목록 제목 `N개`, 카테고리 글 수와 맞춘다. 헤더 `글 N`은 남에게 보이는 숫자라 공개 글만 그대로 둔다.
-- 다른 블로그의 카테고리 번호를 주소에 넣으면 목록은 비고 제목은 "전체 글 0개"로 나온다. 404로 보낼까? `1.5`처럼 정수가 아닌 값은 지금 500 오류라서 함께 정해야 한다 (404 / 전체 글로 보여주기).
+- (해결됨, #21) `?category=`에 `1.5`처럼 정수가 아니거나 DB 범위를 넘는 값은 500 오류 대신 전체 글을 보여준다.
+- 다른 블로그의 카테고리 번호나 없는 번호를 주소에 넣으면 목록은 비고 제목은 "전체 글 0개"로 나온다. 404로 보낼까, 이상한 값처럼 전체 글로 보여줄까?
 - 마지막 페이지보다 큰 `?page=`에서 `아직 글이 없어요.`가 뜬다. 마지막 페이지로 보낼까, 문구를 바꿀까? (POST-05 열린 질문과 함께 정하기)
 - 주인이 카테고리를 고른 화면에서 [✏️ 글쓰기]나 [첫 글 쓰기]를 누르면 카테고리가 `카테고리 없음`인 글쓰기(`/write`)로 간다. 고른 카테고리를 미리 골라 줄까?
 - `getBlogBySlug`를 React `cache`로 감싸서 제목과 화면이 한 번만 조회하게 할까? (NF-07)
@@ -1093,9 +1098,11 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 본문 글자가 없음 (빈 줄만, 구분선만) | 본문을 적어 주세요 |
 | 본문 HTML 20만 자 초과 | 글이 너무 길어요 |
 | 태그 칸 300자 초과 | 태그는 모두 합쳐 300자까지예요 (화면 칸은 `maxLength=300`이라 요청을 조작했을 때만 보인다, #19) |
-| 남의 글·없는 글·숫자가 아닌 글ID의 수정 화면 주소로 들어감 | 404 |
-| 남의 글 ID로 수정 요청을 조작해 보냄 | 저장되지 않는다 (오류 화면). 트랜잭션 전체가 취소되고, `error.tsx`가 없어 Next.js 기본 오류 화면이 뜬다 |
+| 남의 글·없는 글의 수정 화면 주소, 또는 글ID가 숫자만 적힌 1\~2147483647 정수가 아닌 주소(`/write/abc`, `/write/2147483648`)로 들어감 | 404 (#21) |
+| 남의 글 ID로 수정 요청을 조작해 보냄 | 저장되지 않는다. 트랜잭션 전체가 취소되고, 글쓰기 화면 대신 Blogville 오류 화면이 뜬다: 🚧 `잠깐 문제가 생겼어요` / [다시 시도] [광장으로 돌아가기] (헤더는 그대로, `src/app/error.tsx`) |
 | 남의 글 ID로 삭제 요청을 조작해 보냄 | 아무것도 지워지지 않고, 안내 없이 내 블로그 홈으로 이동 |
+| 글 ID·카테고리 ID를 2147483647(DB `integer` 최댓값)보다 크게 조작해 보냄 (예: `99999999999`) | `잘못된 요청이에요`. 저장되지 않고 제목·본문·태그는 남는다 (#21). 9007199254740991보다 크면 zod 기본 영어 문구가 먼저 나온다 |
+| 1\~2147483647 정수가 아닌 글 ID로 삭제 요청을 조작해 보냄 | 아무것도 지워지지 않는다. 안내도 이동도 없다 (#21) |
 
 오류는 한 번에 하나(서버 검사 순서상 첫 번째)만 보인다. 오류가 나도 입력한 값은 모두 남는다. 본문과 공개 설정은 화면 상태(`useState`)라 그대로이고, 제목·카테고리·태그는 `savePost`가 오류와 함께 돌려준 입력값(`values`)으로 다시 채운다. 카테고리 `<select>`는 그린 뒤 `defaultValue`를 바꿔도 React 19의 폼 초기화 기준이 그대로라 `key`로 새로 그린다 (#16).
 
@@ -1115,6 +1122,8 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 아래 상자 왼쪽: `N자 · ` 뒤에 안내 하나 (N은 `1,234`처럼 천 단위 쉼표, GAME-05)
   - 새 공개 글, 100자 이상: `저장하면 ✨ 경험치 30 · 🪙 30 보상 (하루 3번까지)` (초록 굵은 글씨)
   - 비공개: `비공개 글은 보상이 없어요` / 100자 미만: `100자 이상 쓰면 보상을 받아요` / 수정 중: `글을 고치고 있어요`
+  - N은 서버가 보상을 판단하는 글자 수(`content_text` 길이)와 같은 규칙으로 센다 (#18). 문단·제목·목록 항목·인용·코드 블록이 끝날 때마다 줄바꿈 1자를 센다 (맨 끝은 빼고). `Shift+Enter` 줄바꿈과 구분선은 0자다. 이어진 띄어쓰기·탭은 1자로 세고, 빈 문단이 여러 개여도 줄바꿈은 2자까지만 센다. 앞뒤 공백은 세지 않는다. `😀` 같은 이모지는 2자다 (JS `length`).
+  - 예전(Tiptap `CharacterCount`)과는 숫자가 다르다. 문단을 나누면 1자 더 많이 보인다 (두 문단 49자 + 50자는 `99자` → `100자`). `Shift+Enter` 줄바꿈과 구분선은 1자 적게 보인다.
 - 아래 상자 오른쪽: 오류 문구(빨간 굵은 글씨 한 줄) + [발행하기] 또는 [수정 완료]. 처리 중에는 `저장하는 중...`으로 바뀌고 눌리지 않는다.
 - 본문 칸은 글 상세와 같은 글 모양(`prose-blog`)을 쓴다. 쓰는 화면이 발행된 모양과 거의 같아서 따로 미리보기가 없다.
 - 브라우저 탭 제목: `글쓰기 | Blogville`, 수정 화면은 `글 고치기 | Blogville`
@@ -1124,14 +1133,15 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 | 항목 | 내용 |
 |---|---|
-| 화면 | `src/app/write/page.tsx`, `src/app/write/[postId]/page.tsx` (서버, `requireMember()`) + `PostForm`(클라이언트, `useActionState`) + `RichEditor`(Tiptap 3, `src/components/editor/`). 수정 화면은 `getPost(내 블로그 ID, 글ID)`(`src/server/blog.ts`)로 찾고 없으면 `notFound()` |
-| 처리 | `savePost` (`src/app/write/actions.ts`): `requireMember()` → zod 검증(첫 번째 문구만 돌려줌) → 본문의 첨부 키를 `attachments`에서 조회(`attachmentKeysIn`, POST-07·POST-09) → **HTML 정화**(`sanitizePostHtml(html, known)`) → 태그를 뺀 글자(`content_text`, `htmlToText`) 추출, 비었으면 중단 → 트랜잭션 [회원 잠금 → 카테고리가 내 블로그 것인지 확인 → INSERT 또는 `UPDATE ... WHERE id AND blog_id = 내 블로그` → 새 공개 글이고 `content_text` 100자 이상이면 `grantReward(..., "post", 글ID)` (하루 상한은 `grantReward`가 확인) → 태그 연결] |
-| 삭제 | `DeletePostButton` (`src/components/blog/delete-post-button.tsx`, 클라이언트): `confirm(...)` → `deletePost(postId)` (`src/app/write/actions.ts`): `requireMember()` → `DELETE ... WHERE id AND blog_id = 내 블로그` |
+| 화면 | `src/app/write/page.tsx`, `src/app/write/[postId]/page.tsx` (서버, `requireMember()`) + `PostForm`(클라이언트, `useActionState`) + `RichEditor`(Tiptap 3, `src/components/editor/`). 수정 화면은 주소의 글ID를 `parseId`(`src/lib/ids.ts`)로 확인하고(1\~2147483647 정수가 아니면 `notFound()`, #21) `getPost(내 블로그 ID, 글ID)`(`src/server/blog.ts`)로 찾고 없으면 `notFound()` |
+| 처리 | `savePost` (`src/app/write/actions.ts`): `requireMember()` → zod 검증(첫 번째 문구만 돌려줌) → 글·카테고리 ID가 2147483647보다 크면 `잘못된 요청이에요` (`parseId`, #21) → 본문의 첨부 키를 `attachments`에서 조회(`attachmentKeysIn`, POST-07·POST-09) → **HTML 정화**(`sanitizePostHtml(html, known)`) → 태그를 뺀 글자(`content_text`, `htmlToText`) 추출, 비었으면 중단 → 트랜잭션 [회원 잠금 → 카테고리가 내 블로그 것인지 확인 → INSERT 또는 `UPDATE ... WHERE id AND blog_id = 내 블로그` → 새 공개 글이고 `content_text` 100자 이상이면 `grantReward(..., "post", 글ID)` (하루 상한은 `grantReward`가 확인) → 태그 연결] |
+| 삭제 | `DeletePostButton` (`src/components/blog/delete-post-button.tsx`, 클라이언트): `confirm(...)` → `deletePost(postId)` (`src/app/write/actions.ts`): `requireMember()` → `parseId`로 글 ID가 1\~2147483647 정수인지 확인(아니면 그냥 끝, #21) → `DELETE ... WHERE id AND blog_id = 내 블로그` |
 | 데이터 | `posts.content_html`(정화된 HTML), `posts.content_text`(요약·검색·글자 수용). 수정하면 `updated_at`이 바뀐다(Drizzle `$onUpdate`). 화면에는 쓰지 않는다 |
 | 무결성 | 삭제는 `deletePost`: `DELETE WHERE id AND blog_id = 내 블로그`. 댓글·공감·태그 연결은 `ON DELETE CASCADE`로 함께 지워진다. 받은 보상은 회수하지 않는다 (`point_ledger.ref_id`는 FK가 아님). 수정할 글이 내 것이 아니면 `throw new Error("NOT_FOUND")`로 트랜잭션 전체 취소 |
 | 검증 | 브라우저 `maxLength`(제목 100·태그 300)·`required`(제목만) / 서버 zod(제목 1\~100자, 본문 HTML 200,000자, 태그 칸 300자, 공개 설정 enum) + 정화 / DB CHECK `posts_title_check`(제목 1\~100자) |
 | 갱신 | `revalidatePath("/", "layout")` 후 `/@주소/글ID?new=reward` (보상 받음) 또는 `?new=1` 로 이동. 수정이면 쿼리 없이 `/@주소/글ID`, 삭제면 `/@주소` |
-| 에디터 | 사진 `Image`(`@tiptap/extension-image`, `/files/키` 주소만, POST-07) + 파일 카드 `FileCard`(POST-09) + `StarterKit`(제목은 H2·H3만, 링크 `openOnClick: false`·`autolink: true`) + `Placeholder` + `CharacterCount`. 내용이 바뀔 때마다 HTML과 글자 수를 `PostForm`으로 올려 숨은 칸 `contentHtml`에 담는다. 버튼이 포커스를 가져가 커서를 잃지 않도록 `onMouseDown`에서 `preventDefault` |
+| 에디터 | 사진 `Image`(`@tiptap/extension-image`, `/files/키` 주소만, POST-07) + 파일 카드 `FileCard`(POST-09) + `StarterKit`(제목은 H2·H3만, 링크 `openOnClick: false`·`autolink: true`) + `Placeholder`. 내용이 바뀔 때마다(처음 그릴 때도) HTML과 글자 수 `postTextLength(editor.getHTML())`를 `PostForm`으로 올린다. HTML은 숨은 칸 `contentHtml`에 담는다. 버튼이 포커스를 가져가 커서를 잃지 않도록 `onMouseDown`에서 `preventDefault` |
+| 글자 수 | `postTextLength` (`src/lib/text-length.ts`): 서버의 `htmlToText(sanitizePostHtml(html)).length`와 같은 값이 나오도록 같은 규칙을 문자열 처리로 옮겼다 (서버의 `sanitize-html`은 브라우저에서 쓸 수 없다). `p`·`h1`·`h2`·`h3`·`li`·`blockquote`·`pre`가 끝날 때마다 줄바꿈 1자, `<br>`·`<hr>`은 0자, 이어진 띄어쓰기는 1자로 합치고, 엔티티(`&amp;` 등)는 서버와 같은 순서로 푼다. 규칙을 바꾸면 `src/server/sanitize.ts`의 `htmlToText`와 `scripts/test-text-length.ts`를 함께 고친다 (#18) |
 
 **수용 기준**
 - [x] 글을 발행하면 그 글 상세(`/@주소/글ID`)로 이동하고 위에 발행 안내가 보인다. (`e2e/blog.mjs`: 이동은 주소로, 안내는 스크린샷 `11-post.png`로 확인)
@@ -1141,15 +1151,17 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 글을 지우면 댓글·공감도 함께 지워진다. (코드 확인)
 - [x] 글을 고쳐도 보상은 없고, 발행 안내가 뜨지 않으며, 작성 시각과 목록 순서는 그대로다. (코드 확인)
 - [x] 로그인하지 않고 `/write`에 들어가면 첫 화면(`/`)으로 이동한다. (코드 확인)
+- [x] 수정 화면 주소의 글 ID가 2147483647보다 크면(`/write/2147483648`) 404다. (`e2e/params.mjs`, #21)
+- [x] 글 ID를 범위 밖 값(`99999999999`)으로 조작해 저장 요청을 보내면 `잘못된 요청이에요`가 나오고 저장되지 않는다. 범위 밖 글 ID로 삭제 요청을 조작해도 아무것도 지워지지 않는다. (코드 확인, #21)
 - [x] 오류가 나도 입력한 제목·카테고리·태그가 남는다. 예) 제목·카테고리·태그를 쓰고 본문 없이 [발행하기] → `본문을 적어 주세요`가 나오고 세 칸은 그대로다. (`e2e/blog.mjs`, #16)
 - [x] 본문이 비어 있으면 안내 문구 `오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️`가 흐리게 보이고, 글자를 쓰면 사라진다. (문구: `e2e/blog.mjs` / 사라짐: 개발 서버 확인, #17)
 - [x] 화면에서 낼 수 있는 오류 문구는 모두 한국어다 (NF-19). 태그 칸 300자 초과도 `태그는 모두 합쳐 300자까지예요`. 요청을 조작해 숫자가 아닌 값 등을 보내면 zod 기본 문구(영어)가 나올 수 있다. (코드 확인, #19)
-- [ ] 아래 상자의 글자 수·보상 안내와 실제 보상 판단이 같다. → **보완 필요**: 화면은 Tiptap `CharacterCount`(문단 사이 줄바꿈은 세지 않고, `Shift+Enter` 줄바꿈과 구분선은 1자로 셈), 서버는 `content_text` 길이(문단 사이 줄바꿈은 1자, `Shift+Enter` 줄바꿈과 구분선은 0자)로 센다. 예) 두 문단 49자 + 50자는 화면에 `99자 · 100자 이상 쓰면 보상을 받아요`로 보이지만 서버는 100자로 보고 보상을 준다 (하루 상한 안이면). 반대로 한 문단 50자 + `Shift+Enter` + 49자는 화면에 `100자 · 저장하면 ...`으로 보이지만 서버는 99자로 보고 보상이 없다. 한쪽 계산에 맞춰야 한다.
+- [x] 아래 상자의 글자 수·보상 안내와 실제 보상 판단이 같다 (#18). 예) 두 문단 49자 + 50자는 화면에 `100자 · 저장하면 ✨ 경험치 30 · 🪙 30 보상 (하루 3번까지)`가 보이고, 발행하면 보상을 받는다 (하루 상한 안이면). 한 문단 50자 + `Shift+Enter` + 49자는 `99자 · 100자 이상 쓰면 보상을 받아요`가 보이고 보상이 없다. (위 두 예의 화면 글자 수·안내를 저장된 `content_text` 길이·실제 보상과 비교: `e2e/write-count.mjs` / 목록·인용·코드 블록·구분선·빈 문단·엔티티·공백·이모지 등 21가지 HTML에서 `postTextLength`와 서버 계산이 같은지: `npm run test:sanitize`)
 
 **열린 질문**
 - 실수로 페이지를 벗어날 때 "작성 중인 글이 사라져요" 경고를 띄울까? (POST-08 임시 저장과 함께)
 - 삭제한 글의 보상을 회수할까? (GAME-05 열린 질문과 같음)
-- 남의 글 수정을 조작해 보냈을 때 오류 화면 대신 안내 문구를 보여줄까? (제안) 문구는 `내가 쓴 글만 고칠 수 있어요` (my-blog가 남의 글 수정 화면에 보여주는 문구)
+- 남의 글 수정을 조작해 보냈을 때 Blogville 오류 화면(`잠깐 문제가 생겼어요`) 대신 안내 문구를 보여줄까? (제안) 문구는 `내가 쓴 글만 고칠 수 있어요` (my-blog가 남의 글 수정 화면에 보여주는 문구)
 - 발행 안내는 주소의 `?new=`만 보고 띄운다. 그래서 새로고침하거나 다른 사람이 같은 주소를 열어도 다시 보인다. 주인에게만, 한 번만 보여줄까? (`e2e/blog.mjs`도 주소에서 `?new=1`만 지운다. 그래서 보상을 받은 글이면 다른 회원이 `?new=reward`가 붙은 주소로 들어간다)
 - 본문이 아주 길어 요청이 1MB를 넘으면(한글만 쓰면 약 35만 자) `글이 너무 길어요`가 나오기 전에 Next.js가 요청을 거절한다 (Server Action 기본 한도 1MB, `next.config.ts`에 `bodySizeLimit` 설정 없음). 화면에서 20만 자를 미리 막을까?
 - (제안) 제목 최대 100자 → 200자로? (my-blog는 200자가 넘으면 잘라서 저장한다) 바꾸려면 zod·`maxLength`와 함께 DB CHECK `posts_title_check`도 마이그레이션으로 바꿔야 한다.
@@ -1258,13 +1270,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 글쓰기 화면을 연 뒤 고른 카테고리가 지워짐 (다른 탭에서 BLOG-05 삭제) | 오류 없이 `카테고리 없음`으로 저장된다 |
 | 다른 블로그의 카테고리 ID나 없는 ID를 조작해 보냄 | 오류 없이 `카테고리 없음`으로 저장된다 |
 | 숫자가 아닌 값, 0 이하, 소수를 조작해 보냄 | 저장되지 않는다. zod 기본 영어 문구가 버튼([발행하기] / [수정 완료]) 왼쪽에 그대로 보인다. 예) `0` → `Too small: expected number to be >0`, `abc` → `Invalid input: expected number, received NaN`, `1.5` → `Invalid input: expected int, received number` (제목 오류가 있으면 제목 문구가 먼저 보인다) |
-| `integer` 범위(2,147,483,647)를 넘는 ID를 조작해 보냄 (예: `99999999999`) | 저장되지 않는다 (오류 화면). zod는 통과하고, 카테고리 조회에서 DB가 `integer` 범위 오류를 낸다 |
+| `integer` 범위(2,147,483,647)를 넘는 ID를 조작해 보냄 (예: `99999999999`) | 저장되지 않는다. 버튼 왼쪽에 `잘못된 요청이에요`가 보이고 제목·본문·태그는 남는다. zod를 통과한 뒤 `parseId`로 범위를 확인해서 DB 오류가 나지 않는다 (#21). 9007199254740991보다 크면 zod가 먼저 막아 영어 문구(`Too big: expected int to be <=9007199254740991`)가 보인다 |
 | 글의 카테고리가 나중에 지워짐 (BLOG-05) | 글은 남고 `category_id`가 `NULL`이 된다. 배지가 사라진다 |
 
 **입력 규칙**
 - 카테고리: 선택 항목 (필수 아님). 글 하나에 카테고리 **1개**까지 (`posts.category_id` 한 칸)
 - 값: 내 블로그 `categories.id` 또는 빈 값 (`카테고리 없음` → `NULL`)
-- 서버: `z.coerce.number().int().positive().optional()`을 통과한 뒤 내 블로그 카테고리인지 다시 조회
+- 서버: `z.coerce.number().int().positive().optional()`을 통과한 뒤 2147483647 이하인지 확인하고(`parseId`, 넘으면 `잘못된 요청이에요`, #21) 내 블로그 카테고리인지 다시 조회
 
 **표시 규칙**
 - 글쓰기·수정 화면: 제목 바로 아래 줄 맨 왼쪽에 선택 상자, 바로 오른쪽에 [🌍 공개] [🔒 비공개] (POST-02)
@@ -1283,7 +1295,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 처리 | `savePost`에서 보낸 카테고리가 **내 블로그의 것인지** 확인하고, 아니면 조용히 `카테고리 없음`으로 저장. 트랜잭션 안에서 `SELECT id FROM categories WHERE id = 보낸 값 AND blog_id = 내 블로그` → 없으면 `NULL` → INSERT / UPDATE의 `category_id`로 저장 (`src/app/write/actions.ts`) |
 | 데이터 | `posts.category_id` (NULL 허용, FK → `categories.id`). 목록(`baseList`)과 상세(`getPost`)는 `categories`를 LEFT JOIN 해서 이름(`categoryName`)을 가져온다. 블로그 홈 `?category=`는 `listBlogPosts`가 `posts.category_id = 카테고리ID`로 거른다 (`src/server/blog.ts`) |
 | 무결성 | `ON DELETE SET NULL`: 카테고리를 지워도 글은 남는다. "같은 블로그의 카테고리인지"는 DB 제약이 없고 `savePost`에서만 검사한다 (ERD 4장 "남은 확인 사항") |
-| 검증 | 브라우저: 선택 상자라 목록 밖 값은 고를 수 없음 / 서버: zod + 내 블로그 카테고리 조회 / DB: FK |
+| 검증 | 브라우저: 선택 상자라 목록 밖 값은 고를 수 없음 / 서버: zod + 범위 확인(`parseId`, `src/lib/ids.ts`) + 내 블로그 카테고리 조회 / DB: FK |
 | 표시 | 선택 목록 순서는 BLOG-05의 순서(`position`) → 같으면 `id`. 배지는 `PostCard`(`src/components/blog/post-card.tsx`)와 글 상세(`src/app/blog/[slug]/[postId]/page.tsx`) |
 | 갱신 | POST-01과 같다: `revalidatePath("/", "layout")` → 글 상세로 이동 |
 
@@ -1295,10 +1307,11 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 다른 블로그의 카테고리 ID를 보내도 그 카테고리로 저장되지 않는다. (코드 확인)
 - [x] 글쓰기 화면을 연 뒤 고른 카테고리를 지우고 발행해도 오류 없이 저장되고 `카테고리 없음`이 된다. (코드 확인)
 - [x] 카테고리 이름을 바꾸면(BLOG-05) 그 카테고리 글의 배지도 새 이름으로 보인다. (코드 확인)
+- [x] 범위를 넘는 카테고리 ID(`99999999999`)를 보내면 저장되지 않고 `잘못된 요청이에요`가 보인다. 제목·본문·태그는 남는다. (문구·저장 안 됨: `e2e/params.mjs` / 제목·본문·태그: 코드 확인, #21)
 
 **열린 질문**
 - 새 글 기본값이 `카테고리 없음`이라, "일상"이 있어도 고르지 않으면 분류되지 않는다. 기본값을 첫 번째 카테고리로 할까?
-- 조작한 값에는 zod 영어 문구(`0`, `abc`)나 오류 화면(`integer` 범위를 넘는 ID)이 보인다. 한국어 문구 하나로 바꿀까? (화면의 선택 상자로는 생기지 않는다)
+- 조작한 값 중 `integer` 범위를 넘는 ID(예: `99999999999`)에는 이제 `잘못된 요청이에요`가 나온다 (#21). `0`, `abc`, `1.5`, 9007199254740991보다 큰 수에는 아직 zod 영어 문구가 보인다. 이것도 한국어 문구 하나로 바꿀까? (화면의 선택 상자로는 생기지 않는다)
 - 목록 카드의 배지도 눌러서 그 카테고리 목록으로 가게 할까? (지금은 카드 전체가 글 상세 링크라 배지만 따로 누를 수 없다)
 - (제안) 카테고리를 선택 → 필수로? 블로그에 카테고리가 있으면 첫 선택지를 `카테고리 선택`으로 두고 꼭 고르게 하고, 하나도 없을 때만 `카테고리 없음`으로 저장한다. (my-blog는 글 종류 `일상`도 예외지만 Blogville에는 글 종류가 없다)
 - (제안) 카테고리가 하나도 없으면 선택 상자 옆에 `/settings/blog`로 가는 안내(예: `카테고리가 없어요. 만들기`)를 보여줄까?
@@ -1415,14 +1428,14 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 상황 | 시스템 반응 / 보여줄 문구 |
 |---|---|
 | 조건에 맞는 글이 없음 | 화면별 빈 화면 문구 (아래 표). 페이지 번호는 숨긴다 |
-| `?page=`가 없음, 1보다 작음, 정수가 아님 (`0`, `-1`, `abc`, `2.5`) | 1페이지를 보여준다 |
+| `?page=`가 없음, 1보다 작음, 정수가 아님, 앞에 0이 붙거나 `1e1`처럼 씀 (`0`, `-1`, `abc`, `2.5`, `012`, `1e1`) | 1페이지를 보여준다 (#21) |
 | 마지막 페이지보다 큰 번호 (예: 글 9개인데 `?page=5`) | 빈 목록. **글이 있는데도** 빈 화면 문구가 나온다. 페이지 번호는 `1 2`로 보이고 현재 페이지 표시가 없다 |
-| 아주 큰 번호 (예: `?page=99999999999999999999`) | **500 오류.** OFFSET이 PostgreSQL bigint 범위를 넘는다 (`out of range for type bigint`, `/feed`·`/tags/…`에서 확인). `error.tsx`가 없어서 Next.js 기본 오류 화면이 나온다 → 보완 필요 |
+| 아주 큰 번호 (2147483647보다 큼, 예: `?page=99999999999999999999`) | 1페이지를 보여준다. `parsePage`가 2147483647까지만 받아서 OFFSET이 DB 범위를 넘지 않는다 (#21) |
 | 로그인하지 않고 `/feed/following`에 들어감 | 첫 화면(`/`)으로 보낸다. 로그인했지만 온보딩 전이면 `/onboarding`으로 (SOC-04) |
 
 **입력 규칙** (주소)
-- `?page=N`: 1 이상의 정수. 상한 없음
-- 블로그 홈만 `?category=카테고리ID`: 숫자가 아니거나 `0`이면 전체 글. 다른 블로그의 카테고리 번호면 빈 목록 (블로그 홈 화면 열린 질문)
+- `?page=N`: 숫자만 적힌 1\~2147483647 정수. 아니면 1페이지 (`parsePage` → `parseId`, `src/lib/ids.ts`, #21)
+- 블로그 홈만 `?category=카테고리ID`: 숫자만 적힌 1\~2147483647 정수가 아니면(`abc`, `0`, `1.5`, `99999999999`) 전체 글 (#21). 없는 번호나 다른 블로그의 카테고리 번호면 빈 목록 (블로그 홈 화면 열린 질문)
 
 **표시 규칙**
 
@@ -1451,7 +1464,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - **페이지 번호**: 첫 페이지, 마지막 페이지, 현재 페이지 **앞뒤 2개**를 보여주고 사이가 비면 `…`. 1페이지뿐이면 숨긴다
   - 예) 20페이지 중 10페이지: `1 … 8 9 [10] 11 12 … 20`
   - 현재 페이지는 검은 배경. [이전] [다음] 버튼은 없다
-- 주소: `?page=N` (1보다 작거나 정수가 아니면 1페이지). 마지막보다 큰 페이지는 빈 목록
+- 주소: `?page=N` (1\~2147483647 정수가 아니면 1페이지). 마지막보다 큰 페이지는 빈 목록
   - 블로그 홈은 고른 카테고리를 페이지 주소에 유지한다 (`/@주소?category=3&page=2`)
 
 **구현 방식**
@@ -1467,7 +1480,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 인덱스 | `posts_blog_created_idx` `posts (blog_id, created_at DESC)`, `posts_visibility_created_idx` `posts (visibility, created_at DESC)` |
 | 상수 | `PAGE_SIZE = 8` (`src/server/blog.ts`) |
 | 무결성 | 해당 없음 (읽기만). 개수와 목록은 트랜잭션 없이 쿼리 2번 |
-| 검증 | 서버 `parsePage`: 1 이상 정수가 아니면 1. **상한이 없어서** 아주 큰 수가 OFFSET으로 그대로 DB에 간다. 블로그 홈 `?category`는 `Number(sp.category) \|\| undefined`만 거친다 |
+| 검증 | 서버 `parsePage`(`src/components/pagination.tsx`) = `parseId(value) ?? 1`: 숫자만 적힌 1\~2147483647 정수가 아니면 1. 그래서 아주 큰 수가 OFFSET으로 DB에 가지 않는다 (#21). 블로그 홈 `?category`도 `parseId(sp.category) ?? undefined`라서 이상한 값이면 전체 글 |
 | 갱신 | 목록은 요청마다 서버에서 그린다. 글·공감·댓글·이웃 처리(`savePost`, `deletePost`, `adminDeletePost`, `toggleLike`, `addComment`, `deleteComment`, `toggleFollow`)가 `revalidatePath("/", "layout")`을 부른다 |
 
 **수용 기준**
@@ -1482,13 +1495,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 삭제된 댓글은 카드의 `💬` 수에서 빠진다. (코드 확인)
 - [x] 마을 소식·이웃 새 글·태그별 글 카드에는 작성자 줄이 있고, 블로그 홈 카드에는 없다. (코드 확인)
 - [x] 로그인하지 않고 `/feed/following`에 들어가면 첫 화면(`/`)으로 간다. (코드 확인)
-- [ ] 아주 큰 페이지 번호(`?page=99999999999999999999`)를 넣어도 500 오류가 나지 않는다. → **보완 필요**: 지금은 500 오류가 난다 (`/feed`에서 확인). 처리 방법은 아래 열린 질문
+- [x] 아주 큰 페이지 번호(`?page=99999999999999999999`)를 넣어도 500 오류가 나지 않고 1페이지가 보인다. (500이 아님: `e2e/params.mjs`로 블로그 홈·`/feed`·`/feed/following`·`/tags/…` 확인 / 1페이지: 코드 확인, #21)
 
 **열린 질문**
 - 8개가 적당할까? (Tistory는 보통 10개)
 - 페이지 번호 대신 "더 보기" 버튼이나 무한 스크롤로 바꿀까?
-- 마지막 페이지보다 큰 번호를 넣으면 마지막 페이지를 보여줄까? (지금은 글이 있는데도 빈 화면 문구가 나온다. 이렇게 바꾸면 아주 큰 번호의 500 오류도 함께 막을 수 있다)
-- 블로그 홈 `?category=`에 `2.5`나 아주 큰 수를 넣으면 걸러지지 않고 그대로 DB로 간다. `category_id`가 정수 컬럼이라 500 오류가 난다 (블로그 홈 화면 예외 흐름 참고. 개발 서버 확인, 2026-10-02). `parsePage`처럼 1 이상 정수만 받을까?
+- 마지막 페이지보다 큰 번호를 넣으면 마지막 페이지를 보여줄까? (지금은 글이 있는데도 빈 화면 문구가 나온다. 2147483647보다 큰 번호는 #21부터 1페이지로 보인다)
+- (해결됨, #21) 블로그 홈 `?category=`도 `parseId`로 거른다. `2.5`나 아주 큰 수처럼 숫자만 적힌 1\~2147483647 정수가 아니면 전체 글을 보여주고, 500 오류는 나지 않는다 (`e2e/params.mjs`).
 - 비공개로 쓴 글을 나중에 공개로 바꾸면 처음 쓴 시각 자리에 들어가서 마을 소식 위쪽에 나오지 않는다. 공개한 시각으로 정렬할까? (지금 `posts`에는 공개 시각 컬럼이 없다)
 - 목록 규칙(8개, 정렬, 페이지 번호)을 확인하는 E2E가 없다 (`e2e/blog.mjs`는 블로그 홈·마을 소식 스크린샷만 찍는다). 글 9개로 2페이지를 확인하는 스크립트를 더할까?
 - (제안) 넓은 화면(901px 이상)에서는 카드를 1열 → 2열로? 한 페이지 8개면 2열 × 4줄로 맞는다.
@@ -1517,13 +1530,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 주인이 자기 글을 엶 (비공개 글 포함) | 오르지 않는다 |
 | 같은 사람이 새로고침하거나 다시 엶 | 열 때마다 또 오른다 |
-| 없는 블로그 주소, 없는 글 번호, 숫자가 아니거나 0 이하인 번호, 다른 블로그 주소(`/@다른주소/글ID`)로 엶 | 404, 오르지 않는다 |
+| 없는 블로그 주소, 없는 글 번호, 숫자만 적힌 1\~2147483647 정수가 아닌 번호(`abc`, `0`, `1e3`, `2147483648`), 다른 블로그 주소(`/@다른주소/글ID`)로 엶 | 404, 오르지 않는다 |
 | 다른 사람이 비공개 글 주소로 들어감 | 404, 오르지 않는다 (POST-02). 비공개인 동안에는 조회수가 오르지 않는다 |
 
 조회수 때문에 따로 보여주는 문구는 없다. 404 화면은 BLOG-02와 같다 (`길을 잃었어요` / `찾는 블로그나 글이 없거나, 비공개 글이에요.`).
 
 **입력 규칙**
-- 사용자가 입력하는 값은 없다. 주소의 글 번호는 1 이상의 정수일 때만 글을 찾는다.
+- 사용자가 입력하는 값은 없다. 주소의 글 번호는 숫자만 적힌 1\~2147483647 정수일 때만 글을 찾는다 (`parseId`, #21).
 
 **표시 규칙**
 - 글 상세: 제목 아래 작성 시각 옆에 `👀 N`
@@ -1540,7 +1553,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 처리 | 글 상세 화면(서버)에서 `incrementViewCount`: `UPDATE posts SET view_count = view_count + 1`. 순서: `load()` [글 번호 확인 → `getBlogBySlug` → `getPost(blog.id, id)`] → `getViewer()` → `isOwner = viewerId === blog.ownerId` (`viewerId`는 온보딩을 마친 회원만, 아니면 `null`) → 남의 비공개 글이면 `notFound()` → 주인이 아니면 `incrementViewCount(post.id)` (`src/server/blog.ts`) |
 | 데이터 | 조회수가 바뀌어도 글의 `updated_at`(수정 시각)은 바뀌지 않게 한다 (`` updatedAt: sql`${posts.updatedAt}` ``로 원래 값을 다시 넣어 `$onUpdate` 자동 갱신을 막는다). 읽기는 목록 `listColumns.viewCount`, 상세 `getPost` |
 | 무결성 | DB CHECK `view_count >= 0` (`posts_view_count_check`), `NOT NULL DEFAULT 0`. 한 줄 `UPDATE`로 더하므로 여러 사람이 동시에 열어도 빠지는 수가 없다 |
-| 검증 | 서버: 글 번호가 1 이상의 정수이고(`!Number.isInteger(id) \|\| id <= 0`이면 404) 그 블로그의 글일 때만 센다 / DB CHECK |
+| 검증 | 서버: 글 번호가 숫자만 적힌 1\~2147483647 정수이고(`parseId`(`src/lib/ids.ts`)가 `null`이면 404, #21) 그 블로그의 글일 때만 센다 / DB CHECK |
 | 중복 방지 | 없음. 쿠키·로그인·IP 어느 것으로도 같은 사람을 구분하지 않는다 |
 | 갱신 | 따로 다시 그리지 않는다. 상세는 읽은 값에 1을 더해 보여주고(`post.viewCount + (isOwner ? 0 : 1)`), 목록은 목록을 다시 불러올 때 새 값이 보인다 |
 
@@ -1836,13 +1849,14 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 내용이 비어 있음 (공백만 쓴 경우 포함) | 댓글을 적어 주세요 (완전히 빈 칸은 브라우저 `required`가 먼저 막아서 브라우저 기본 안내가 나온다. 이 문구는 공백만 쓴 경우에 나온다) |
 | 1000자 초과 | 댓글은 1000자까지예요 (브라우저 `maxLength`가 먼저 막아서, 보통은 요청을 조작할 때만 나온다) |
 | 없는 글이거나 남의 비공개 글 | 글을 찾을 수 없어요 |
+| 글 ID(`postId`)를 2147483647(DB `integer` 최댓값)보다 크게 조작해 보냄 (예: `99999999999`) | `잘못된 요청이에요`. 저장되지 않는다 (#21). 숫자가 아니거나 0 이하·소수이거나 9007199254740991보다 크면 zod 기본 영어 문구가 나온다 |
 | 방문자 | 입력칸 대신 `로그인하면 댓글을 남길 수 있어요` (`로그인`은 첫 화면 `/` 링크). [답글] [삭제] 버튼도 없다 |
 | 로그인했지만 온보딩 전 | 방문자와 같은 안내가 보인다. `로그인`을 누르면 `/onboarding`으로 간다 |
 | 등록·삭제 요청 때 로그인이 풀려 있음 | 첫 화면(`/`)으로 이동 (`requireMember()`) |
 | 내 글에 댓글 | 등록된다. 보상은 없다 |
 | 오늘(한국 시간 0시 기준) 댓글 보상 10번을 다 받음 | 등록된다. 보상만 없고 안내도 없다 (GAME-05) |
 | 삭제 확인 창에서 [취소] | 아무 일도 없다 |
-| 남의 댓글이나 이미 삭제된 댓글을 요청 조작으로 삭제 | 아무것도 바뀌지 않는다. 문구 없음 |
+| 남의 댓글, 이미 삭제된 댓글, 1\~2147483647 정수가 아닌 댓글 ID(`99999999999` 등)를 요청 조작으로 삭제 | 아무것도 바뀌지 않는다. 문구 없음 (#21) |
 
 **입력 규칙**
 - 1~1000자 (앞뒤 공백 제거). 줄바꿈은 그대로 보여준다. HTML은 글자로 보인다 (태그로 동작하지 않음).
@@ -1867,10 +1881,10 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 화면 | `CommentSection` (클라이언트, `src/components/blog/comment-section.tsx`, 안에 `CommentForm`(`useActionState`)·`CommentItem`). 목록은 글 상세(서버, `src/app/blog/[slug]/[postId]/page.tsx`)에서 `getComments`로 읽어 넘긴다. `viewerId`는 온보딩을 마친 회원일 때만 값이 있다 (아니면 `null`이라 방문자처럼 보인다) |
 | 처리 | `addComment` (`src/app/blog/actions.ts`): `requireMember()` → zod → `findVisiblePost`(공개 글이거나 내 글인지) → 트랜잭션 [(답글이면 원댓글 확인, SOC-02) → INSERT → 남의 글이면 회원 잠금(`lockUser`) 후 `grantReward("comment")`, `ref_id` = 댓글 ID] |
-| 삭제 | `deleteComment`: `requireMember()` → `UPDATE comments SET deleted_at = 지금 시각 WHERE id AND author_id = 나 AND deleted_at IS NULL` (행은 지우지 않는다). 조건에 안 맞으면 0행이 바뀌고 오류도 돌려주지 않는다 |
+| 삭제 | `deleteComment`: `requireMember()` → `parseId`로 댓글 ID가 1\~2147483647 정수인지 확인(아니면 그냥 끝, #21) → `UPDATE comments SET deleted_at = 지금 시각 WHERE id AND author_id = 나 AND deleted_at IS NULL` (행은 지우지 않는다). 조건에 안 맞으면 0행이 바뀌고 오류도 돌려주지 않는다 |
 | 데이터 | `getComments(postId)` (`src/server/blog.ts`): `comments` + `profiles`(닉네임) + `items`(캐릭터) + `blogs`(작성자 블로그 주소) JOIN, `ORDER BY created_at, id`. 인덱스 `comments (post_id, created_at)` (`comments_post_created_idx`) |
 | 무결성 | 등록과 보상은 한 트랜잭션 (보상 기록이 실패하면 댓글도 저장되지 않는다). 외래 키: 글 삭제 → 댓글 삭제 (`ON DELETE CASCADE`, POST-01), 회원 삭제 → 댓글 삭제, 원댓글 행 삭제 → 답글 삭제 (`comments_parent_fk`) |
-| 검증 | 브라우저 `required`·`maxLength` / 서버 zod / DB CHECK 1~1000자 (`comments_content_check`) |
+| 검증 | 브라우저 `required`·`maxLength` / 서버 zod(`postId`·`parentId`는 2147483647 이하, 넘으면 `잘못된 요청이에요`, #21) / DB CHECK 1~1000자 (`comments_content_check`) |
 | 보안 | 내용은 React가 글자로 출력한다 (`whitespace-pre-wrap`, HTML로 넣지 않음). 삭제된 댓글은 내용을 `""`로 바꿔 넘겨서 브라우저로 보내지 않는다. 삭제 권한은 버튼 숨김이 아니라 서버의 `author_id = 나` 조건으로 막는다 |
 | 갱신 | `revalidatePath("/", "layout")` → 같은 화면을 다시 그린다 (헤더 코인 포함). 등록에 성공하면(`ok`) 입력칸을 비운다 (`ref.current?.reset()`) |
 
@@ -1885,6 +1899,8 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 오늘 댓글 보상을 받은 적 없는 회원이 같은 날(한국 시간) 남의 글에 댓글 11개를 쓰면 11개 모두 등록되고 보상은 10번만 들어온다. (코드 확인)
 - [x] 삭제하면 `💬 댓글 N`이 1 줄고, 삭제한 댓글의 내용은 페이지로 보내지 않는다. (코드 확인)
 - [x] 삭제해도 이미 받은 댓글 보상은 그대로다. (코드 확인)
+- [x] 글 ID를 범위 밖 값(`99999999999`)으로 조작해 댓글을 보내면 `잘못된 요청이에요`가 나오고 저장되지 않는다. (`e2e/params.mjs`, #21)
+- [x] 범위 밖 댓글 ID(`99999999999`)로 삭제 요청을 보내도 500 오류가 나지 않고 아무것도 바뀌지 않는다. (500이 아님: `e2e/params.mjs` / 바뀌지 않음: 코드 확인, #21)
 
 **열린 질문**
 - 댓글 수정이 필요할까? (지금은 없음)
@@ -1933,12 +1949,13 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 답글 ID로 조작 (답글의 답글) | 오류 없이 그 원댓글의 답글로 저장된다 |
 | 없는 댓글 ID, 다른 글의 댓글 ID로 조작 | 오류 없이 **일반 댓글**(답글 아님)로 저장된다 |
 | `parentId`가 양의 정수가 아님 (조작) | 저장되지 않고 zod 기본 문구가 영어로 보인다 (예: `abc` → `Invalid input: expected number, received NaN`, `0` → `Too small: expected number to be >0`) |
+| `parentId`가 2147483647(DB `integer` 최댓값)보다 큼 (조작, 예: `99999999999`) | 저장되지 않고 `잘못된 요청이에요` (#21). 9007199254740991보다 크면 위처럼 zod 영어 문구가 나온다 |
 
 내 원댓글에 입력칸을 열어 둔 채 그 댓글을 [삭제]하면 [답글]·[삭제] 줄은 사라지지만 입력칸은 열린 채 남는다. [답글 취소]도 함께 사라져서, 등록하거나 페이지를 다시 열어야 닫힌다.
 
 **입력 규칙**
 - 내용: 댓글과 같다 (SOC-01). 1~1000자 (앞뒤 공백 제거). 줄바꿈은 그대로 보여주고, HTML은 글자로 보인다.
-- `parentId`: 선택, 양의 정수. 화면은 숨은 칸(`<input type="hidden" name="parentId">`)으로 원댓글 ID를 보낸다. 값이 비어 있으면 일반 댓글로 처리한다.
+- `parentId`: 선택, 1\~2147483647 정수 (넘으면 `잘못된 요청이에요`, #21). 화면은 숨은 칸(`<input type="hidden" name="parentId">`)으로 원댓글 ID를 보낸다. 값이 비어 있으면 일반 댓글로 처리한다.
 
 **표시 규칙**
 - 순서: 원댓글(오래된 순) 바로 뒤에 그 답글을 **오래된 순**(작성 시각 → 같으면 ID 순)으로. 새 답글은 그 원댓글의 답글 맨 아래에 붙는다. 페이지 나누기 없음.
@@ -1957,7 +1974,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 처리 | `addComment` (`src/app/blog/actions.ts`)에서 `parentId`가 같은 글의 댓글인지 확인, 그 댓글이 답글이면 그 원댓글 ID로 바꿔 저장. 같은 글의 댓글이 아니면(없는 ID 포함) `parent_id = NULL`로 저장한다. 부모의 삭제 여부(`deleted_at`)는 보지 않는다. 나머지는 SOC-01과 같다 (`requireMember` → zod → `findVisiblePost` → 트랜잭션 [부모 확인 → INSERT → 남의 글이면 회원 잠금 후 `grantReward("comment")`]) |
 | 데이터 | 읽기: `getComments(postId)` (`src/server/blog.ts`)가 그 글의 댓글·답글을 한 번에 `ORDER BY created_at, id`로 읽는다. 글 상세(`src/app/blog/[slug]/[postId]/page.tsx`)가 삭제된 행의 내용을 `""`로 비워서 넘긴다 (원문은 브라우저로 가지 않는다). 쓰기: `comments` 1행 (`parent_id` = 원댓글 ID) + 남의 글이고 상한 안이면 `point_ledger` 1행 (`reason` = `comment`, `ref_id` = 새 답글 ID) |
 | 무결성 | 원댓글 행이 지워지면 답글도 지워진다 (`ON DELETE CASCADE`, FK `comments_parent_fk`). 단, 화면의 삭제는 행을 지우지 않으므로 답글은 남는다. 지금 앱에서 댓글 행이 실제로 지워지는 건 글을 지울 때(`deletePost`·`adminDeletePost` → `post_id` CASCADE)뿐이다. "1단계"와 "같은 글의 댓글"은 DB 제약이 아니라 `addComment`만 보장한다. 보상 상한은 회원 단위 잠금(`lockUser`)으로 동시 요청에도 지킨다 |
-| 검증 | 브라우저 `required`·`maxLength` / 서버 zod(`commentSchema`: `parentId` 선택·양의 정수) + `addComment`의 부모 확인 / DB CHECK 1~1000자(`comments_content_check`) |
+| 검증 | 브라우저 `required`·`maxLength` / 서버 zod(`commentSchema`: `parentId` 선택·1\~2147483647 정수, 넘으면 `잘못된 요청이에요`) + `addComment`의 부모 확인 / DB CHECK 1~1000자(`comments_content_check`) |
 | 갱신 | `revalidatePath("/", "layout")` → 성공하면 `CommentForm`이 입력칸을 비우고(`reset`) `onDone`으로 닫는다 |
 
 **수용 기준**
@@ -1973,6 +1990,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 같은 날 남의 글에 댓글 6개와 답글 5개를 쓰면 `comment` 보상은 10번(✨ 50 · 🪙 50)만 들어온다. 내 글에 단 답글은 보상이 없다. (코드 확인)
 - [x] 방문자, 온보딩 전 회원, 삭제된 댓글에는 [답글] 버튼이 없다. (코드 확인)
 - [x] 원댓글 1개에 답글 2개가 있을 때 원댓글을 삭제하면, 원댓글 자리에 `삭제된 댓글이에요`가 남고 답글 2개는 그대로 보이며 `💬 댓글 2`가 된다. (코드 확인)
+- [x] `parentId`를 범위 밖 값(`99999999999`)으로 조작해 보내면 `잘못된 요청이에요`가 나오고 저장되지 않는다. (코드 확인, #21)
 
 **열린 질문**
 - (제안) 요청 조작으로 들어온 잘못된 `parentId`: 현재 오류 없이 고쳐 저장 (답글 ID → 원댓글의 답글, 없는 ID·다른 글의 댓글 → 일반 댓글) → 저장하지 않고 `답글을 달 댓글이 없어요` / `답글에는 답글을 달 수 없어요`로 거부할까? (위 "규칙"의 "원댓글에 붙인다"도 함께 바뀐다)
@@ -1980,7 +1998,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - (제안) 삭제 자리: 현재 지운 댓글·답글 모두 `삭제된 댓글이에요` 자리가 계속 남는다 → 답글이 없는 댓글과 답글은 자리 없이 사라지고, 원댓글 자리는 마지막 답글이 지워질 때 함께 사라지게 할까? (SOC-01 삭제 방식도 함께 바뀐다)
 - (제안) 삭제 자리의 작성자: 현재 닉네임·캐릭터·작성 시각이 그대로 보인다 → 문구만 남기고 작성자는 숨길까?
 - (제안) 답글 입력칸: 현재 여러 개를 동시에 열 수 있고 커서가 자동으로 가지 않으며, 이미 달린 답글보다 위에 열린다 → 한 번에 하나만 열리고, 열면 바로 커서를 두고, 새 답글이 붙을 자리(답글 맨 아래)에 열리게 할까?
-- 답글 오류도 `댓글을 적어 주세요` / `댓글은 1000자까지예요`로 나온다. 답글일 때는 `답글을 적어 주세요` / `답글은 1000자까지예요`로 바꿀까? 조작된 `parentId`의 zod 영문 문구도 우리말로 바꿀까?
+- 답글 오류도 `댓글을 적어 주세요` / `댓글은 1000자까지예요`로 나온다. 답글일 때는 `답글을 적어 주세요` / `답글은 1000자까지예요`로 바꿀까? 조작된 `parentId`의 zod 영문 문구(`abc`, `0` 등)도 우리말로 바꿀까? (`99999999999`처럼 범위를 넘는 값은 #21부터 `잘못된 요청이에요`)
 - 회원 탈퇴(AUTH-06)를 만들면서 회원 행을 지우면 그 회원의 원댓글(`author_id` CASCADE)과 거기 달린 **남의 답글**(`comments_parent_fk` CASCADE)까지 함께 지워진다. 탈퇴한 회원의 원댓글은 `삭제된 댓글이에요`로 남길까?
 - 답글 등록·보상 시나리오를 `e2e/blog.mjs`에 추가할까?
 
@@ -2004,12 +2022,12 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 방문자, 또는 로그인했지만 온보딩 전 | 버튼이 비활성(흐리게). `title`은 `로그인하면 공감할 수 있어요` |
 | 처리 중에 다시 누름 | 버튼이 비활성이라 눌리지 않는다 |
-| 누르는 사이 글이 지워졌거나 비공개로 바뀜 / 남의 비공개 글 ID로 요청을 조작 | 아무것도 저장하지 않는다. 문구 없음. 하트와 수는 누르기 전으로 돌아간다 |
+| 누르는 사이 글이 지워졌거나 비공개로 바뀜 / 남의 비공개 글 ID로 요청을 조작 / 1\~2147483647 정수가 아닌 글 ID(`abc`, `99999999999`)로 조작 | 아무것도 저장하지 않는다. 문구 없음. 하트와 수는 누르기 전으로 돌아간다 |
 | 로그인이 풀린(세션 만료) 뒤에 누름 | 첫 화면(`/`)으로 이동 (`requireMember()`) |
 | 다른 탭에서 이미 공감했는데, 예전 화면의 [♡ 공감 N]을 누름 | 서버는 내 공감이 있으니 **취소**로 처리한다. 잠깐 ♥로 바뀌었다가 ♡로 돌아온다 |
 | 내 글에 공감 | 공감은 저장되고 수에도 들어간다. 보상 없음 |
 | 글 주인이 오늘 공감 보상을 20번 다 받음 | 공감은 저장, 보상 없음. 이때는 원장에 기록이 남지 않아서, 같은 사람이 다음 날(한국 0시 이후) 취소 후 다시 공감하면 그날 상한 전이면 그때 보상이 들어간다 |
-| 같은 사람이 두 탭에서 동시에 처음 공감 | 기본 키 때문에 1개만 저장된다. 늦게 처리된 쪽은 INSERT가 기본 키 위반으로 실패한다 (따로 처리하는 코드 없음) |
+| 같은 사람이 두 탭에서 동시에 처음 공감 | 기본 키 때문에 1개만 저장된다. 늦게 처리된 쪽은 INSERT가 기본 키 위반으로 실패하고(따로 처리하는 코드 없음), 그 탭에는 Blogville 오류 화면(`잠깐 문제가 생겼어요`)이 뜬다. `useTransition` 안에서 난 오류라 `src/app/error.tsx`가 받는다 (코드 확인) |
 
 **입력 규칙**
 - 입력 칸 없음. 버튼이 글 ID 하나만 보낸다 (`toggleLike(postId)`).
@@ -2031,12 +2049,12 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 항목 | 내용 |
 |---|---|
 | 화면 | 글 상세 `src/app/blog/[slug]/[postId]/page.tsx`(서버)가 `getLikeState(post.id, viewerId)`로 수·내 공감 여부를 읽어 `LikeButton`(클라이언트, `src/components/blog/like-button.tsx`, `useOptimistic` + `useTransition`)에 넘긴다. `canLike = Boolean(viewerId)`이고, `viewerId`는 프로필이 있을 때(온보딩 완료)만 정해진다 |
-| 처리 | `toggleLike` (`src/app/blog/actions.ts`): `requireMember()` → `findVisiblePost`(없거나 남의 비공개 글이면 그냥 끝) → 트랜잭션 [내 공감 DELETE, 지운 게 있으면 끝(취소) / 없으면 INSERT → 남의 글이면 글 주인 잠금 → 원장에 `like_received`, `ref_id = 글ID:내ID` 기록이 없을 때만 보상 (`grantReward`, 하루 상한 확인)] |
+| 처리 | `toggleLike` (`src/app/blog/actions.ts`): `requireMember()` → `parseId`로 글 ID가 1\~2147483647 정수인지 확인(아니면 그냥 끝, #21) → `findVisiblePost`(없거나 남의 비공개 글이면 그냥 끝) → 트랜잭션 [내 공감 DELETE, 지운 게 있으면 끝(취소) / 없으면 INSERT → 남의 글이면 글 주인 잠금 → 원장에 `like_received`, `ref_id = 글ID:내ID` 기록이 없을 때만 보상 (`grantReward`, 하루 상한 확인)] |
 | 데이터 | 상세: `getLikeState` (`src/server/blog.ts`) = `post_likes`에서 `post_id`로 `COUNT(*)`, `BOOL_OR(user_id = 나)`. 카드: 목록 쿼리의 하위 쿼리 `likeCount` (POST-05). 쓰기: `post_likes` DELETE/INSERT, 보상은 `point_ledger` INSERT |
 | 무결성 | 기본 키 `(post_id, user_id)` → 한 글에 한 번만 (NF-15). 공감 DELETE·INSERT와 보상은 한 트랜잭션. `post_id`·`user_id` 모두 `ON DELETE CASCADE`라 글이나 회원이 지워지면 공감도 지워진다. 공감을 취소하거나 글을 지워도 받은 보상은 회수하지 않는다 |
 | 동시성 | 보상 확인·지급은 글 주인 단위 잠금(`lockUser`) 안에서 한다 (GAME-05). 공감 INSERT에는 `ON CONFLICT` 처리가 없다 |
-| 검증 | 브라우저: 방문자·온보딩 전·처리 중에는 버튼 비활성 / 서버: `requireMember()`, `findVisiblePost`. 글 ID 형식 검사(zod)는 없다 / DB 기본 키 |
-| 갱신 | `revalidatePath("/", "layout")` → 상세의 수·하트를 서버 값으로 다시 그린다. `findVisiblePost`에서 끝나면 갱신하지 않는다 |
+| 검증 | 브라우저: 방문자·온보딩 전·처리 중에는 버튼 비활성 / 서버: `requireMember()`, 글 ID `parseId`(1\~2147483647 정수가 아니면 그냥 끝, #21), `findVisiblePost` / DB 기본 키 |
+| 갱신 | `revalidatePath("/", "layout")` → 상세의 수·하트를 서버 값으로 다시 그린다. `parseId`(글 ID가 1\~2147483647 정수가 아님)나 `findVisiblePost`에서 끝나면 갱신하지 않는다 |
 
 **수용 기준**
 - [x] 한 글에 한 사람이 공감 1개만 남길 수 있다. (코드 확인)
@@ -2047,6 +2065,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 방문자와 온보딩 전 회원은 공감 수를 볼 수 있지만 누를 수 없다 (버튼 비활성). (코드 확인)
 - [x] 남의 비공개 글 ID로 요청을 조작해도 공감이 저장되지 않는다. (코드 확인)
 - [x] 글 카드의 `♥ N`과 글 상세의 `공감 N`이 같은 수다. (코드 확인)
+- [x] 글 ID를 범위 밖 값(`99999999999`)이나 숫자가 아닌 값(`abc`)으로 조작해 보내도 500 오류가 나지 않고 공감이 저장되지 않는다. (500이 아님: `e2e/params.mjs` / 저장 안 됨: 코드 확인, #21)
 
 **열린 질문**
 - 내 글에 공감하는 걸 막을까? (지금은 되고, 수에도 들어간다)
@@ -2054,7 +2073,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - 방문자용 안내 `로그인하면 공감할 수 있어요`는 `title`에만 있다. 비활성 버튼은 `pointer-events: none`이라 마우스를 올려도 안 보일 수 있고, 터치 화면에서는 보기 어렵다. (제안) 버튼을 막지 말고, 방문자가 누르면 안내를 띄운 뒤 로그인 화면으로 보내고, 로그인하면 이 글로 돌아오게 할까?
 - 온보딩 전 회원(이미 로그인함)에게도 `로그인하면 공감할 수 있어요`가 붙는다. 이 경우는 온보딩으로 안내할까?
 - (제안) 공감이 저장되지 않았을 때(글이 지워짐, 비공개로 바뀜) 지금은 문구 없이 하트만 돌아간다. 댓글처럼 `글을 찾을 수 없어요`를 보여줄까?
-- (제안) 두 탭에서 동시에 처음 공감하면 늦은 쪽이 기본 키 위반으로 실패한다. `toggleFollow`처럼 `onConflictDoNothing()`을 붙여 조용히 넘길까? (지금 그 경우 화면에 무엇이 보이는지는 확인 필요)
+- (제안) 두 탭에서 동시에 처음 공감하면 늦은 쪽이 기본 키 위반으로 실패해 Blogville 오류 화면(`잠깐 문제가 생겼어요`)이 뜬다. `toggleFollow`처럼 `onConflictDoNothing()`을 붙여 조용히 넘길까?
 - (제안) 글 주인이 받은 공감 합계를 블로그 관리(`/settings/blog`)에서 볼 수 있게 할까? 지금은 글마다 수만 보이고, 합계를 볼 곳이 없다 (관리자 통계에도 없음).
 - 하루 상한에 걸려 보상을 못 받은 공감은, 다음 날 취소 후 다시 누르면 보상된다. 이대로 둘까?
 
@@ -2091,7 +2110,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 **입력 규칙**
 - 입력칸 없음. 버튼이 상대 회원 ID(블로그 주인 `blogs.owner_id`) 하나를 서버로 보낸다.
-- 이웃 새 글 `?page=N`: POST-05 규칙 (`parsePage`: 1 이상의 정수가 아니면 1페이지).
+- 이웃 새 글 `?page=N`: POST-05 규칙 (`parsePage`: 숫자만 적힌 1\~2147483647 정수가 아니면 1페이지, #21).
 
 **표시 규칙**
 - 블로그 홈 정보 줄: `@{주소} · 글 {N} · 이웃 {N}`. `이웃 N` = 이 블로그 주인을 이웃 추가한 사람 수. 방문자·주인 모두에게 보인다. 단위(`명`)는 붙이지 않는다.
@@ -2158,12 +2177,12 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|
 | 글이 하나도 없음 (비공개 글만 있을 때도) | 아직 마을에 글이 없어요. 첫 글의 주인공이 되어 보세요! ✏️ |
 | 공개 글에 달린 태그가 없음 | 인기 태그 칸에 `아직 태그가 없어요` |
-| `?page=`가 1 이상의 정수가 아님 (`abc`, `0`, `2.5`) | 1페이지를 보여준다 |
+| `?page=`가 숫자만 적힌 1\~2147483647 정수가 아님 (`abc`, `0`, `2.5`, `1e300`, `99999999999999999999`) | 1페이지를 보여준다 (#21) |
 | 마지막보다 큰 페이지 (`/feed?page=999`) | 빈 목록이라 글이 있어도 "글이 하나도 없음"과 같은 문구가 나온다. 전체가 2페이지 이상이면 페이지 번호는 보이지만 현재 페이지 표시는 없다 |
 | 방문자·온보딩 전 사용자가 `/feed/following`을 직접 엶 | 방문자는 첫 화면(`/`), 온보딩 전이면 `/onboarding`으로 이동 (SOC-04) |
 
 **입력 규칙**
-- 입력칸은 없다. 주소의 `?page=N`만 받는다: 1 이상의 정수가 아니면 1 (`parsePage`, `src/components/pagination.tsx`)
+- 입력칸은 없다. 주소의 `?page=N`만 받는다: 숫자만 적힌 1\~2147483647 정수가 아니면 1 (`parsePage`, `src/components/pagination.tsx`, #21)
 
 **표시 규칙**
 - 제목 `📋 마을 소식`, 브라우저 탭 제목 `마을 소식 | Blogville`
@@ -2200,6 +2219,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 글이 없는 마을에서는 `아직 마을에 글이 없어요. 첫 글의 주인공이 되어 보세요! ✏️`와 `아직 태그가 없어요`가 보인다. (빈 DB에서 `GET /feed`) (개발 서버 확인)
 - [x] 인기 태그는 공개 글에 달린 것만 세고 30개까지 보인다. (코드 확인)
 - [x] 새 공개 글을 발행하면 마을 소식 맨 위에 나온다. (코드 확인. `e2e/blog.mjs`는 `/feed` 스크린샷 `14-feed.png`만 찍고 내용은 검사하지 않는다)
+- [x] 아주 큰 페이지 번호(`/feed?page=99999999999999999999`, `/feed?page=1e300`)를 넣어도 500 오류가 나지 않는다. (`e2e/params.mjs`, #21)
 - [x] 375px 너비에서 가로 스크롤이 없다. (`e2e/nonfunctional.mjs`, NF-06)
 
 **열린 질문**
