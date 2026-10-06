@@ -42,7 +42,12 @@ for (const label of ["밥 주기", "물 주기", "쓰다듬기"]) {
   await page.getByText(new RegExp(`${label} 완료|다 자랐어요`)).waitFor();
 }
 check("돌보기 3가지 → 성장 25", (await animals())[0].growth === 25, `성장 ${(await animals())[0].growth}`);
-check("돌본 버튼은 '완료'로 막힌다", (await page.getByRole("button", { name: /완료/ }).count()) === 3);
+// 마지막 돌보기 뒤 화면이 다시 그려질 때까지 기다린다 (바로 세면 가끔 2개)
+const doneShown = await page
+  .waitForFunction(() => [...document.querySelectorAll("button")].filter((b) => b.textContent.includes("완료")).length === 3, null, { timeout: 5000 })
+  .then(() => true)
+  .catch(() => false);
+check("돌본 버튼은 '완료'로 막힌다", doneShown);
 const careExp = await one("SELECT COALESCE(SUM(exp_delta),0)::int AS n, COUNT(*)::int AS c FROM point_ledger WHERE user_id = $1 AND reason = 'farm_care'", [uid]);
 check("돌보기마다 경험치 +2 기록", careExp.c === 3 && careExp.n === 6, `${careExp.c}회 ${careExp.n}`);
 await page.screenshot({ path: `${outDir}/91-farm-cared.png`, fullPage: true });
