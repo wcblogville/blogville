@@ -26,6 +26,10 @@ const CASES: [string, string][] = [
   ["이모지", "<p>오늘 ☕ 마시고 😀 웃음</p>"],
   ["구분선만", "<hr>"],
   ["빈 줄만", "<p></p><p></p>"],
+  // 사진·파일 카드는 0자 (POST-07, POST-09)
+  ["사진", '<p>위</p><img src="/files/0123456789abcdef0123456789abcdef" alt=""><p>아래</p>'],
+  ["파일 카드", '<p>위</p><a href="/files/0123456789abcdef0123456789abcdef" data-file="" data-name="보고서.pdf" data-size="1024" data-size-label="1KB" data-ext="pdf" aria-label="보고서.pdf 내려받기 (1KB)"></a><p>아래</p>'],
+  ["사진만", '<img src="/files/0123456789abcdef0123456789abcdef" alt="">'],
 ];
 
 let failed = 0;

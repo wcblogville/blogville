@@ -417,3 +417,26 @@ export const animalCares = pgTable(
   },
   (t) => [primaryKey({ columns: [t.animalId, t.action, t.date] })],
 );
+
+// 글 첨부(사진·파일) 정보. 파일 내용은 DB가 아니라 저장소(src/server/storage.ts)에 둔다 (POST-07, POST-09)
+export const attachments = pgTable(
+  "attachments",
+  {
+    key: text("key").primaryKey(), // 서버가 만든 무작위 32자. 저장 이름이자 주소(/files/키)
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(), // image | file
+    name: text("name").notNull(), // 올린 사람이 붙인 원래 파일 이름 (내려받을 때 이 이름으로)
+    mime: text("mime").notNull(),
+    size: integer("size").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check("attachments_kind_check", sql`${t.kind} IN ('image', 'file')`),
+    check("attachments_key_check", sql`${t.key} ~ '^[a-f0-9]{32}$'`),
+    check("attachments_name_check", sql`char_length(${t.name}) BETWEEN 1 AND 255`),
+    check("attachments_size_check", sql`${t.size} > 0`),
+    index("attachments_user_created_idx").on(t.userId, t.createdAt),
+  ],
+);
