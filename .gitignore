@@ -44,3 +44,6 @@ next-env.d.ts
 # e2e
 /test-results/
 /playwright-report/
+
+# 글 첨부 파일 (로컬 저장소, POST-07·POST-09)
+/storage/

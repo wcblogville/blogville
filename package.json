@@ -20,6 +20,7 @@
     "test": "npm run test:game && npm run test:ids && npm run test:sanitize"
   },
   "dependencies": {
+    "@tiptap/extension-image": "^3.31.4",
     "@tiptap/extensions": "^3.31.4",
     "@tiptap/pm": "^3.31.4",
     "@tiptap/react": "^3.31.4",

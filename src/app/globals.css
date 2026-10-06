@@ -80,6 +80,29 @@ body {
   & pre code { background: none; padding: 0; color: inherit; }
   & hr { border: none; border-top: 2px dashed var(--color-line); margin: 2em 0; }
   & img { max-width: 100%; border-radius: 0.8rem; }
+
+  /* 파일 카드 (POST-09): 아이콘·이름·크기는 data 속성으로 그린다. 글자가 아니라서 보상 글자 수에 들어가지 않는다 */
+  & a[data-file] {
+    display: flex; align-items: center; gap: 0.75rem; max-width: 30rem; margin: 0.8em 0; padding: 0.7rem 1rem;
+    border: 2px solid var(--color-line); border-radius: 0.9rem; background: #fff; color: var(--color-ink);
+    text-decoration: none; box-shadow: var(--shadow-pop);
+  }
+  & a[data-file]:hover { border-color: var(--color-sun); }
+  & a[data-file]::before { content: "📄"; font-size: 1.7rem; line-height: 1; flex-shrink: 0; }
+  & a[data-file][data-ext="pdf"]::before { content: "📕"; }
+  & a[data-file][data-ext="hwp"]::before, & a[data-file][data-ext="hwpx"]::before { content: "📘"; }
+  & a[data-file][data-ext="doc"]::before, & a[data-file][data-ext="docx"]::before { content: "📝"; }
+  & a[data-file][data-ext="xls"]::before, & a[data-file][data-ext="xlsx"]::before, & a[data-file][data-ext="csv"]::before { content: "📊"; }
+  & a[data-file][data-ext="ppt"]::before, & a[data-file][data-ext="pptx"]::before, & a[data-file][data-ext="key"]::before { content: "📽️"; }
+  & a[data-file][data-ext="zip"]::before { content: "🗜️"; }
+  & a[data-file][data-ext="mp3"]::before { content: "🎵"; }
+  & a[data-file][data-ext="mp4"]::before { content: "🎬"; }
+  & a[data-file]::after {
+    content: attr(data-name) "\A" attr(data-size-label) " · 내려받기";
+    white-space: pre-wrap; overflow-wrap: anywhere; font-weight: 700; line-height: 1.5;
+  }
+  /* 에디터에서 고른 사진·파일 카드 표시 */
+  & img.ProseMirror-selectednode, & a[data-file].ProseMirror-selectednode { outline: 3px solid var(--color-sun); outline-offset: 2px; }
 }
 
 /* 에디터가 비어 있을 때 안내 문구 (POST-01, #17)
