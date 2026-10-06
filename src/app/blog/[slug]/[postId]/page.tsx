@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CommentSection } from "@/components/blog/comment-section";
 import { DeletePostButton } from "@/components/blog/delete-post-button";
 import { LikeButton } from "@/components/blog/like-button";
+import { RecordVisit } from "@/components/blog/record-visit";
 import { CharacterBadge } from "@/components/character";
 import { formatDateTime } from "@/lib/format";
 import { REWARD_RULES } from "@/lib/game";
@@ -57,6 +58,8 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      {/* 글 상세를 연 사람도 이 블로그 방문자로 센다 (주인 제외, BLOG-06) */}
+      {!isOwner && <RecordVisit blogId={blog.id} />}
       {sp.new && (
         <div className="card mb-6 border-sun bg-[#fff3d6] p-4 text-center">
           🎉 글을 발행했어요!{" "}

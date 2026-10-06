@@ -2,11 +2,14 @@
 
 import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/db";
-import { blogs, comments, follows, pointLedger, postLikes, posts } from "@/db/schema";
+import { blogs, blogVisits, comments, follows, pointLedger, postLikes, posts } from "@/db/schema";
 import { MAX_DB_INT, parseId } from "@/lib/ids";
-import { requireMember } from "@/server/dal";
+import { todayKST } from "@/lib/game";
+import { getBlogVisitStats } from "@/server/blog";
+import { getViewer, requireMember } from "@/server/dal";
 import { grantReward, lockUser } from "@/server/points";
 
 /** 글과 그 글의 블로그 주인 (공개 글이거나 내 글일 때만) */
@@ -123,4 +126,38 @@ export async function toggleFollow(followeeId: string) {
     await db.insert(follows).values({ followerId: viewer.userId, followeeId }).onConflictDoNothing();
   }
   revalidatePath("/", "layout");
+}
+
+// ===== 블로그 방문자 (BLOG-06) =====
+const VISITOR_COOKIE = "bv_visitor";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * 블로그 홈이 브라우저에 열리면 부른다. 같은 사람(쿠키)은 하루 1번만 센다.
+ * 방문자도 불러야 해서 requireMember()가 없다 (signUp·signIn처럼). 블로그 주인은 서버에서 다시 확인해 세지 않는다.
+ * 쿠키를 새로 만들 수 있어야 해서 서버 컴포넌트가 아니라 Server Action에서 센다 (Next.js 16 cookies 규칙)
+ */
+export async function recordBlogVisit(blogId: number): Promise<{ today: number; yesterday: number; total: number } | null> {
+  const id = parseId(blogId);
+  if (id === null) return null;
+  const [blog] = await db.select({ ownerId: blogs.ownerId }).from(blogs).where(eq(blogs.id, id));
+  if (!blog) return null;
+
+  const viewer = await getViewer();
+  if (viewer?.profile && viewer.userId === blog.ownerId) return getBlogVisitStats(id);
+
+  const jar = await cookies();
+  let visitorId = jar.get(VISITOR_COOKIE)?.value ?? "";
+  if (!UUID_RE.test(visitorId)) {
+    visitorId = crypto.randomUUID();
+    jar.set(VISITOR_COOKIE, visitorId, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+  await db.insert(blogVisits).values({ blogId: id, date: todayKST(), visitorId }).onConflictDoNothing();
+  return getBlogVisitStats(id);
 }

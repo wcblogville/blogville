@@ -12,6 +12,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uuid,
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -439,4 +440,18 @@ export const attachments = pgTable(
     check("attachments_size_check", sql`${t.size} > 0`),
     index("attachments_user_created_idx").on(t.userId, t.createdAt),
   ],
+);
+
+// 블로그 방문자 (BLOG-06): 같은 사람(쿠키 bv_visitor)은 한 블로그에 하루(한국 시간) 1줄. IP는 저장하지 않는다
+export const blogVisits = pgTable(
+  "blog_visits",
+  {
+    blogId: integer("blog_id")
+      .notNull()
+      .references(() => blogs.id, { onDelete: "cascade" }),
+    date: date("date").notNull(), // 한국 날짜 (todayKST)
+    visitorId: uuid("visitor_id").notNull(), // 방문자 쿠키 값 (회원 정보와 연결하지 않음)
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.blogId, t.date, t.visitorId] })],
 );
