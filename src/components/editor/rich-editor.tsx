@@ -1,8 +1,9 @@
 "use client";
 
-import { CharacterCount, Placeholder } from "@tiptap/extensions";
+import { Placeholder } from "@tiptap/extensions";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { postTextLength } from "@/lib/text-length";
 
 type ToolButton = {
   label: string;
@@ -53,7 +54,6 @@ export function RichEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: true } }),
       Placeholder.configure({ placeholder: "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️" }),
-      CharacterCount,
     ],
     content: initialHtml,
     immediatelyRender: false, // 서버 렌더링과 어긋나지 않게 브라우저에서 처음 그린다
@@ -63,8 +63,9 @@ export function RichEditor({
         "aria-label": "본문",
       },
     },
-    onUpdate: ({ editor }) => onChange(editor.getHTML(), editor.storage.characterCount.characters()),
-    onCreate: ({ editor }) => onChange(editor.getHTML(), editor.storage.characterCount.characters()),
+    // 글자 수는 서버가 보상을 판단하는 규칙과 같게 센다 (#18)
+    onUpdate: ({ editor }) => onChange(editor.getHTML(), postTextLength(editor.getHTML())),
+    onCreate: ({ editor }) => onChange(editor.getHTML(), postTextLength(editor.getHTML())),
   });
 
   // 버튼 활성 상태는 선택이 바뀔 때마다 다시 계산한다

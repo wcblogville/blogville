@@ -23,7 +23,7 @@ export function BlogHeader({ blog, viewerId, following }: { blog: Blog; viewerId
         characterAsset={blog.characterAsset}
         backgroundAsset={blog.backgroundAsset}
         nickname={blog.nickname}
-        className="h-56 rounded-none border-0 border-b-2 sm:h-64"
+        className="h-56 border-b-2 border-line sm:h-64"
       />
       <div className="flex flex-wrap items-end justify-between gap-4 p-5">
         <div className="min-w-0">

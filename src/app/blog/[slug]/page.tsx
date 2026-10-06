@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BlogHeader } from "@/components/blog/blog-header";
 import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
+import { parseId } from "@/lib/ids";
 import { getBlogBySlug, getCategories, isFollowing, listBlogPosts } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 
@@ -22,7 +23,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const viewerId = viewer?.profile ? viewer.userId : null;
   const isOwner = viewerId === blog.ownerId;
   const page = parsePage(sp.page);
-  const categoryId = Number(sp.category) || undefined;
+  const categoryId = parseId(sp.category) ?? undefined; // 이상한 값이면 전체 글
 
   const [cats, list, following] = await Promise.all([
     getCategories(blog.id, isOwner),
