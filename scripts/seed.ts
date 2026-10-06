@@ -4,7 +4,7 @@ import { config } from "dotenv";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { items } from "../src/db/schema";
+import { animalSpecies, items } from "../src/db/schema";
 
 config({ path: ".env.local" });
 
@@ -35,6 +35,14 @@ const ITEMS: NewItem[] = [
   { code: "bg_space", type: "background", name: "우주", description: "끝없이 펼쳐진 우주", price: 900, requiredLevel: 6, isStarter: false, assetKey: "bg.space" },
 ];
 
+// 동물 농장 동물 종류 (TOWN-09). 흔한 동물일수록 빨리 자라고 보상이 작다
+const SPECIES: (typeof animalSpecies.$inferInsert)[] = [
+  { code: "chick", name: "병아리", assetKey: "animal.chick", growExp: 60, rewardExp: 50, rewardCoins: 20, hatchWeight: 40 },
+  { code: "bunny", name: "토끼", assetKey: "animal.bunny", growExp: 90, rewardExp: 80, rewardCoins: 30, hatchWeight: 30 },
+  { code: "piglet", name: "아기 돼지", assetKey: "animal.piglet", growExp: 120, rewardExp: 110, rewardCoins: 50, hatchWeight: 20 },
+  { code: "calf", name: "송아지", assetKey: "animal.calf", growExp: 160, rewardExp: 160, rewardCoins: 80, hatchWeight: 10 },
+];
+
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
@@ -56,8 +64,24 @@ async function main() {
           },
         });
     }
+    for (const sp of SPECIES) {
+      await db
+        .insert(animalSpecies)
+        .values(sp)
+        .onConflictDoUpdate({
+          target: animalSpecies.code,
+          set: {
+            name: sp.name,
+            assetKey: sp.assetKey,
+            growExp: sp.growExp,
+            rewardExp: sp.rewardExp,
+            rewardCoins: sp.rewardCoins,
+            hatchWeight: sp.hatchWeight,
+          },
+        });
+    }
     const rows = await db.execute(sql`SELECT type, COUNT(*)::int AS n FROM items GROUP BY type ORDER BY type`);
-    console.log("✔ 아이템 시드 완료", rows.rows);
+    console.log("✔ 아이템 시드 완료", rows.rows, `동물 ${SPECIES.length}종`);
   } finally {
     await pool.end();
   }

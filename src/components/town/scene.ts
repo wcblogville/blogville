@@ -67,7 +67,7 @@ const NEIGHBOR_SLOTS = [
 ];
 const BOARD_POS = { x: CENTER.x, y: CENTER.y - PLAZA_RADIUS - 70 };
 const SHOP_POS = { x: CENTER.x + 480, y: CENTER.y + 80 };
-// 동물 농장: 원래 우체통이 있던 왼쪽 길가 (아직 틀만 있다)
+// 동물 농장: 원래 우체통이 있던 왼쪽 길가 (TOWN-09)
 const FARM_POS = { x: CENTER.x - 480, y: CENTER.y + 200 };
 const MY_HOUSE_POS = { x: CENTER.x, y: CENTER.y + PLAZA_RADIUS + 190 };
 
@@ -121,13 +121,13 @@ function layout(data: TownData) {
     promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
   });
 
-  // 동물 농장 (준비 중): 문 앞에서 들어가면 안내 화면
+  // 동물 농장: 알을 받아 동물을 키운다
   structures.push({
     texture: "farm", ...FARM_POS, w: FARM_SIZE.width, h: FARM_SIZE.height, solid: { w: FARM_SIZE.width * 0.94, h: 100 },
-    label: "동물 농장", sub: "준비 중 🚧",
+    label: "동물 농장", sub: "알 부화 · 동물 키우기",
   });
   entrances.push({
-    label: "동물 농장 (준비 중)", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
+    label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
     area: { x: FARM_POS.x - FARM_SIZE.width / 2, y: FARM_POS.y - FARM_SIZE.height, w: FARM_SIZE.width, h: FARM_SIZE.height },
     promptY: FARM_POS.y - FARM_SIZE.height - 6,
   });
