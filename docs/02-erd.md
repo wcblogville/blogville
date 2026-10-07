@@ -473,6 +473,180 @@ erDiagram
 - **카카오 로그인 이메일**: 카카오는 이메일 제공이 선택 동의라 이메일이 없을 수 있다. 로그인 라이브러리가 이메일을 필수로 요구하는지 구현할 때 확인한다.
 - **같은 블로그의 카테고리인지 검사**: 글의 `category_id`가 그 글의 블로그 카테고리인지는 서버 코드에서 검사한다.
 
+## 6. 설계 변경안 (2026-10-07 결정, 미구현)
+
+> 1장은 **지금 DB**다. 아래는 팀 결정으로 바꿀 목표 설계이고, 구현하면 1장을 이 그림으로 바꾼다. 3.1-2(소셜 연동), 3.11(첨부), 3.14(출석)의 변경 결정도 여기에 함께 그렸다.
+
+### 6.1 세션(`sessions`)이 왜 필요한가
+
+웹은 요청마다 처음 보는 사이로 대화한다. 페이지를 열 때마다 "나 진행이야"를 증명하려고 비밀번호를 다시 보낼 수는 없다. 그래서:
+
+1. 로그인에 성공하면 서버가 무작위 **토큰**을 만들어 `sessions`에 한 줄 저장하고, 같은 토큰을 브라우저 **쿠키**에 넣는다.
+2. 다음 요청부터 브라우저가 쿠키를 자동으로 보내고, 서버는 `sessions`에서 토큰을 찾아 **누구인지, 아직 유효한지(`expires_at`)** 확인한다.
+
+토큰을 DB에 두는 이유:
+- **로그아웃·강제 로그아웃이 된다**: 행을 지우면 그 쿠키는 바로 쓸모없어진다. (토큰을 서버가 기억하지 않는 방식은 만료 전까지 막을 수 없다)
+- **기기별 로그인**: 휴대폰·노트북마다 행이 따로 있어서 "다른 기기에서 로그아웃"이 가능하다 (`ip_address`, `user_agent`로 어떤 기기인지 보여준다).
+- **만료와 연장**: 7일이 지나면 다시 로그인, 계속 쓰면 연장(`updated_at`).
+- **자동 출석**(3.14): "오늘 이 세션으로 처음 들어왔다"를 출석으로 남길 때 `attendances.session_id`가 이 행을 가리킨다.
+
+비밀번호는 `accounts.password`에 해시로만 있고, 세션은 "로그인한 상태"만 기억한다. 회원 1명 ── 세션 0..N개 (비식별).
+
+### 6.2 회원가입하면 블로그가 반드시 생긴다 (1:1 필수)
+
+- 지금은 가입(`users`) 뒤 온보딩에서 프로필·블로그를 만들어서 `users ||--o| blogs`(0..1)다.
+- 소셜로 가입하는 길이 없어지므로(3.1-2), **회원가입 화면에서 아이디·비밀번호와 닉네임·블로그 이름·주소·캐릭터를 함께 받고, 한 트랜잭션에서 `users`·`accounts`·`profiles`·`blogs`를 같이 만든다.** 온보딩 단계는 없어진다.
+- 그래서 `users ||--|| blogs`, `users ||--|| profiles` (반드시 하나).
+- DB의 FK는 "블로그 → 회원"만 강제할 수 있고 "회원 → 블로그가 반드시 있다"는 강제하지 못한다(양쪽이 서로 먼저 있어야 하는 문제). 그래서 **가입 트랜잭션이 둘을 같이 만들고, 블로그만 지우는 기능은 두지 않는다.** 관리자 계정도 생성 스크립트가 블로그를 같이 만든다(지금과 같음).
+
+### 6.3 식별 관계를 줄인다
+
+부모 키를 묶어 PK로 쓰던 테이블에 **자기 번호 `id`(자동 증가)**를 PK로 두고, 원래 규칙은 **UNIQUE**로 옮긴다. 규칙은 그대로 DB가 지키고, 다른 표가 한 줄을 번호 하나로 가리킬 수 있게 된다.
+
+| 테이블 | 지금 PK (식별) | 바뀐 PK (비식별) | 규칙을 지키는 UNIQUE |
+|---|---|---|---|
+| `profiles` | `user_id` | `id` | UNIQUE (`user_id`) — 회원당 프로필 1개 |
+| `user_items` | (`user_id`, `item_id`) | `id` | UNIQUE (`user_id`, `item_id`) — 같은 아이템 두 번 보유 불가 |
+| `post_tags` | (`post_id`, `tag_id`) | `id` | UNIQUE (`post_id`, `tag_id`) |
+| `post_likes` | (`post_id`, `user_id`) | `id` | UNIQUE (`post_id`, `user_id`) — 한 글에 공감 한 번 |
+| `follows` | (`follower_id`, `followee_id`) | `id` | UNIQUE (`follower_id`, `followee_id`) + CHECK 자기 자신 불가 |
+| `attendances` | (`user_id`, `date`) | `id` | UNIQUE (`user_id`, `date`) — 3.14 |
+| `blog_visits` | (`blog_id`, `date`, `visitor_id`) | `id` | UNIQUE (`blog_id`, `date`, `visitor_id`) |
+| `animal_cares` | (`animal_id`, `action`, `date`) | `id` | UNIQUE (`animal_id`, `action`, `date`) |
+
+- 장착 규칙(3.3)의 복합 FK `(user_id, character_item_id) → user_items (user_id, item_id)`는 **UNIQUE를 가리켜도 되므로** 그대로 쓸 수 있다.
+- 주의: `id`를 PK로 바꾸면 **UNIQUE를 빼먹는 순간 중복이 들어간다.** 위 표의 UNIQUE는 하나도 빼면 안 된다.
+- 이제 식별 관계는 하나도 없다. 모든 관계선이 점선이다.
+
+### 6.4 답글은 별도 테이블로 (자기 참조 없애기)
+
+- 지금은 `comments.parent_id → comments.id`(자기 참조)로 답글을 단다. 답글 깊이가 정해져 있지 않은 구조라, 화면에 그리려면 부모를 따라 반복(재귀)해야 하고 "답글의 답글"을 DB가 막지 못한다.
+- 요구사항은 **답글 1단계**(SOC-02)이므로, 구조로 그 규칙을 드러낸다:
+  - `comments`: 글에 단 댓글만 (`parent_id` 삭제)
+  - **`replies`** (새 테이블): `id` PK, `comment_id` FK → `comments.id`, `author_id` FK → `users.id`, `content`, `created_at`, `deleted_at`
+- 답글의 답글은 **테이블이 없으니 만들 수 없다.** 반복 없이 쿼리 두 번(댓글 목록, 그 댓글들의 답글 `WHERE comment_id IN (...)`)이면 화면이 완성된다.
+- 댓글을 지워도 답글이 남도록 `comments.deleted_at`(소프트 삭제)는 그대로 둔다.
+
+### 6.5 첨부는 글쓰기와 프로필 사진에서만
+
+- 사진·파일은 **글쓰기 에디터에서만** 올린다. 사진만 올리고 싶어도 글로 올린다 (POST-07). 따로 올리는 화면은 없다.
+- 예외로 **프로필 사진**도 첨부를 쓴다.
+- 그래서 첨부를 쓰는 곳은 두 군데다:
+  - 글: `attachments.post_id` → `posts.id` (NULL 허용, 3.11)
+  - 프로필 사진: `profiles.photo_key` → `attachments.key` (NULL 허용, 프로필당 1장)
+- 첨부 하나는 글 하나 또는 프로필 하나에만 쓴다. 어디에도 안 쓰인 첨부(올렸다가 글을 저장하지 않음, 사진을 바꿈)는 하루 뒤 정리 작업이 지운다.
+
+### 6.6 변경안 전체 관계도
+
+```mermaid
+erDiagram
+    users ||--|| profiles : "가입 때 함께 생성"
+    users ||--|| blogs : "가입 때 함께 생성"
+    users ||--o{ accounts : "아이디 1 + 연동한 소셜"
+    users ||--o{ sessions : "로그인 세션"
+
+    users ||--o{ user_items : "보유"
+    items ||--o{ user_items : ""
+    user_items |o--o| profiles : "캐릭터 장착"
+    user_items |o--o| blogs : "배경 장착"
+    attachments |o--o| profiles : "프로필 사진"
+
+    blogs ||--o{ categories : ""
+    blogs ||--o{ posts : ""
+    categories |o--o{ posts : "분류"
+    posts |o--o{ attachments : "글 첨부"
+    users ||--o{ attachments : "올린 사람"
+
+    posts ||--o{ post_tags : ""
+    tags ||--o{ post_tags : ""
+    posts ||--o{ comments : ""
+    comments ||--o{ replies : "답글 (1단계)"
+    users ||--o{ comments : "작성"
+    users ||--o{ replies : "작성"
+    posts ||--o{ post_likes : ""
+    users ||--o{ post_likes : "공감"
+    users ||--o{ follows : "이웃 추가함"
+    users ||--o{ follows : "이웃 추가됨"
+    blogs ||--o{ blog_visits : "방문"
+
+    users ||--o{ attendances : "출석"
+    sessions |o--o{ attendances : "자동 출석한 세션"
+    attendance_rewards ||--o{ attendances : "일차 보상"
+    users ||--o{ point_ledger : "경험치·코인"
+
+    users ||--o{ user_animals : "알·동물"
+    animal_species |o--o{ user_animals : "종류"
+    user_animals ||--o{ animal_cares : "돌보기"
+
+    profiles {
+        int id PK
+        varchar user_id FK,UK
+        varchar nickname UK
+        int character_item_id FK
+        char photo_key FK "NULL 허용"
+    }
+    user_items {
+        int id PK
+        varchar user_id FK "UK(user_id, item_id)"
+        int item_id FK
+    }
+    post_tags {
+        int id PK
+        int post_id FK "UK(post_id, tag_id)"
+        int tag_id FK
+    }
+    post_likes {
+        int id PK
+        int post_id FK "UK(post_id, user_id)"
+        varchar user_id FK
+    }
+    follows {
+        int id PK
+        varchar follower_id FK "UK(follower_id, followee_id)"
+        varchar followee_id FK
+    }
+    comments {
+        int id PK
+        int post_id FK
+        varchar author_id FK
+        varchar content
+        timestamptz deleted_at
+    }
+    replies {
+        int id PK
+        int comment_id FK
+        varchar author_id FK
+        varchar content
+        timestamptz deleted_at
+    }
+    attachments {
+        char key PK
+        varchar user_id FK
+        int post_id FK "NULL 허용"
+    }
+    attendances {
+        int id PK
+        varchar user_id FK "UK(user_id, date)"
+        date date
+        smallint cycle_day FK
+        varchar session_id FK "NULL 허용"
+    }
+    blog_visits {
+        int id PK
+        int blog_id FK "UK(blog_id, date, visitor_id)"
+        date date
+        uuid visitor_id
+    }
+    animal_cares {
+        int id PK
+        int animal_id FK "UK(animal_id, action, date)"
+        care_action action
+        date date
+    }
+```
+
+(바뀌는 테이블만 컬럼을 적었다. 나머지 컬럼은 1장·부록과 같다.)
+
 ## 부록: 컬럼 타입 상세
 
 관계도에는 `text`·`int`처럼 크게 적었다. ERD를 그리거나 다른 DB로 옮길 때는 아래 **ERD 타입**을 쓴다.
