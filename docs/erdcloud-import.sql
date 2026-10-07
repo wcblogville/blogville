@@ -46,7 +46,7 @@ CREATE TABLE `sessions` (
   `id` VARCHAR(32) NOT NULL COMMENT '세션 ID',
   `user_id` VARCHAR(32) NOT NULL COMMENT '회원 ID',
   `token` CHAR(32) NOT NULL COMMENT '세션 토큰 (쿠키에 담기는 값)',
-  `expires_at` DATETIME NOT NULL COMMENT '만료 일시 (로그인 7일 뒤)',
+  `expires_at` DATETIME NOT NULL COMMENT '만료 일시 (마지막 사용 2시간 뒤, 로그인 상태 유지면 7일)',
   `ip_address` VARCHAR(45) NULL COMMENT '접속 IP',
   `user_agent` VARCHAR(512) NULL COMMENT '브라우저 정보',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '로그인 일시',
