@@ -38,6 +38,7 @@ erDiagram
     users ||--o{ attendances : "출석"
     users ||--o{ point_ledger : "경험치·코인 기록"
     users ||--o{ attachments : "올린 사진·파일"
+    posts |o--o{ attachments : "글에 붙은 첨부 (변경 결정, 3.11)"
     blogs ||--o{ blog_visits : "방문 기록"
 
     users ||--o{ user_animals : "알·동물"
@@ -168,7 +169,8 @@ erDiagram
     }
     attachments {
         text key PK "무작위 32자 = 주소 /files/키"
-        text user_id FK
+        text user_id FK "올린 사람"
+        int post_id FK "붙은 글, 쓰는 중이면 NULL (변경 결정)"
         text kind "image | file"
         text name "원래 파일 이름"
         text mime
@@ -236,6 +238,14 @@ erDiagram
 - 소셜 로그인은 같은 `accounts` 테이블에 `provider_id = 'kakao'` 같은 행으로 저장된다.
 - 그래서 "회원 1명 ── 로그인 수단 N개" 구조가 된다. 비밀번호 원문은 어디에도 저장하지 않는다.
 - 관리자는 `users.role = 'admin'`. 가입 요청으로는 바꿀 수 없고 관리자 생성 스크립트로만 정한다.
+
+**변경 결정: 소셜은 가입이 아니라 연동** (2026-10-07, 미구현 · AUTH-01, AUTH-05)
+
+- 모든 회원은 **사이트 아이디로 가입**한다 → `users.username`을 **NOT NULL**로 바꾼다 (지금은 소셜 회원 때문에 NULL 허용). 가입하면 `accounts`에 `credential` 행이 반드시 하나 생긴다.
+- 소셜 계정은 로그인한 뒤 **연동**할 때 `accounts`에 행이 더해진다. 회원 1명 ── 로그인 수단 1~4개 (아이디 1 + 카카오·네이버·구글 각 0~1).
+- 새 제약 **UNIQUE (`user_id`, `provider_id`)**: 한 회원에 같은 서비스는 하나만. 기존 **UNIQUE (`provider_id`, `account_id`)**: 소셜 계정 하나는 한 회원에만.
+- 카카오처럼 이메일을 안 주는 서비스 때문에 만들던 가짜 이메일(`kakao_ID@kakao.blogville.invalid`)이 필요 없어진다. 이메일은 가입할 때 정한 값을 쓴다.
+- 관계도는 그대로 `users ||--o{ accounts`이지만, 의미가 "가입 방법"에서 "연동한 로그인 수단"으로 바뀐다.
 
 ### 3.2 회원 한 명당 블로그 하나 (1:1)
 
@@ -357,6 +367,15 @@ COMMIT
 - `key`는 서버가 만든 무작위 32자(16진수)이고, 저장 이름이자 주소(`/files/키`)다. 올린 파일 이름을 주소·저장 이름에 쓰지 않아 덮어쓰기·경로 조작을 막는다. CHECK로 형식을 강제한다.
 - 글 본문(`posts.content_html`)에는 `<img src="/files/키">`, `<a href="/files/키" data-file …>`처럼 주소만 들어간다. 글과 첨부를 잇는 테이블은 두지 않았다. 저장할 때 본문의 키를 `attachments`에서 확인한다 (DB에 없는 키는 정화에서 뺀다).
 - 내려받는 이름은 `attachments.name`(원래 이름)을 쓰므로, 본문을 조작해도 바뀌지 않는다.
+
+**변경 결정: 첨부는 글에 붙는다** (2026-10-07, 미구현 · POST-07, POST-09)
+
+- `attachments.post_id` (`INTEGER`, NULL 허용) → `posts.id`, **비식별·선택** 관계 (`posts |o--o{ attachments`). 글 하나에 첨부 여러 개, 첨부 하나는 글 0~1개.
+- 올릴 때는 글이 아직 없으므로 `post_id`가 비어 있다. 글을 저장할 때 본문에 있는 **내가 올린** 첨부에 `post_id`를 채우고, 본문에서 빠진 첨부는 비운다.
+- 글을 지우면 `ON DELETE SET NULL` → 행은 남고 `post_id`만 빈다. 파일이 디스크에 남아 있으므로 행을 바로 지우지 않고, "`post_id`가 비고 하루 지난 첨부"를 정리 작업이 파일과 함께 지운다.
+- `user_id`는 남긴다: 글이 생기기 전의 주인이고, 남의 첨부를 내 글에 붙이지 못하게 확인하는 데 쓴다.
+- 비공개 글의 사진은 `post_id`로 글을 찾아 주인만 열게 할 수 있다.
+- 인덱스 `attachments (post_id)`를 더한다 (글을 지우거나 글의 첨부를 찾을 때).
 
 ### 3.12 방문자 수는 "사람·날짜마다 한 줄" (BLOG-06)
 
@@ -486,7 +505,7 @@ erDiagram
 | `email` | `VARCHAR(254)` | `text` | 이메일 주소 최대 길이(표준 254자) |
 | `email_verified` | `BOOLEAN` | `boolean` |  |
 | `image` | `VARCHAR(2048)` | `text` | 프로필 사진 주소(URL) |
-| `username` | `VARCHAR(20)` | `text` | 아이디 4~20자 (영문 소문자·숫자·_) |
+| `username` | `VARCHAR(20)` | `text` | 아이디 4~20자 (영문 소문자·숫자·_). 연동 방식으로 바뀌면 NOT NULL |
 | `display_username` | `VARCHAR(20)` | `text` | 아이디와 같은 길이 |
 | `role` | `ENUM user_role` | `user_role` | user / admin |
 | `created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` | 시간대를 포함한 시각 |
@@ -497,7 +516,7 @@ erDiagram
 |---|---|---|---|
 | `id` | `VARCHAR(32)` | `text` |  |
 | `user_id` | `VARCHAR(32)` | `text` | FK → users.id (같은 타입이어야 한다) |
-| `provider_id` | `VARCHAR(20)` | `text` | credential / naver / kakao / google |
+| `provider_id` | `VARCHAR(20)` | `text` | credential / naver / kakao / google. UNIQUE (user_id, provider_id) 추가 예정 |
 | `account_id` | `VARCHAR(255)` | `text` | 소셜 서비스 사용자 번호 |
 | `access_token, refresh_token, id_token` | `TEXT` | `text` | 길이를 정할 수 없는 토큰 (구글 id_token은 1,000자 이상) |
 | `access_token_expires_at, refresh_token_expires_at` | `TIMESTAMPTZ` | `timestamptz` |  |
@@ -657,7 +676,8 @@ erDiagram
 | 컬럼 | ERD 타입 | 실제 DB | 비고 |
 |---|---|---|---|
 | `key` | `CHAR(32)` | `text` | 무작위 16진수 정확히 32자 (CHECK) |
-| `user_id` | `VARCHAR(32)` | `text` | FK |
+| `user_id` | `VARCHAR(32)` | `text` | FK, 올린 사람 |
+| `post_id` | `INTEGER` | (변경 결정, 아직 없음) | FK → posts.id, NULL 허용, ON DELETE SET NULL |
 | `kind` | `VARCHAR(5)` | `text` | image / file (CHECK). ENUM으로 바꿔도 됨 |
 | `name` | `VARCHAR(255)` | `text` | 원래 파일 이름 1~255자 |
 | `mime` | `VARCHAR(100)` | `text` | 예: application/pdf |
