@@ -4,6 +4,7 @@
 - 버전: 1.4 (2026-10-07, 친구 초대 데이터 보류: invited_by 제거)
 - 근거: [요구사항 명세서](01-requirements.md)
 - ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
+- ERDCloud에서 직접 그린 제출본: [erdcloud-final.sql](erdcloud-final.sql) (2026-10-07 내보내기. 점선 관계의 FK와 테이블 코멘트는 ERDCloud가 내보내지 않는다)
 
 > 이 문서는 **결정된 설계**다. 아직 코드(DB)에 반영되지 않은 부분은 ⏳로 표시했고, 지금 DB와 다른 점은 [7장](#7-지금-db와-다른-점-구현할-일)에 모았다.
 
@@ -623,7 +624,8 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `accounts.scope` | `VARCHAR(500)` | |
 | `sessions.ip_address` | `VARCHAR(45)` | IPv6 최대 45자 |
 | `sessions.user_agent` | `VARCHAR(512)` | |
-| `verifications.identifier`, `value` | `VARCHAR(255)` | |
+| `verifications.identifier` | `VARCHAR(255)` | |
+| `verifications.value` | `TEXT` | 소셜 로그인 확인 값은 길어질 수 있다 |
 | `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
@@ -635,7 +637,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `items.description` | `VARCHAR(200)` | |
 | `items.asset_key`, `animal_species.asset_key` | `VARCHAR(50)` | |
 | `animal_species.code`, `name` | `VARCHAR(20)` | |
-| `point_ledger.ref_id` | `VARCHAR(32)` | 가장 긴 ID(회원 ID)에 맞춤 |
+| `point_ledger.ref_id` | `VARCHAR(64)` | 회원 ID(32자)보다 넉넉하게 |
 | `attachments.kind` | `VARCHAR(5)` | image / file |
 | `attachments.name` | `VARCHAR(255)` | 원래 파일 이름 |
 | `attachments.mime` | `VARCHAR(100)` | |
