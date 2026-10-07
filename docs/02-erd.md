@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.1 (2026-10-07, 가입 시 블로그 자동 생성, 복합 PK 다시 사용, 정규화 점검)
+- 버전: 1.2 (2026-10-07, 성장 아이템·보유 수량·블로그 전시 동물 추가)
 - 근거: [요구사항 명세서](01-requirements.md)
 - ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 24개, MySQL 문법)
 
@@ -51,6 +51,7 @@ erDiagram
     users ||..o{ user_animals : "알·동물"
     animal_species |o..o{ user_animals : "종류 (알이면 없음)"
     user_animals ||--o{ animal_cares : "돌보기 기록"
+    user_animals |o..o| blogs : "전시 동물 (다 키운 동물 1마리)"
 
     users {
         varchar id PK
@@ -106,6 +107,7 @@ erDiagram
         varchar title "가입 때 '아이디의 블로그'"
         varchar description
         int background_item_id FK
+        int showcase_animal_id FK "전시 동물, NULL 허용"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -165,18 +167,20 @@ erDiagram
     items {
         int id PK
         varchar code UK
-        item_type type
+        item_type type "character / background / furniture / growth"
         varchar name
         varchar description
         int price
         smallint required_level
         boolean is_starter
         varchar asset_key
+        int growth_value "성장 아이템만, 쓰면 오르는 성장치"
         timestamptz created_at
     }
     user_items {
         varchar user_id PK,FK
         int item_id PK,FK
+        int quantity "가진 개수 (먹이는 쓰면 줄어듦)"
         timestamptz acquired_at
     }
     attendances {
@@ -228,7 +232,7 @@ erDiagram
     }
     user_animals {
         int id PK
-        varchar user_id FK
+        varchar user_id FK "UK(user_id, id): 전시 FK용"
         int species_id FK "알이면 NULL"
         animal_status status "egg / growing / grown"
         int growth
@@ -255,7 +259,7 @@ erDiagram
 | 인증 | `users`, `accounts`, `sessions`, `verifications` | AUTH |
 | 회원·블로그 | `profiles`, `blogs`, `categories` | AUTH-02, AUTH-07, BLOG |
 | 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows` | POST, SOC, TOWN-08 |
-| 아이템 | `items`, `user_items` | GAME-01, SHOP |
+| 아이템 | `items`, `user_items` | GAME-01, SHOP, TOWN-09(성장 아이템) |
 | 보상 | `attendances`, `attendance_rewards`, `point_ledger` | GAME-02~05, GAME-09 |
 | 첨부 | `attachments` | POST-07, POST-09 |
 | 방문자 | `blog_visits` | BLOG-06 |
@@ -282,6 +286,7 @@ erDiagram
 - **회원당 블로그 1개 필수**: `blogs.owner_id` **UNIQUE**가 "많아야 1개"를, 가입 트랜잭션이 "반드시 1개"를 지킨다. FK로는 "회원 → 블로그가 반드시 있다"를 강제할 수 없어서(서로 먼저 있어야 하는 문제), 블로그만 지우는 기능을 두지 않는 것으로 막는다. 회원을 지우면 블로그도 함께 지워진다.
 - 그래서 관계도는 `users ||--|| profiles`, `users ||--|| blogs`로 그린다.
 - `profiles`는 회원과 1:1이라 `user_id`를 그대로 PK로 쓴다 (식별 관계, 3.7).
+- 프로필(닉네임, 프로필 사진, 장착 캐릭터)은 광장뿐 아니라 **블로그에서도** 보여준다. 블로그 주인으로 바로 찾으므로(`blogs.owner_id = profiles.user_id`) 따로 잇지 않는다.
 
 ### 3.2 로그인: 아이디로 가입하고, 소셜 계정은 연동한다
 
@@ -317,7 +322,7 @@ FOREIGN KEY (user_id, character_item_id) REFERENCES user_items (user_id, item_id
 FOREIGN KEY (owner_id, background_item_id) REFERENCES user_items (user_id, item_id)
 ```
 
-"보유한 것만 장착 가능"(SHOP-04)을 앱 코드가 아니라 **DB가 직접 막는다.** "캐릭터 칸에는 캐릭터 아이템만"이라는 종류 검사는 서버 코드에서 한다.
+"보유한 것만 장착 가능"(SHOP-04)을 앱 코드가 아니라 **DB가 직접 막는다.** 블로그 전시 동물도 같은 방식이다 (3.11). "캐릭터 칸에는 캐릭터 아이템만"이라는 종류 검사는 서버 코드에서 한다.
 
 ERD 도구에서는 같은 `user_id`를 두 관계가 같이 쓰는 복합 FK를 그리기 어렵다. 그럴 때는 `items → profiles`, `items → blogs` 선으로 그리고 위 규칙을 코멘트로 적는다.
 
@@ -418,6 +423,20 @@ COMMIT
 - **돌보기는 하루 한 번**: 복합 PK (`animal_id`, `action`, `date`).
 - **"한 번에 5마리"는 코드가 지킨다**: 상태별 개수 규칙이라 CHECK로 표현할 수 없다. 회원 잠금 트랜잭션 안에서 세고 넣는다.
 - 보상(돌보기 경험치, 다 키운 보상, 알 구매)은 모두 `point_ledger`에 쌓인다.
+- ⏳ **성장 아이템으로 키우기**: 상점에서 코인으로 산 성장 아이템(먹이, 촉진제)을 동물에게 쓰면 `items.growth_value`만큼 자란다. **하루에 몇 번이든** 쓸 수 있고, 막는 것은 보유 수량뿐이다.
+  - `items.type`에 `growth`, `items.growth_value` 추가. CHECK `(type = 'growth') = (growth_value IS NOT NULL)`, `growth_value > 0`
+  - `user_items.quantity`(가진 개수, 기본 1, CHECK ≥ 0): 같은 먹이를 또 사면 줄을 늘리지 않고 수량 +1, 쓰면 −1. 0이 돼도 줄은 남긴다. 복합 PK (`user_id`, `item_id`)는 그대로 "아이템마다 한 줄"을 지킨다
+  - 쓸 때: 회원 잠금 트랜잭션에서 `quantity − 1`(성장 아이템만), `user_animals.growth + growth_value`. 다 자라면 지금처럼 보상
+  - 사용 기록 표는 두지 않는다: 요구사항에 "먹인 기록" 화면이 없고, 성장치는 `user_animals.growth`에, 구매는 원장(`purchase`)에 남는다. 필요해지면 그때 추가해도 다른 구조는 바뀌지 않는다
+- ⏳ **다 키운 동물은 블로그에서**: 다 키운 동물(`status = 'grown'`)이 곧 카드다. 블로그는 주인(`blogs.owner_id = user_animals.user_id`)으로 도감을 모아 보여준다. 블로그와 동물을 따로 잇는 표는 필요 없다 (같은 정보를 두 번 두게 된다).
+- ⏳ **블로그에 한 마리 전시**: `blogs.showcase_animal_id`(NULL 허용). **내 동물만** 전시하도록 장착처럼 복합 FK를 쓴다.
+
+  ```sql
+  -- user_animals에 UNIQUE (user_id, id) 추가 (복합 FK가 가리킬 대상)
+  FOREIGN KEY (owner_id, showcase_animal_id) REFERENCES user_animals (user_id, id) ON DELETE SET NULL
+  ```
+
+  "다 키운 동물만"은 다른 표의 상태라 CHECK로 막을 수 없어 코드에서 확인한다.
 
 ### 3.12 출석: 로그인 세션으로 자동, 7일 주기 (GAME-04)
 
@@ -442,14 +461,14 @@ COMMIT
 | 카테고리 | 글은 남기고 `category_id`만 비움 (`SET NULL`) |
 | 댓글·답글 | 행을 지우지 않고 `deleted_at`만 기록 |
 | 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
-| 동물 | 돌보기 기록 삭제 |
+| 동물 | 돌보기 기록 삭제, 전시 중이면 블로그의 `showcase_animal_id`만 비움 (`SET NULL`) |
 
 ### 3.15 열거형 (ENUM)
 
 | 타입 | 값 |
 |---|---|
 | `user_role` | `user`, `admin` |
-| `item_type` | `character`, `background`, `furniture` |
+| `item_type` | `character`, `background`, `furniture`, ⏳ `growth`(성장 아이템: 먹이, 촉진제) |
 | `visibility` | `public`, `private` |
 | `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, ⏳ `invite`, ⏳ `invited` |
 | `animal_status` | `egg`, `growing`, `grown` |
@@ -483,7 +502,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 
 | 복합 PK 표 | PK 외 컬럼 | 전체 키에 기대나 |
 |---|---|---|
-| `user_items` (`user_id`, `item_id`) | `acquired_at` | 그 회원이 그 아이템을 얻은 시각 ✅ |
+| `user_items` (`user_id`, `item_id`) | `quantity`, `acquired_at` | 그 회원이 가진 그 아이템의 개수·얻은 시각 ✅ |
 | `post_likes` (`post_id`, `user_id`) | `created_at` | ✅ |
 | `follows` (`follower_id`, `followee_id`) | `is_favorite`, `created_at` | 그 이웃 관계의 속성 ✅ |
 | `attendances` (`user_id`, `date`) | `cycle_day`, `session_id`, `checked_at` | 그 회원의 그날 출석 ✅ |
@@ -547,6 +566,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | `users.username` NOT NULL, `accounts` UNIQUE (`user_id`, `provider_id`) | 아이디 없는 회원이 없는지 먼저 확인 (소셜 키 미발급이라 없음) |
 | 6 | `profiles.invited_by`, `follows.is_favorite`, 원장 사유 `invite`·`invited` | 없음 |
+| 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), `user_animals` UNIQUE (`user_id`, `id`), `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
 | 7 | 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), 닉네임 2~20자, 닉네임·블로그 주소 수정, 소셜 연동 화면, 자동 출석 | 코드 |
 
 ## 부록: 컬럼 타입
@@ -596,4 +616,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`·`invited_by`, `posts.category_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`·`invited_by`, `posts.category_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
