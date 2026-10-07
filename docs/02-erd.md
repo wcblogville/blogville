@@ -40,6 +40,10 @@ erDiagram
     users ||--o{ attachments : "올린 사진·파일"
     blogs ||--o{ blog_visits : "방문 기록"
 
+    users ||--o{ user_animals : "알·동물"
+    animal_species |o--o{ user_animals : "종류 (알이면 없음)"
+    user_animals ||--o{ animal_cares : "돌보기 기록"
+
     users {
         text id PK
         text name
@@ -171,6 +175,34 @@ erDiagram
         int size "바이트"
         timestamptz created_at
     }
+    animal_species {
+        int id PK
+        text code UK "chick / bunny / piglet / calf"
+        text name
+        text asset_key "그림 이름"
+        int grow_exp "다 자라는 데 필요한 성장치"
+        int reward_exp "다 키웠을 때 경험치"
+        int reward_coins "다 키웠을 때 코인"
+        int hatch_weight "부화 확률 비중"
+    }
+    user_animals {
+        int id PK
+        text user_id FK
+        int species_id FK "알이면 NULL"
+        animal_status status "egg / growing / grown"
+        int growth "성장치"
+        egg_source source "starter / level / shop"
+        int source_level "레벨 보상 알이면 그 레벨"
+        timestamptz created_at
+        timestamptz hatched_at
+        timestamptz grown_at
+    }
+    animal_cares {
+        int animal_id PK,FK
+        care_action action PK "feed / water / pet"
+        date date PK "한국 날짜"
+        timestamptz created_at
+    }
 ```
 
 ## 2. 테이블 그룹
@@ -184,6 +216,7 @@ erDiagram
 | 보상 | `attendances`, `point_ledger` | GAME-02~05 |
 | 첨부 | `attachments` | POST-07, POST-09 |
 | 방문자 | `blog_visits` | BLOG-06 |
+| 동물 농장 | `animal_species`, `user_animals`, `animal_cares` | TOWN-09 |
 
 인증 테이블 4개는 로그인 라이브러리(Better Auth)가 정한 구조를 따르고, 나머지는 직접 설계했다.
 `verifications`는 로그인 과정의 임시 값을 담는 라이브러리 내부용이라 관계도에서 뺐다.
@@ -298,7 +331,10 @@ COMMIT
 | `user_role` | `user`, `admin` |
 | `item_type` | `character`, `background`, `furniture` |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`, `post`, `comment`, `like_received`, `purchase` |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`, `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase` |
+| `animal_status` | `egg`, `growing`, `grown` |
+| `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
+| `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
 
 정해진 값만 들어가도록 PostgreSQL ENUM 타입을 쓴다. 어제 SQLite 블로그에서 `post_types` 코드 테이블로 했던 일을 DB 타입으로 처리하는 방법이다.
 
@@ -312,6 +348,7 @@ COMMIT
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
 | `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 화면 최신순 (GAME-07, 마이그레이션 0003) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
+| `user_animals (user_id, status)` | 농장 화면, 키우는 알·동물 수(최대 5) 세기 (TOWN-09, 마이그레이션 0005) |
 | `attachments (user_id, created_at)` | 회원을 지울 때 그 회원의 첨부 찾기, 나중에 양 제한·파일 정리 (POST-07, 마이그레이션 0004) |
 
 ### 3.11 첨부(사진·파일)는 파일과 정보를 나눠 둔다 (POST-07, POST-09)
@@ -327,6 +364,29 @@ COMMIT
 - 사람은 회원 ID가 아니라 방문자 쿠키(`bv_visitor`, 무작위 UUID)로 구별한다. 로그인하지 않은 방문자도 세야 하기 때문이다. IP는 저장하지 않는다 (NF-26).
 - 숫자만 쌓는 `count` 컬럼을 두지 않은 이유: 이미 센 사람인지 알 수 없어 "하루 1번"을 지킬 수 없다. 오늘·전체는 `COUNT(*)`로 센다.
 - 블로그가 지워지면 방문 기록도 지워진다 (`ON DELETE CASCADE`).
+
+### 3.13 동물 농장: 상태에 따라 달라지는 규칙을 DB가 지킨다 (TOWN-09)
+
+- **종류 표와 내 동물을 나눴다**: `animal_species`는 동물 종류 카탈로그(성장치·보상·부화 비중)이고, `user_animals`는 회원이 가진 알·동물 한 마리마다 한 줄이다. 종류마다 숫자가 달라서 코드 상수가 아니라 표로 뒀다 (`npm run db:seed`가 채운다).
+- **알이면 종류가 없다**: 부화할 때 종류가 랜덤으로 정해지므로 알일 때 `species_id`는 비어 있다. 그래서 `user_animals`와 `animal_species`는 **비식별·선택(0..1)** 관계다. "알이면 비어 있고, 부화했으면 반드시 있다"는 CHECK로 막는다.
+
+  ```sql
+  CHECK ((status = 'egg') = (species_id IS NULL))
+  ```
+
+- **무료 알은 한 번만**: 농장 첫 알은 회원당 한 번, 레벨 보상 알은 레벨마다 한 번. 코인으로 산 알(`shop`)은 여러 번 가능해야 하므로 테이블 전체 UNIQUE가 아니라 **부분 고유 인덱스**를 쓴다.
+
+  ```sql
+  CREATE UNIQUE INDEX user_animals_starter_uq ON user_animals (user_id) WHERE source = 'starter';
+  CREATE UNIQUE INDEX user_animals_level_uq ON user_animals (user_id, source_level) WHERE source = 'level';
+  CHECK ((source = 'level') = (source_level IS NOT NULL))
+  ```
+
+- **돌보기는 동물마다·종류마다 하루 한 번**: `animal_cares`의 기본 키가 `(animal_id, action, date)`라서 같은 날 같은 돌보기를 두 번 넣으면 DB가 거부한다 → `user_animals`와 **식별 관계**. 출석 `attendances (user_id, date)`와 같은 방식이다.
+- **동물은 자기 번호(`id`)가 있다**: 한 회원이 같은 종류를 여러 마리 키울 수 있고, 돌보기 기록과 원장(`point_ledger.ref_id`)이 동물 한 마리를 번호 하나로 가리켜야 하므로 회원과는 **비식별 관계**다.
+- **보상은 원장에**: 돌보기 경험치(`farm_care`), 다 키운 보상(`farm_grown`, 종류 표의 숫자), 알 구매(`egg_purchase`, 코인 음수)는 모두 `point_ledger`에 쌓인다. 잔액 컬럼을 두지 않는 원칙(3.4)을 그대로 따른다.
+- **"한 번에 5마리"는 코드가 지킨다**: 알·키우는 중 상태의 수를 세는 규칙이라 CHECK로는 표현할 수 없다. 회원 잠금(`lockUser`)을 건 트랜잭션 안에서 세고 넣는다.
+- **삭제**: 회원이 지워지면 동물이, 동물이 지워지면 돌보기 기록이 함께 지워진다 (`ON DELETE CASCADE`). 동물 종류는 지우지 않는다 (참조 중이면 DB가 거부).
 
 ## 4. 데이터 마이그레이션
 
