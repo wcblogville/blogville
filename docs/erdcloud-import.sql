@@ -59,7 +59,7 @@ CREATE TABLE `sessions` (
 CREATE TABLE `verifications` (
   `id` VARCHAR(32) NOT NULL COMMENT 'ID',
   `identifier` VARCHAR(255) NOT NULL COMMENT '무엇을 인증하는지',
-  `value` VARCHAR(255) NOT NULL COMMENT '인증 값',
+  `value` TEXT NOT NULL COMMENT '인증 값',
   `expires_at` DATETIME NOT NULL COMMENT '만료 일시',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '수정 일시',
@@ -208,14 +208,12 @@ CREATE TABLE `profiles` (
   `nickname` VARCHAR(20) NOT NULL COMMENT '닉네임 (2~20자, 가입 때 아이디로 자동)',
   `character_item_id` INT NOT NULL COMMENT '장착 캐릭터 아이템 ID',
   `photo_key` CHAR(32) NULL COMMENT '프로필 사진 첨부 키',
-  `invited_by` VARCHAR(32) NULL COMMENT '초대한 회원 ID',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
   PRIMARY KEY (`user_id`),
   UNIQUE KEY `profiles_nickname_uq` (`nickname`),
   CONSTRAINT `profiles_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `profiles_character_owned_fk` FOREIGN KEY (`user_id`, `character_item_id`) REFERENCES `user_items` (`user_id`, `item_id`),
-  CONSTRAINT `profiles_photo_fk` FOREIGN KEY (`photo_key`) REFERENCES `attachments` (`key`) ON DELETE SET NULL,
-  CONSTRAINT `profiles_invited_by_fk` FOREIGN KEY (`invited_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+  CONSTRAINT `profiles_photo_fk` FOREIGN KEY (`photo_key`) REFERENCES `attachments` (`key`) ON DELETE SET NULL
 ) COMMENT = '프로필 (회원 1:1, 가입 때 자동 생성). 장착 캐릭터는 보유한 아이템만 (복합 FK). CHECK 닉네임 2~20자';
 
 CREATE TABLE `tags` (
@@ -312,10 +310,10 @@ CREATE TABLE `attendances` (
 CREATE TABLE `point_ledger` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '원장 ID',
   `user_id` VARCHAR(32) NOT NULL COMMENT '회원 ID',
-  `reason` ENUM('signup', 'attendance', 'attendance_streak', 'post', 'comment', 'like_received', 'purchase', 'farm_care', 'farm_grown', 'egg_purchase', 'invite', 'invited') NOT NULL COMMENT '사유',
+  `reason` ENUM('signup', 'attendance', 'attendance_streak', 'post', 'comment', 'like_received', 'purchase', 'farm_care', 'farm_grown', 'egg_purchase') NOT NULL COMMENT '사유',
   `exp_delta` INT NOT NULL DEFAULT 0 COMMENT '경험치 변화 (0 이상)',
   `coin_delta` INT NOT NULL DEFAULT 0 COMMENT '코인 변화 (쓰면 음수)',
-  `ref_id` VARCHAR(32) NULL COMMENT '관련 행 ID (글·아이템·동물·출석 날짜·초대한 친구, FK 아님)',
+  `ref_id` VARCHAR(64) NULL COMMENT '관련 행 ID (글·아이템·동물·출석 날짜, FK 아님)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '기록 일시',
   PRIMARY KEY (`id`),
   KEY `point_ledger_user_reason_created_idx` (`user_id`, `reason`, `created_at`),

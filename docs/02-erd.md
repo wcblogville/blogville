@@ -1,9 +1,10 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.3 (2026-10-07, 카테고리 2단계: 대분류·소분류)
+- 버전: 1.4 (2026-10-07, 친구 초대 데이터 보류: invited_by 제거)
 - 근거: [요구사항 명세서](01-requirements.md)
 - ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
+- ERDCloud에서 직접 그린 제출본: [erdcloud-final.sql](erdcloud-final.sql) (2026-10-07 내보내기. 점선 관계의 FK와 테이블 코멘트는 ERDCloud가 내보내지 않는다)
 
 > 이 문서는 **결정된 설계**다. 아직 코드(DB)에 반영되지 않은 부분은 ⏳로 표시했고, 지금 DB와 다른 점은 [7장](#7-지금-db와-다른-점-구현할-일)에 모았다.
 
@@ -17,7 +18,6 @@ erDiagram
     users ||..|| blogs : "가입 때 함께 생성"
     users ||..o{ accounts : "아이디 1 + 연동한 소셜"
     users ||..o{ sessions : "로그인 세션"
-    users |o..o{ profiles : "초대한 회원"
 
     users ||--o{ user_items : "보유"
     items ||--o{ user_items : "보유됨"
@@ -99,7 +99,6 @@ erDiagram
         varchar nickname UK "2~20자, 가입 때 아이디로 자동"
         int character_item_id FK
         char photo_key FK "프로필 사진, NULL 허용"
-        varchar invited_by FK "초대한 회원, NULL 허용"
         timestamptz created_at
     }
     blogs {
@@ -269,7 +268,7 @@ erDiagram
 | 회원·블로그 | `profiles`, `blogs`, `categories`, `subcategories` | AUTH-02, AUTH-07, BLOG |
 | 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows` | POST, SOC, TOWN-08 |
 | 아이템 | `items`, `user_items` | GAME-01, SHOP, TOWN-09(성장 아이템) |
-| 보상 | `attendances`, `attendance_rewards`, `point_ledger` | GAME-02~05, GAME-09 |
+| 보상 | `attendances`, `attendance_rewards`, `point_ledger` | GAME-02~05 |
 | 첨부 | `attachments` | POST-07, POST-09 |
 | 방문자 | `blog_visits` | BLOG-06 |
 | 동물 농장 | `animal_species`, `user_animals`, `animal_cares` | TOWN-09 |
@@ -347,7 +346,7 @@ FROM point_ledger WHERE user_id = $1;
 
 - 잔액 컬럼과 기록이 어긋날 일이 없다. 은행 통장의 거래 내역과 같은 방식이다.
 - **레벨도 저장하지 않는다.** 레벨 n이 되려면 누적 경험치 `50 × n × (n − 1)` 이상 (최고 99).
-- `ref_id`는 사유마다 가리키는 표가 달라서(글, 아이템, 동물, 출석, 초대한 친구) FK가 아니라 글자로 둔다.
+- `ref_id`는 사유마다 가리키는 표가 달라서(글, 아이템, 동물, 출석) FK가 아니라 글자로 둔다.
 
 | 레벨 | 1 | 2 | 3 | 4 | 5 | 10 |
 |---|---|---|---|---|---|---|
@@ -455,10 +454,10 @@ COMMIT
 - ⏳ 일차별 보상은 `attendance_rewards` 표(1~7행). `attendances.cycle_day → attendance_rewards.day`. 숫자를 바꿀 때 표만 고친다.
 - 하루 한 번은 복합 PK (`user_id`, `date`).
 
-### 3.13 친구 초대 (GAME-09)
+### 3.13 친구 초대 (GAME-09) — 보류
 
-- ⏳ `profiles.invited_by` → `users.id` (NULL 허용): 이 회원을 초대한 사람. 가입할 때 한 번만 저장한다 (`users |o--o{ profiles`).
-- 보상은 원장 사유 `invite`(초대한 사람), `invited`(가입한 친구). 같은 친구로 두 번 받지 않도록 `ref_id`에 친구 회원 ID를 넣는다.
+- 2026-10-07 결정으로 데이터 설계에서 뺐다. `profiles.invited_by`와 원장 사유 `invite`·`invited`는 두지 않는다.
+- 다시 만들게 되면 `profiles.invited_by` → `users.id` (NULL 허용, 비식별)와 원장 사유 두 개를 더하면 된다. 다른 표는 바뀌지 않는다.
 
 ### 3.14 삭제 규칙
 
@@ -480,7 +479,7 @@ COMMIT
 | `user_role` | `user`, `admin` |
 | `item_type` | `character`, `background`, `furniture`, ⏳ `growth`(성장 아이템: 먹이, 촉진제) |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, ⏳ `invite`, ⏳ `invited` |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase` |
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
@@ -592,7 +591,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 3 | `attachments.post_id`, `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 |
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | `users.username` NOT NULL, `accounts` UNIQUE (`user_id`, `provider_id`) | 아이디 없는 회원이 없는지 먼저 확인 (소셜 키 미발급이라 없음) |
-| 6 | `profiles.invited_by`, `follows.is_favorite`, 원장 사유 `invite`·`invited` | 없음 |
+| 6 | `follows.is_favorite` | 없음 |
 | 6-3 | `subcategories` 만들기, `posts.subcategory_id` + 복합 FK + CHECK | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), `user_animals` UNIQUE (`user_id`, `id`), `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
 | 7 | 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), 닉네임 2~20자, 닉네임·블로그 주소 수정, 소셜 연동 화면, 자동 출석 | 코드 |
@@ -625,7 +624,8 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `accounts.scope` | `VARCHAR(500)` | |
 | `sessions.ip_address` | `VARCHAR(45)` | IPv6 최대 45자 |
 | `sessions.user_agent` | `VARCHAR(512)` | |
-| `verifications.identifier`, `value` | `VARCHAR(255)` | |
+| `verifications.identifier` | `VARCHAR(255)` | |
+| `verifications.value` | `TEXT` | 소셜 로그인 확인 값은 길어질 수 있다 |
 | `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
@@ -637,11 +637,11 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `items.description` | `VARCHAR(200)` | |
 | `items.asset_key`, `animal_species.asset_key` | `VARCHAR(50)` | |
 | `animal_species.code`, `name` | `VARCHAR(20)` | |
-| `point_ledger.ref_id` | `VARCHAR(32)` | 가장 긴 ID(회원 ID)에 맞춤 |
+| `point_ledger.ref_id` | `VARCHAR(64)` | 회원 ID(32자)보다 넉넉하게 |
 | `attachments.kind` | `VARCHAR(5)` | image / file |
 | `attachments.name` | `VARCHAR(255)` | 원래 파일 이름 |
 | `attachments.mime` | `VARCHAR(100)` | |
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`·`invited_by`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
