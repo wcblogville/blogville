@@ -59,7 +59,7 @@ CREATE TABLE `sessions` (
 CREATE TABLE `verifications` (
   `id` VARCHAR(32) NOT NULL COMMENT 'ID',
   `identifier` VARCHAR(255) NOT NULL COMMENT '무엇을 인증하는지',
-  `value` VARCHAR(255) NOT NULL COMMENT '인증 값',
+  `value` TEXT NOT NULL COMMENT '인증 값',
   `expires_at` DATETIME NOT NULL COMMENT '만료 일시',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '수정 일시',
@@ -313,7 +313,7 @@ CREATE TABLE `point_ledger` (
   `reason` ENUM('signup', 'attendance', 'attendance_streak', 'post', 'comment', 'like_received', 'purchase', 'farm_care', 'farm_grown', 'egg_purchase') NOT NULL COMMENT '사유',
   `exp_delta` INT NOT NULL DEFAULT 0 COMMENT '경험치 변화 (0 이상)',
   `coin_delta` INT NOT NULL DEFAULT 0 COMMENT '코인 변화 (쓰면 음수)',
-  `ref_id` VARCHAR(32) NULL COMMENT '관련 행 ID (글·아이템·동물·출석 날짜, FK 아님)',
+  `ref_id` VARCHAR(64) NULL COMMENT '관련 행 ID (글·아이템·동물·출석 날짜, FK 아님)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '기록 일시',
   PRIMARY KEY (`id`),
   KEY `point_ledger_user_reason_created_idx` (`user_id`, `reason`, `created_at`),
