@@ -4,7 +4,7 @@
 
 - 팀: 이진행(ehgo508), chang0580, jiwon934
 - 작성일: 2026-10-02
-- 버전: 1.15 (카테고리 2단계)
+- 버전: 1.16 (관리자 계정 ID를 32자로)
 
 ### 변경 이력
 
@@ -34,6 +34,7 @@
 | 1.13 | 2026-10-07 | 로그인 유지 변경 결정(미구현): 브라우저를 닫거나 마지막 사용 후 2시간이면 로그아웃, [로그인 상태 유지]를 고르면 7일 (AUTH-09, ERD 3.3) | 이진행 |
 | 1.14 | 2026-10-07 | 변경 결정(미구현): 성장 아이템(먹이·촉진제, 하루 여러 번, `items.type = growth`·`growth_value`, `user_items.quantity`), 다 키운 동물 블로그 도감과 한 마리 전시(`blogs.showcase_animal_id`), 블로그에도 주인 프로필 표시 (TOWN-09, SHOP-01, BLOG-04, ERD 3.11) | 이진행 |
 | 1.15 | 2026-10-07 | 카테고리 2단계 결정(미구현): 대분류(`categories`) 아래 소분류(`subcategories`), 글은 대분류 또는 대분류 + 소분류, 소분류 소속은 복합 FK (BLOG-05, POST-03, ERD 3.18) | 이진행 |
+| 1.16 | 2026-10-07 | AUTH-08 관리자 생성 스크립트가 회원·로그인 정보 ID를 UUID(36자) 대신 Better Auth와 같은 32자로 만든다 (ERD `users.id` VARCHAR(32)). 예전 스크립트로 만든 관리자는 ID를 바꾸지 않고 안내만 한다 | chang0580 |
 
 ### 2026-10-07 설계 변경 (이 결정이 본문보다 우선)
 
@@ -426,7 +427,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 화면 | `src/app/admin/page.tsx` (서버, `requireAdmin()`) |
 | 처리 | `adminDeletePost` (`src/app/admin/actions.ts`): `requireAdmin()` → `DELETE posts WHERE id` |
 | 권한 | `requireAdmin()` (`src/server/dal.ts`): 관리자가 아니면 **404** (관리자 페이지가 있다는 것도 숨김) |
-| 계정 생성 | `scripts/create-admin.ts`: `.env.local`의 `ADMIN_USERNAME`, `ADMIN_PASSWORD`로 회원·로그인 정보·공지사항 블로그(`/@notice`)를 만들거나 비밀번호를 갱신. 여러 번 실행해도 안전 |
+| 계정 생성 | `scripts/create-admin.ts`: `.env.local`의 `ADMIN_USERNAME`, `ADMIN_PASSWORD`로 회원·로그인 정보·공지사항 블로그(`/@notice`)를 만들거나 비밀번호를 갱신. 여러 번 실행해도 안전. 새로 만드는 회원·로그인 정보 ID는 Better Auth가 가입 때 만드는 것과 같은 32자(영문 대소문자·숫자, `generateRandomString`)다. 예전 스크립트로 만든 관리자(UUID 36자)는 ID를 그대로 두고, ID 칸을 VARCHAR(32)로 바꾸기 전에 다시 만들라고 안내한다 (ID는 여러 표가 가리키는 키라 스크립트가 바꾸지 않는다) |
 
 **수용 기준**
 - [x] 일반 회원이 `/admin`에 들어가면 404, 헤더에 관리자 버튼이 없다. (`e2e/auth.mjs`)
