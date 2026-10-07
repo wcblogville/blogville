@@ -1,41 +1,42 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.0 (2026-10-07, 팀 결정 설계로 다시 씀)
+- 버전: 1.1 (2026-10-07, 가입 시 블로그 자동 생성, 복합 PK 다시 사용, 정규화 점검)
 - 근거: [요구사항 명세서](01-requirements.md)
+- ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 24개, MySQL 문법)
 
 > 이 문서는 **결정된 설계**다. 아직 코드(DB)에 반영되지 않은 부분은 ⏳로 표시했고, 지금 DB와 다른 점은 [7장](#7-지금-db와-다른-점-구현할-일)에 모았다.
 
 ## 1. 전체 관계도
 
-모든 관계는 **비식별 관계**(점선)다. 테이블마다 자기 번호 `id`가 PK이고, "한 번만", "하루 한 번" 같은 규칙은 **UNIQUE**가 지킨다 (3.7).
+엔티티(회원, 글, 댓글처럼 스스로 존재하는 것)는 자기 번호 `id`가 PK이고 **비식별 관계**(점선 `..`)다. 둘을 잇는 표와 "하루 한 번" 기록은 부모 키를 묶은 **복합 PK**를 써서 **식별 관계**(실선)다. 복합 PK가 규칙(한 번만, 하루 한 번)을 그대로 지켜서 더 단순하기 때문이다 (3.7). 정규화 점검은 3.17.
 
 ```mermaid
 erDiagram
     users ||--|| profiles : "가입 때 함께 생성"
-    users ||--|| blogs : "가입 때 함께 생성"
-    users ||--o{ accounts : "아이디 1 + 연동한 소셜"
-    users ||--o{ sessions : "로그인 세션"
-    users |o--o{ profiles : "초대한 회원"
+    users ||..|| blogs : "가입 때 함께 생성"
+    users ||..o{ accounts : "아이디 1 + 연동한 소셜"
+    users ||..o{ sessions : "로그인 세션"
+    users |o..o{ profiles : "초대한 회원"
 
     users ||--o{ user_items : "보유"
     items ||--o{ user_items : "보유됨"
-    user_items |o--o| profiles : "캐릭터 장착"
-    user_items |o--o| blogs : "배경 장착"
-    attachments |o--o| profiles : "프로필 사진"
+    user_items |o..o| profiles : "캐릭터 장착"
+    user_items |o..o| blogs : "배경 장착"
+    attachments |o..o| profiles : "프로필 사진"
 
-    blogs ||--o{ categories : ""
-    blogs ||--o{ posts : ""
-    categories |o--o{ posts : "분류"
-    posts |o--o{ attachments : "글 첨부"
-    users ||--o{ attachments : "올린 사람"
+    blogs ||..o{ categories : ""
+    blogs ||..o{ posts : ""
+    categories |o..o{ posts : "분류"
+    posts |o..o{ attachments : "글 첨부"
+    users ||..o{ attachments : "올린 사람"
 
     posts ||--o{ post_tags : ""
     tags ||--o{ post_tags : ""
-    posts ||--o{ comments : ""
-    comments ||--o{ replies : "답글 (1단계)"
-    users ||--o{ comments : "작성"
-    users ||--o{ replies : "작성"
+    posts ||..o{ comments : ""
+    comments ||..o{ replies : "답글 (1단계)"
+    users ||..o{ comments : "작성"
+    users ||..o{ replies : "작성"
     posts ||--o{ post_likes : ""
     users ||--o{ post_likes : "공감"
     users ||--o{ follows : "이웃 추가함"
@@ -43,12 +44,12 @@ erDiagram
     blogs ||--o{ blog_visits : "방문 기록"
 
     users ||--o{ attendances : "출석"
-    sessions |o--o{ attendances : "자동 출석한 세션"
-    attendance_rewards ||--o{ attendances : "그날 일차의 보상"
-    users ||--o{ point_ledger : "경험치·코인 기록"
+    sessions |o..o{ attendances : "자동 출석한 세션"
+    attendance_rewards ||..o{ attendances : "그날 일차의 보상"
+    users ||..o{ point_ledger : "경험치·코인 기록"
 
-    users ||--o{ user_animals : "알·동물"
-    animal_species |o--o{ user_animals : "종류 (알이면 없음)"
+    users ||..o{ user_animals : "알·동물"
+    animal_species |o..o{ user_animals : "종류 (알이면 없음)"
     user_animals ||--o{ animal_cares : "돌보기 기록"
 
     users {
@@ -91,9 +92,8 @@ erDiagram
         timestamptz expires_at
     }
     profiles {
-        int id PK
-        varchar user_id FK,UK
-        varchar nickname UK "2~12자"
+        varchar user_id PK,FK
+        varchar nickname UK "2~20자, 가입 때 아이디로 자동"
         int character_item_id FK
         char photo_key FK "프로필 사진, NULL 허용"
         varchar invited_by FK "초대한 회원, NULL 허용"
@@ -102,8 +102,8 @@ erDiagram
     blogs {
         int id PK
         varchar owner_id FK,UK
-        varchar slug UK "/@주소"
-        varchar title
+        varchar slug UK "/@주소, 가입 때 아이디로 자동"
+        varchar title "가입 때 '아이디의 블로그'"
         varchar description
         int background_item_id FK
         timestamptz created_at
@@ -132,9 +132,8 @@ erDiagram
         varchar name UK
     }
     post_tags {
-        int id PK
-        int post_id FK "UK(post_id, tag_id)"
-        int tag_id FK
+        int post_id PK,FK
+        int tag_id PK,FK
     }
     comments {
         int id PK
@@ -153,15 +152,13 @@ erDiagram
         timestamptz deleted_at
     }
     post_likes {
-        int id PK
-        int post_id FK "UK(post_id, user_id)"
-        varchar user_id FK
+        int post_id PK,FK
+        varchar user_id PK,FK
         timestamptz created_at
     }
     follows {
-        int id PK
-        varchar follower_id FK "UK(follower_id, followee_id)"
-        varchar followee_id FK
+        varchar follower_id PK,FK
+        varchar followee_id PK,FK
         boolean is_favorite "즐겨찾는 이웃 (최대 10)"
         timestamptz created_at
     }
@@ -178,15 +175,13 @@ erDiagram
         timestamptz created_at
     }
     user_items {
-        int id PK
-        varchar user_id FK "UK(user_id, item_id)"
-        int item_id FK
+        varchar user_id PK,FK
+        int item_id PK,FK
         timestamptz acquired_at
     }
     attendances {
-        int id PK
-        varchar user_id FK "UK(user_id, date)"
-        date date "한국 날짜"
+        varchar user_id PK,FK
+        date date PK "한국 날짜"
         smallint cycle_day FK "1~7일차"
         varchar session_id FK "NULL 허용"
         timestamptz checked_at
@@ -216,10 +211,9 @@ erDiagram
         timestamptz created_at
     }
     blog_visits {
-        int id PK
-        int blog_id FK "UK(blog_id, date, visitor_id)"
-        date date
-        uuid visitor_id "방문자 쿠키"
+        int blog_id PK,FK
+        date date PK
+        uuid visitor_id PK "방문자 쿠키"
         timestamptz created_at
     }
     animal_species {
@@ -245,10 +239,9 @@ erDiagram
         timestamptz grown_at
     }
     animal_cares {
-        int id PK
-        int animal_id FK "UK(animal_id, action, date)"
-        care_action action "feed / water / pet"
-        date date
+        int animal_id PK,FK
+        care_action action PK "feed / water / pet"
+        date date PK
         timestamptz created_at
     }
 ```
@@ -272,13 +265,23 @@ erDiagram
 
 ## 3. 설계 결정
 
-### 3.1 가입하면 회원·프로필·블로그가 함께 생긴다 (1:1 필수)
+### 3.1 가입하면 프로필·블로그가 자동으로 생긴다 (회원당 블로그 1개 필수)
 
 - `users`는 "로그인할 수 있는 사람", `profiles`는 "마을 주민(닉네임·장착 캐릭터)", `blogs`는 "내 집(블로그)"이다. 로그인 라이브러리 테이블(`users`)을 건드리지 않으려고 셋을 나눴다.
-- ⏳ **회원가입 화면에서** 아이디·비밀번호와 닉네임·블로그 이름·주소·캐릭터를 함께 받고, **한 트랜잭션**에서 `users`·`accounts`(credential)·`profiles`·`blogs`·기본 아이템을 같이 만든다. 온보딩 단계는 없다 (AUTH-02를 AUTH-07에 합침).
-- 그래서 `users ||--|| profiles`, `users ||--|| blogs`: 회원이면 반드시 하나씩 있다.
-- `profiles.user_id`, `blogs.owner_id`에 **UNIQUE**를 걸어 "회원당 하나"를 DB가 지킨다.
-- FK는 "프로필·블로그 → 회원"만 강제할 수 있고, "회원 → 프로필·블로그가 반드시 있다"는 강제하지 못한다 (서로 먼저 있어야 하는 문제). 그래서 **가입 트랜잭션이 함께 만들고, 프로필·블로그만 지우는 기능은 두지 않는다.** 관리자 계정은 생성 스크립트가 같은 방식으로 만든다.
+- ⏳ **회원가입 화면은 아이디·비밀번호(와 캐릭터 고르기)만 받는다.** 가입 트랜잭션이 `users`·`accounts`(credential)·`profiles`·`blogs`·기본 아이템을 한 번에 만들고, 이름은 **기본값을 쥐어 준다**:
+
+  | 값 | 기본값 | 나중에 바꾸는 곳 |
+  |---|---|---|
+  | 닉네임 | 아이디 (`jinhaeng`) | 내 정보 |
+  | 블로그 이름 | `{아이디}의 블로그` | 블로그 관리 (BLOG-03) |
+  | 블로그 주소 | `/@{아이디}` (아이디와 블로그 주소 규칙이 같다: 영문 소문자·숫자·_) | 블로그 관리 (예전 주소 링크는 끊긴다) |
+  | 블로그 소개 | 빈 값 | 블로그 관리 |
+
+  아이디는 이미 겹치지 않으므로 기본 닉네임·주소도 가입 순간에는 겹치지 않는다. 닉네임 길이는 아이디(4~20자)를 담도록 **2~20자**로 넓힌다.
+- 온보딩 단계는 없다 (AUTH-02를 AUTH-07에 합침).
+- **회원당 블로그 1개 필수**: `blogs.owner_id` **UNIQUE**가 "많아야 1개"를, 가입 트랜잭션이 "반드시 1개"를 지킨다. FK로는 "회원 → 블로그가 반드시 있다"를 강제할 수 없어서(서로 먼저 있어야 하는 문제), 블로그만 지우는 기능을 두지 않는 것으로 막는다. 회원을 지우면 블로그도 함께 지워진다.
+- 그래서 관계도는 `users ||--|| profiles`, `users ||--|| blogs`로 그린다.
+- `profiles`는 회원과 1:1이라 `user_id`를 그대로 PK로 쓴다 (식별 관계, 3.7).
 
 ### 3.2 로그인: 아이디로 가입하고, 소셜 계정은 연동한다
 
@@ -307,7 +310,7 @@ erDiagram
 
 ### 3.4 장착은 "보유한 아이템"만: 복합 외래 키
 
-`profiles.character_item_id`가 그냥 `items.id`를 가리키면, **사지 않은 아이템도 장착**할 수 있다. 그래서 두 컬럼을 묶어 `user_items`의 **UNIQUE (`user_id`, `item_id`)**를 가리키게 한다. (FK는 PK뿐 아니라 UNIQUE도 가리킬 수 있다.)
+`profiles.character_item_id`가 그냥 `items.id`를 가리키면, **사지 않은 아이템도 장착**할 수 있다. 그래서 두 컬럼을 묶어 `user_items`의 **복합 PK (`user_id`, `item_id`)**를 가리키게 한다.
 
 ```sql
 FOREIGN KEY (user_id, character_item_id) REFERENCES user_items (user_id, item_id)
@@ -345,30 +348,31 @@ BEGIN
   1. pg_advisory_xact_lock(hashtext(user_id))  ← 이 회원의 보상·구매를 한 줄로 세운다
   2. 원장 합계로 잔액·레벨 계산
   3. 잔액 < 가격 또는 레벨 부족이면 중단
-  4. user_items에 추가 (이미 있으면 UNIQUE 위반 → ROLLBACK)
+  4. user_items에 추가 (이미 있으면 PK 위반 → ROLLBACK)
   5. point_ledger에 coin_delta = -가격 기록
 COMMIT
 ```
 
 > 원장은 "행을 추가"하는 테이블이라 아직 없는 행은 `FOR UPDATE`로 잠글 수 없다. 그래서 회원 ID로 만든 **advisory lock**(트랜잭션이 끝나면 자동으로 풀리는 이름표 잠금)을 쓴다. 하루 상한 확인(오늘 같은 사유 보상 수를 원장에서 세기)도 같은 잠금 안에서 한다.
 
-### 3.7 식별 관계를 쓰지 않는다: 자기 번호 + UNIQUE
+### 3.7 언제 식별 관계(복합 PK)를 쓰나
 
-부모 키를 묶어 PK로 쓰면(식별 관계) 규칙이 PK로 저절로 지켜지지만, 다른 표가 그 줄을 가리키려면 키를 여러 개 들고 가야 한다. 이 프로젝트는 **모든 테이블에 자기 번호 `id`를 PK로 두고, 규칙은 UNIQUE로** 지킨다.
+- **엔티티**(회원, 블로그, 글, 댓글, 답글, 아이템, 동물, 첨부…)는 스스로 존재하고 다른 표가 번호 하나로 가리켜야 하므로 **자기 번호 `id`가 PK** → 부모와는 **비식별 관계**.
+- **잇는 표와 기록**은 "부모 키 조합에 한 줄"이 곧 규칙이므로 **복합 PK** → 부모와 **식별 관계**. 번호를 따로 두면 UNIQUE를 또 걸어야 해서 오히려 복잡해진다.
 
-| 테이블 | 잇는 것 | 규칙 (UNIQUE) |
+| 테이블 | 복합 PK | PK가 지키는 규칙 |
 |---|---|---|
-| `profiles` | 회원 1:1 | (`user_id`) 회원당 하나 |
-| `blogs` | 회원 1:1 | (`owner_id`) 회원당 하나 |
-| `user_items` | 회원 ↔ 아이템 (N:M) | (`user_id`, `item_id`) 같은 아이템 두 번 보유 불가 |
-| `post_tags` | 글 ↔ 태그 (N:M) | (`post_id`, `tag_id`) |
-| `post_likes` | 글 ↔ 회원 (N:M) | (`post_id`, `user_id`) 한 글에 공감 한 번 (SOC-03) |
-| `follows` | 회원 ↔ 회원 (N:M) | (`follower_id`, `followee_id`) + CHECK 자기 자신 불가 |
-| `attendances` | 회원 | (`user_id`, `date`) 하루 한 번 |
-| `blog_visits` | 블로그 | (`blog_id`, `date`, `visitor_id`) 같은 사람 하루 1번 |
-| `animal_cares` | 동물 | (`animal_id`, `action`, `date`) 같은 돌보기 하루 한 번 |
+| `profiles` | (`user_id`) | 회원당 프로필 1개 (1:1) |
+| `user_items` | (`user_id`, `item_id`) | 같은 아이템 두 번 보유 불가 |
+| `post_tags` | (`post_id`, `tag_id`) | 같은 태그 두 번 불가 |
+| `post_likes` | (`post_id`, `user_id`) | 한 글에 공감 한 번 (SOC-03) |
+| `follows` | (`follower_id`, `followee_id`) | 같은 이웃 두 번 불가 (+ CHECK 자기 자신 불가) |
+| `attendances` | (`user_id`, `date`) | 하루 한 번 출석 |
+| `blog_visits` | (`blog_id`, `date`, `visitor_id`) | 같은 사람 하루 1번 |
+| `animal_cares` | (`animal_id`, `action`, `date`) | 같은 돌보기 하루 한 번 |
 
-> ⚠️ `id`만 PK로 두고 **UNIQUE를 빼먹으면 중복이 들어간다.** 위 UNIQUE는 하나도 빼면 안 된다.
+- 이 표들은 다른 표가 가리키지 않아서 복합 PK의 단점(가리키려면 키를 여러 개 들고 가야 함)이 없다. 예외로 `user_items`는 장착 FK(3.4)가 가리키는데, 복합 FK로 "보유한 것만"을 지키는 데 오히려 쓰인다.
+- 원장(`point_ledger.ref_id`)이 출석을 가리킬 때는 날짜(`2026-10-07`)를 넣는다. 회원은 원장의 `user_id`로 이미 안다.
 
 ### 3.8 답글은 별도 테이블 (1단계)
 
@@ -390,7 +394,7 @@ COMMIT
 
 ### 3.10 방문자 수는 "사람·날짜마다 한 줄" (BLOG-06)
 
-- UNIQUE (`blog_id`, `date`, `visitor_id`)로 "같은 사람은 하루 1번"을 DB가 보장한다.
+- 복합 PK (`blog_id`, `date`, `visitor_id`)로 "같은 사람은 하루 1번"을 DB가 보장한다.
 - 사람은 회원 ID가 아니라 방문자 쿠키(무작위 UUID)로 구별한다. 로그인하지 않은 방문자도 세야 하기 때문이다. IP는 저장하지 않는다 (NF-26).
 - 숫자만 쌓는 `count` 컬럼을 두지 않은 이유: 이미 센 사람인지 알 수 없어 "하루 1번"을 지킬 수 없다.
 
@@ -411,7 +415,7 @@ COMMIT
   CHECK ((source = 'level') = (source_level IS NOT NULL))
   ```
 
-- **돌보기는 하루 한 번**: UNIQUE (`animal_id`, `action`, `date`).
+- **돌보기는 하루 한 번**: 복합 PK (`animal_id`, `action`, `date`).
 - **"한 번에 5마리"는 코드가 지킨다**: 상태별 개수 규칙이라 CHECK로 표현할 수 없다. 회원 잠금 트랜잭션 안에서 세고 넣는다.
 - 보상(돌보기 경험치, 다 키운 보상, 알 구매)은 모두 `point_ledger`에 쌓인다.
 
@@ -421,7 +425,7 @@ COMMIT
 - `sessions → attendances`는 선택 관계: 세션은 7일 동안 살아 있어 출석 여러 개를 만들 수 있고, 로그아웃으로 세션이 지워져도 출석은 남아야 하므로 `ON DELETE SET NULL`.
 - ⏳ `cycle_day`(1~7): 내 마지막 출석이 어제이고 1~6일차면 +1, 그 밖(처음, 7일차 다음 날, 하루 이상 빠짐)은 1.
 - ⏳ 일차별 보상은 `attendance_rewards` 표(1~7행). `attendances.cycle_day → attendance_rewards.day`. 숫자를 바꿀 때 표만 고친다.
-- 하루 한 번은 UNIQUE (`user_id`, `date`).
+- 하루 한 번은 복합 PK (`user_id`, `date`).
 
 ### 3.13 친구 초대 (GAME-09)
 
@@ -454,7 +458,7 @@ COMMIT
 
 ### 3.16 인덱스
 
-UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
+PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 
 | 인덱스 | 쓰이는 곳 |
 |---|---|
@@ -468,6 +472,44 @@ UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `user_animals (user_id, status)` | 농장 화면, 5마리 세기 |
 | `attachments (user_id, created_at)` | 회원의 첨부, 정리 작업 |
 | ⏳ `attachments (post_id)` | 글의 첨부, 글 삭제 |
+
+### 3.17 정규화 점검
+
+**제1정규형 (1NF): 한 칸에 값 하나**
+- 태그는 글에 쉼표로 적지 않고 `post_tags`로 나눴다. 보유 아이템·공감·이웃도 같은 방식이다. ✅
+- 예외: `accounts.scope`(소셜 권한 목록, 쉼표로 이어진 글자)는 로그인 라이브러리 형식이라 그대로 둔다. 우리 코드는 이 값을 나눠 쓰지 않는다.
+
+**제2정규형 (2NF): 복합 PK의 일부에만 기대는 컬럼이 없다**
+
+| 복합 PK 표 | PK 외 컬럼 | 전체 키에 기대나 |
+|---|---|---|
+| `user_items` (`user_id`, `item_id`) | `acquired_at` | 그 회원이 그 아이템을 얻은 시각 ✅ |
+| `post_likes` (`post_id`, `user_id`) | `created_at` | ✅ |
+| `follows` (`follower_id`, `followee_id`) | `is_favorite`, `created_at` | 그 이웃 관계의 속성 ✅ |
+| `attendances` (`user_id`, `date`) | `cycle_day`, `session_id`, `checked_at` | 그 회원의 그날 출석 ✅ |
+| `blog_visits` | `created_at` | ✅ |
+| `animal_cares` | `created_at` | ✅ |
+
+아이템 이름·가격은 `user_items`에 다시 적지 않고 `items`에만 있다 (적으면 `item_id`에만 기대는 부분 종속).
+
+**제3정규형 (3NF): PK가 아닌 컬럼끼리 기대지 않는다**
+- 글 작성자를 `posts`에 두지 않았다: 블로그 → 주인으로 찾는다 (`posts.blog_id → blogs.owner_id`). 두면 작성자가 블로그를 거쳐 정해지는 이행 종속이 된다. ✅
+- 잔액·레벨을 저장하지 않고 원장 합계로 계산한다 (3.5). ✅
+- 닉네임은 `profiles`에만, 블로그 이름은 `blogs`에만 있다. 다른 표는 FK로 찾아간다. ✅
+
+**일부러 남긴 중복 (반정규화)** — 계산 비용이나 기록 보존 때문에 저장한다.
+
+| 컬럼 | 어디서 계산할 수 있나 | 저장하는 이유 |
+|---|---|---|
+| `posts.content_text` | `content_html`에서 태그를 빼면 된다 | 목록 요약·검색·글자 수를 매번 HTML에서 뽑지 않으려고 |
+| `posts.view_count` | 조회 기록을 세면 된다 | 조회 기록 표를 두지 않아서 숫자만 쌓는다 |
+| `point_ledger.exp_delta`, `coin_delta` | 사유 + 보상 규칙 | **그때의 보상**을 남기려고. 규칙 숫자가 바뀌어도 지난 기록은 바뀌면 안 된다 |
+| `attendances.cycle_day` | 지난 출석을 거슬러 세면 된다 | 매번 거슬러 세지 않고, 규칙이 바뀌어도 그날 받은 일차를 남기려고 |
+| `user_animals.status` | 종류 유무, 성장치 ≥ 필요 성장치 | 상태별로 세고(5마리) 찾는 일이 잦아서. CHECK로 종류 유무와 어긋나지 않게 묶었다 |
+| `attachments.mime` | 파일 이름의 확장자 | 내려줄 때 그대로 쓰려고. 올릴 때 서버가 정하고 바뀌지 않는다 |
+| `users.display_username` | `username`의 대소문자 | 로그인 라이브러리 형식 |
+
+**BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`)는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
 
 ## 4. 데이터 마이그레이션
 
@@ -487,8 +529,8 @@ UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 바꾼 것 | 이유 |
 |---|---|
 | 소셜은 가입이 아니라 연동 | 아이디가 모든 회원의 기준이 되고, 소셜은 빠른 로그인 수단이 된다. 같은 사람이 계정 둘로 나뉘지 않는다 |
-| 가입 때 프로필·블로그 생성 (온보딩 없앰) | 소셜 가입이 없어져 온보딩이 필요 없다. "블로그 없는 회원"이 없어진다 |
-| 식별 관계 → 자기 번호 + UNIQUE | 다른 표가 한 줄을 번호 하나로 가리킬 수 있다 (예: 원장 `ref_id` → 출석 ID). 관계선이 모두 같은 종류라 읽기 쉽다 |
+| 가입 때 프로필·블로그를 기본값으로 생성 (온보딩 없앰) | 소셜 가입이 없어져 온보딩이 필요 없다. 이름은 나중에 바꾸면 되므로 가입이 짧아지고, "블로그 없는 회원"이 없어진다 |
+| 엔티티는 `id`, 잇는 표·기록은 복합 PK | 복합 PK가 규칙을 그대로 지켜 UNIQUE를 따로 걸 필요가 없다 |
 | 답글 테이블 분리 | 자기 참조의 반복을 없애고 "1단계"를 구조로 드러낸다 |
 | 첨부를 글·프로필 사진에 연결 | 첨부가 어디에 쓰였는지 DB가 알고, 안 쓰인 파일을 정리하고, 비공개 글 사진을 지킬 수 있다 |
 | 출석 자동·7일 주기 | 세션으로 "그날 들어왔음"을 출석으로 삼고, 7일 주기 보상으로 매일 들르게 한다 |
@@ -499,13 +541,13 @@ UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 
 | 순서 | 할 일 | 데이터 옮기기 |
 |---|---|---|
-| 1 | `profiles`, `user_items`, `post_tags`, `post_likes`, `follows`, `attendances`, `blog_visits`, `animal_cares`에 `id` PK 추가, 기존 PK를 UNIQUE로 | 기존 행에 번호를 매긴다 |
+| 1 | (식별 관계 표는 지금 DB와 같다. 바꿀 것 없음) | |
 | 2 | `replies` 만들기, `comments.parent_id` 삭제 | 답글(`parent_id`가 있는 댓글)을 `replies`로 옮긴다 |
 | 3 | `attachments.post_id`, `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 |
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | `users.username` NOT NULL, `accounts` UNIQUE (`user_id`, `provider_id`) | 아이디 없는 회원이 없는지 먼저 확인 (소셜 키 미발급이라 없음) |
 | 6 | `profiles.invited_by`, `follows.is_favorite`, 원장 사유 `invite`·`invited` | 없음 |
-| 7 | 가입에 온보딩 합치기, 소셜 연동 화면, 자동 출석 | 코드 |
+| 7 | 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), 닉네임 2~20자, 닉네임·블로그 주소 수정, 소셜 연동 화면, 자동 출석 | 코드 |
 
 ## 부록: 컬럼 타입
 
@@ -536,7 +578,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `sessions.ip_address` | `VARCHAR(45)` | IPv6 최대 45자 |
 | `sessions.user_agent` | `VARCHAR(512)` | |
 | `verifications.identifier`, `value` | `VARCHAR(255)` | |
-| `profiles.nickname` | `VARCHAR(12)` | 2~12자 |
+| `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
 | `blogs.description` | `VARCHAR(160)` | |
