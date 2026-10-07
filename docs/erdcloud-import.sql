@@ -70,26 +70,60 @@ CREATE TABLE `verifications` (
 CREATE TABLE `items` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '아이템 ID',
   `code` VARCHAR(30) NOT NULL COMMENT '아이템 코드 (예: bg_beach)',
-  `type` ENUM('character', 'background', 'furniture') NOT NULL COMMENT '종류',
+  `type` ENUM('character', 'background', 'furniture', 'growth') NOT NULL COMMENT '종류 (growth = 성장 아이템: 먹이·촉진제)',
   `name` VARCHAR(30) NOT NULL COMMENT '이름',
   `description` VARCHAR(200) NULL COMMENT '설명',
   `price` INT NOT NULL DEFAULT 0 COMMENT '가격 (코인, 0 이상)',
   `required_level` SMALLINT NOT NULL DEFAULT 1 COMMENT '필요 레벨 (1~99)',
   `is_starter` BOOLEAN NOT NULL DEFAULT FALSE COMMENT '가입 때 받는 기본 아이템',
   `asset_key` VARCHAR(50) NOT NULL COMMENT '그림 이름 (예: bg.beach)',
+  `growth_value` INT NULL COMMENT '성장치 (성장 아이템만, 쓰면 동물이 이만큼 자람)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '등록 일시',
   PRIMARY KEY (`id`),
   UNIQUE KEY `items_code_uq` (`code`)
-) COMMENT = '아이템 카탈로그. CHECK price >= 0, required_level >= 1';
+) COMMENT = '아이템 카탈로그. CHECK price >= 0, required_level >= 1, (type = growth) = (growth_value IS NOT NULL), growth_value > 0';
 
 CREATE TABLE `user_items` (
   `user_id` VARCHAR(32) NOT NULL COMMENT '회원 ID',
   `item_id` INT NOT NULL COMMENT '아이템 ID',
+  `quantity` INT NOT NULL DEFAULT 1 COMMENT '수량 (성장 아이템은 쓰면 줄어듦)',
   `acquired_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '얻은 일시',
   PRIMARY KEY (`user_id`, `item_id`),
   CONSTRAINT `user_items_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `user_items_item_fk` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`)
-) COMMENT = '보유 아이템 (회원 ↔ 아이템 N:M). 복합 PK = 같은 아이템 두 번 보유 불가';
+) COMMENT = '보유 아이템 (회원 ↔ 아이템 N:M). 복합 PK = 아이템마다 한 줄 (개수는 quantity). CHECK quantity >= 0';
+
+-- ===== 동물 (블로그 전시가 가리키므로 블로그보다 먼저) =====
+CREATE TABLE `animal_species` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '동물 종류 ID',
+  `code` VARCHAR(20) NOT NULL COMMENT '코드 (예: chick)',
+  `name` VARCHAR(20) NOT NULL COMMENT '이름',
+  `asset_key` VARCHAR(50) NOT NULL COMMENT '그림 이름',
+  `grow_exp` INT NOT NULL COMMENT '다 자라는 데 필요한 성장치',
+  `reward_exp` INT NOT NULL COMMENT '다 키운 보상 경험치',
+  `reward_coins` INT NOT NULL COMMENT '다 키운 보상 코인',
+  `hatch_weight` SMALLINT NOT NULL COMMENT '부화 확률 비중',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `animal_species_code_uq` (`code`)
+) COMMENT = '동물 종류 카탈로그. CHECK grow_exp > 0, 보상 >= 0, hatch_weight > 0';
+
+CREATE TABLE `user_animals` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '동물 ID',
+  `user_id` VARCHAR(32) NOT NULL COMMENT '회원 ID',
+  `species_id` INT NULL COMMENT '동물 종류 ID (알이면 NULL)',
+  `status` ENUM('egg', 'growing', 'grown') NOT NULL DEFAULT 'egg' COMMENT '상태',
+  `growth` INT NOT NULL DEFAULT 0 COMMENT '성장치',
+  `source` ENUM('starter', 'level', 'shop') NOT NULL COMMENT '알 출처',
+  `source_level` SMALLINT NULL COMMENT '레벨 보상 알이면 그 레벨',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '받은 일시',
+  `hatched_at` DATETIME NULL COMMENT '부화 일시',
+  `grown_at` DATETIME NULL COMMENT '다 자란 일시',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_animals_user_id_uq` (`user_id`, `id`),
+  KEY `user_animals_user_status_idx` (`user_id`, `status`),
+  CONSTRAINT `user_animals_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `user_animals_species_fk` FOREIGN KEY (`species_id`) REFERENCES `animal_species` (`id`)
+) COMMENT = '내 알·동물. CHECK (status = egg) = (species_id IS NULL), (source = level) = (source_level IS NOT NULL). 부분 UNIQUE: (user_id) WHERE source = starter, (user_id, source_level) WHERE source = level';
 
 -- ===== 회원·블로그 =====
 CREATE TABLE `blogs` (
@@ -99,14 +133,16 @@ CREATE TABLE `blogs` (
   `title` VARCHAR(40) NOT NULL COMMENT '블로그 이름 (가입 때 아이디의 블로그)',
   `description` VARCHAR(160) NOT NULL DEFAULT '' COMMENT '소개',
   `background_item_id` INT NOT NULL COMMENT '배경 아이템 ID',
+  `showcase_animal_id` INT NULL COMMENT '전시 동물 ID (다 키운 동물 1마리)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '생성 일시',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '수정 일시',
   PRIMARY KEY (`id`),
   UNIQUE KEY `blogs_owner_uq` (`owner_id`),
   UNIQUE KEY `blogs_slug_uq` (`slug`),
   CONSTRAINT `blogs_owner_fk` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `blogs_background_owned_fk` FOREIGN KEY (`owner_id`, `background_item_id`) REFERENCES `user_items` (`user_id`, `item_id`)
-) COMMENT = '블로그 (회원당 1개 필수, 가입 때 자동 생성). 배경은 보유한 아이템만 (복합 FK). CHECK slug ^[a-z0-9_]{3,20}$, 이름 1~40자';
+  CONSTRAINT `blogs_background_owned_fk` FOREIGN KEY (`owner_id`, `background_item_id`) REFERENCES `user_items` (`user_id`, `item_id`),
+  CONSTRAINT `blogs_showcase_owned_fk` FOREIGN KEY (`owner_id`, `showcase_animal_id`) REFERENCES `user_animals` (`user_id`, `id`) ON DELETE SET NULL
+) COMMENT = '블로그 (회원당 1개 필수, 가입 때 자동 생성). 배경은 보유한 아이템만 (복합 FK). 전시 동물은 내 동물만 (복합 FK). CHECK slug ^[a-z0-9_]{3,20}$, 이름 1~40자';
 
 CREATE TABLE `categories` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '카테고리 ID',
@@ -274,37 +310,7 @@ CREATE TABLE `point_ledger` (
   CONSTRAINT `point_ledger_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) COMMENT = '경험치·코인 원장. 잔액 = SUM(coin_delta), 레벨 = SUM(exp_delta) (잔액 컬럼 없음). CHECK exp_delta >= 0, exp_delta <> 0 OR coin_delta <> 0';
 
--- ===== 동물 농장 =====
-CREATE TABLE `animal_species` (
-  `id` INT NOT NULL AUTO_INCREMENT COMMENT '동물 종류 ID',
-  `code` VARCHAR(20) NOT NULL COMMENT '코드 (예: chick)',
-  `name` VARCHAR(20) NOT NULL COMMENT '이름',
-  `asset_key` VARCHAR(50) NOT NULL COMMENT '그림 이름',
-  `grow_exp` INT NOT NULL COMMENT '다 자라는 데 필요한 성장치',
-  `reward_exp` INT NOT NULL COMMENT '다 키운 보상 경험치',
-  `reward_coins` INT NOT NULL COMMENT '다 키운 보상 코인',
-  `hatch_weight` SMALLINT NOT NULL COMMENT '부화 확률 비중',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `animal_species_code_uq` (`code`)
-) COMMENT = '동물 종류 카탈로그. CHECK grow_exp > 0, 보상 >= 0, hatch_weight > 0';
-
-CREATE TABLE `user_animals` (
-  `id` INT NOT NULL AUTO_INCREMENT COMMENT '동물 ID',
-  `user_id` VARCHAR(32) NOT NULL COMMENT '회원 ID',
-  `species_id` INT NULL COMMENT '동물 종류 ID (알이면 NULL)',
-  `status` ENUM('egg', 'growing', 'grown') NOT NULL DEFAULT 'egg' COMMENT '상태',
-  `growth` INT NOT NULL DEFAULT 0 COMMENT '성장치',
-  `source` ENUM('starter', 'level', 'shop') NOT NULL COMMENT '알 출처',
-  `source_level` SMALLINT NULL COMMENT '레벨 보상 알이면 그 레벨',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '받은 일시',
-  `hatched_at` DATETIME NULL COMMENT '부화 일시',
-  `grown_at` DATETIME NULL COMMENT '다 자란 일시',
-  PRIMARY KEY (`id`),
-  KEY `user_animals_user_status_idx` (`user_id`, `status`),
-  CONSTRAINT `user_animals_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `user_animals_species_fk` FOREIGN KEY (`species_id`) REFERENCES `animal_species` (`id`)
-) COMMENT = '내 알·동물. CHECK (status = egg) = (species_id IS NULL), (source = level) = (source_level IS NOT NULL). 부분 UNIQUE: (user_id) WHERE source = starter, (user_id, source_level) WHERE source = level';
-
+-- ===== 동물 농장 (돌보기 기록) =====
 CREATE TABLE `animal_cares` (
   `animal_id` INT NOT NULL COMMENT '동물 ID',
   `action` ENUM('feed', 'water', 'pet') NOT NULL COMMENT '돌보기 (밥 / 물 / 쓰다듬기)',
