@@ -149,7 +149,7 @@ erDiagram
     attendances {
         text user_id PK, FK
         date date PK
-        int streak "연속 출석 일수 (7일 주기로 변경 결정, 3.13)"
+        int streak "연속 출석 일수 (7일 주기로 변경 결정, 3.14)"
     }
     point_ledger {
         int id PK
