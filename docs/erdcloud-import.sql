@@ -152,13 +152,25 @@ CREATE TABLE `categories` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `categories_blog_name_uq` (`blog_id`, `name`),
   CONSTRAINT `categories_blog_fk` FOREIGN KEY (`blog_id`) REFERENCES `blogs` (`id`) ON DELETE CASCADE
-) COMMENT = '카테고리. 한 블로그 안에서 이름 중복 불가';
+) COMMENT = '대분류 카테고리. 한 블로그 안에서 이름 중복 불가';
+
+CREATE TABLE `subcategories` (
+  `id` INT NOT NULL AUTO_INCREMENT COMMENT '소분류 ID',
+  `category_id` INT NOT NULL COMMENT '대분류 ID',
+  `name` VARCHAR(20) NOT NULL COMMENT '이름 (1~20자)',
+  `position` SMALLINT NOT NULL DEFAULT 0 COMMENT '대분류 안에서의 순서',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `subcategories_category_name_uq` (`category_id`, `name`),
+  UNIQUE KEY `subcategories_category_id_uq` (`category_id`, `id`),
+  CONSTRAINT `subcategories_category_fk` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE
+) COMMENT = '소분류 카테고리 (2단계까지). 같은 대분류 안에서 이름 중복 불가';
 
 -- ===== 글·교류 =====
 CREATE TABLE `posts` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '글 ID',
   `blog_id` INT NOT NULL COMMENT '블로그 ID (작성자는 블로그 주인)',
-  `category_id` INT NULL COMMENT '카테고리 ID (없으면 NULL)',
+  `category_id` INT NULL COMMENT '대분류 ID (없으면 NULL)',
+  `subcategory_id` INT NULL COMMENT '소분류 ID (없으면 NULL)',
   `title` VARCHAR(100) NOT NULL COMMENT '제목 (1~100자)',
   `content_html` TEXT NOT NULL COMMENT '본문 HTML (정화됨)',
   `content_text` TEXT NOT NULL COMMENT '본문 글자 (요약·검색·글자 수용, 일부러 남긴 중복)',
@@ -170,8 +182,9 @@ CREATE TABLE `posts` (
   KEY `posts_blog_created_idx` (`blog_id`, `created_at`),
   KEY `posts_visibility_created_idx` (`visibility`, `created_at`),
   CONSTRAINT `posts_blog_fk` FOREIGN KEY (`blog_id`) REFERENCES `blogs` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `posts_category_fk` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL
-) COMMENT = '글';
+  CONSTRAINT `posts_category_fk` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `posts_subcategory_fk` FOREIGN KEY (`category_id`, `subcategory_id`) REFERENCES `subcategories` (`category_id`, `id`) ON DELETE SET NULL
+) COMMENT = '글. 소분류는 그 대분류 소속만 (복합 FK, 실제 DB는 ON DELETE SET NULL (subcategory_id)). CHECK subcategory_id IS NULL OR category_id IS NOT NULL';
 
 -- ===== 첨부 (글 다음, 프로필 앞: 둘 다 첨부와 이어진다) =====
 CREATE TABLE `attachments` (

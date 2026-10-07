@@ -1,9 +1,9 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.2 (2026-10-07, 성장 아이템·보유 수량·블로그 전시 동물 추가)
+- 버전: 1.3 (2026-10-07, 카테고리 2단계: 대분류·소분류)
 - 근거: [요구사항 명세서](01-requirements.md)
-- ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 24개, MySQL 문법)
+- ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
 
 > 이 문서는 **결정된 설계**다. 아직 코드(DB)에 반영되지 않은 부분은 ⏳로 표시했고, 지금 DB와 다른 점은 [7장](#7-지금-db와-다른-점-구현할-일)에 모았다.
 
@@ -27,7 +27,9 @@ erDiagram
 
     blogs ||..o{ categories : ""
     blogs ||..o{ posts : ""
-    categories |o..o{ posts : "분류"
+    categories |o..o{ posts : "대분류"
+    categories ||..o{ subcategories : "소분류 (2단계)"
+    subcategories |o..o{ posts : "소분류"
     posts |o..o{ attachments : "글 첨부"
     users ||..o{ attachments : "올린 사람"
 
@@ -114,13 +116,20 @@ erDiagram
     categories {
         int id PK
         int blog_id FK "UK(blog_id, name)"
-        varchar name
+        varchar name "대분류 이름"
+        smallint position
+    }
+    subcategories {
+        int id PK
+        int category_id FK "UK(category_id, name), UK(category_id, id)"
+        varchar name "소분류 이름"
         smallint position
     }
     posts {
         int id PK
         int blog_id FK
-        int category_id FK "NULL 허용"
+        int category_id FK "대분류, NULL 허용"
+        int subcategory_id FK "소분류, NULL 허용"
         varchar title
         text content_html
         text content_text
@@ -257,7 +266,7 @@ erDiagram
 | 그룹 | 테이블 | 관련 요구사항 |
 |---|---|---|
 | 인증 | `users`, `accounts`, `sessions`, `verifications` | AUTH |
-| 회원·블로그 | `profiles`, `blogs`, `categories` | AUTH-02, AUTH-07, BLOG |
+| 회원·블로그 | `profiles`, `blogs`, `categories`, `subcategories` | AUTH-02, AUTH-07, BLOG |
 | 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows` | POST, SOC, TOWN-08 |
 | 아이템 | `items`, `user_items` | GAME-01, SHOP, TOWN-09(성장 아이템) |
 | 보상 | `attendances`, `attendance_rewards`, `point_ledger` | GAME-02~05, GAME-09 |
@@ -458,7 +467,8 @@ COMMIT
 | 회원 | 프로필, 블로그, 글, 댓글, 답글, 공감, 이웃, 원장, 출석, 동물, 첨부 정보 삭제 (`CASCADE`) (AUTH-06). 저장소의 파일은 정리 작업이 지운다 |
 | 블로그 | 카테고리, 글, 방문 기록 삭제 (블로그만 지우는 기능은 없다, 3.1) |
 | 글 | 태그 연결, 댓글(→ 답글), 공감 삭제. 첨부는 `post_id`만 비움 |
-| 카테고리 | 글은 남기고 `category_id`만 비움 (`SET NULL`) |
+| 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움 |
+| 소분류 | 글은 남기고 `subcategory_id`만 비움 (대분류는 그대로) |
 | 댓글·답글 | 행을 지우지 않고 `deleted_at`만 기록 |
 | 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
 | 동물 | 돌보기 기록 삭제, 전시 중이면 블로그의 `showcase_animal_id`만 비움 (`SET NULL`) |
@@ -491,6 +501,23 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `user_animals (user_id, status)` | 농장 화면, 5마리 세기 |
 | `attachments (user_id, created_at)` | 회원의 첨부, 정리 작업 |
 | ⏳ `attachments (post_id)` | 글의 첨부, 글 삭제 |
+
+### 3.18 카테고리 2단계: 대분류·소분류 (BLOG-05, POST-03)
+
+- 대분류는 지금의 `categories`, 소분류는 **`subcategories`** 표로 나눈다. 답글(3.8)처럼 3단계 표가 없으니 **2단계를 구조로 보장**한다. 자기 참조(`parent_id`)를 쓰지 않는다.
+- `subcategories`에는 `blog_id`를 두지 않는다. 대분류를 거치면 블로그를 안다 (3NF).
+- 글은 대분류만, 또는 대분류 + 소분류를 고른다: `posts.category_id`, `posts.subcategory_id` (둘 다 NULL 허용).
+- **소분류가 그 대분류 소속인지** DB가 확인한다. `subcategories`에 UNIQUE (`category_id`, `id`)를 두고 복합 FK로 가리킨다.
+
+  ```sql
+  FOREIGN KEY (category_id, subcategory_id) REFERENCES subcategories (category_id, id)
+      ON DELETE SET NULL (subcategory_id)      -- 소분류를 지우면 소분류만 비운다 (PostgreSQL 15+)
+  CHECK (subcategory_id IS NULL OR category_id IS NOT NULL)  -- 소분류만 있고 대분류가 없는 글 금지
+  ```
+
+  복합 FK는 칸 하나라도 비어 있으면 검사하지 않으므로, "소분류가 있으면 대분류도 있다"는 CHECK로 따로 막는다.
+- 예: "여행 > 맛집"은 되고, "여행 > 알고리즘"(공부의 소분류)은 DB가 거부한다.
+- 블로그에서 대분류를 누르면 그 아래 소분류 글까지 모두 보인다 (`WHERE category_id = ?`). 소분류를 누르면 그 소분류 글만 (`WHERE subcategory_id = ?`).
 
 ### 3.17 정규화 점검
 
@@ -528,7 +555,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `attachments.mime` | 파일 이름의 확장자 | 내려줄 때 그대로 쓰려고. 올릴 때 서버가 정하고 바뀌지 않는다 |
 | `users.display_username` | `username`의 대소문자 | 로그인 라이브러리 형식 |
 
-**BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`)는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
+**BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `subcategories (category_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`)는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
 
 ## 4. 데이터 마이그레이션
 
@@ -566,6 +593,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | `users.username` NOT NULL, `accounts` UNIQUE (`user_id`, `provider_id`) | 아이디 없는 회원이 없는지 먼저 확인 (소셜 키 미발급이라 없음) |
 | 6 | `profiles.invited_by`, `follows.is_favorite`, 원장 사유 `invite`·`invited` | 없음 |
+| 6-3 | `subcategories` 만들기, `posts.subcategory_id` + 복합 FK + CHECK | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), `user_animals` UNIQUE (`user_id`, `id`), `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
 | 7 | 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), 닉네임 2~20자, 닉네임·블로그 주소 수정, 소셜 연동 화면, 자동 출석 | 코드 |
 
@@ -602,7 +630,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
 | `blogs.description` | `VARCHAR(160)` | |
-| `categories.name`, `tags.name` | `VARCHAR(20)` | 1~20자 |
+| `categories.name`, `subcategories.name`, `tags.name` | `VARCHAR(20)` | 1~20자 |
 | `posts.title` | `VARCHAR(100)` | 1~100자 |
 | `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자 |
 | `items.code`, `items.name` | `VARCHAR(30)` | |
@@ -616,4 +644,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`·`invited_by`, `posts.category_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`·`invited_by`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
