@@ -396,16 +396,19 @@ COMMIT
 ```mermaid
 erDiagram
     users ||--o{ attendances : "출석"
+    sessions |o--o{ attendances : "자동 출석한 세션"
     attendance_rewards ||--o{ attendances : "그날 일차의 보상"
 
     attendances {
         int id PK "자동 증가"
-        text user_id FK
+        varchar user_id FK
         date date "UNIQUE (user_id, date)"
-        int cycle_day FK "1~7"
+        smallint cycle_day FK "1~7"
+        varchar session_id FK "NULL 허용, 세션 삭제 시 NULL"
+        timestamptz checked_at "출석 시각"
     }
     attendance_rewards {
-        int day PK "1~7"
+        smallint day PK "1~7"
         int exp
         int coins
     }
@@ -417,8 +420,24 @@ erDiagram
 | 하루 한 번 | PK가 지킴 | **UNIQUE (`user_id`, `date`)**가 지킴 | PK에서 빠져도 규칙은 그대로 DB가 막는다 |
 | 연속 값 | `streak` (1, 2, … 계속 커짐) | `cycle_day` (1~7, CHECK) | 7일마다 처음으로 돌아가는 규칙 |
 | 보상 숫자 | 코드(`REWARD_RULES`)에 하루 1종 | `attendance_rewards` 표 (일차마다) | 일차별 보상이 ERD에서 보이고, 숫자를 바꿀 때 표만 고친다 |
+| 출석 방법 | [출석하기] 버튼 | **로그인 세션으로 자동 출석** (`session_id`, `checked_at`) | 그날 로그인 상태로 들어오면 출석. 어느 세션에서 됐는지 남긴다 |
 
 **일차 정하기**: 내 마지막 출석이 어제이고 1~6일차면 +1, 그 밖(처음, 7일차 다음 날, 하루 이상 빠짐)은 1. 마지막 출석 1건만 읽으면 되도록 `UNIQUE (user_id, date)` 인덱스를 그대로 쓴다.
+
+**세션과의 관계**: `sessions → attendances`는 **비식별·선택(0..1)** 관계다. 세션 하나는 7일 동안 살아 있으니 출석 여러 개를 만들 수 있고(0..N), 로그아웃·만료로 세션이 지워져도 출석 기록은 남아야 하므로 FK는 `ON DELETE SET NULL`이다. 출석 시각은 세션이 아니라 `checked_at`에 따로 둔다 (세션이 지워져도 남게).
+
+**새 컬럼 타입** (부록 규칙대로)
+
+| 테이블 | 컬럼 | 타입 | 비고 |
+|---|---|---|---|
+| attendances | `id` | `INTEGER` (IDENTITY) | PK |
+| attendances | `user_id` | `VARCHAR(32)` | FK → users.id, NOT NULL |
+| attendances | `date` | `DATE` | NOT NULL, UNIQUE (user_id, date) |
+| attendances | `cycle_day` | `SMALLINT` | NOT NULL, CHECK 1~7, FK → attendance_rewards.day |
+| attendances | `session_id` | `VARCHAR(32)` | NULL 허용, FK → sessions.id ON DELETE SET NULL |
+| attendances | `checked_at` | `TIMESTAMPTZ` | NOT NULL, 기본값 now() |
+| attendance_rewards | `day` | `SMALLINT` | PK, CHECK 1~7 |
+| attendance_rewards | `exp`, `coins` | `INTEGER` | NOT NULL, CHECK >= 0 |
 
 **식별 → 비식별로 바꿀 때 주의**: 자기 번호(`id`)만 PK로 두면 "같은 사람·같은 날" 줄이 두 번 들어가도 DB가 막지 않는다. 그래서 **UNIQUE를 꼭 함께** 건다.
 
