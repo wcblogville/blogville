@@ -149,7 +149,7 @@ erDiagram
     attendances {
         text user_id PK, FK
         date date PK
-        int streak "연속 출석 일수"
+        int streak "연속 출석 일수 (7일 주기로 변경 결정, 3.14)"
     }
     point_ledger {
         int id PK
@@ -387,6 +387,59 @@ COMMIT
 - **보상은 원장에**: 돌보기 경험치(`farm_care`), 다 키운 보상(`farm_grown`, 종류 표의 숫자), 알 구매(`egg_purchase`, 코인 음수)는 모두 `point_ledger`에 쌓인다. 잔액 컬럼을 두지 않는 원칙(3.4)을 그대로 따른다.
 - **"한 번에 5마리"는 코드가 지킨다**: 알·키우는 중 상태의 수를 세는 규칙이라 CHECK로는 표현할 수 없다. 회원 잠금(`lockUser`)을 건 트랜잭션 안에서 세고 넣는다.
 - **삭제**: 회원이 지워지면 동물이, 동물이 지워지면 돌보기 기록이 함께 지워진다 (`ON DELETE CASCADE`). 동물 종류는 지우지 않는다 (참조 중이면 DB가 거부).
+### 3.14 출석 7일 주기 (설계 변경 결정, 미구현 · GAME-04)
+
+> 위 1장 관계도는 **지금 DB** 기준이다. 아래는 2026-10-06에 정한 변경안이고, 구현하면 1장에 반영한다.
+
+출석 보상을 1~7일차로 점점 키우고, 7일 달성이나 하루 빠짐이면 1일차로 돌아가게 바꾼다. 이에 맞춰 출석을 **식별 관계에서 비식별 관계로** 바꾸고 **일차별 보상표**를 둔다.
+
+```mermaid
+erDiagram
+    users ||--o{ attendances : "출석"
+    sessions |o--o{ attendances : "자동 출석한 세션"
+    attendance_rewards ||--o{ attendances : "그날 일차의 보상"
+
+    attendances {
+        int id PK "자동 증가"
+        varchar user_id FK
+        date date "UNIQUE (user_id, date)"
+        smallint cycle_day FK "1~7"
+        varchar session_id FK "NULL 허용, 세션 삭제 시 NULL"
+        timestamptz checked_at "출석 시각"
+    }
+    attendance_rewards {
+        smallint day PK "1~7"
+        int exp
+        int coins
+    }
+```
+
+| 바뀌는 것 | 지금 | 변경안 | 이유 |
+|---|---|---|---|
+| 출석 PK | `(user_id, date)` (식별) | `id` 자동 증가 (비식별) | 원장(`point_ledger.ref_id`)이 출석 한 건을 번호 하나로 가리킬 수 있다 |
+| 하루 한 번 | PK가 지킴 | **UNIQUE (`user_id`, `date`)**가 지킴 | PK에서 빠져도 규칙은 그대로 DB가 막는다 |
+| 연속 값 | `streak` (1, 2, … 계속 커짐) | `cycle_day` (1~7, CHECK) | 7일마다 처음으로 돌아가는 규칙 |
+| 보상 숫자 | 코드(`REWARD_RULES`)에 하루 1종 | `attendance_rewards` 표 (일차마다) | 일차별 보상이 ERD에서 보이고, 숫자를 바꿀 때 표만 고친다 |
+| 출석 방법 | [출석하기] 버튼 | **로그인 세션으로 자동 출석** (`session_id`, `checked_at`) | 그날 로그인 상태로 들어오면 출석. 어느 세션에서 됐는지 남긴다 |
+
+**일차 정하기**: 내 마지막 출석이 어제이고 1~6일차면 +1, 그 밖(처음, 7일차 다음 날, 하루 이상 빠짐)은 1. 마지막 출석 1건만 읽으면 되도록 `UNIQUE (user_id, date)` 인덱스를 그대로 쓴다.
+
+**세션과의 관계**: `sessions → attendances`는 **비식별·선택(0..1)** 관계다. 세션 하나는 7일 동안 살아 있으니 출석 여러 개를 만들 수 있고(0..N), 로그아웃·만료로 세션이 지워져도 출석 기록은 남아야 하므로 FK는 `ON DELETE SET NULL`이다. 출석 시각은 세션이 아니라 `checked_at`에 따로 둔다 (세션이 지워져도 남게).
+
+**새 컬럼 타입** (부록 규칙대로)
+
+| 테이블 | 컬럼 | 타입 | 비고 |
+|---|---|---|---|
+| attendances | `id` | `INTEGER` (IDENTITY) | PK |
+| attendances | `user_id` | `VARCHAR(32)` | FK → users.id, NOT NULL |
+| attendances | `date` | `DATE` | NOT NULL, UNIQUE (user_id, date) |
+| attendances | `cycle_day` | `SMALLINT` | NOT NULL, CHECK 1~7, FK → attendance_rewards.day |
+| attendances | `session_id` | `VARCHAR(32)` | NULL 허용, FK → sessions.id ON DELETE SET NULL |
+| attendances | `checked_at` | `TIMESTAMPTZ` | NOT NULL, 기본값 now() |
+| attendance_rewards | `day` | `SMALLINT` | PK, CHECK 1~7 |
+| attendance_rewards | `exp`, `coins` | `INTEGER` | NOT NULL, CHECK >= 0 |
+
+**식별 → 비식별로 바꿀 때 주의**: 자기 번호(`id`)만 PK로 두면 "같은 사람·같은 날" 줄이 두 번 들어가도 DB가 막지 않는다. 그래서 **UNIQUE를 꼭 함께** 건다.
 
 ## 4. 데이터 마이그레이션
 
