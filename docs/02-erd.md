@@ -400,3 +400,256 @@ COMMIT
 
 - **카카오 로그인 이메일**: 카카오는 이메일 제공이 선택 동의라 이메일이 없을 수 있다. 로그인 라이브러리가 이메일을 필수로 요구하는지 구현할 때 확인한다.
 - **같은 블로그의 카테고리인지 검사**: 글의 `category_id`가 그 글의 블로그 카테고리인지는 서버 코드에서 검사한다.
+
+## 부록: 컬럼 타입 상세
+
+관계도에는 `text`·`int`처럼 크게 적었다. ERD를 그리거나 다른 DB로 옮길 때는 아래 **ERD 타입**을 쓴다.
+
+**정하는 규칙**
+
+| 값 | 타입 | 이유 |
+|---|---|---|
+| 자동 증가 번호 | `INTEGER` (IDENTITY), 원장만 `BIGINT` | 21억까지 충분. 원장은 활동마다 쌓여 가장 빨리 늘어난다 |
+| 1~99 같은 작은 숫자 | `SMALLINT` | 32,767까지. 레벨, 일차, 순서 |
+| 코인·경험치·크기 | `INTEGER` | 음수 가능한 것도 있음 (코인 변화) |
+| 로그인 라이브러리 ID | `VARCHAR(32)` | 무작위 32자. **FK도 부모와 같은 타입** |
+| 길이 제한이 정해진 글자 | `VARCHAR(n)` | n = 요구사항·CHECK의 최대 길이 |
+| 길이가 항상 같은 글자 | `CHAR(n)` | 첨부 키, 세션 토큰 (32자) |
+| 길이 제한이 없거나 아주 큰 글자 | `TEXT` | 글 본문, 소셜 토큰 |
+| 정해진 값 중 하나 | `ENUM` | 3.9 |
+| 날짜만 | `DATE` | 출석일, 방문일, 돌보기일 (한국 날짜) |
+| 시각 | `TIMESTAMPTZ` | 시간대 포함. 모든 `*_at` |
+| 무작위 식별자 | `UUID` | 방문자 쿠키 |
+
+> **실제 DB와의 차이**: 지금 DB는 글자를 모두 `text` + 길이 CHECK로 저장한다. PostgreSQL에서는 `text`와 `varchar(n)`의 성능이 같고, 길이는 CHECK가 막는다. 그래서 DB는 그대로 두고, ERD에서는 의미가 잘 보이도록 아래 타입으로 적는다. 숫자도 DB는 `integer`이고 ERD에서 `SMALLINT`·`BIGINT`로 범위를 드러낸다.
+
+
+**users (회원)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `VARCHAR(32)` | `text` | 로그인 라이브러리가 만드는 무작위 32자 |
+| `name` | `VARCHAR(100)` | `text` | 소셜 계정 이름. 길어도 100자 |
+| `email` | `VARCHAR(254)` | `text` | 이메일 주소 최대 길이(표준 254자) |
+| `email_verified` | `BOOLEAN` | `boolean` |  |
+| `image` | `VARCHAR(2048)` | `text` | 프로필 사진 주소(URL) |
+| `username` | `VARCHAR(20)` | `text` | 아이디 4~20자 (영문 소문자·숫자·_) |
+| `display_username` | `VARCHAR(20)` | `text` | 아이디와 같은 길이 |
+| `role` | `ENUM user_role` | `user_role` | user / admin |
+| `created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` | 시간대를 포함한 시각 |
+
+**accounts (로그인 수단)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `VARCHAR(32)` | `text` |  |
+| `user_id` | `VARCHAR(32)` | `text` | FK → users.id (같은 타입이어야 한다) |
+| `provider_id` | `VARCHAR(20)` | `text` | credential / naver / kakao / google |
+| `account_id` | `VARCHAR(255)` | `text` | 소셜 서비스 사용자 번호 |
+| `access_token, refresh_token, id_token` | `TEXT` | `text` | 길이를 정할 수 없는 토큰 (구글 id_token은 1,000자 이상) |
+| `access_token_expires_at, refresh_token_expires_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+| `scope` | `VARCHAR(500)` | `text` | 권한 목록 |
+| `password` | `VARCHAR(255)` | `text` | 비밀번호 해시 (원문 아님) |
+| `created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**sessions (로그인 세션)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `VARCHAR(32)` | `text` |  |
+| `user_id` | `VARCHAR(32)` | `text` | FK → users.id |
+| `token` | `CHAR(32)` | `text` | 쿠키에 담기는 값, 항상 32자 |
+| `expires_at` | `TIMESTAMPTZ` | `timestamptz` | 로그인 7일 뒤 |
+| `ip_address` | `VARCHAR(45)` | `text` | IPv6 최대 45자 (`INET`도 가능하지만 라이브러리가 문자열로 저장) |
+| `user_agent` | `VARCHAR(512)` | `text` | 브라우저 정보 |
+| `created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**verifications (인증 임시 값)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `VARCHAR(32)` | `text` |  |
+| `identifier` | `VARCHAR(255)` | `text` | 무엇을 인증하는지 |
+| `value` | `VARCHAR(255)` | `text` | 인증 값 |
+| `expires_at, created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**profiles (프로필)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `user_id` | `VARCHAR(32)` | `text` | PK, FK → users.id |
+| `nickname` | `VARCHAR(12)` | `text` | 2~12자 (CHECK) |
+| `character_item_id` | `INTEGER` | `integer` | FK → items.id |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**blogs (블로그)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` | 자동 증가 |
+| `owner_id` | `VARCHAR(32)` | `text` | FK → users.id, UNIQUE |
+| `slug` | `VARCHAR(20)` | `text` | 3~20자 (CHECK 정규식) |
+| `title` | `VARCHAR(40)` | `text` | 1~40자 |
+| `description` | `VARCHAR(160)` | `text` | 소개 160자까지 (앱에서 확인) |
+| `background_item_id` | `INTEGER` | `integer` | FK → items.id |
+| `created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**categories (카테고리)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `blog_id` | `INTEGER` | `integer` | FK → blogs.id |
+| `name` | `VARCHAR(20)` | `text` | 1~20자 |
+| `position` | `SMALLINT` | `integer` | 화면 순서 0, 1, 2… (블로그당 몇십 개) |
+
+**posts (글)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `blog_id` | `INTEGER` | `integer` | FK |
+| `category_id` | `INTEGER` | `integer` | FK, NULL 허용 |
+| `title` | `VARCHAR(100)` | `text` | 1~100자 |
+| `content_html` | `TEXT` | `text` | 글 본문 (최대 200,000자, 길이 상한이 커서 TEXT) |
+| `content_text` | `TEXT` | `text` | 서식을 뺀 본문 |
+| `visibility` | `ENUM visibility` | `visibility` | public / private |
+| `view_count` | `INTEGER` | `integer` | 0 이상 |
+| `created_at, updated_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**tags (태그)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `name` | `VARCHAR(20)` | `text` | 태그 하나 20자까지 (앱에서 확인) |
+
+**post_tags (글-태그)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `post_id, tag_id` | `INTEGER` | `integer` | PK, FK |
+
+**comments (댓글)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `post_id` | `INTEGER` | `integer` | FK |
+| `author_id` | `VARCHAR(32)` | `text` | FK → users.id |
+| `parent_id` | `INTEGER` | `integer` | FK → comments.id, NULL 허용 |
+| `content` | `VARCHAR(1000)` | `text` | 1~1000자 |
+| `created_at, deleted_at` | `TIMESTAMPTZ` | `timestamptz` | deleted_at은 NULL 허용 |
+
+**post_likes (공감)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `post_id` | `INTEGER` | `integer` | PK, FK |
+| `user_id` | `VARCHAR(32)` | `text` | PK, FK |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**follows (이웃)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `follower_id, followee_id` | `VARCHAR(32)` | `text` | PK, FK → users.id |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**items (아이템)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `code` | `VARCHAR(30)` | `text` | 예: bg_beach |
+| `type` | `ENUM item_type` | `item_type` | character / background / furniture |
+| `name` | `VARCHAR(30)` | `text` | 예: 바닷가 |
+| `description` | `VARCHAR(200)` | `text` | NULL 허용 |
+| `price` | `INTEGER` | `integer` | 코인 0 이상 |
+| `required_level` | `SMALLINT` | `integer` | 1~99 (최고 레벨 99) |
+| `is_starter` | `BOOLEAN` | `boolean` |  |
+| `asset_key` | `VARCHAR(50)` | `text` | 예: bg.beach |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**user_items (보유 아이템)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `user_id` | `VARCHAR(32)` | `text` | PK, FK |
+| `item_id` | `INTEGER` | `integer` | PK, FK |
+| `acquired_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**attendances (출석, 지금 DB)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `user_id` | `VARCHAR(32)` | `text` | PK, FK |
+| `date` | `DATE` | `date` | 한국 날짜, 시각 없음 |
+| `streak` | `SMALLINT` | `integer` | 연속 일수 1 이상 (변경안에서는 cycle_day 1~7) |
+
+**point_ledger (경험치·코인 원장)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `BIGINT (IDENTITY)` | `integer` | 활동마다 한 줄씩 가장 빨리 늘어나는 표라 넉넉하게 |
+| `user_id` | `VARCHAR(32)` | `text` | FK |
+| `reason` | `ENUM ledger_reason` | `ledger_reason` |  |
+| `exp_delta` | `INTEGER` | `integer` | 0 이상 |
+| `coin_delta` | `INTEGER` | `integer` | 음수 가능 |
+| `ref_id` | `VARCHAR(32)` | `text` | 관련 글·아이템·동물·회원 ID를 글자로 (FK 아님) |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**attachments (첨부)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `key` | `CHAR(32)` | `text` | 무작위 16진수 정확히 32자 (CHECK) |
+| `user_id` | `VARCHAR(32)` | `text` | FK |
+| `kind` | `VARCHAR(5)` | `text` | image / file (CHECK). ENUM으로 바꿔도 됨 |
+| `name` | `VARCHAR(255)` | `text` | 원래 파일 이름 1~255자 |
+| `mime` | `VARCHAR(100)` | `text` | 예: application/pdf |
+| `size` | `INTEGER` | `integer` | 바이트, 최대 30MB = 31,457,280 (INTEGER 범위 안) |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**blog_visits (방문 기록)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `blog_id` | `INTEGER` | `integer` | PK, FK |
+| `date` | `DATE` | `date` | PK |
+| `visitor_id` | `UUID` | `uuid` | PK, 방문자 쿠키 (이미 정확한 타입) |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
+**animal_species (동물 종류)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `code` | `VARCHAR(20)` | `text` | 예: chick |
+| `name` | `VARCHAR(20)` | `text` | 예: 아기 돼지 |
+| `asset_key` | `VARCHAR(50)` | `text` | 예: animal.chick |
+| `grow_exp, reward_exp, reward_coins` | `INTEGER` | `integer` | 성장치·보상 |
+| `hatch_weight` | `SMALLINT` | `integer` | 부화 비중 (몇십 단위) |
+
+**user_animals (내 알·동물)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `id` | `INTEGER (IDENTITY)` | `integer` |  |
+| `user_id` | `VARCHAR(32)` | `text` | FK |
+| `species_id` | `INTEGER` | `integer` | FK, 알이면 NULL |
+| `status` | `ENUM animal_status` | `animal_status` | egg / growing / grown |
+| `growth` | `INTEGER` | `integer` | 0 이상 |
+| `source` | `ENUM egg_source` | `egg_source` | starter / level / shop |
+| `source_level` | `SMALLINT` | `integer` | 5, 10, … 99 이하 |
+| `created_at, hatched_at, grown_at` | `TIMESTAMPTZ` | `timestamptz` | hatched_at·grown_at은 NULL 허용 |
+
+**animal_cares (돌보기 기록)**
+
+| 컬럼 | ERD 타입 | 실제 DB | 비고 |
+|---|---|---|---|
+| `animal_id` | `INTEGER` | `integer` | PK, FK |
+| `action` | `ENUM care_action` | `care_action` | PK, feed / water / pet |
+| `date` | `DATE` | `date` | PK |
+| `created_at` | `TIMESTAMPTZ` | `timestamptz` |  |
+
