@@ -112,6 +112,49 @@ const rename = await capture(() => editingRow.getByRole("button", { name: "저�
 check("카테고리 이름: 범위 밖 ID → 오류 없음", (await replay(rename, [HUGE, "새 이름"])) === 200);
 const del = await capture(() => page.locator("li", { hasText: tempName }).getByRole("button", { name: "삭제" }).click());
 check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del, [HUGE])) === 200);
+
+// 블로그 주소 (BLOG-03, updateBlogSlug): 이상한 문자열·남의 값을 섞어 보내도 500 없이 문구, tester1 주소는 그대로
+{
+  const tester2 = await one("SELECT u.id, b.id AS blog_id FROM users u JOIN blogs b ON b.owner_id = u.id WHERE u.username = 'tester2'");
+  const slugMsg = async (value, extra) => {
+    await page.goto(`${BASE}/settings/blog`);
+    const form = page.locator("form", { has: page.getByLabel("블로그 주소") });
+    await form.evaluate((f, extra) => {
+      f.querySelectorAll("input").forEach((i) => (i.removeAttribute("maxLength"), i.removeAttribute("required")));
+      for (const [name, v] of Object.entries(extra ?? {})) {
+        const i = document.createElement("input");
+        i.type = "hidden";
+        i.name = name;
+        i.value = v;
+        f.append(i);
+      }
+    }, extra);
+    await form.getByLabel("블로그 주소").fill(value);
+    await form.getByRole("button", { name: "주소 바꾸기" }).click();
+    const res = form.locator('[role="alert"], [role="status"]').first();
+    return res.waitFor({ timeout: 10000 }).then(() => res.innerText(), () => "(결과 없음)");
+  };
+  const FORMAT = "주소는 영문 소문자, 숫자, _ 로 3~20자예요";
+  for (const [value, want] of [
+    ["../admin", FORMAT],
+    ["a".repeat(5000), FORMAT],
+    ["%00", FORMAT],
+    ["<script>", FORMAT],
+    ["ｔｅｓｔｅｒ１", FORMAT],
+    ["", FORMAT],
+    [" TESTER1 ", "저장했어요 ✓"], // 지금 주소와 같음 → 저장 없이 성공
+  ]) {
+    const got = await slugMsg(value);
+    check(`블로그 주소: ${JSON.stringify(value.length > 20 ? `${value.slice(0, 10)}…(${value.length}자)` : value)} → '${want}'`, got === want, got);
+  }
+  if (tester2) {
+    const got = await slugMsg("tester2", { ownerId: tester2.id, blogId: String(tester2.blog_id) });
+    check("블로그 주소: 남의 ownerId·blogId를 섞고 남의 주소 → '이미 있는 주소예요'", got === "이미 있는 주소예요", got);
+  }
+  const slugNow = (await one("SELECT b.slug FROM blogs b JOIN users u ON u.id = b.owner_id WHERE u.username = 'tester1'")).slug;
+  const t2Now = tester2 ? (await one("SELECT slug FROM blogs WHERE id = $1", [tester2.blog_id])).slug : "tester2";
+  check("블로그 주소: 조작 요청 뒤 tester1·tester2 주소 그대로", slugNow === "tester1" && t2Now === "tester2", `${slugNow}, ${t2Now}`);
+}
 await page.screenshot({ path: `${outDir}/70-params.png` });
 
 console.log(results.join("\n"));
