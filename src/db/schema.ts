@@ -219,6 +219,8 @@ export const blogs = pgTable(
     backgroundItemId: integer("background_item_id").notNull(),
     // 집 지붕 색 (TOWN-07 요청, BLOG data-model 2.1). NULL = 배경 색 따라가기. 값 목록은 src/lib/blog.ts ROOF_COLORS
     roofColor: text("roof_color"),
+    // 전시 동물 한 마리 (BLOG-04 / FR-030·031, data-model 2.1). NULL = 전시 없음. 다 키운 동물만인지는 앱이 확인 (research R-19)
+    showcaseAnimalId: integer("showcase_animal_id"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -237,6 +239,14 @@ export const blogs = pgTable(
       columns: [t.ownerId, t.backgroundItemId],
       foreignColumns: [userItems.userId, userItems.itemId],
     }),
+    // 내 동물만 전시 (복합 FK, ERD 3.11, research R-18). 동물이 지워지면 showcase_animal_id만 비운다:
+    // Drizzle은 열 목록을 적을 수 없어 생성 SQL을 ON DELETE SET NULL ("showcase_animal_id")로 손질함
+    // (열 목록 없는 SET NULL은 NOT NULL인 owner_id까지 비우려 해 실패한다, PostgreSQL 15+)
+    foreignKey({
+      name: "blogs_showcase_owned_fk",
+      columns: [t.ownerId, t.showcaseAnimalId],
+      foreignColumns: [userAnimals.userId, userAnimals.id],
+    }).onDelete("set null"),
   ],
 );
 
@@ -253,6 +263,27 @@ export const categories = pgTable(
   (t) => [
     unique("categories_blog_name_uq").on(t.blogId, t.name),
     check("categories_name_check", sql`char_length(${t.name}) BETWEEN 1 AND 20`),
+  ],
+);
+
+// 소분류 (BLOG-05 / FR-034~039, ERD 3.18, data-model 2.3). 대분류가 지워지면 함께 지워진다.
+// blog_id는 두지 않는다 (대분류로 안다). 소분류를 다른 대분류로 옮기는 기능은 없다
+export const subcategories = pgTable(
+  "subcategories",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
+  },
+  (t) => [
+    check("subcategories_name_check", sql`char_length(${t.name}) BETWEEN 1 AND 20`),
+    // 같은 대분류 안에서 이름 하나 (US5-4)
+    unique("subcategories_category_name_uq").on(t.categoryId, t.name),
+    // posts 복합 FK (category_id, subcategory_id)의 대상: "소분류는 그 대분류 소속"을 DB가 확인 (FR-041, post 단계 3)
+    unique("subcategories_category_id_uq").on(t.categoryId, t.id),
   ],
 );
 
@@ -445,6 +476,9 @@ export const userAnimals = pgTable(
     uniqueIndex("user_animals_starter_uq").on(t.userId).where(sql`${t.source} = 'starter'`),
     uniqueIndex("user_animals_level_uq").on(t.userId, t.sourceLevel).where(sql`${t.source} = 'level'`),
     index("user_animals_user_status_idx").on(t.userId, t.status),
+    // 블로그 전시 동물 복합 FK(blogs_showcase_owned_fk)가 가리킬 UNIQUE (town T-M1, 요청: blog BLOG-04, ERD 3.11).
+    // id가 PK라 늘 고유하다. 부분 고유 인덱스는 FK 대상이 될 수 없어 따로 둔다
+    unique("user_animals_user_id_id_uq").on(t.userId, t.id),
   ],
 );
 
