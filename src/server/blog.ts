@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, lt, gt, or, sql, type SQL } from "drizzle-
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import {
+  animalSpecies,
   blogs,
   blogVisits,
   categories,
@@ -13,8 +14,11 @@ import {
   posts,
   postTags,
   profiles,
+  subcategories,
   tags,
+  userAnimals,
 } from "@/db/schema";
+import { buildCategoryTree, toLikePattern } from "@/lib/blog";
 import { previousDay, todayKST } from "@/lib/game";
 
 const characterItem = alias(items, "character_item");
@@ -33,6 +37,10 @@ export async function getBlogBySlug(slug: string) {
       ownerId: blogs.ownerId,
       createdAt: blogs.createdAt,
       nickname: profiles.nickname,
+      // 주인 프로필 사진 (BLOG-04 / FR-028). 없으면 캐릭터 얼굴
+      photoKey: profiles.photoKey,
+      // 전시 동물 (BLOG-04 / FR-030). 그릴 때는 getGrownAnimals 목록에서 찾는다 (없으면 빈 자리)
+      showcaseAnimalId: blogs.showcaseAnimalId,
       characterAsset: characterItem.assetKey,
       backgroundAsset: backgroundItem.assetKey,
       followerCount: sql<number>`(SELECT COUNT(*)::int FROM ${follows} WHERE ${follows.followeeId} = ${blogs.ownerId})`,
@@ -78,8 +86,13 @@ export async function getBlogByOwner(ownerId: string) {
   return row ?? null;
 }
 
+/**
+ * 카테고리 트리 (BLOG-05 / FR-039·040, research R-14): 대분류마다 subcategories 배열, 정렬은 position → id.
+ * 대분류 글 수는 그 대분류의 글(소분류 글 포함). includePrivate(주인·관리 화면)이면 비공개 글도 센다.
+ * 소분류 글 수는 posts.subcategory_id(post 단계 3)가 생긴 뒤부터 센다 — 그 전에는 null(화면에 그리지 않음).
+ */
 export async function getCategories(blogId: number, includePrivate: boolean) {
-  return db
+  const cats = await db
     .select({
       id: categories.id,
       name: categories.name,
@@ -95,6 +108,67 @@ export async function getCategories(blogId: number, includePrivate: boolean) {
     .from(categories)
     .where(eq(categories.blogId, blogId))
     .orderBy(asc(categories.position), asc(categories.id));
+  const subs = cats.length
+    ? await db
+        .select({
+          id: subcategories.id,
+          categoryId: subcategories.categoryId,
+          name: subcategories.name,
+          position: subcategories.position,
+        })
+        .from(subcategories)
+        .where(
+          inArray(
+            subcategories.categoryId,
+            cats.map((c) => c.id),
+          ),
+        )
+    : [];
+  // TODO(post 단계 3, 003-post T041): posts.subcategory_id가 생기면 소분류 글 수를 하위 쿼리 COUNT로 센다
+  return buildCategoryTree(
+    cats,
+    subs.map((s) => ({ ...s, postCount: null as number | null })),
+  );
+}
+
+export type CategoryTree = Awaited<ReturnType<typeof getCategories>>;
+
+/**
+ * 주인의 다 키운 동물 = 도감 카드 (BLOG-04 / FR-029, research R-20). 다 키운 시각 최신순.
+ * 인덱스 user_animals_user_status_idx (user_id, status)
+ */
+export async function getGrownAnimals(ownerId: string) {
+  return db
+    .select({ id: userAnimals.id, name: animalSpecies.name, assetKey: animalSpecies.assetKey, grownAt: userAnimals.grownAt })
+    .from(userAnimals)
+    .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
+    .where(and(eq(userAnimals.userId, ownerId), eq(userAnimals.status, "grown")))
+    .orderBy(sql`${userAnimals.grownAt} DESC NULLS LAST`, desc(userAnimals.id));
+}
+
+export type GrownAnimal = Awaited<ReturnType<typeof getGrownAnimals>>[number];
+
+/**
+ * 블로그 검색 (BLOG-06 검색 / FR-052, research R-17): 블로그 이름이나 주인 닉네임에 검색어가 든 블로그 최대 8곳.
+ * 최근 공개 글 순 (공개 글이 없으면 뒤, 만든 순). 검색어는 바인딩하고 %·_·\ 는 글자 그대로 찾는다
+ */
+export async function searchBlogs(q: string, limit = 8) {
+  const pattern = toLikePattern(q);
+  const lastPublic = sql`(SELECT MAX(${posts.createdAt}) FROM ${posts} WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public')`;
+  return db
+    .select({
+      slug: blogs.slug,
+      title: blogs.title,
+      nickname: profiles.nickname,
+      characterAsset: characterItem.assetKey,
+      photoKey: profiles.photoKey,
+    })
+    .from(blogs)
+    .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))
+    .innerJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
+    .where(or(sql`${blogs.title} ILIKE ${pattern} ESCAPE '\\'`, sql`${profiles.nickname} ILIKE ${pattern} ESCAPE '\\'`))
+    .orderBy(sql`${lastPublic} DESC NULLS LAST`, asc(blogs.createdAt), asc(blogs.id))
+    .limit(limit);
 }
 
 export async function isFollowing(followerId: string, followeeId: string) {
@@ -146,20 +220,36 @@ function baseList(where: SQL | undefined) {
     .orderBy(desc(posts.createdAt), desc(posts.id));
 }
 
-/** 블로그 홈 글 목록. 주인이 보면 비공개 글도 보인다 */
-export async function listBlogPosts(opts: { blogId: number; isOwner: boolean; categoryId?: number; page: number }) {
+/**
+ * 블로그 홈 글 목록. 주인이 보면 비공개 글도 보인다.
+ * categoryId: 대분류 거르기(소분류 글 포함). subcategoryId: 소분류 거르기 (categoryId보다 먼저, BLOG-05 / FR-040, research R-13).
+ */
+export async function listBlogPosts(opts: {
+  blogId: number;
+  isOwner: boolean;
+  categoryId?: number;
+  subcategoryId?: number;
+  page: number;
+}) {
   const where = and(
     eq(posts.blogId, opts.blogId),
     opts.isOwner ? undefined : eq(posts.visibility, "public"),
-    opts.categoryId ? eq(posts.categoryId, opts.categoryId) : undefined,
+    // TODO(post 단계 3, 003-post T041·변경 13): posts.subcategory_id가 생기면 eq(posts.subcategoryId, opts.subcategoryId)로 바꾼다.
+    // 지금은 소분류에 속한 글이 있을 수 없으므로 소분류를 고르면 빈 목록이다
+    opts.subcategoryId ? sql`false` : opts.categoryId ? eq(posts.categoryId, opts.categoryId) : undefined,
   );
   return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE));
 }
 
-/** 마을 최신 글 (공개 글만). followerId가 있으면 이웃 글만 */
-export async function listFeed(opts: { page: number; followerId?: string; tag?: string }) {
+/**
+ * 마을 최신 글 (공개 글만). followerId가 있으면 이웃 글만.
+ * search가 있으면 제목·본문 부분 일치 (BLOG-06 검색 / FR-051, research R-16): %·_·\ 는 글자 그대로 찾는다
+ */
+export async function listFeed(opts: { page: number; followerId?: string; tag?: string; search?: string }) {
+  const pattern = opts.search ? toLikePattern(opts.search) : null;
   const where = and(
     eq(posts.visibility, "public"),
+    pattern ? or(sql`${posts.title} ILIKE ${pattern} ESCAPE '\\'`, sql`${posts.contentText} ILIKE ${pattern} ESCAPE '\\'`) : undefined,
     opts.followerId
       ? inArray(blogs.ownerId, db.select({ id: follows.followeeId }).from(follows).where(eq(follows.followerId, opts.followerId)))
       : undefined,
