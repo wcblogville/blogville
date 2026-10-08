@@ -6,8 +6,16 @@ import { LoginButtons } from "@/components/login-buttons";
 import { enabledProviders } from "@/lib/auth";
 import { getViewer } from "@/server/dal";
 
-// 첫 화면 (AUTH-01, AUTH-02 / FR-001, FR-014, contracts/auth-entry.md 1장)
-export default async function LandingPage() {
+// 소셜 로그인에서 돌아온 오류 코드 중 "연동된 계정이 없음"으로 보여줄 것 (FR-033, better-auth 1.7.7 callback.mjs로 확인)
+// - signup_disabled: 어떤 회원에도 연동되지 않은 소셜 계정 (disableSignUp)
+// - account_not_linked: 같은 이메일 회원이 있지만 자동 연결을 막음 (FR-034. 회원 이메일이 .invalid라 실제로는 생기지 않는다)
+// - email_not_found: 사용자 정보에 이메일이 없음 (대체 이메일을 늘 넣으므로 생기지 않지만, 생기면 연동이 없는 것과 같다)
+// 취소·동의 안 함(access_denied 등)과 그 밖의 코드는 문구 없이 첫 화면 그대로 (spec Edge Case)
+const NOT_LINKED_ERRORS = new Set(["signup_disabled", "account_not_linked", "email_not_found"]);
+const NOT_LINKED_MESSAGE = "연동된 계정이 없어요. 아이디로 로그인한 뒤 내 정보에서 연동해 주세요";
+
+// 첫 화면 (AUTH-01, AUTH-02 / FR-001, FR-014, FR-031, FR-033, contracts/auth-entry.md 1장·4장)
+export default async function LandingPage({ searchParams }: PageProps<"/">) {
   // 로그인한 회원은 광장으로 (FR-014)
   if (await getViewer()) redirect("/town");
 
@@ -17,6 +25,9 @@ export default async function LandingPage() {
     .from(items)
     .where(and(eq(items.type, "character"), eq(items.isStarter, true)))
     .orderBy(asc(items.id));
+
+  const { error } = await searchParams;
+  const socialError = typeof error === "string" && NOT_LINKED_ERRORS.has(error) ? NOT_LINKED_MESSAGE : undefined;
 
   return (
     <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 md:grid-cols-2 md:py-20">
@@ -46,7 +57,7 @@ export default async function LandingPage() {
           🧑🐱🐶
         </div>
         <h2 className="font-display text-2xl">마을에 들어가기</h2>
-        <LoginButtons providers={enabledProviders} starters={starters} />
+        <LoginButtons providers={enabledProviders} starters={starters} socialError={socialError} />
       </section>
     </div>
   );

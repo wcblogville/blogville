@@ -1,12 +1,12 @@
 "use client";
 
-// 첫 화면의 로그인·회원가입 카드 (AUTH-01, AUTH-02, AUTH-09 / FR-001, FR-002, FR-004, FR-005, FR-030, FR-031, FR-054)
+// 첫 화면의 로그인·회원가입 카드 (AUTH-01, AUTH-02, AUTH-09 / FR-001, FR-002, FR-004, FR-005, FR-030~FR-033, FR-054)
 import { useActionState, useState } from "react";
-import { signIn, signUp, type AuthFormState } from "@/app/(auth)/actions";
+import { signIn, signUp, startSocialSignIn, type AuthFormState } from "@/app/(auth)/actions";
 import { CharacterArt } from "@/components/character";
-import { authClient } from "@/lib/auth-client";
+import type { SocialReady } from "@/lib/social";
 
-type Providers = { google: boolean; kakao: boolean; naver: boolean };
+type Providers = SocialReady;
 export type Starter = { id: number; code: string; name: string; description: string | null; assetKey: string };
 
 const SOCIAL = [
@@ -19,7 +19,10 @@ const input = "w-full rounded-xl border-2 border-line bg-white px-3 py-2.5 outli
 // 누르는 영역 44×44px 이상, 글자 한 줄, 키보드 초점 표시 (FR-054)
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky focus-visible:ring-offset-2";
 
-function SignInForm() {
+// [로그인 상태 유지]는 카드가 들고 있어 같은 카드의 소셜 버튼에도 쓴다 (research R7)
+type Remember = { remember: boolean; setRemember: (v: boolean) => void };
+
+function SignInForm({ remember, setRemember }: Remember) {
   const [state, action, pending] = useActionState<AuthFormState, FormData>(signIn, {});
   return (
     // noValidate: 빈 칸은 브라우저 말풍선 대신 서버 문구 `아이디와 비밀번호를 적어 주세요`로 알린다 (FR-017)
@@ -31,7 +34,8 @@ function SignInForm() {
         <input
           type="checkbox"
           name="rememberMe"
-          defaultChecked={state.values?.rememberMe ?? false}
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
           className={`size-5 accent-leaf ${focusRing}`}
         />
         로그인 상태 유지
@@ -95,12 +99,51 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
   );
 }
 
-export function LoginButtons({ providers, starters }: { providers: Providers; starters: Starter[] }) {
+/**
+ * 간편 로그인 버튼 (FR-030~FR-032). 키가 없는 서비스는 흐리게 비활성 + 마우스를 올리면 `아직 연결 준비 중이에요`.
+ * 누르면 startSocialSignIn(Server Action)이 [로그인 상태 유지]를 쿠키로 남기고 소셜 서비스로 보낸다.
+ */
+function SocialButtons({ providers, remember }: { providers: Providers; remember: boolean }) {
+  const [error, action, pending] = useActionState<string | undefined, FormData>(
+    async (_prev, formData) => (await startSocialSignIn(String(formData.get("provider") ?? ""), remember)).error,
+    undefined,
+  );
+  return (
+    <form action={action}>
+      <div className="grid grid-cols-3 gap-2">
+        {SOCIAL.map((p) => (
+          <button
+            key={p.id}
+            type="submit"
+            name="provider"
+            value={p.id}
+            disabled={!providers[p.id] || pending}
+            title={providers[p.id] ? `${p.label}로 로그인` : "아직 연결 준비 중이에요"}
+            // 비활성이어도 마우스를 올리면 안내(title)가 보이게 한다 (.btn:disabled의 pointer-events: none을 되돌림)
+            className={`btn min-h-11 whitespace-nowrap px-2 py-2.5 text-sm disabled:pointer-events-auto disabled:cursor-not-allowed ${focusRing} ${p.className}`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {error && <p role="alert" className="mt-2 text-center text-sm font-bold text-berry">{error}</p>}
+    </form>
+  );
+}
+
+/** socialError: 소셜 로그인에서 돌아온 오류 문구 (연동 없음, FR-033). 첫 화면(page.tsx)이 오류 코드로 정한다 */
+export function LoginButtons({ providers, starters, socialError }: { providers: Providers; starters: Starter[]; socialError?: string }) {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
+  const [remember, setRemember] = useState(false);
   const anySocial = providers.google || providers.kakao || providers.naver;
 
   return (
     <div className="w-full max-w-sm">
+      {socialError && (
+        <p role="alert" className="mb-4 rounded-xl bg-[#fde8e8] px-3 py-2 text-sm font-bold text-berry">
+          {socialError}
+        </p>
+      )}
       <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-cream p-1" role="tablist">
         {(["signin", "signup"] as const).map((t) => (
           <button
@@ -116,27 +159,15 @@ export function LoginButtons({ providers, starters }: { providers: Providers; st
         ))}
       </div>
 
-      {tab === "signin" ? <SignInForm /> : <SignUpForm starters={starters} />}
+      {tab === "signin" ? <SignInForm remember={remember} setRemember={setRemember} /> : <SignUpForm starters={starters} />}
 
       <div className="my-5 flex items-center gap-3 text-xs text-ink-soft">
         <span className="h-px flex-1 bg-line" />
         간편 로그인
         <span className="h-px flex-1 bg-line" />
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        {SOCIAL.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            disabled={!providers[p.id]}
-            title={providers[p.id] ? `${p.label}로 시작하기` : "아직 연결 준비 중이에요"}
-            className={`btn min-h-11 whitespace-nowrap px-2 py-2.5 text-sm ${focusRing} ${p.className}`}
-            onClick={() => authClient.signIn.social({ provider: p.id, callbackURL: "/town" })}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      {/* 회원가입 탭에는 [로그인 상태 유지]가 없으므로 그때는 유지 안 함 */}
+      <SocialButtons providers={providers} remember={tab === "signin" && remember} />
       {!anySocial && <p className="mt-2 text-center text-xs text-ink-soft">간편 로그인은 준비 중이에요</p>}
       <p className="mt-1 text-center text-xs text-ink-soft">처음이라면 회원가입 후 내 정보에서 연동해 주세요</p>
     </div>

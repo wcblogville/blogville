@@ -5,10 +5,11 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { auth, enabledProviders, REMEMBER_COOKIE } from "@/lib/auth";
 import { parseId } from "@/lib/ids";
 import { LOGIN_LOCKED_MESSAGE } from "@/lib/login-limit";
 import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
+import { isSocialProvider } from "@/lib/social";
 import { getSession } from "@/server/dal";
 import { clearLoginAttempts, reserveLoginAttempt } from "@/server/login-attempts";
 import { createMember, SIGNUP_ERRORS } from "@/server/signup";
@@ -113,4 +114,32 @@ export async function signOut(): Promise<void> {
   await auth.api.signOut({ headers: await headers() });
   revalidatePath("/", "layout");
   redirect("/");
+}
+
+export type SocialStartState = { error?: string };
+
+/**
+ * 소셜 로그인 시작 (AUTH-01 / FR-032, contracts/auth-entry.md 4장, research R7).
+ * 키가 있는 서비스만 받는다. 같은 카드의 [로그인 상태 유지]는 httpOnly 쿠키 bv_remember로 콜백까지 전달한다
+ * (라이브러리 콜백은 rememberMe를 받지 않는다. src/lib/auth.ts의 세션 훅·콜백 훅이 이 쿠키를 읽고 지운다).
+ * 라이브러리가 만든 소셜 서비스 주소로 이동한다. 연동되지 않은 소셜 계정이면 `/?error=signup_disabled`로 돌아온다.
+ * 라이브러리 HTTP /sign-in/social은 닫혀 있다 (route.ts 허용 목록).
+ */
+export async function startSocialSignIn(provider: string, remember: boolean): Promise<SocialStartState> {
+  if (await getSession()) redirect("/town");
+  if (!isSocialProvider(provider) || !enabledProviders[provider]) return { error: "아직 연결 준비 중이에요" };
+
+  (await cookies()).set(REMEMBER_COOKIE, remember === true ? "1" : "0", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.BETTER_AUTH_URL?.startsWith("https://") ?? false,
+    path: "/",
+    maxAge: 600, // 소셜 로그인 state와 같은 10분
+  });
+  const { url } = await auth.api.signInSocial({
+    body: { provider, callbackURL: "/town", errorCallbackURL: "/", disableRedirect: true },
+    headers: await headers(),
+  });
+  if (!url) return { error: "아직 연결 준비 중이에요" };
+  redirect(url);
 }

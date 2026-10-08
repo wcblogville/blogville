@@ -15,8 +15,7 @@ const ALLOWED: Record<"GET" | "POST", RegExp[]> = {
   ],
   POST: [
     /^\/callback\/(google|kakao|naver)$/,
-    // 1단계 동안만 임시: 첫 화면 소셜 버튼이 아직 authClient.signIn.social을 쓴다. 8단계 startSocialSignIn(Server Action)으로 바꾸며 뺀다
-    /^\/sign-in\/social$/,
+    // 소셜 로그인 시작은 startSocialSignIn, 연동은 startLinkSocial(Server Action)이 서버에서 부른다. /sign-in/social·/link-social은 404
     // 로그아웃은 signOut Server Action이 서버에서 auth.api.signOut을 부른다 (T032·T033). /sign-out은 404
   ],
 };
