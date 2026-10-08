@@ -12,7 +12,8 @@ export function NicknameForm({ nickname }: { nickname: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateNickname, {});
   return (
     <form action={action} className="mt-3 space-y-2">
-      <label htmlFor="nickname" className="block text-sm font-bold">
+      {/* 카드 제목도 "닉네임"이라 라벨은 화면 읽기 프로그램에만 */}
+      <label htmlFor="nickname" className="sr-only">
         닉네임
       </label>
       <input
