@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 서버에서 실행하는 배포 스크립트. GitHub Actions가 SSH로 접속해 부른다 (.github/workflows/deploy.yml).
-# 같은 폴더에 blogville.tar.gz(도커 이미지)와 .env(접속 정보)가 있어야 한다.
+# 같은 폴더에 blogville.tar.gz(도커 이미지)와 .env(접속 정보, 워크플로가 SSH에서 만든다)가 있어야 한다.
 #   APP_PORT=8420 bash scripts/deploy.sh
 set -euo pipefail
 
@@ -9,6 +9,7 @@ NAME=blogville
 IMAGE=blogville:latest
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$DIR"
+chmod 700 "$DIR" # 공용 서버라 다른 계정이 .env·.secrets·첨부를 못 보게
 
 # BETTER_AUTH_SECRET·관리자 아이디·비밀번호가 GitHub secrets에 없으면 서버에서 한 번 만들어
 # .secrets에 보관하고 다음 배포부터 같은 값을 쓴다. 관리자 비밀번호 보기: cat ~/blogville/.secrets
