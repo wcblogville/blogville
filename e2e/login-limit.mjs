@@ -121,6 +121,7 @@ await member(A);
   const { ctx, page } = await fresh();
   for (let i = 0; i < 3; i++) await uiSignIn(page, B, WRONG);
   const first = await uiSignIn(page, B, PW);
+  await page.goto(`${BASE}/feed`); // 마을에는 헤더 막대가 없다 (사용자 요청 2026-10-08)
   await page.getByRole("banner").getByRole("button", { name: "로그아웃" }).click();
   await page.waitForURL((u) => new URL(u).pathname === "/", { timeout: 15000 }).catch(() => {});
   const fails = [];

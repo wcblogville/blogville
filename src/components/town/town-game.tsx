@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
+import { lookKey } from "@/lib/art/characters";
 import { PHONE_MEDIA } from "@/lib/device";
 import { townBus } from "./bus";
 import type { TownData, TownTarget } from "./types";
@@ -12,7 +13,7 @@ export function TownGame({
   className = "",
 }: {
   data: TownData;
-  /** 처음 설 곳 (townSpots의 key). 없으면 정류장 옆 */
+  /** 처음 설 곳 (townSpots의 key). 없으면 광장 아래쪽 */
   startAt?: string | null;
   className?: string;
 }) {
@@ -97,6 +98,7 @@ export function TownGame({
   return (
     <div
       ref={containerRef}
+      data-player-look={data.player ? lookKey(data.player.characterAsset, data.player.outfit) : undefined}
       className={`overflow-hidden bg-[#8fd18a] ${className}`}
       aria-label="중앙 광장. 방향키나 WASD로 움직이고 Space로 건물에 들어갑니다."
     />

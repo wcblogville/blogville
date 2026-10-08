@@ -12,6 +12,8 @@ type Blog = {
   nickname: string;
   photoKey: string | null;
   characterAsset: string;
+  /** 주인이 입은 아바타 아이템 (SHOP-06) */
+  outfit?: string[];
   backgroundAsset: string;
   followerCount: number;
   postCount: number;
@@ -55,6 +57,7 @@ export function BlogHeader({
     <section className="card overflow-hidden">
       <MiniRoom
         characterAsset={blog.characterAsset}
+        outfit={blog.outfit}
         backgroundAsset={blog.backgroundAsset}
         // 배지는 블로그 이름이 아니라 주인 닉네임 (FR-023)
         nickname={blog.nickname}

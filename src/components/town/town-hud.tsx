@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { toggleFavorite } from "@/app/town/actions";
 import { openNotification } from "@/app/notifications/actions";
 import { CharacterBadge } from "@/components/character";
+import { SignOutButton } from "@/components/sign-out-button";
 import { notificationText, notificationTime, unreadBadge, type NotificationRow } from "@/lib/notifications";
 import { townBus } from "./bus";
 import { houseAt, townSpots, type TownSpot } from "./layout";
@@ -12,6 +13,8 @@ import type { TownData, TownFriend } from "./types";
 
 /** 메뉴에 필요한 회원 정보 (방문자는 null) */
 export type TownHudMember = {
+  userId: string;
+  isAdmin: boolean;
   wallet: { coins: number; level: number; current: number; needed: number; isMax: boolean };
   unread: number;
   notifications: (NotificationRow & { id: number; createdAt: Date; readAt: Date | null })[];
@@ -24,17 +27,16 @@ type Panel =
   | { kind: "notifications" }
   | { kind: "teleport" }
   | { kind: "friends" }
-  | { kind: "signpost" }
   | { kind: "mailbox"; slot: number };
 
 /**
  * 광장 위 메뉴 버튼 (사용자 요청 2026-10-08): ① 내 프로필(코인, 경험치 현재/필요) ② 알림 ③ 텔레포트 ④ 친구 목록.
- * 광장의 정류장(집 11채 목록)과 우체통(소식)도 여기서 연다 (townBus "open").
+ * 광장의 우체통(소식)도 여기서 연다 (townBus "open").
  */
 export function TownHud({ data, member, className = "" }: { data: TownData; member: TownHudMember | null; className?: string }) {
   const [panel, setPanel] = useState<Panel | null>(null);
 
-  useEffect(() => townBus.on("open", (target) => setPanel(target.kind === "signpost" ? { kind: "signpost" } : { kind: "mailbox", slot: target.slot })), []);
+  useEffect(() => townBus.on("open", (target) => setPanel({ kind: "mailbox", slot: target.slot })), []);
   useEffect(() => {
     townBus.emit("panel", panel !== null);
     if (!panel) return;
@@ -73,7 +75,7 @@ export function TownHud({ data, member, className = "" }: { data: TownData; memb
             role="dialog"
             aria-label={PANEL_TITLE[panel.kind]}
             data-town-panel={panel.kind}
-            className="mt-2 max-h-[calc(100dvh-var(--header-h)-5rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur"
+            className="mt-2 max-h-[calc(100dvh-5rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto rounded-2xl bg-white/95 p-3 shadow-lg backdrop-blur"
           >
             <div className="mb-2 flex items-center gap-2">
               {panel.kind !== "menu" && (
@@ -90,7 +92,6 @@ export function TownHud({ data, member, className = "" }: { data: TownData; memb
             {panel.kind === "profile" && member && data.player && <ProfilePanel data={data} member={member} />}
             {panel.kind === "notifications" && member && <NotificationsPanel member={member} />}
             {panel.kind === "teleport" && <TeleportPanel data={data} withPlaces onPick={teleport} />}
-            {panel.kind === "signpost" && <TeleportPanel data={data} onPick={teleport} />}
             {panel.kind === "friends" && member && <FriendsPanel data={data} member={member} onPick={teleport} />}
             {panel.kind === "mailbox" && (
               <MailboxPanel data={data} member={member} slot={panel.slot} onPick={teleport} />
@@ -108,7 +109,6 @@ const PANEL_TITLE: Record<Panel["kind"], string> = {
   notifications: "🔔 알림",
   teleport: "✨ 텔레포트",
   friends: "👫 친구 목록",
-  signpost: "🚏 정류장 · 어느 집으로 갈까요?",
   mailbox: "📮 우체통",
 };
 
@@ -158,7 +158,27 @@ function MenuPanel({ member, badge, open }: { member: TownHudMember | null; badg
           </button>
         </li>
       ))}
+      <li className="col-span-2">
+        <AccountLinks member={member} />
+      </li>
     </ul>
+  );
+}
+
+/** 마을에는 헤더 막대가 없어서 내 정보·관리자·로그아웃을 메뉴 아래에 둔다 (사용자 요청 2026-10-08) */
+export function AccountLinks({ member }: { member: TownHudMember }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-1 border-t-2 border-line pt-2 text-sm" data-account-links>
+      <Link href="/settings/account" className="inline-flex min-h-11 items-center rounded-lg px-2 hover:bg-cream">
+        ⚙️ 내 정보
+      </Link>
+      {member.isAdmin && (
+        <Link href="/admin" className="inline-flex min-h-11 items-center rounded-lg px-2 hover:bg-cream">
+          👑 관리자
+        </Link>
+      )}
+      <SignOutButton userId={member.userId} />
+    </div>
   );
 }
 
@@ -168,7 +188,7 @@ function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <CharacterBadge asset={data.player!.characterAsset} size={64} />
+        <CharacterBadge asset={data.player!.characterAsset} outfit={data.player!.outfit} size={64} />
         <div className="min-w-0">
           <p className="truncate font-display text-xl">{data.player!.nickname}</p>
           <p className="text-sm text-ink-soft">Lv.{wallet.level}</p>

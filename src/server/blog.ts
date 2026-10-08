@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, inArray, lt, gt, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
 import {
   animalSpecies,
@@ -43,6 +44,7 @@ export async function getBlogBySlug(slug: string) {
       // 전시 동물 (BLOG-04 / FR-030). 그릴 때는 getGrownAnimals 목록에서 찾는다 (없으면 빈 자리)
       showcaseAnimalId: blogs.showcaseAnimalId,
       characterAsset: characterItem.assetKey,
+      outfit: outfitOf(blogs.ownerId),
       backgroundAsset: backgroundItem.assetKey,
       followerCount: sql<number>`(SELECT COUNT(*)::int FROM ${follows} WHERE ${follows.followeeId} = ${blogs.ownerId})`,
       postCount: sql<number>`(SELECT COUNT(*)::int FROM ${posts} WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public')`,

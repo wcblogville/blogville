@@ -1,6 +1,8 @@
 // Blogville 창작 캐릭터 (SVG). 외부 그림 없이 코드로 그려서 라이선스 걱정이 없다.
 // 모든 캐릭터는 같은 몸(2등신, 큰 눈, 볼터치)을 쓰고 귀·꼬리·뿔 같은 특징만 다르다.
 // viewBox 64×64, 발바닥이 y=59 근처. DB의 asset_key("char.cat" 등)로 고른다.
+// 아바타 꾸미기(SHOP-06)는 outfit(asset_key 목록)으로 받아 옷은 몸 위·머리 아래, 소품·모자는 맨 위에 겹친다.
+import { MANNEQUIN, outfitLayers } from "./avatar";
 
 const OUTLINE = "#3b2a20";
 const S = `stroke="${OUTLINE}" stroke-width="1.6" stroke-linejoin="round"`;
@@ -25,7 +27,7 @@ const eyes = (color = "#2b2118") =>
 const blushes = `<ellipse cx="20.5" cy="32.8" rx="3.2" ry="1.8" fill="#ff8fa3" opacity=".55"/><ellipse cx="43.5" cy="32.8" rx="3.2" ry="1.8" fill="#ff8fa3" opacity=".55"/>`;
 const smile = `<path d="M29.4 32.6q1.3 1.6 2.6 0q1.3 1.6 2.6 0" fill="none" stroke="${OUTLINE}" stroke-width="1.4" stroke-linecap="round"/>`;
 
-function draw(l: Look) {
+function draw(l: Look, outfit: { body: string; top: string } = { body: "", top: "" }) {
   const head = l.head ?? l.body;
   const feet = l.feet ?? l.body;
   const arms = l.arms ?? l.body;
@@ -38,12 +40,14 @@ function draw(l: Look) {
     l.belly ? `<ellipse cx="32" cy="48.5" rx="7" ry="6.2" fill="${l.belly}"/>` : "",
     `<ellipse cx="20.2" cy="46" rx="3.2" ry="5" transform="rotate(25 20.2 46)" fill="${arms}" ${S}/>`,
     `<ellipse cx="43.8" cy="46" rx="3.2" ry="5" transform="rotate(-25 43.8 46)" fill="${arms}" ${S}/>`,
+    outfit.body,
     `<circle cx="32" cy="27" r="16.5" fill="${head}" ${S}/>`,
     l.face ?? "",
     l.eyes ?? eyes(),
     l.blush === false ? "" : blushes,
     l.overHead ?? "",
     l.extra ?? smile,
+    outfit.top,
   ].join("");
 }
 
@@ -222,15 +226,23 @@ const CHARACTERS: Record<string, Look> = {
 
 const FALLBACK: Look = { body: "#cfc4b8" };
 
-/** 캐릭터 SVG 문자열. size는 픽셀 크기 (Phaser가 그림을 만들 때 해상도로 쓴다) */
-export function characterSvg(assetKey: string, size = 64): string {
+/** 캐릭터 SVG 문자열. size는 픽셀 크기 (Phaser가 그림을 만들 때 해상도로 쓴다). outfit = 입은 아바타 asset_key 목록 */
+export function characterSvg(assetKey: string, size = 64, outfit: readonly string[] = []): string {
   const look = CHARACTERS[assetKey] ?? FALLBACK;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -8 72 72" width="${size}" height="${size}">${draw(look)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 -8 72 72" width="${size}" height="${size}">${draw(look, outfitLayers(outfit))}</svg>`;
 }
 
-export function characterDataUri(assetKey: string, size = 64): string {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(characterSvg(assetKey, size))}`;
+export function characterDataUri(assetKey: string, size = 64, outfit: readonly string[] = []): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(characterSvg(assetKey, size, outfit))}`;
 }
+
+/** 캐릭터 + 차림을 하나로 나타내는 키 (입은 순서와 상관없이 같다). 차림이 없으면 asset_key 그대로 */
+export function lookKey(assetKey: string, outfit: readonly string[] = []): string {
+  return outfit.length ? `${assetKey}+${[...outfit].sort().join("+")}` : assetKey;
+}
+
+/** 상점·꾸미기 카드에서 아바타 아이템을 입혀 보여 줄 회색 몸 */
+CHARACTERS[MANNEQUIN] = { body: "#e2dbd2", head: "#ece6de", blush: false, eyes: "", extra: "" };
 
 /** 로그인하지 않은 방문자용 (광장 구경) */
 export const VISITOR_CHARACTER = "char.visitor";

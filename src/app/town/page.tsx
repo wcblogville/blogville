@@ -22,22 +22,22 @@ export default async function TownPage(props: PageProps<"/town">) {
   const [neighbors, myHouse, hud] = await Promise.all([
     member ? getFavoriteHouses(member.userId) : getTownHouses(null),
     member ? getMyHouse(member.userId) : null,
-    member ? getHudMember(member.userId) : null,
+    member ? getHudMember(member.userId, member.user.role === "admin") : null,
   ]);
 
   const data: TownData = {
     player: member?.profile
-      ? { nickname: member.profile.nickname, characterAsset: member.profile.characterAsset }
+      ? { nickname: member.profile.nickname, characterAsset: member.profile.characterAsset, outfit: member.profile.outfit }
       : null,
     myHouse,
     neighbors,
     attendanceDay: member?.attendance?.cycleDay ?? null,
   };
 
-  // 광장은 헤더 아래 화면 전체를 쓴다. 안내·환영·이웃집은 게임 위에 띄운다.
+  // 광장은 화면 전체를 쓴다 (헤더 막대 없이 Blogville 글자만 위에 뜬다). 안내·환영·이웃집은 게임 위에 띄운다.
   // 휴대폰에서는 광장 대신 간단 메뉴만 보여준다 (10/6 회의 결정, `phone:` = 휴대폰 화면)
   return (
-    <div className="relative h-[calc(100dvh-var(--header-h))] min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible">
+    <div className="relative h-dvh min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible phone:pt-14">
       <h1 className="sr-only">중앙 광장</h1>
       {/* 집의 🚪 문으로 나오면(?at=블로그 주소) 그 집 앞에서, 처음 온 회원은 내 집 앞에서 시작한다 */}
       <TownGame data={data} startAt={startAt(data, welcome && member ? myHouse?.slug : at)} className="h-full w-full phone:hidden" />
@@ -48,8 +48,7 @@ export default async function TownPage(props: PageProps<"/town">) {
         <div className="card absolute inset-x-3 bottom-14 z-10 mx-auto flex max-w-2xl items-start gap-3 border-sun bg-[#fff3d6] p-4 phone:hidden">
           <span className="text-3xl">🎉</span>
           <p className="flex-1 text-sm sm:text-base">
-            <b>{member.profile.nickname}</b>님, 마을에 처음 나왔어요! 뒤에 있는 <b>내 집</b>에 다시 들어가면 글을 쓸 수 있어요. 왼쪽 위 <b>☰ 메뉴</b>에서 내 프로필·알림·텔레포트·친구 목록을 볼 수 있어요.
-            마을 가운데 <b>🚏 정류장</b>에서는 즐겨찾기한 이웃의 집으로 바로 갈 수 있어요.
+            <b>{member.profile.nickname}</b>님, 마을에 처음 나왔어요! 뒤에 있는 <b>내 집</b>에 다시 들어가면 글을 쓸 수 있어요. 왼쪽 위 <b>☰ 메뉴</b>의 텔레포트로 즐겨찾기한 이웃 집에 바로 갈 수 있고, 프로필·알림·친구 목록도 볼 수 있어요.
           </p>
           <Link href="/town" className="shrink-0 rounded-lg px-2 py-1 text-ink-soft hover:bg-white" aria-label="환영 문구 닫기">
             ✕
@@ -68,7 +67,7 @@ export default async function TownPage(props: PageProps<"/town">) {
   );
 }
 
-async function getHudMember(userId: string): Promise<TownHudMember> {
+async function getHudMember(userId: string, isAdmin: boolean): Promise<TownHudMember> {
   const [wallet, header, list, friends] = await Promise.all([
     getWallet(userId),
     getHeaderNotifications(userId),
@@ -76,6 +75,8 @@ async function getHudMember(userId: string): Promise<TownHudMember> {
     getFriends(userId),
   ]);
   return {
+    userId,
+    isAdmin,
     wallet: { coins: wallet.coins, level: wallet.level, current: wallet.current, needed: wallet.needed, isMax: wallet.isMax },
     unread: header.unread,
     notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
@@ -83,7 +84,7 @@ async function getHudMember(userId: string): Promise<TownHudMember> {
   };
 }
 
-/** 블로그 주소 → 그 집의 텔레포트 key (마을 둘레에 없는 집이면 null = 정류장 옆) */
+/** 블로그 주소 → 그 집의 텔레포트 key (마을 둘레에 없는 집이면 null = 광장 아래쪽) */
 function startAt(data: TownData, slug: string | string[] | undefined): string | null {
   if (typeof slug !== "string") return null;
   if (data.myHouse?.slug === slug) return "house:0";

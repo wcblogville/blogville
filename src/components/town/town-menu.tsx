@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { unreadBadge } from "@/lib/notifications";
-import { FriendsPanel, type TownHudMember } from "./town-hud";
+import { AccountLinks, FriendsPanel, type TownHudMember } from "./town-hud";
 import type { TownData } from "./types";
 
 type Place = { emoji: string; label: string; sub?: string; href: string };
@@ -31,8 +31,9 @@ export function TownMenu({
         { emoji: "🔔", label: "알림", sub: badge ? `안 읽은 알림 ${badge}개` : "새 알림 없음", href: "/notifications" },
         { emoji: "📮", label: "출석 체크", sub: data.attendanceDay ? `오늘 ${data.attendanceDay}일차 ✅` : undefined, href: "/attendance" },
         { emoji: "📋", label: "마을 소식", sub: "새 글 · 이웃 새 글", href: "/feed" },
-        { emoji: "🏪", label: "상점", sub: "캐릭터·배경", href: "/shop" },
+        { emoji: "🏪", label: "상점", sub: "아바타·가구·배경", href: "/shop" },
         { emoji: "🐮", label: "동물 농장", sub: "알 부화 · 동물 키우기", href: "/farm" },
+        { emoji: "🎣", label: "낚시터", sub: "하루 한 번 낚시", href: "/fishing" },
       ]
     : [
         { emoji: "📋", label: "마을 소식", sub: "새 글 구경하기", href: "/feed" },
@@ -54,7 +55,7 @@ export function TownMenu({
       )}
 
       <div className="mb-4 flex items-center gap-3">
-        {member ? <CharacterBadge asset={member.characterAsset} size={44} /> : <span className="text-4xl" aria-hidden>🏘</span>}
+        {member ? <CharacterBadge asset={member.characterAsset} outfit={member.outfit} size={44} /> : <span className="text-4xl" aria-hidden>🏘</span>}
         <div className="min-w-0">
           <h2 className="truncate font-display text-xl">{member ? `${member.nickname}님, 어디로 갈까요?` : "Blogville 마을 구경"}</h2>
           <p className="text-sm text-ink-soft">
@@ -97,7 +98,7 @@ export function TownMenu({
             {data.neighbors.map((h) => (
               <li key={h.slug}>
                 <Link href={`/@${h.slug}`} className="flex items-center gap-3 px-3 py-2.5 hover:bg-cream">
-                  <CharacterBadge asset={h.characterAsset} size={32} />
+                  <CharacterBadge asset={h.characterAsset} outfit={h.outfit} size={32} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">{h.title}</span>
                     <span className="block truncate text-xs text-ink-soft">{h.nickname}</span>
@@ -120,6 +121,11 @@ export function TownMenu({
           <div className="card p-2">
             <FriendsPanel data={data} member={hud} />
           </div>
+        </div>
+      )}
+      {hud && (
+        <div className="mt-6">
+          <AccountLinks member={hud} />
         </div>
       )}
     </nav>

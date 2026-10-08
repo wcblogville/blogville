@@ -27,10 +27,17 @@ const errors = collectErrors(page);
 
 // ── GAME-01: 가입할 때 남자/여자 중 고른 캐릭터 하나만 받고 장착 ──
 await loginDev(page, NAME, "여자 주민");
+const ownedChars = (
+  await db.query(
+    "SELECT i.name, (p.character_item_id = i.id) AS worn FROM users u JOIN profiles p ON p.user_id = u.id JOIN user_items ui ON ui.user_id = u.id JOIN items i ON i.id = ui.item_id WHERE u.username = $1 AND i.type = 'character'",
+    [NAME],
+  )
+).rows;
+check("GAME-01 가입하면 고른 캐릭터 1개만 보유", ownedChars.length === 1, ownedChars.map((r) => r.name).join(", "));
+check("GAME-01 고른 캐릭터(여자 주민)가 장착됨", ownedChars[0]?.worn && ownedChars[0]?.name === "여자 주민");
+// 캐릭터가 하나뿐이면 꾸미기에 🐾 구역이 없다 (캐릭터는 상점에서 팔지 않음, SHOP 개편)
 await page.goto(`${BASE}/closet`);
-const characterNames = await page.locator("section", { hasText: "내 캐릭터" }).getByRole("button").allInnerTexts();
-check("GAME-01 가입하면 고른 캐릭터 1개만 보유", characterNames.length === 1, characterNames.join(", ").replace(/\n/g, " "));
-check("GAME-01 고른 캐릭터(여자 주민)가 장착됨", characterNames.some((t) => t.includes("✓") && t.includes("여자 주민")));
+check("SHOP 캐릭터 1마리면 꾸미기에 🐾 구역 없음", (await page.locator('[data-closet-section="character"]').count()) === 0);
 
 // ── SHOP-04: 장착 저장 확인 표시 (바꿔 낄 캐릭터를 하나 더 넣어 둔다) ──
 await db.query("INSERT INTO user_items (user_id, item_id) SELECT u.id, i.id FROM users u, items i WHERE u.username = $1 AND i.code = 'char_cat'", [NAME]);

@@ -3,11 +3,13 @@
 // 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
 import type * as PhaserNS from "phaser";
 import { backgroundAccent } from "@/lib/art/backgrounds";
-import { characterDataUri, VISITOR_CHARACTER } from "@/lib/art/characters";
+import { characterDataUri, lookKey, VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
   BOARD_SIZE,
   boardSvg,
   FARM_SIZE,
+  FISHING_SIZE,
+  fishingSvg,
   farmSvg,
   FOUNTAIN_SIZE,
   fountainSvg,
@@ -22,8 +24,6 @@ import {
   mailboxSvg,
   SHOP_SIZE,
   shopSvg,
-  SIGNPOST_SIZE,
-  signpostSvg,
   toDataUri,
   TREE_SIZE,
   treeSvg,
@@ -33,6 +33,7 @@ import {
   BOARD_POS,
   CENTER,
   FARM_POS,
+  FISHING_POS,
   HOUSE_SLOTS,
   houseAt,
   houseSlot,
@@ -40,7 +41,7 @@ import {
   POND_POS,
   RING_RADIUS,
   SHOP_POS,
-  SIGNPOST_POS,
+  START_POS,
   TOWN_RADIUS,
   townSpots,
   WORLD,
@@ -55,8 +56,8 @@ const INTERACT_DISTANCE = 90;
 const PLAYER_SIZE = 72; // 캐릭터 그림 크기
 // 가상 조이스틱 (터치 화면 전용, TOWN-02)
 const JOYSTICK = { radius: 56, thumb: 26, margin: 28, deadZone: 8 };
-/** 처음 서는 곳: 정류장 옆 */
-const START = { x: SIGNPOST_POS.x - 70, y: SIGNPOST_POS.y + 30 };
+/** 처음 서는 곳: 광장 아래쪽 */
+const START = START_POS;
 
 /** 광장에 놓는 그림 하나. (x, y) = 아랫변 가운데 (발 닿는 곳) */
 type Structure = {
@@ -84,7 +85,8 @@ type Entrance = {
   verb?: string;
 };
 
-const charKey = (asset: string) => `char:${asset}`;
+/** 캐릭터 + 입은 아바타 아이템마다 그림 하나 (SHOP-06) */
+const charKey = (asset: string, outfit: string[] = []) => `char:${lookKey(asset, outfit)}`;
 const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
 const stageOf = (h: TownHouse) => houseStage(h.level);
 
@@ -92,9 +94,12 @@ const stageOf = (h: TownHouse) => houseStage(h.level);
 export function townTextures(data: TownData) {
   const list = new Map<string, string>();
   const houses = [data.myHouse, ...data.neighbors].filter(Boolean) as TownHouse[];
-  list.set(charKey(data.player?.characterAsset ?? VISITOR_CHARACTER), characterDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, PLAYER_SIZE * 2));
+  list.set(
+    charKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit),
+    characterDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, PLAYER_SIZE * 2, data.player?.outfit ?? []),
+  );
   for (const h of houses) {
-    list.set(charKey(h.characterAsset), characterDataUri(h.characterAsset, PLAYER_SIZE * 2));
+    list.set(charKey(h.characterAsset, h.outfit), characterDataUri(h.characterAsset, PLAYER_SIZE * 2, h.outfit));
     const roof = backgroundAccent(h.backgroundAsset);
     list.set(houseKey(stageOf(h), roof), toDataUri(houseSvg(stageOf(h), roof)));
   }
@@ -103,10 +108,10 @@ export function townTextures(data: TownData) {
   list.set("fountain", toDataUri(fountainSvg()));
   list.set("lamp", toDataUri(lampSvg()));
   list.set("farm", toDataUri(farmSvg()));
+  list.set("fishing", toDataUri(fishingSvg()));
   list.set("lot", toDataUri(lotSvg()));
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
-  list.set("signpost", toDataUri(signpostSvg()));
   for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
@@ -132,14 +137,25 @@ function layout(data: TownData) {
   );
 
   // 상점
-  structures.push({ texture: "shop", ...SHOP_POS, w: SHOP_SIZE.width, h: SHOP_SIZE.height, solid: { w: SHOP_SIZE.width * 0.86, h: 60 }, label: "상점", sub: "캐릭터·배경" });
+  structures.push({ texture: "shop", ...SHOP_POS, w: SHOP_SIZE.width, h: SHOP_SIZE.height, solid: { w: SHOP_SIZE.width * 0.86, h: 60 }, label: "상점", sub: "아바타·가구·배경" });
   entrances.push({
     label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 24, target: need("/shop"),
     area: { x: SHOP_POS.x - SHOP_SIZE.width / 2, y: SHOP_POS.y - SHOP_SIZE.height, w: SHOP_SIZE.width, h: SHOP_SIZE.height },
     promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
   });
 
-  // 동물 농장: 알을 받아 동물을 키운다
+  // 연못 낚시터: 하루 한 번 낚시 (사용자 요청 2026-10-08)
+  structures.push({
+    texture: "fishing", ...FISHING_POS, w: FISHING_SIZE.width, h: FISHING_SIZE.height, solid: { w: FISHING_SIZE.width * 0.9, h: 90 },
+    label: "낚시터", sub: "하루 한 번 낚시",
+  });
+  entrances.push({
+    label: "낚시터", emoji: "🎣", x: FISHING_POS.x, y: FISHING_POS.y + 24, target: need("/fishing"),
+    area: { x: FISHING_POS.x - FISHING_SIZE.width / 2, y: FISHING_POS.y - FISHING_SIZE.height, w: FISHING_SIZE.width, h: FISHING_SIZE.height },
+    promptY: FISHING_POS.y - FISHING_SIZE.height - 6,
+  });
+
+  // 동물 농장: 알을 받아 동물을 키운다 (내 집 옆)
   structures.push({
     texture: "farm", ...FARM_POS, w: FARM_SIZE.width, h: FARM_SIZE.height, solid: { w: FARM_SIZE.width * 0.94, h: 100 },
     label: "동물 농장", sub: "알 부화 · 동물 키우기",
@@ -148,17 +164,6 @@ function layout(data: TownData) {
     label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
     area: { x: FARM_POS.x - FARM_SIZE.width / 2, y: FARM_POS.y - FARM_SIZE.height, w: FARM_SIZE.width, h: FARM_SIZE.height },
     promptY: FARM_POS.y - FARM_SIZE.height - 6,
-  });
-
-  // 정류장: 집 11채로 텔레포트
-  structures.push({
-    texture: "signpost", ...SIGNPOST_POS, w: SIGNPOST_SIZE.width, h: SIGNPOST_SIZE.height, solid: { w: 24, h: 14 },
-    label: "정류장", sub: "이웃집으로 바로 가기",
-  });
-  entrances.push({
-    label: "정류장", emoji: "🚏", x: SIGNPOST_POS.x - 50, y: SIGNPOST_POS.y + 14, target: { kind: "signpost" }, verb: "갈 곳 고르기",
-    area: { x: SIGNPOST_POS.x - SIGNPOST_SIZE.width / 2, y: SIGNPOST_POS.y - SIGNPOST_SIZE.height, w: SIGNPOST_SIZE.width, h: SIGNPOST_SIZE.height },
-    promptY: SIGNPOST_POS.y - SIGNPOST_SIZE.height - 6,
   });
 
   // 집 11채: 0번 = 내 집, 1~10번 = 즐겨찾기 이웃(방문자는 인기 블로그). 없으면 빈 집터
@@ -178,7 +183,7 @@ function layout(data: TownData) {
       label: mine ? "내 집" : `${h.nickname}의 집`, sub: h.title,
     });
     // 집 주인 캐릭터가 문 옆에 서 있다
-    structures.push({ texture: charKey(h.characterAsset), x: pos.x - w / 2 + 4, y: pos.y + 2, w: 46, h: 46 });
+    structures.push({ texture: charKey(h.characterAsset, h.outfit), x: pos.x - w / 2 + 4, y: pos.y + 2, w: 46, h: 46 });
     entrances.push({
       label: mine ? "내 집" : `${h.nickname}의 집`, emoji: "🏠", x: pos.x, y: pos.y + 22, target: { kind: "link", href: `/@${h.slug}` },
       area: { x: pos.x - w / 2, y: pos.y - hh, w, h: hh }, promptY: pos.y - hh - 4,
@@ -213,7 +218,7 @@ export function createTownScene(
   images: Map<string, HTMLImageElement>,
   onEnter: (target: TownTarget) => void,
   fontFamily = "sans-serif",
-  /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 정류장 옆 */
+  /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 광장 아래쪽 */
   startAt: string | null = null,
 ) {
   const allSpots = (() => {
@@ -264,7 +269,7 @@ export function createTownScene(
       this.playerBody.setCollideWorldBounds(true);
       this.physics.add.collider(this.feet, walls);
       this.player = this.add
-        .image(0, 0, charKey(data.player?.characterAsset ?? VISITOR_CHARACTER))
+        .image(0, 0, charKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit))
         .setDisplaySize(PLAYER_SIZE, PLAYER_SIZE)
         .setOrigin(0.5, 0.94);
 
@@ -331,7 +336,7 @@ export function createTownScene(
       this.input.on("pointerup", release);
       this.input.on("pointerupoutside", release);
 
-      // 메뉴·정류장에서 고른 곳으로 순간 이동 (TownGame이 game.events로 전한다)
+      // 메뉴에서 고른 곳으로 순간 이동 (TownGame이 game.events로 전한다)
       const teleport = (key: string) => {
         const spot = allSpots.find((p) => p.key === key);
         if (!spot) return;
@@ -582,7 +587,7 @@ export function createTownScene(
     private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
       const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
       const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...SIGNPOST_POS, r: 110 }, { ...POND_POS, r: 150 },
+        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...FISHING_POS, r: 180 }, { ...POND_POS, r: 150 },
         ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
       ];
       const onRoad = (x: number, y: number) => {

@@ -1,6 +1,7 @@
 import { CARE_ACTIONS, EGG_LEVEL_EVERY, EGG_PRICE, MAX_ACTIVE_ANIMALS, POST_GROWTH } from "@/lib/farm";
 import { requireMember } from "@/server/dal";
 import { getFarm } from "@/server/farm";
+import { listGrowthItems } from "@/server/inventory";
 import { getWallet } from "@/server/points";
 import { FarmView } from "./farm-view";
 
@@ -10,7 +11,7 @@ export const metadata = { title: "동물 농장" };
 export default async function FarmPage() {
   const viewer = await requireMember();
   const wallet = await getWallet(viewer.userId);
-  const farm = await getFarm(viewer.userId, wallet.level);
+  const [farm, growthItems] = await Promise.all([getFarm(viewer.userId, wallet.level), listGrowthItems(viewer.userId)]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
@@ -34,6 +35,7 @@ export default async function FarmPage() {
         coins={wallet.coins}
         eggPrice={EGG_PRICE}
         eggEvery={EGG_LEVEL_EVERY}
+        growthItems={growthItems}
       />
     </div>
   );

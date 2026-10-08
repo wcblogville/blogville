@@ -2,10 +2,10 @@
 import type { TownTarget } from "./types";
 
 type TownEvents = {
-  /** 메뉴·정류장에서 고른 곳(townSpots의 key)으로 순간 이동 */
+  /** 메뉴에서 고른 곳(townSpots의 key)으로 순간 이동 */
   teleport: string;
-  /** 광장에서 정류장·우체통에 들어감 → 메뉴가 목록이나 소식을 연다 */
-  open: Extract<TownTarget, { kind: "signpost" | "mailbox" }>;
+  /** 광장에서 우체통에 들어감 → 메뉴가 소식을 연다 */
+  open: Extract<TownTarget, { kind: "mailbox" }>;
   /** 메뉴 창이 열렸는지. 열려 있는 동안 게임은 키보드를 쓰지 않는다 (Space로 버튼을 누를 수 있게) */
   panel: boolean;
 };

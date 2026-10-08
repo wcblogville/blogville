@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -56,6 +56,7 @@ erDiagram
     users |o..o{ notifications : "행동한 회원"
     posts |o..o{ notifications : "관련 글"
     user_items ||..o{ house_furniture : "집 안에 놓은 가진 가구"
+    user_items ||..o{ avatar_equips : "입은 가진 아바타 아이템"
 
     users ||..o{ user_animals : "알·동물"
     animal_species |o..o{ user_animals : "종류 (알이면 없음)"
@@ -190,7 +191,8 @@ erDiagram
     items {
         int id PK
         varchar code UK
-        item_type type "character / background / furniture / growth"
+        item_type type "character / background / furniture / avatar / growth"
+        avatar_slot avatar_slot "아바타만: hat / outfit / accessory"
         varchar name
         varchar description
         int price
@@ -198,7 +200,14 @@ erDiagram
         boolean is_starter
         varchar asset_key
         int growth_value "성장 아이템만, 쓰면 오르는 성장치"
+        boolean is_on_sale "상점에서 파는지 (캐릭터·기본 아이템은 false)"
         timestamptz created_at
+    }
+    avatar_equips {
+        varchar user_id PK,FK
+        avatar_slot slot PK "부위마다 하나"
+        int item_id FK
+        timestamptz equipped_at
     }
     user_items {
         varchar user_id PK,FK
@@ -552,9 +561,10 @@ COMMIT
 | 타입 | 값 |
 |---|---|
 | `user_role` | `user`, `admin` |
-| `item_type` | `character`, `background`, `furniture`, ⏳ `growth`(성장 아이템: 먹이, 촉진제) |
+| `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제) |
+| `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품) |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase` |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시) |
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
@@ -671,6 +681,20 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 같은 가구는 한 칸에만: `house_furniture_item_uq (user_id, item_id)`. 다른 칸에 놓으면 앱이 옮긴다.
 - 칸 번호 0~7: `house_furniture_slot_check`. 쓸 수 있는 칸 수는 집 단계(주인 레벨)로 앱이 정한다: Lv.1~9 4칸, Lv.10~29 6칸, Lv.30~ 8칸 (`src/lib/house.ts`). 레벨은 원장 합계라 내려가지 않는다.
 - 가구 아이템은 `items.type = 'furniture'` 8종. 화분·나무 의자는 `is_starter`라 가입할 때 받고(마이그레이션이 기존 회원에게도 지급), 나머지는 상점에서 산다.
+
+### 3.23 상점·아바타 꾸미기 (SHOP, `0027_shop_items`)
+
+- 상점 구역은 아바타 꾸미기·가구·배경·성장 아이템 4개. 캐릭터는 팔지 않는다: **`items.is_on_sale`**(기본 true)로 정하고, 마이그레이션이 캐릭터와 기본 아이템을 false로 바꿨다. 예전에 산 캐릭터는 그대로 가지고 장착할 수 있다.
+- 아바타 아이템은 `items.type = 'avatar'`와 **`avatar_slot`**(모자·옷·소품). CHECK `items_avatar_slot_check`: 아바타일 때만 부위가 있다. 성장 아이템은 `growth_value`가 있어야 한다 (`items_growth_value_check`).
+- 입은 아이템: **`avatar_equips (user_id, slot, item_id)`**, PK `(user_id, slot)`이라 부위마다 하나. 가진 것만 입게 복합 FK `avatar_equips_owned_fk (user_id, item_id) → user_items` (`ON DELETE CASCADE`).
+- **`user_items.quantity`**(기본 1, 0 이상): 성장 아이템은 살 때마다 +1, 농장에서 쓰면 −1. 꾸미기 아이템은 늘 1. "가졌다" = `quantity > 0`.
+- 새 열거형 값은 같은 마이그레이션 트랜잭션에서 글자로 쓸 수 없어서, 아바타·성장 아이템 행은 `scripts/seed.ts`가 넣는다 (CHECK는 `::text`로 비교).
+- 구매는 `lockUser` 잠금 안에서 판매 여부 → 보유(꾸미기) → 레벨 → 코인 순으로 확인하고, 지급과 원장 `purchase` 차감을 한 트랜잭션으로 한다.
+
+### 3.24 연못 낚시터 (사용자 요청 2026-10-08, `0028_fishing`)
+
+- 회원마다 하루(한국 날짜) 한 번: **`fishing_catches (user_id, date, catch_key, coins, created_at)`**, PK `(user_id, date)`라 같은 날 두 번 넣으면 막힌다.
+- 무엇을 낚았는지(`catch_key`)와 확률은 `src/lib/fishing.ts`. 코인은 원장 `fishing`(`ref_id` = 날짜), 먹이 꾸러미는 `user_items`의 동물 먹이 수량 +1.
 
 ## 4. 데이터 마이그레이션
 

@@ -1,8 +1,9 @@
 import "server-only";
 import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import { blogs, follows, items, pointLedger, posts, profiles } from "@/db/schema";
+import { blogs, follows, items, pointLedger, posts, profiles, users } from "@/db/schema";
 import { levelFromExp } from "@/lib/game";
 import type { TownFriend, TownHouse } from "@/components/town/types";
 
@@ -23,6 +24,9 @@ const lastPublicPostAt = sql<Date | null>`(
   WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public'
 )`;
 
+/** 관리자 블로그(Blogville 공지사항)는 남의 마을 둘레 집·텔레포트에 나오지 않는다. 관리자 본인에게는 내 집으로 보인다 (사용자 요청 2026-10-08) */
+const notAdminBlog = sql`NOT EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${blogs.ownerId} AND ${users.role} = 'admin')`;
+
 function houseQuery() {
   return db
     .select({
@@ -31,6 +35,7 @@ function houseQuery() {
       title: blogs.title,
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
+      outfit: outfitOf(blogs.ownerId),
       backgroundAsset: backgroundItem.assetKey,
       exp: ownerExp,
     })
@@ -68,7 +73,7 @@ async function toHouses(rows: HouseRow[]): Promise<TownHouse[]> {
 /** 방문자에게 보여 줄 둘레 집: 공개 글이 있는 블로그만, 최근 공개 글 순 (TOWN-04) */
 export async function getTownHouses(excludeUserId: string | null, limit = FAVORITE_LIMIT): Promise<TownHouse[]> {
   const rows = await houseQuery()
-    .where(and(excludeUserId ? ne(blogs.ownerId, excludeUserId) : undefined, isNotNull(lastPublicPostAt)))
+    .where(and(excludeUserId ? ne(blogs.ownerId, excludeUserId) : undefined, isNotNull(lastPublicPostAt), notAdminBlog))
     .orderBy(sql`${lastPublicPostAt} DESC`, desc(blogs.createdAt))
     .limit(limit);
   return toHouses(rows);
@@ -78,6 +83,7 @@ export async function getTownHouses(excludeUserId: string | null, limit = FAVORI
 export async function getFavoriteHouses(userId: string): Promise<TownHouse[]> {
   const rows = await houseQuery()
     .innerJoin(follows, and(eq(follows.followeeId, blogs.ownerId), eq(follows.followerId, userId), eq(follows.isFavorite, true)))
+    .where(notAdminBlog)
     .orderBy(asc(follows.createdAt), asc(blogs.id))
     .limit(FAVORITE_LIMIT);
   return toHouses(rows);
