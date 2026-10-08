@@ -25,7 +25,7 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 - **조회수**: 같은 브라우저(쿠키 `bv_visitor`, `src/server/visitor.ts`)는 글마다 하루 1번(`post_views`). 서버 렌더는 조회수를 바꾸지 않고 `ViewCount`가 `recordPostView`를 한 번 부른다.
 - **댓글·답글**: 답글은 `replies` 표(1단계). 지우면 행을 남기고 `deleted_at` + 내용 빈 글자(CHECK). 댓글 수는 `src/server/social.ts`의 `liveCommentCountSql`(댓글 + 답글). 탈퇴는 회원을 지우기 전에 `prepareCommentsForWithdrawal`을 불러야 한다(안 부르면 `comments_author_check`가 막는다).
 - **그림**: DB에는 `asset_key`만. 실제 모양은 `src/lib/art/`에서 코드로 그린 SVG (`characters.ts` 캐릭터, `backgrounds.ts` 배경, `town.ts` 광장 건물). 외부 그림 파일을 쓰지 않는다. 아이소메트릭(TOWN-05) 전까지 2D.
-- **광장이 메인**: 헤더에 다른 화면으로 가는 메뉴를 두지 않는다. 광장 밖 화면은 헤더의 `← 광장으로 나가기`(`src/components/exit-button.tsx`)로 돌아온다. 새 장소는 광장 건물 입구(`scene.ts`의 `entrances`)로 연결한다.
+- **광장이 메인**: 헤더에 다른 화면으로 가는 메뉴를 두지 않는다. 광장 밖 화면은 헤더의 `← 광장으로 나가기`(`src/components/exit-button.tsx`)로 돌아온다. 새 장소는 광장 건물 입구(`scene.ts`의 `entrances`)로 연결한다. 좌표·텔레포트 목록은 `src/components/town/layout.ts` 하나에서 정하고, 게임과 화면 위 메뉴(`town-hud.tsx`)는 `bus.ts`(teleport·open·panel 신호)로만 주고받는다.
 - **기본 캐릭터**: 가입할 때 남자/여자 주민(`is_starter`) 중 하나만 받는다. 아이템을 바꾸면 `npm run db:seed`.
 - **로그인**: 아이디 로그인은 Better Auth `username` 플러그인. 가입은 온보딩 없이 한 트랜잭션(`src/server/signup.ts` `createMember`, 폼은 `src/app/(auth)/actions.ts`)으로 회원·프로필·블로그를 함께 만든다 (대체 이메일 `아이디@users.blogville.invalid`). 소셜은 가입 없이 내 정보(`/settings/account`)에서 연동만 한다. 관리자는 `users.role = 'admin'`, `requireAdmin()`. 관리자 계정은 `npm run admin:create` (비밀번호 12~64자, `.env.local`에만, 코드·문서에 쓰지 않는다).
 - **라이브러리 HTTP 경로**: `src/app/api/auth/[...all]/route.ts`는 **허용 목록**만 Better Auth로 넘기고 나머지는 404다 (`get-session`, 소셜 `callback/*`, `error`). 가입·로그인·로그아웃·연동·해제·탈퇴는 Server Action이 서버에서 `auth.api.*`를 부른다. 새 경로가 필요하면 허용 목록에 이유와 함께 한 줄 더한다.

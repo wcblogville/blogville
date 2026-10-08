@@ -15,18 +15,25 @@ function darken(hex: string, amount = 0.25) {
   return `#${[f(n >> 16), f((n >> 8) & 255), f(n & 255)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
-// ===== 집 (단계별 성장) =====
-// 지금은 1단계(작은 오두막)만 있다. 단계가 늘면 HOUSE_STAGES에 추가한다.
+// ===== 집 (단계별 성장, TOWN-11) =====
+// 같은 150 × 140 그림에 단계마다 창문·다락을 더하고, 광장에는 단계가 높을수록 크게 놓는다.
 export const HOUSE_STAGES = {
   1: { name: "작은 오두막", width: 150, height: 140 },
+  2: { name: "창문 많은 집", width: 172, height: 160 },
+  3: { name: "다락 있는 집", width: 194, height: 181 },
 } as const;
 export type HouseStage = keyof typeof HOUSE_STAGES;
+
+/** 집 주인의 레벨로 정하는 집 단계 (TOWN FR-059): Lv.1~9 → 1, Lv.10~29 → 2, Lv.30 이상 → 3 */
+export function houseStage(level: number): HouseStage {
+  return level >= 30 ? 3 : level >= 10 ? 2 : 1;
+}
 
 export function houseSvg(stage: HouseStage, roof: string): string {
   const { width: w, height: h } = HOUSE_STAGES[stage];
   const roofDark = darken(roof, 0.28);
   // 1단계: 나무 벽, 세모 지붕, 굴뚝, 둥근 문, 창문 하나와 꽃 상자
-  const body =
+  let body =
     `<ellipse cx="75" cy="133" rx="62" ry="6" fill="#000" opacity=".15"/>` +
     // 굴뚝
     `<rect x="98" y="22" width="16" height="30" fill="#b9a28a" ${S}/><rect x="95" y="18" width="22" height="8" rx="2" fill="#9c8670" ${S}/>` +
@@ -43,10 +50,69 @@ export function houseSvg(stage: HouseStage, roof: string): string {
     // 창문 + 꽃 상자
     `<rect x="33" y="84" width="20" height="18" rx="3" fill="#bfe8ff" ${S}/><path d="M43 84V102M33 93H53" stroke="${O}" stroke-width="2"/>` +
     `<rect x="31" y="102" width="24" height="6" rx="2" fill="#8d6e63" ${S}/>` +
-    `<circle cx="36" cy="100" r="3" fill="#ff7aa2"/><circle cx="43" cy="99" r="3" fill="#ffd36e"/><circle cx="50" cy="100" r="3" fill="#ff7aa2"/>` +
-    // 문 옆 작은 등
-    `<rect x="98" y="96" width="8" height="10" rx="2" fill="#ffe08a" ${S}/>`;
-  return wrap(w, h, body);
+    `<circle cx="36" cy="100" r="3" fill="#ff7aa2"/><circle cx="43" cy="99" r="3" fill="#ffd36e"/><circle cx="50" cy="100" r="3" fill="#ff7aa2"/>`;
+  // 2단계: 문 오른쪽에 창문 하나 더
+  if (stage >= 2) {
+    body +=
+      `<rect x="97" y="84" width="20" height="18" rx="3" fill="#bfe8ff" ${S}/><path d="M107 84V102M97 93H117" stroke="${O}" stroke-width="2"/>` +
+      `<rect x="95" y="102" width="24" height="6" rx="2" fill="#8d6e63" ${S}/>` +
+      `<circle cx="100" cy="100" r="3" fill="#b79cff"/><circle cx="107" cy="99" r="3" fill="#ff7aa2"/><circle cx="114" cy="100" r="3" fill="#b79cff"/>`;
+  } else {
+    // 1단계: 문 옆 작은 등
+    body += `<rect x="98" y="96" width="8" height="10" rx="2" fill="#ffe08a" ${S}/>`;
+  }
+  // 3단계: 지붕 쪽 둥근 다락 창과 깃발
+  if (stage >= 3) {
+    body +=
+      `<circle cx="75" cy="46" r="10" fill="#bfe8ff" ${S}/><path d="M75 36V56M65 46H85" stroke="${O}" stroke-width="2"/>` +
+      `<path d="M75 18V4" stroke="${O}" stroke-width="2.5"/><path d="M75 4L92 9L75 14Z" fill="#ffd36e" stroke="${O}" stroke-width="1.5"/>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 140" width="${w * 2}" height="${h * 2}">${body}</svg>`;
+}
+
+// ===== 빈 집터: 즐겨찾기한 이웃이 없는 자리 =====
+export const LOT_SIZE = { width: 150, height: 110 };
+export function lotSvg(): string {
+  const post = (x: number, y: number) => `<rect x="${x - 3}" y="${y - 16}" width="6" height="18" rx="2" fill="#c9a37a" stroke="${O}" stroke-width="1.8"/>`;
+  let fence = "";
+  for (const x of [18, 44, 70, 80, 106, 132]) fence += post(x, 96);
+  for (const y of [50, 73]) fence += post(18, y) + post(132, y);
+  const body =
+    `<ellipse cx="75" cy="102" rx="64" ry="5" fill="#000" opacity=".12"/>` +
+    `<path d="M18 44H132V96H18Z" fill="#d8bf8f" stroke="#b89a6a" stroke-width="2" stroke-dasharray="6 5"/>` +
+    `<path d="M30 60h16M60 70h10M96 58h20M40 84h14M92 82h22" stroke="#c4a674" stroke-width="3" stroke-linecap="round"/>` +
+    `<path d="M18 80H70M80 80H132" stroke="#e2c79a" stroke-width="3"/>` + fence +
+    // 팻말
+    `<rect x="70" y="20" width="6" height="40" fill="#8d6040" ${S}/>` +
+    `<rect x="44" y="10" width="58" height="24" rx="5" fill="#fff4dc" ${S}/>` +
+    `<text x="73" y="27" text-anchor="middle" font-size="11" fill="#6b4f3a" ${FONT}>빈 집터</text>`;
+  return wrap(LOT_SIZE.width, LOT_SIZE.height, body);
+}
+
+// ===== 우체통: 집 앞에서 소식 받기 =====
+export const MAILBOX_SIZE = { width: 34, height: 58 };
+export function mailboxSvg(color = "#e05a4f"): string {
+  const body =
+    `<ellipse cx="17" cy="55" rx="10" ry="3" fill="#000" opacity=".15"/>` +
+    `<rect x="14" y="28" width="6" height="28" fill="#8d6040" ${S}/>` +
+    `<path d="M3 30V14Q3 4 17 4Q31 4 31 14V30Z" fill="${color}" ${S}/>` +
+    `<rect x="9" y="15" width="16" height="4" rx="2" fill="#4a3426"/>` +
+    `<path d="M31 10V-2" stroke="${O}" stroke-width="2"/><path d="M31 -2h8v7h-8" fill="#ffd36e" stroke="${O}" stroke-width="1.5"/>`;
+  return wrap(MAILBOX_SIZE.width, MAILBOX_SIZE.height, `<g transform="translate(0 2)">${body}</g>`);
+}
+
+// ===== 표지판(정류장): 집 11채로 텔레포트 =====
+export const SIGNPOST_SIZE = { width: 110, height: 130 };
+export function signpostSvg(): string {
+  const body =
+    `<ellipse cx="55" cy="126" rx="34" ry="5" fill="#000" opacity=".15"/>` +
+    `<rect x="50" y="20" width="10" height="106" rx="3" fill="#8d6040" ${S}/>` +
+    `<path d="M14 24H86L100 36L86 48H14Z" fill="#7ec8e3" ${S}/>` +
+    `<text x="54" y="41" text-anchor="middle" font-size="14" fill="#1d3b4f" ${FONT}>🚏 정류장</text>` +
+    `<path d="M96 60H24L10 72L24 84H96Z" fill="#ffd36e" ${S}/>` +
+    `<text x="56" y="77" text-anchor="middle" font-size="12" fill="#5a3d1e" ${FONT}>이웃집 가기</text>` +
+    `<rect x="36" y="118" width="38" height="8" rx="3" fill="#c9b8a6" ${S}/>`;
+  return wrap(SIGNPOST_SIZE.width, SIGNPOST_SIZE.height, body);
 }
 
 // ===== 마을 게시판 (마을 소식 + 출석 도장) =====

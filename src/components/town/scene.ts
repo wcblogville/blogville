@@ -1,40 +1,62 @@
 // 중앙 광장 (2D 탑다운). Phaser는 브라우저에서만 동작하므로 런타임에 받아서 씬을 만든다.
 // 그림은 src/lib/art/ 의 SVG를 이미지로 바꿔 쓴다 (townTextures → TownGame이 미리 불러온다).
+// 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
 import type * as PhaserNS from "phaser";
 import { backgroundAccent } from "@/lib/art/backgrounds";
 import { characterDataUri, VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
   BOARD_SIZE,
   boardSvg,
+  FARM_SIZE,
+  farmSvg,
   FOUNTAIN_SIZE,
   fountainSvg,
   HOUSE_STAGES,
+  houseStage,
   houseSvg,
   LAMP_SIZE,
   lampSvg,
+  LOT_SIZE,
+  lotSvg,
+  MAILBOX_SIZE,
+  mailboxSvg,
   SHOP_SIZE,
   shopSvg,
-  FARM_SIZE,
-  farmSvg,
+  SIGNPOST_SIZE,
+  signpostSvg,
   toDataUri,
   TREE_SIZE,
   treeSvg,
   type HouseStage,
 } from "@/lib/art/town";
+import {
+  BOARD_POS,
+  CENTER,
+  FARM_POS,
+  HOUSE_SLOTS,
+  houseAt,
+  houseSlot,
+  PLAZA_RADIUS,
+  POND_POS,
+  RING_RADIUS,
+  SHOP_POS,
+  SIGNPOST_POS,
+  TOWN_RADIUS,
+  townSpots,
+  WORLD,
+} from "./layout";
 import type { TownData, TownHouse, TownTarget } from "./types";
 
 type PhaserLib = typeof PhaserNS;
 
-export const WORLD = { width: 1800, height: 1400 };
-const CENTER = { x: WORLD.width / 2, y: WORLD.height / 2 };
-const PLAZA_RADIUS = 230;
+export { WORLD };
 const SPEED = 230;
 const INTERACT_DISTANCE = 90;
 const PLAYER_SIZE = 72; // 캐릭터 그림 크기
 // 가상 조이스틱 (터치 화면 전용, TOWN-02)
 const JOYSTICK = { radius: 56, thumb: 26, margin: 28, deadZone: 8 };
-// 지금은 모든 집이 1단계. 성장 규칙이 정해지면 블로그마다 단계를 넘긴다.
-const DEFAULT_HOUSE_STAGE: HouseStage = 1;
+/** 처음 서는 곳: 정류장 옆 */
+const START = { x: SIGNPOST_POS.x - 70, y: SIGNPOST_POS.y + 30 };
 
 /** 광장에 놓는 그림 하나. (x, y) = 아랫변 가운데 (발 닿는 곳) */
 type Structure = {
@@ -58,21 +80,13 @@ type Entrance = {
   /** 클릭으로 들어가기 판정할 그림 영역 */
   area: { x: number; y: number; w: number; h: number };
   promptY: number;
+  /** 안내 동사 (기본 "들어가기") */
+  verb?: string;
 };
-
-// 이웃 집 자리 (아랫변 가운데): 광장 바깥쪽 위·아래 줄
-const NEIGHBOR_SLOTS = [
-  { x: 260, y: 300 }, { x: 560, y: 250 }, { x: 1240, y: 250 }, { x: 1540, y: 300 },
-  { x: 260, y: 1210 }, { x: 560, y: 1270 }, { x: 1240, y: 1270 }, { x: 1540, y: 1210 },
-];
-const BOARD_POS = { x: CENTER.x, y: CENTER.y - PLAZA_RADIUS - 70 };
-const SHOP_POS = { x: CENTER.x + 480, y: CENTER.y + 80 };
-// 동물 농장: 원래 우체통이 있던 왼쪽 길가 (TOWN-09)
-const FARM_POS = { x: CENTER.x - 480, y: CENTER.y + 200 };
-const MY_HOUSE_POS = { x: CENTER.x, y: CENTER.y + PLAZA_RADIUS + 190 };
 
 const charKey = (asset: string) => `char:${asset}`;
 const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
+const stageOf = (h: TownHouse) => houseStage(h.level);
 
 /** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 */
 export function townTextures(data: TownData) {
@@ -82,13 +96,17 @@ export function townTextures(data: TownData) {
   for (const h of houses) {
     list.set(charKey(h.characterAsset), characterDataUri(h.characterAsset, PLAYER_SIZE * 2));
     const roof = backgroundAccent(h.backgroundAsset);
-    list.set(houseKey(DEFAULT_HOUSE_STAGE, roof), toDataUri(houseSvg(DEFAULT_HOUSE_STAGE, roof)));
+    list.set(houseKey(stageOf(h), roof), toDataUri(houseSvg(stageOf(h), roof)));
   }
   list.set("board", toDataUri(boardSvg()));
   list.set("shop", toDataUri(shopSvg()));
   list.set("fountain", toDataUri(fountainSvg()));
   list.set("lamp", toDataUri(lampSvg()));
   list.set("farm", toDataUri(farmSvg()));
+  list.set("lot", toDataUri(lotSvg()));
+  list.set("mailbox", toDataUri(mailboxSvg()));
+  list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
+  list.set("signpost", toDataUri(signpostSvg()));
   for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
@@ -132,28 +150,59 @@ function layout(data: TownData) {
     promptY: FARM_POS.y - FARM_SIZE.height - 6,
   });
 
-  // 집: 내 집 + 이웃집
-  const addHouse = (h: TownHouse, pos: { x: number; y: number }, mine: boolean) => {
-    const { width: w, height: hh } = HOUSE_STAGES[DEFAULT_HOUSE_STAGE];
+  // 정류장: 집 11채로 텔레포트
+  structures.push({
+    texture: "signpost", ...SIGNPOST_POS, w: SIGNPOST_SIZE.width, h: SIGNPOST_SIZE.height, solid: { w: 24, h: 14 },
+    label: "정류장", sub: "이웃집으로 바로 가기",
+  });
+  entrances.push({
+    label: "정류장", emoji: "🚏", x: SIGNPOST_POS.x - 50, y: SIGNPOST_POS.y + 14, target: { kind: "signpost" }, verb: "갈 곳 고르기",
+    area: { x: SIGNPOST_POS.x - SIGNPOST_SIZE.width / 2, y: SIGNPOST_POS.y - SIGNPOST_SIZE.height, w: SIGNPOST_SIZE.width, h: SIGNPOST_SIZE.height },
+    promptY: SIGNPOST_POS.y - SIGNPOST_SIZE.height - 6,
+  });
+
+  // 집 11채: 0번 = 내 집, 1~10번 = 즐겨찾기 이웃(방문자는 인기 블로그). 없으면 빈 집터
+  for (let i = 0; i < HOUSE_SLOTS; i++) {
+    const pos = houseSlot(i);
+    const h = houseAt(data, i);
+    if (!h) {
+      structures.push({ texture: "lot", x: pos.x, y: pos.y, w: LOT_SIZE.width, h: LOT_SIZE.height, label: i === 0 ? "내 집 자리" : "빈 집터" });
+      continue;
+    }
+    const mine = i === 0;
+    const stage = stageOf(h);
+    const { width: w, height: hh } = HOUSE_STAGES[stage];
     const roof = backgroundAccent(h.backgroundAsset);
     structures.push({
-      texture: houseKey(DEFAULT_HOUSE_STAGE, roof), ...pos, w, h: hh, solid: { w: w * 0.72, h: 46 },
+      texture: houseKey(stage, roof), ...pos, w, h: hh, solid: { w: w * 0.72, h: 46 },
       label: mine ? "내 집" : `${h.nickname}의 집`, sub: h.title,
     });
     // 집 주인 캐릭터가 문 옆에 서 있다
-    structures.push({ texture: charKey(h.characterAsset), x: pos.x + w / 2 - 6, y: pos.y + 2, w: 46, h: 46 });
+    structures.push({ texture: charKey(h.characterAsset), x: pos.x - w / 2 + 4, y: pos.y + 2, w: 46, h: 46 });
     entrances.push({
       label: mine ? "내 집" : `${h.nickname}의 집`, emoji: "🏠", x: pos.x, y: pos.y + 22, target: { kind: "link", href: `/@${h.slug}` },
       area: { x: pos.x - w / 2, y: pos.y - hh, w, h: hh }, promptY: pos.y - hh - 4,
     });
-  };
-  if (data.myHouse) addHouse(data.myHouse, MY_HOUSE_POS, true);
-  data.neighbors.slice(0, NEIGHBOR_SLOTS.length).forEach((h, i) => addHouse(h, NEIGHBOR_SLOTS[i], false));
+    // 집 앞 우체통: 내 집은 내 소식(알림), 이웃집은 그 집 새 글
+    const mb = { x: pos.x + w / 2 + 6, y: pos.y + 14 };
+    structures.push({ texture: mine ? "mailbox:mine" : "mailbox", ...mb, w: MAILBOX_SIZE.width, h: MAILBOX_SIZE.height, solid: { w: 14, h: 10 } });
+    entrances.push({
+      label: mine ? "내 우체통" : `${h.nickname}의 우체통`, emoji: "📬", x: mb.x, y: mb.y + 22, target: { kind: "mailbox", slot: i }, verb: "소식 보기",
+      area: { x: mb.x - MAILBOX_SIZE.width / 2, y: mb.y - MAILBOX_SIZE.height, w: MAILBOX_SIZE.width, h: MAILBOX_SIZE.height }, promptY: mb.y - MAILBOX_SIZE.height - 4,
+    });
+  }
 
   // 분수, 가로등
   structures.push({ texture: "fountain", x: CENTER.x, y: CENTER.y + FOUNTAIN_SIZE.height / 2, w: FOUNTAIN_SIZE.width, h: FOUNTAIN_SIZE.height, solid: { w: 150, h: 70 } });
   for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    structures.push({ texture: "lamp", x: CENTER.x + dx * 175, y: CENTER.y + dy * 175 + 40, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
+    structures.push({ texture: "lamp", x: CENTER.x + dx * 185, y: CENTER.y + dy * 185 + 40, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
+  }
+  // 둘레 길 가로등
+  for (let i = 0; i < HOUSE_SLOTS; i++) {
+    const a = Math.PI / 2 + ((i + 0.5) * 2 * Math.PI) / HOUSE_SLOTS;
+    const x = CENTER.x + Math.cos(a) * (RING_RADIUS + 60);
+    const y = CENTER.y + Math.sin(a) * (RING_RADIUS + 60);
+    structures.push({ texture: "lamp", x, y, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
   }
   return { structures, entrances };
 }
@@ -164,7 +213,13 @@ export function createTownScene(
   images: Map<string, HTMLImageElement>,
   onEnter: (target: TownTarget) => void,
   fontFamily = "sans-serif",
+  /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 정류장 옆 */
+  startAt: string | null = null,
 ) {
+  const allSpots = (() => {
+    const { places, houses } = townSpots(data);
+    return [...places, ...houses];
+  })();
   const font = (style: PhaserNS.Types.GameObjects.Text.TextStyle = {}) => ({ fontFamily, ...style });
 
   return class TownScene extends Phaser.Scene {
@@ -202,7 +257,8 @@ export function createTownScene(
       this.plantTrees(walls);
 
       // 플레이어: 발 상자(물리) + 그림
-      this.feet = this.add.zone(CENTER.x, CENTER.y + 160, 28, 16);
+      const start = allSpots.find((p) => p.key === startAt) ?? START;
+      this.feet = this.add.zone(start.x, start.y, 28, 16);
       this.physics.add.existing(this.feet);
       this.playerBody = this.feet.body as PhaserNS.Physics.Arcade.Body;
       this.playerBody.setCollideWorldBounds(true);
@@ -274,6 +330,20 @@ export function createTownScene(
       };
       this.input.on("pointerup", release);
       this.input.on("pointerupoutside", release);
+
+      // 메뉴·정류장에서 고른 곳으로 순간 이동 (TownGame이 game.events로 전한다)
+      const teleport = (key: string) => {
+        const spot = allSpots.find((p) => p.key === key);
+        if (!spot) return;
+        this.moveTarget = null;
+        this.playerBody.reset(spot.x, spot.y);
+        this.cameras.main.centerOn(spot.x, spot.y);
+        // 도착 표시: 반짝이는 고리
+        const ring = this.add.circle(spot.x, spot.y, 18, 0xffffff, 0).setStrokeStyle(4, 0xffd36e).setDepth(spot.y + 7);
+        this.tweens.add({ targets: ring, scale: 3, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
+      };
+      this.game.events.on("teleport", teleport);
+      this.events.once("shutdown", () => this.game.events.off("teleport", teleport));
     }
 
     // ===== 가상 조이스틱 =====
@@ -372,7 +442,7 @@ export function createTownScene(
         }
       }
       if (closest) {
-        const verb = closest.target.kind === "login" ? "로그인하고 이용하기" : "들어가기";
+        const verb = closest.target.kind === "login" ? "로그인하고 이용하기" : (closest.verb ?? "들어가기");
         this.prompt.setText(`${closest.emoji} ${closest.label} · Space ${verb}`);
         this.prompt.setPosition(closest.x, closest.promptY).setVisible(true);
         if (this.actionKeys.some((k) => Phaser.Input.Keyboard.JustDown(k))) onEnter(closest.target);
@@ -418,15 +488,17 @@ export function createTownScene(
       const rng = new Phaser.Math.RandomDataGenerator(["blogville"]);
       const g = this.add.graphics().setDepth(-10);
 
-      // 잔디: 은은한 체크 무늬 타일
+      // 잔디: 바깥은 짙은 초록, 타운 안쪽은 밝은 초록 (은은한 체크 무늬)
       const TILE = 80;
       for (let x = 0; x < WORLD.width; x += TILE)
         for (let y = 0; y < WORLD.height; y += TILE) {
-          g.fillStyle((x / TILE + y / TILE) % 2 ? 0x8ccf86 : 0x93d58c).fillRect(x, y, TILE, TILE);
+          const inTown = Phaser.Math.Distance.Between(x + TILE / 2, y + TILE / 2, CENTER.x, CENTER.y) < RING_RADIUS + 120;
+          const odd = (x / TILE + y / TILE) % 2;
+          g.fillStyle(inTown ? (odd ? 0x95d68e : 0x9cdb94) : odd ? 0x7fc579 : 0x86ca7f).fillRect(x, y, TILE, TILE);
         }
       // 풀 포기
       g.lineStyle(2, 0x6fb868, 0.9);
-      for (let i = 0; i < 420; i++) {
+      for (let i = 0; i < 900; i++) {
         const x = rng.between(0, WORLD.width);
         const y = rng.between(0, WORLD.height);
         g.beginPath();
@@ -434,32 +506,44 @@ export function createTownScene(
         g.strokePath();
       }
 
-      // 길: 돌이 깔린 길
-      const roads: [number, number, number, number][] = [
-        [CENTER.x - 46, 0, 92, WORLD.height],
-        [0, CENTER.y - 46, WORLD.width, 92],
-        [0, 395, WORLD.width, 64],
-        [0, WORLD.height - 470, WORLD.width, 64],
-      ];
-      for (const [x, y, w, h] of roads) {
-        g.fillStyle(0xe2cc9c).fillRect(x, y, w, h);
-        g.lineStyle(3, 0xcdb27f, 1).strokeRect(x, y, w, h);
+      // 타운 잔디 원 테두리 (꽃 울타리)
+      g.lineStyle(10, 0x6fb868, 0.6).strokeCircle(CENTER.x, CENTER.y, TOWN_RADIUS);
+
+      // 돌길: 둘레 길 + 광장에서 집마다 뻗는 길 + 타운 안 십자 길
+      const stoneLine = (x1: number, y1: number, x2: number, y2: number, width: number) => {
+        g.lineStyle(width + 6, 0xcdb27f, 1).lineBetween(x1, y1, x2, y2);
+        g.lineStyle(width, 0xe2cc9c, 1).lineBetween(x1, y1, x2, y2);
+      };
+      g.lineStyle(84, 0xcdb27f, 1).strokeCircle(CENTER.x, CENTER.y, RING_RADIUS);
+      g.lineStyle(76, 0xe2cc9c, 1).strokeCircle(CENTER.x, CENTER.y, RING_RADIUS);
+      for (let i = 0; i < HOUSE_SLOTS; i++) {
+        const p = houseSlot(i);
+        const ex = CENTER.x + Math.cos(p.angle) * PLAZA_RADIUS;
+        const ey = CENTER.y + Math.sin(p.angle) * PLAZA_RADIUS;
+        stoneLine(ex, ey, p.x, p.y + 30, 54);
       }
-      for (const [x, y, w, h] of roads) {
-        for (let sx = x + 4; sx < x + w - 10; sx += 20)
-          for (let sy = y + 4; sy < y + h - 10; sy += 16) {
-            const ox = rng.between(-2, 2);
-            g.fillStyle(rng.pick([0xead8ad, 0xd9c08c, 0xf0e2c0]))
-              .fillRoundedRect(sx + ox + ((sy / 16) % 2 ? 6 : 0), sy, rng.between(13, 17), rng.between(10, 12), 4);
-          }
+      // 돌 무늬 (둘레 길 위)
+      for (let a = 0; a < 360; a += 1.6) {
+        const rad = Phaser.Math.DegToRad(a);
+        for (const off of [-24, 0, 24]) {
+          const r = RING_RADIUS + off + rng.between(-3, 3);
+          g.fillStyle(rng.pick([0xead8ad, 0xd9c08c, 0xf0e2c0])).fillRoundedRect(CENTER.x + Math.cos(rad) * r - 7, CENTER.y + Math.sin(rad) * r - 5, rng.between(12, 16), rng.between(9, 11), 4);
+        }
+      }
+
+      // 연못 (타운 안 남서쪽)
+      g.fillStyle(0x6fb868).fillEllipse(POND_POS.x, POND_POS.y, 250, 150);
+      g.fillStyle(0x7ec8e3).fillEllipse(POND_POS.x, POND_POS.y, 226, 128);
+      g.fillStyle(0xa8def0).fillEllipse(POND_POS.x - 30, POND_POS.y - 18, 90, 34);
+      for (const [dx, dy] of [[-60, 20], [40, -10], [70, 30]]) {
+        g.fillStyle(0x5cae55).fillCircle(POND_POS.x + dx, POND_POS.y + dy, 12);
+        g.fillStyle(0xff9ecb).fillCircle(POND_POS.x + dx + 3, POND_POS.y + dy - 3, 4);
       }
 
       // 돌광장 + 화단 테두리
       g.fillStyle(0xe8ddd0).fillCircle(CENTER.x, CENTER.y, PLAZA_RADIUS + 16);
       g.fillStyle(0xd8ccbe).fillCircle(CENTER.x, CENTER.y, PLAZA_RADIUS);
-      for (let r = 60; r < PLAZA_RADIUS; r += 42) {
-        g.lineStyle(3, 0xc6b8a8, 1).strokeCircle(CENTER.x, CENTER.y, r);
-      }
+      for (let r = 60; r < PLAZA_RADIUS; r += 42) g.lineStyle(3, 0xc6b8a8, 1).strokeCircle(CENTER.x, CENTER.y, r);
       for (let a = 0; a < 360; a += 15) {
         const rad = Phaser.Math.DegToRad(a);
         g.lineStyle(2, 0xc6b8a8, 1).lineBetween(
@@ -468,18 +552,23 @@ export function createTownScene(
         );
       }
       g.lineStyle(6, 0xb5a493, 1).strokeCircle(CENTER.x, CENTER.y, PLAZA_RADIUS + 16);
-      // 광장 둘레 꽃 (길이 지나가는 곳은 비운다)
-      for (let a = 0; a < 360; a += 6) {
-        if (a % 90 < 14 || a % 90 > 76) continue;
+      // 광장 둘레 꽃
+      for (let a = 0; a < 360; a += 5) {
         const rad = Phaser.Math.DegToRad(a);
-        const x = CENTER.x + Math.cos(rad) * (PLAZA_RADIUS + 30);
-        const y = CENTER.y + Math.sin(rad) * (PLAZA_RADIUS + 30);
+        const x = CENTER.x + Math.cos(rad) * (PLAZA_RADIUS + 32);
+        const y = CENTER.y + Math.sin(rad) * (PLAZA_RADIUS + 32);
         g.fillStyle(0x5cae55).fillCircle(x, y, 9);
         g.fillStyle(rng.pick([0xff7aa2, 0xffd36e, 0xffffff, 0xb79cff])).fillCircle(x + rng.between(-3, 3), y - 3, 4);
       }
 
+      // 집 마당: 집 뒤 동그란 잔디 마당
+      for (let i = 0; i < HOUSE_SLOTS; i++) {
+        const p = houseSlot(i);
+        g.fillStyle(0xa6de9c, 0.9).fillEllipse(p.x, p.y - 40, 260, 170);
+      }
+
       // 들꽃
-      for (let i = 0; i < 160; i++) {
+      for (let i = 0; i < 420; i++) {
         const x = rng.between(0, WORLD.width);
         const y = rng.between(0, WORLD.height);
         if (Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y) < PLAZA_RADIUS + 50) continue;
@@ -489,24 +578,37 @@ export function createTownScene(
       }
     }
 
-    /** 나무: 길, 광장, 건물 자리를 피해서 심는다 */
+    /** 나무: 길, 광장, 건물·집 자리를 피해서 심는다. 바깥쪽은 숲처럼 빽빽하게 */
     private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
       const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
       const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...MY_HOUSE_POS, r: 150 },
-        ...NEIGHBOR_SLOTS.map((p) => ({ ...p, r: 150 })),
+        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...SIGNPOST_POS, r: 110 }, { ...POND_POS, r: 150 },
+        ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
       ];
+      const onRoad = (x: number, y: number) => {
+        const d = Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y);
+        if (Math.abs(d - RING_RADIUS) < 80) return true;
+        const ang = Math.atan2(y - CENTER.y, x - CENTER.x);
+        for (let i = 0; i < HOUSE_SLOTS; i++) {
+          const a = houseSlot(i).angle;
+          let diff = Math.abs(ang - a) % (2 * Math.PI);
+          if (diff > Math.PI) diff = 2 * Math.PI - diff;
+          if (d < RING_RADIUS + 200 && diff * d < 70) return true;
+        }
+        return false;
+      };
       let planted = 0;
-      for (let i = 0; i < 400 && planted < 46; i++) {
+      for (let i = 0; i < 2000 && planted < 150; i++) {
         const x = rng.between(40, WORLD.width - 40);
-        const y = rng.between(90, WORLD.height - 20);
-        if (Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y) < PLAZA_RADIUS + 110) continue;
-        if (Math.abs(x - CENTER.x) < 95 || Math.abs(y - CENTER.y) < 95) continue;
-        if (y > 380 && y < 490) continue;
-        if (y > WORLD.height - 490 && y < WORLD.height - 380) continue;
+        const y = rng.between(110, WORLD.height - 20);
+        const d = Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y);
+        if (d < PLAZA_RADIUS + 120) continue;
+        // 타운 안은 드문드문, 바깥은 빽빽하게
+        if (d < RING_RADIUS && rng.frac() > 0.25) continue;
+        if (onRoad(x, y)) continue;
         if (blocked.some((b) => Phaser.Math.Distance.Between(x, y - 60, b.x, b.y - 60) < b.r)) continue;
         const kind = rng.pick(["round", "round", "pine", "pine", "bush", "blossom"]);
-        const scale = kind === "bush" ? 0.75 : rng.realInRange(0.9, 1.15);
+        const scale = kind === "bush" ? 0.75 : rng.realInRange(0.9, 1.2);
         this.placeStructure(
           { texture: `tree:${kind}`, x, y, w: TREE_SIZE.width * scale, h: TREE_SIZE.height * scale, solid: { w: 26 * scale, h: 12 } },
           walls,
