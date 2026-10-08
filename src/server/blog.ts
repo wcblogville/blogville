@@ -84,10 +84,12 @@ export async function getCategories(blogId: number, includePrivate: boolean) {
       id: categories.id,
       name: categories.name,
       position: categories.position,
+      // 표 하나만 읽는 select에서는 drizzle이 칸 이름을 표 이름 없이("id") 쓰므로, 안쪽 조회의 칸과 섞이지 않게
+      // 표 이름을 붙여 적는다 (그대로 두면 "category_id" = "id"가 posts.id와 비교되어 글 수가 틀렸다)
       postCount: sql<number>`(
-        SELECT COUNT(*)::int FROM ${posts}
-        WHERE ${posts.categoryId} = ${categories.id}
-        ${includePrivate ? sql`` : sql`AND ${posts.visibility} = 'public'`}
+        SELECT COUNT(*)::int FROM ${posts} AS p
+        WHERE p.category_id = "categories"."id"
+        ${includePrivate ? sql`` : sql`AND p.visibility = 'public'`}
       )`,
     })
     .from(categories)
