@@ -309,7 +309,24 @@ async function forgeOrigin(page) {
   }
   await ctx.close();
 }
-note("12 연동 해제·탈퇴 Server Action은 아직 없음 (US4 T046, US7 T065에서 이 파일에 더한다)");
+{
+  // 연동 해제 (DB에 카카오 연동 행을 넣고 내 정보의 [연동 해제])
+  const { ctx, page } = await fresh();
+  page.on("dialog", (d) => d.accept());
+  await login(page);
+  await db.query("INSERT INTO accounts (id, user_id, provider_id, account_id) VALUES ($1, $2, 'kakao', $3)", [`se-kakao-${n}`, await userId(), `kakao-${n}`]);
+  await page.goto(`${BASE}/settings/account`);
+  const statuses = await forgeOrigin(page);
+  await page.locator('li[data-provider="kakao"]').getByRole("button", { name: "연동 해제" }).click();
+  await page.waitForTimeout(2500);
+  const left = (await one("SELECT count(*)::int AS c FROM accounts WHERE user_id = $1 AND provider_id = 'kakao'", [await userId()])).c;
+  check("12 다른 Origin 연동 해제: 성공 아님", statuses.length > 0 && statuses.every((st) => st >= 400), statuses.join(","));
+  check("12 다른 Origin 연동 해제: 연동 행 그대로", left === 1, String(left));
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await db.query("DELETE FROM accounts WHERE id = $1", [`se-kakao-${n}`]);
+  await ctx.close();
+}
+note("12 탈퇴 Server Action은 아직 없음 (US7 T065에서 이 파일에 더한다)");
 
 console.log(results.join("\n"));
 await browser.close();
