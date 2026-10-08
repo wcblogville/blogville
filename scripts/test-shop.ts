@@ -3,6 +3,7 @@
 import { AVATAR_PARTS, orderOutfit, outfitLayers } from "../src/lib/art/avatar";
 import { characterSvg, lookKey } from "../src/lib/art/characters";
 import { growthSvg } from "../src/lib/art/growth";
+import { CATCHES, pickCatch } from "../src/lib/fishing";
 import { buttonState, purchaseMessage, SHOP_ERRORS, SHOP_SECTIONS, shortage, sortShopItems, type ShopItem } from "../src/lib/shop";
 
 let failed = 0;
@@ -60,6 +61,13 @@ expect("옷 없으면 lookKey = 캐릭터", lookKey("char.cat"), "char.cat");
 expect("입히면 그림이 달라짐", characterSvg("char.cat", 64, ["hat.straw"]) !== characterSvg("char.cat", 64), true);
 expect("아바타 그림 9개", Object.keys(AVATAR_PARTS).length, 9);
 expect("성장 아이템 그림", ["growth.feed", "growth.premium", "growth.booster"].every((k) => growthSvg(k).startsWith("<svg")), true);
+
+// 연못 낚시터: 무게 합 100, 경계값
+expect("낚시 무게 합 100", CATCHES.reduce((n, c) => n + c.weight, 0), 100);
+expect("0 → 송사리", pickCatch(0).key, "minnow");
+expect("99 → 마지막(낡은 장화)", pickCatch(99).key, "boot");
+expect("먹이 꾸러미는 growth_feed", CATCHES.find((c) => c.key === "feed")?.itemCode, "growth_feed");
+expect("0~99 모두 무언가 낚임", Array.from({ length: 100 }, (_, i) => pickCatch(i)).every(Boolean), true);
 
 if (failed) {
   console.log(`\n${failed}개 실패`);

@@ -8,6 +8,8 @@ import {
   BOARD_SIZE,
   boardSvg,
   FARM_SIZE,
+  FISHING_SIZE,
+  fishingSvg,
   farmSvg,
   FOUNTAIN_SIZE,
   fountainSvg,
@@ -31,6 +33,7 @@ import {
   BOARD_POS,
   CENTER,
   FARM_POS,
+  FISHING_POS,
   HOUSE_SLOTS,
   houseAt,
   houseSlot,
@@ -105,6 +108,7 @@ export function townTextures(data: TownData) {
   list.set("fountain", toDataUri(fountainSvg()));
   list.set("lamp", toDataUri(lampSvg()));
   list.set("farm", toDataUri(farmSvg()));
+  list.set("fishing", toDataUri(fishingSvg()));
   list.set("lot", toDataUri(lotSvg()));
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
@@ -140,7 +144,18 @@ function layout(data: TownData) {
     promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
   });
 
-  // 동물 농장: 알을 받아 동물을 키운다
+  // 연못 낚시터: 하루 한 번 낚시 (사용자 요청 2026-10-08)
+  structures.push({
+    texture: "fishing", ...FISHING_POS, w: FISHING_SIZE.width, h: FISHING_SIZE.height, solid: { w: FISHING_SIZE.width * 0.9, h: 90 },
+    label: "낚시터", sub: "하루 한 번 낚시",
+  });
+  entrances.push({
+    label: "낚시터", emoji: "🎣", x: FISHING_POS.x, y: FISHING_POS.y + 24, target: need("/fishing"),
+    area: { x: FISHING_POS.x - FISHING_SIZE.width / 2, y: FISHING_POS.y - FISHING_SIZE.height, w: FISHING_SIZE.width, h: FISHING_SIZE.height },
+    promptY: FISHING_POS.y - FISHING_SIZE.height - 6,
+  });
+
+  // 동물 농장: 알을 받아 동물을 키운다 (내 집 옆)
   structures.push({
     texture: "farm", ...FARM_POS, w: FARM_SIZE.width, h: FARM_SIZE.height, solid: { w: FARM_SIZE.width * 0.94, h: 100 },
     label: "동물 농장", sub: "알 부화 · 동물 키우기",
@@ -572,7 +587,7 @@ export function createTownScene(
     private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
       const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
       const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...POND_POS, r: 150 },
+        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...FISHING_POS, r: 180 }, { ...POND_POS, r: 150 },
         ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
       ];
       const onRoad = (x: number, y: number) => {

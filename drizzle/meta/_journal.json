@@ -197,6 +197,13 @@
       "when": 1791438378175,
       "tag": "0027_shop_items",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791443533439,
+      "tag": "0028_fishing",
+      "breakpoints": true
     }
   ]
 }

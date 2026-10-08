@@ -33,6 +33,7 @@ export function TownMenu({
         { emoji: "📋", label: "마을 소식", sub: "새 글 · 이웃 새 글", href: "/feed" },
         { emoji: "🏪", label: "상점", sub: "아바타·가구·배경", href: "/shop" },
         { emoji: "🐮", label: "동물 농장", sub: "알 부화 · 동물 키우기", href: "/farm" },
+        { emoji: "🎣", label: "낚시터", sub: "하루 한 번 낚시", href: "/fishing" },
       ]
     : [
         { emoji: "📋", label: "마을 소식", sub: "새 글 구경하기", href: "/feed" },

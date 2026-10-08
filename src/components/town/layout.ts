@@ -1,5 +1,5 @@
 // 광장 배치 (Phaser 없이 쓰는 순수 계산). 장면(scene.ts)과 메뉴의 텔레포트 목록이 같은 좌표를 쓴다.
-// 가운데 타운(분수·게시판·상점·농장)을 집 11채가 원형으로 둘러싼다. 0번 자리(맨 아래)가 내 집.
+// 가운데 타운(분수·게시판·상점·낚시터, 농장은 내 집 옆)을 집 11채가 원형으로 둘러싼다. 0번 자리(맨 아래)가 내 집.
 import type { TownData, TownHouse } from "./types";
 
 export const WORLD = { width: 2600, height: 2600 };
@@ -20,6 +20,8 @@ export const SHOP_POS = { x: CENTER.x + 400, y: CENTER.y + 60 };
 export const FARM_POS = { x: CENTER.x + 190, y: CENTER.y + 690 };
 /** 처음 서는 곳 (광장 아래쪽). 정류장은 없앴다: 텔레포트는 ☰ 메뉴로 (사용자 요청 2026-10-08) */
 export const START_POS = { x: CENTER.x + 50, y: CENTER.y + PLAZA_RADIUS + 100 };
+/** 연못 낚시터: 광장 왼쪽, 상점 맞은편 (원래 농장 자리, 사용자 요청 2026-10-08) */
+export const FISHING_POS = { x: CENTER.x - 410, y: CENTER.y + 90 };
 export const POND_POS = { x: CENTER.x - 250, y: CENTER.y + 400 };
 
 /** i번 집 자리 (아랫변 가운데). 0번이 맨 아래, 시계 방향 */
@@ -42,6 +44,7 @@ export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpo
     { key: "board", label: "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: "/feed" },
     { key: "shop", label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 40, href: "/shop" },
     { key: "farm", label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 40, href: "/farm" },
+    { key: "fishing", label: "낚시터", emoji: "🎣", x: FISHING_POS.x + 40, y: FISHING_POS.y + 40, href: "/fishing" },
   ];
   const houses: TownSpot[] = [];
   for (let i = 0; i < HOUSE_SLOTS; i++) {

@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -564,7 +564,7 @@ COMMIT
 | `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제) |
 | `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품) |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase` |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시) |
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
@@ -690,6 +690,11 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - **`user_items.quantity`**(기본 1, 0 이상): 성장 아이템은 살 때마다 +1, 농장에서 쓰면 −1. 꾸미기 아이템은 늘 1. "가졌다" = `quantity > 0`.
 - 새 열거형 값은 같은 마이그레이션 트랜잭션에서 글자로 쓸 수 없어서, 아바타·성장 아이템 행은 `scripts/seed.ts`가 넣는다 (CHECK는 `::text`로 비교).
 - 구매는 `lockUser` 잠금 안에서 판매 여부 → 보유(꾸미기) → 레벨 → 코인 순으로 확인하고, 지급과 원장 `purchase` 차감을 한 트랜잭션으로 한다.
+
+### 3.24 연못 낚시터 (사용자 요청 2026-10-08, `0028_fishing`)
+
+- 회원마다 하루(한국 날짜) 한 번: **`fishing_catches (user_id, date, catch_key, coins, created_at)`**, PK `(user_id, date)`라 같은 날 두 번 넣으면 막힌다.
+- 무엇을 낚았는지(`catch_key`)와 확률은 `src/lib/fishing.ts`. 코인은 원장 `fishing`(`ref_id` = 날짜), 먹이 꾸러미는 `user_items`의 동물 먹이 수량 +1.
 
 ## 4. 데이터 마이그레이션
 

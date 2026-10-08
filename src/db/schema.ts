@@ -43,6 +43,7 @@ export const ledgerReason = pgEnum("ledger_reason", [
   "farm_care",
   "farm_grown",
   "egg_purchase",
+  "fishing",
 ]);
 // 동물 농장 (TOWN-09)
 export const animalStatus = pgEnum("animal_status", ["egg", "growing", "grown"]);
@@ -645,6 +646,21 @@ export const animalCares = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.animalId, t.action, t.date] })],
+);
+
+// 연못 낚시터: 회원마다 하루(한국 날짜) 한 번 (사용자 요청 2026-10-08). 무엇을 낚았는지는 src/lib/fishing.ts의 key
+export const fishingCatches = pgTable(
+  "fishing_catches",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    catchKey: text("catch_key").notNull(),
+    coins: integer("coins").notNull().default(0),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.date] }), check("fishing_catches_coins_check", sql`${t.coins} >= 0`)],
 );
 
 // 글 첨부(사진·파일) 정보. 파일 내용은 DB가 아니라 저장소(src/server/storage.ts)에 둔다 (POST-07, POST-09)

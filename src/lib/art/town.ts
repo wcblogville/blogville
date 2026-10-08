@@ -292,3 +292,37 @@ export function farmSvg(): string {
 export function toDataUri(svg: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
+// 연못 낚시터 (사용자 요청 2026-10-08): 작은 연못 위 나무 잔교, 낚시 오두막과 간판
+export const FISHING_SIZE = { width: 250, height: 170 };
+export function fishingSvg(): string {
+  const { width: w, height: h } = FISHING_SIZE;
+  let planks = "";
+  for (let x = 92; x < 214; x += 14) planks += `<rect x="${x}" y="104" width="13" height="26" rx="2" fill="#d9a066" stroke="${O}" stroke-width="1.5"/>`;
+  const body =
+    `<ellipse cx="125" cy="163" rx="118" ry="7" fill="#000" opacity=".15"/>` +
+    // 연못
+    `<ellipse cx="150" cy="122" rx="96" ry="40" fill="#6fb868"/>` +
+    `<ellipse cx="150" cy="122" rx="88" ry="34" fill="#7ec8e3" ${S}/>` +
+    `<path d="M92 118q8 -4 16 0M180 136q8 -4 16 0M150 140q6 -3 12 0" fill="none" stroke="#e6f6fb" stroke-width="2" stroke-linecap="round"/>` +
+    `<circle cx="214" cy="112" r="7" fill="#5cae55"/><circle cx="216" cy="110" r="2.5" fill="#ff9ecb"/>` +
+    // 잔교 (기둥 + 판자)
+    `<path d="M100 130v14M150 130v14M200 130v14" stroke="#8d6040" stroke-width="5" stroke-linecap="round"/>` +
+    planks +
+    // 오두막 (왼쪽)
+    `<rect x="14" y="66" width="74" height="66" rx="3" fill="#7fb8d9" ${S}/>` +
+    `<path d="M6 70L51 34L96 70Z" fill="#3f6f9a" ${S}/>` +
+    `<rect x="40" y="94" width="24" height="38" rx="3" fill="#a46d3f" ${S}/><circle cx="58" cy="114" r="2" fill="${O}"/>` +
+    `<rect x="20" y="80" width="16" height="14" rx="2" fill="#fff4dc" stroke="${O}" stroke-width="2"/>` +
+    // 낚싯대와 찌
+    `<path d="M196 104L236 40" stroke="#8d6040" stroke-width="4" stroke-linecap="round"/>` +
+    `<path d="M236 40Q242 90 228 124" fill="none" stroke="${O}" stroke-width="1.2"/>` +
+    `<circle cx="228" cy="126" r="4" fill="#e05a4f" stroke="${O}" stroke-width="1.2"/>` +
+    // 물고기 그릇
+    `<path d="M168 92h26l-3 12h-20z" fill="#e8dccb" ${S}/><path d="M174 92q6 -8 12 0" fill="#ffb26b" stroke="${O}" stroke-width="1.2"/>` +
+    // 간판
+    `<rect x="110" y="64" width="6" height="40" fill="#8d6040" ${S}/>` +
+    `<rect x="74" y="38" width="80" height="32" rx="6" fill="#f5e6c8" ${S}/>` +
+    `<text x="114" y="59" text-anchor="middle" font-size="14" fill="#2f6f9a" ${FONT}>낚시터</text>`;
+  return wrap(w, h, body);
+}
