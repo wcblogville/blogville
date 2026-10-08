@@ -1,26 +1,31 @@
-// 관리자 계정을 만들거나 비밀번호·권한을 갱신한다. 여러 번 실행해도 안전하다.
-// 아이디·비밀번호는 .env.local의 ADMIN_USERNAME, ADMIN_PASSWORD에서 읽는다.
+// 관리자 계정을 만들거나 비밀번호·권한을 갱신한다. 여러 번 실행해도 안전하다 (AUTH-08 / FR-048, FR-049, contracts/admin.md 3장).
+// 아이디·비밀번호는 .env.local의 ADMIN_USERNAME, ADMIN_PASSWORD에서 읽는다 (값을 코드·문서·출력에 쓰지 않는다).
+// 관리자는 회원가입을 거치지 않으므로 예약어·이름 겹침 검사와 가입 축하 🪙 100이 없다 (spec Assumption).
 // 실행: npm run admin:create
-import { generateRandomString, hashPassword } from "better-auth/crypto";
+import { hashPassword } from "better-auth/crypto";
 import { config } from "dotenv";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { accounts, blogs, categories, items, profiles, userItems, users } from "../src/db/schema";
+import { AUTH_ID_LENGTH, newAuthId } from "../src/lib/auth-id";
+import { USERNAME_RE } from "../src/lib/names";
 
 config({ path: ".env.local" });
 
 const username = process.env.ADMIN_USERNAME?.trim().toLowerCase();
 const password = process.env.ADMIN_PASSWORD;
 
-// 회원·로그인 정보 ID는 Better Auth가 가입 때 만드는 것과 같은 형식(영문 대소문자·숫자 32자)으로 만든다.
+// 회원·로그인 정보 ID는 가입 회원과 같은 형식(영문 대소문자·숫자 32자, newAuthId)으로 만든다.
 // ERD는 users.id와 이를 가리키는 FK를 VARCHAR(32)로 정했다 (예전에는 UUID 36자를 썼다)
-const ID_LENGTH = 32;
-const newId = () => generateRandomString(ID_LENGTH, "a-z", "A-Z", "0-9");
 
 async function main() {
+  // 검사는 DB에 연결하기 전에 한다 (실패하면 DB 변화 없음, 종료 코드 1)
   if (!username || !password) throw new Error(".env.local에 ADMIN_USERNAME, ADMIN_PASSWORD를 적어 주세요");
-  if (password.length < 8) throw new Error("관리자 비밀번호는 8자 이상이어야 해요");
+  if (!USERNAME_RE.test(username)) throw new Error("관리자 아이디는 영문 소문자, 숫자, _ 로 4~20자여야 해요");
+  if (password.length < 12) throw new Error("관리자 비밀번호는 12자 이상이어야 해요");
+  if (password.length > 64) throw new Error("관리자 비밀번호는 64자까지예요");
+  if (password.toLowerCase() === username) throw new Error("관리자 비밀번호는 아이디와 달라야 해요");
 
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const db = drizzle(pool);
@@ -33,12 +38,12 @@ async function main() {
       let [user] = await tx.select({ id: users.id }).from(users).where(eq(users.username, username));
       if (user) {
         await tx.update(users).set({ role: "admin" }).where(eq(users.id, user.id));
-        if (user.id.length !== ID_LENGTH) oldIds.push(`회원 ID ${user.id.length}자`);
+        if (user.id.length !== AUTH_ID_LENGTH) oldIds.push(`회원 ID ${user.id.length}자`);
       } else {
         [user] = await tx
           .insert(users)
           .values({
-            id: newId(),
+            id: newAuthId(),
             name: "관리자",
             email: `${username}@users.blogville.invalid`,
             emailVerified: true,
@@ -56,12 +61,12 @@ async function main() {
         .where(and(eq(accounts.userId, user.id), eq(accounts.providerId, "credential")));
       if (account) {
         await tx.update(accounts).set({ password: hash }).where(eq(accounts.id, account.id));
-        if (account.id.length !== ID_LENGTH) oldIds.push(`로그인 정보 ID ${account.id.length}자`);
+        if (account.id.length !== AUTH_ID_LENGTH) oldIds.push(`로그인 정보 ID ${account.id.length}자`);
       } else {
-        await tx.insert(accounts).values({ id: newId(), userId: user.id, providerId: "credential", accountId: user.id, password: hash });
+        await tx.insert(accounts).values({ id: newAuthId(), userId: user.id, providerId: "credential", accountId: user.id, password: hash });
       }
 
-      // 3. 온보딩: 공지사항 블로그 (이미 있으면 건너뜀)
+      // 3. 기본 캐릭터·초원·프로필·공지사항 블로그 (이미 있으면 건너뜀)
       const [profile] = await tx.select({ userId: profiles.userId }).from(profiles).where(eq(profiles.userId, user.id));
       if (!profile) {
         const [character] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "char_boy"));
