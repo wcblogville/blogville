@@ -24,7 +24,7 @@ const lastPublicPostAt = sql<Date | null>`(
   WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public'
 )`;
 
-/** 관리자 블로그(Blogville 공지사항)는 집이 아니다: 마을 집·둘레 집·텔레포트에 나오지 않는다 (사용자 요청 2026-10-08) */
+/** 관리자 블로그(Blogville 공지사항)는 남의 마을 둘레 집·텔레포트에 나오지 않는다. 관리자 본인에게는 내 집으로 보인다 (사용자 요청 2026-10-08) */
 const notAdminBlog = sql`NOT EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${blogs.ownerId} AND ${users.role} = 'admin')`;
 
 function houseQuery() {
@@ -90,7 +90,7 @@ export async function getFavoriteHouses(userId: string): Promise<TownHouse[]> {
 }
 
 export async function getMyHouse(userId: string): Promise<TownHouse | null> {
-  const [house] = await toHouses(await houseQuery().where(and(eq(blogs.ownerId, userId), notAdminBlog)));
+  const [house] = await toHouses(await houseQuery().where(eq(blogs.ownerId, userId)));
   return house ?? null;
 }
 

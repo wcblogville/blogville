@@ -16,7 +16,8 @@ export const HOUSE_SLOTS = 11;
 
 export const BOARD_POS = { x: CENTER.x, y: CENTER.y - PLAZA_RADIUS - 110 };
 export const SHOP_POS = { x: CENTER.x + 400, y: CENTER.y + 60 };
-export const FARM_POS = { x: CENTER.x - 410, y: CENTER.y + 90 };
+/** 동물 농장: 내 집(맨 아래 0번 자리)에서 가장 가까운 곳, 내 집 길 오른쪽 (사용자 요청 2026-10-08) */
+export const FARM_POS = { x: CENTER.x + 190, y: CENTER.y + 690 };
 /** 처음 서는 곳 (광장 아래쪽). 정류장은 없앴다: 텔레포트는 ☰ 메뉴로 (사용자 요청 2026-10-08) */
 export const START_POS = { x: CENTER.x + 50, y: CENTER.y + PLAZA_RADIUS + 100 };
 export const POND_POS = { x: CENTER.x - 250, y: CENTER.y + 400 };
