@@ -86,7 +86,10 @@ check("US4 수정 뒤 작성 시각 그대로", (await one("SELECT created_at FR
 // 작성자 줄: 마을 소식에는 있고 블로그 홈에는 없음
 check("US4 블로그 홈 카드에 작성자 줄 없음", (await a.locator(`article a[href="/@${idA}"]`).count()) === 0);
 await a.goto(`${BASE}/feed`);
-check("US4 마을 소식 카드에 작성자 줄", (await a.locator(`article a[href="/@${idA}"]`).count()) > 0);
+// 다른 시험이 만든 더 새 글이 1페이지를 채울 수 있어 카드마다 작성자 줄(→ 블로그 홈)이 있는지만 본다
+const feedCards = await a.locator("article").count();
+const authorLines = await a.locator('article > a:first-child[href^="/@"]').evaluateAll((els) => els.filter((e) => !/\/\d+$/.test(e.getAttribute("href"))).length);
+check("US4 마을 소식 카드에 작성자 줄", feedCards > 0 && authorLines === feedCards, `${authorLines}/${feedCards}`);
 
 // 로그아웃 이웃 새 글 → /
 await guest.goto(`${BASE}/feed/following`);
