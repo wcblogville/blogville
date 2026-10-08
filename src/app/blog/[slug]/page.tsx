@@ -42,9 +42,10 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         <aside className="md:sticky md:top-20 md:self-start">
           <nav className="card p-4" aria-label="카테고리">
             <h2 className="mb-2 font-display text-lg">카테고리</h2>
+            {/* 카테고리 링크는 누르는 영역 44px 이상 (FR-059, research R-24) */}
             <ul className="space-y-0.5 text-sm">
               <li>
-                <Link href={base} className={`block rounded-lg px-2 py-1 ${!categoryId ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`}>
+                <Link href={base} className={`flex min-h-11 items-center gap-1 rounded-lg px-2 ${!categoryId ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`}>
                   전체 글 <span className="text-ink-soft">({blog.postCount})</span>
                 </Link>
               </li>
@@ -52,7 +53,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
                 <li key={c.id}>
                   <Link
                     href={`${base}?category=${c.id}`}
-                    className={`block rounded-lg px-2 py-1 ${c.id === categoryId ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`}
+                    className={`flex min-h-11 items-center gap-1 rounded-lg px-2 ${c.id === categoryId ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`}
                   >
                     └ {c.name} <span className="text-ink-soft">({c.postCount})</span>
                   </Link>
@@ -77,7 +78,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
               <p className="text-4xl">🌱</p>
               <p className="mt-2">아직 글이 없어요.</p>
               {isOwner && (
-                <Link href="/write" className="btn mt-4 bg-leaf text-white">
+                <Link href="/write" className="btn mt-4 min-h-11 min-w-11 whitespace-nowrap bg-leaf text-white">
                   첫 글 쓰기
                 </Link>
               )}
