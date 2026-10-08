@@ -3,7 +3,7 @@ import { TownGame } from "@/components/town/town-game";
 import { TownMenu } from "@/components/town/town-menu";
 import type { TownData } from "@/components/town/types";
 import { getViewer } from "@/server/dal";
-import { getMyHouse, getTownHouses, hasAttendedToday } from "@/server/town";
+import { getMyHouse, getTownHouses } from "@/server/town";
 
 export const metadata = { title: "중앙 광장" };
 
@@ -12,10 +12,9 @@ export default async function TownPage(props: PageProps<"/town">) {
   const member = viewer?.profile ? viewer : null;
   const { welcome } = await props.searchParams;
 
-  const [neighbors, myHouse, attendedToday] = await Promise.all([
+  const [neighbors, myHouse] = await Promise.all([
     getTownHouses(member?.userId ?? null),
     member ? getMyHouse(member.userId) : null,
-    member ? hasAttendedToday(member.userId) : false,
   ]);
 
   const data: TownData = {
@@ -24,7 +23,7 @@ export default async function TownPage(props: PageProps<"/town">) {
       : null,
     myHouse,
     neighbors,
-    attendedToday,
+    attendanceDay: member?.attendance?.cycleDay ?? null,
   };
 
   // 광장은 헤더 아래 화면 전체를 쓴다. 안내·환영·이웃집은 게임 위에 띄운다.

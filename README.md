@@ -83,6 +83,7 @@ npm run dev                     # http://localhost:3000
 | `npm run posts:cleanup` | 하루 넘게 어느 글에도 붙지 않은 첨부·주인 없는 파일·지난 조회 기록 지우기 (세기만: `npm run posts:cleanup -- --dry-run`. 배포 환경에서 하루 1번) |
 | `npm run test:post` | 글 입력 규칙·태그·첨부 공개 범위·붙여 넣기 판정 테스트 (`npm test`에 포함) |
 | `npm run test:social` | 댓글 내용 정규화·길이, 삭제 권한, 즐겨찾는 이웃 기간 테스트 (`npm test`에 포함) |
+| `npm run test:notifications` | 레벨업 팝업 제목, 🔔 배지, 알림 시간·문구·링크 테스트 (`npm test`에 포함) |
 | `npm run admin:create` | 관리자 계정 생성·비밀번호 갱신 (여러 번 실행해도 안전). `ADMIN_PASSWORD`는 12~64자 |
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
@@ -105,7 +106,10 @@ npm run dev                     # http://localhost:3000
 | `node e2e/post-drafts.mjs <폴더>` | 새 글 임시 저장·불러오기·지우기 E2E (실행마다 새 회원) |
 | `node e2e/write-count.mjs <폴더>` | 글쓰기 화면 글자 수·보상 안내가 서버의 실제 보상 판단과 같은지 E2E (실행마다 새 회원) |
 | `node e2e/attachments.mjs <폴더>` | 글 첨부 E2E: 사진·파일을 버튼·붙여 넣기·끌어다 놓기로 올리고 원래 이름으로 내려받기, 조작한 올리기 요청 거부 (실행마다 새 회원) |
-| `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
+| `node e2e/game.mjs <폴더>` | 상점·꾸미기 E2E |
+| `node e2e/attendance.mjs <폴더>` | 자동 출석 E2E (1~7일차, 10개 탭 동시, 보상 실패, 출석 화면, 375px) |
+| `node e2e/rewards.mjs <폴더>` | 가입 지급·글 보상·하루 상한·동시 요청·레벨·경험치·코인 내역 E2E |
+| `node e2e/notifications.mjs <폴더>` | 레벨업 팝업·알림함·공감·댓글·답글 알림 E2E (조작 요청, 375px) |
 | `node e2e/farm.mjs <폴더>` | 동물 농장: 알 받기·부화·돌보기·다 키움·알 사기·5마리 제한·글쓰기 연동 E2E (실행마다 새 회원) |
 | `node e2e/social.mjs <폴더>` | 이웃·공감·마을 소식 E2E (이웃 추가·취소, 즐겨찾는 이웃 우선, 동시 공감, 조작 요청 거부) |
 | `node e2e/comments.mjs <폴더>` | 댓글·답글 E2E (등록·삭제 권한, 삭제 자리, 하루 보상 10번, 답글 거부 문구, 375px) |
@@ -113,11 +117,11 @@ npm run dev                     # http://localhost:3000
 | `node e2e/visits.mjs <폴더>` | 블로그 방문자 수 E2E: 하루 1번, 다른 브라우저, 글 상세, 어제, 관리 7일 그래프, 주인 제외, 쿠키 속성 (`e2e/blog.mjs` 다음에) |
 | `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
 | `npm test` | 아래 네 테스트를 함께 실행 |
-| `npm run test:game` | 레벨(최고 99)·연속 출석 계산 테스트 |
+| `npm run test:game` | 레벨(최고 99)·출석 일차·레벨업 목록 계산 테스트 |
 | `npm run test:ids` | 주소·요청의 숫자 ID 검사(1 ~ 2147483647) 테스트 |
 | `npm run test:sanitize` | 글 HTML 정화(XSS 방지) 테스트 |
 | `npm run test:auth` | 아이디 정규화·형식, 예약어, 닉네임 길이, 로그인 시도 제한 계산 테스트 |
-| `node e2e/decisions.mjs <폴더>` | 팀 결정 구현 E2E: 3종 지급, 장착 표시, 연속 출석, 내역, 최고 레벨, 광장 이웃집, 조이스틱 |
+| `node e2e/decisions.mjs <폴더>` | 팀 결정 구현 E2E: 3종 지급, 장착 표시, 옛 연속 출석 보너스 내역, 최고 레벨, 광장 이웃집, 조이스틱 |
 | `node e2e/params.mjs <폴더>` | 범위 밖·이상한 숫자(글 번호, 카테고리, 페이지, Server Action 인자)에서 500이 나지 않는지 E2E (`e2e/blog.mjs` 다음에) |
 
 ## 폴더 구조

@@ -1,10 +1,11 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
+- 버전: 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
-- ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
+- ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법. `login_attempts`·`post_views`·`notifications`는 아직 없다)
 - ERDCloud에서 직접 그린 제출본: [erdcloud-final.sql](erdcloud-final.sql) (2026-10-07 내보내기. 점선 관계의 FK와 테이블 코멘트는 ERDCloud가 내보내지 않는다)
 
 > 이 문서는 **결정된 설계**다. 아직 코드(DB)에 반영되지 않은 부분은 ⏳로 표시했고, 지금 DB와 다른 점은 [7장](#7-지금-db와-다른-점-구현할-일)에 모았다.
@@ -51,6 +52,9 @@ erDiagram
     sessions |o..o{ attendances : "자동 출석한 세션"
     attendance_rewards ||..o{ attendances : "그날 일차의 보상"
     users ||..o{ point_ledger : "경험치·코인 기록"
+    users ||..o{ notifications : "받은 알림"
+    users |o..o{ notifications : "행동한 회원"
+    posts |o..o{ notifications : "관련 글"
 
     users ||..o{ user_animals : "알·동물"
     animal_species |o..o{ user_animals : "종류 (알이면 없음)"
@@ -222,6 +226,16 @@ erDiagram
         varchar ref_id "관련 행 ID (FK 아님)"
         timestamptz created_at
     }
+    notifications {
+        int id PK
+        varchar user_id FK "받는 회원"
+        notification_kind kind "level_up / like / comment / reply"
+        varchar actor_id FK "행동한 회원, 레벨업은 NULL"
+        int post_id FK "관련 글, 레벨업은 NULL"
+        smallint level "레벨업만, 2~99"
+        timestamptz created_at
+        timestamptz read_at "NULL = 안 읽음"
+    }
     attachments {
         char key PK "무작위 32자 = 주소 /files/키"
         varchar user_id FK "올린 사람"
@@ -286,7 +300,7 @@ erDiagram
 | 회원·블로그 | `profiles`, `blogs`, `categories`, `subcategories` | AUTH-02, AUTH-07, BLOG |
 | 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows`, `post_views` | POST, SOC, TOWN-08 |
 | 아이템 | `items`, `user_items` | GAME-01, SHOP, TOWN-09(성장 아이템) |
-| 보상 | `attendances`, `attendance_rewards`, `point_ledger` | GAME-02~05 |
+| 보상 | `attendances`, `attendance_rewards`, `point_ledger`, `notifications` | GAME-02~05, GAME-06, GAME-08 |
 | 첨부 | `attachments` | POST-07, POST-09 |
 | 방문자 | `blog_visits` | BLOG-06 |
 | 동물 농장 | `animal_species`, `user_animals`, `animal_cares` | TOWN-09 |
@@ -340,7 +354,7 @@ erDiagram
   - 유지 안 함(기본, 가입 직후 포함): `expires_at` = 지금 + **2시간**, 쿠키는 만료일이 없어 **브라우저를 닫으면 로그아웃**. 쓰는 동안 `getSession()`(`src/server/dal.ts`)이 **5분 단위**로 `expires_at = now() + 2시간`, `updated_at = now()`로 늘린다. 마지막 사용(`updated_at`) 뒤 2시간이 지나면 `expires_at`과 상관없이 행을 지우고 로그아웃으로 처리한다.
   - 유지: `expires_at` = 지금 + **7일**, 쿠키 Max-Age 7일. 화면의 `SessionKeeper`가 `GET /api/auth/get-session`을 불러 라이브러리가 1시간 단위로 다시 7일로 늘린다 (Route Handler라 쿠키도 다시 심는다).
   - 서버는 창이 닫힌 것을 알 수 없어서 세션 행과 만료 시간은 여전히 필요하다.
-- ⏳ **자동 출석**: 그날 처음 들어온 세션이 출석을 만들고, `attendances.session_id`가 그 세션을 가리킨다 (3.12).
+- **자동 출석**: 그날 처음 들어온 세션이 출석을 만들고, `attendances.session_id`가 그 세션을 가리킨다 (3.12).
 
 회원 1명 ── 세션 0..N개.
 
@@ -409,6 +423,8 @@ COMMIT
 ```
 
 > 원장은 "행을 추가"하는 테이블이라 아직 없는 행은 `FOR UPDATE`로 잠글 수 없다. 그래서 회원 ID로 만든 **advisory lock**(트랜잭션이 끝나면 자동으로 풀리는 이름표 잠금)을 쓴다. 하루 상한 확인(오늘 같은 사유 보상 수를 원장에서 세기)도 같은 잠금 안에서 한다.
+>
+> 잠금과 별도로 원장의 부분 고유 인덱스가 한 번을 DB로도 지킨다: 공감 보상은 (회원, `ref_id`)마다 한 번(`point_ledger_like_received_uq`), 출석 보상은 하루 한 번(`point_ledger_attendance_uq`).
 
 ### 3.7 언제 식별 관계(복합 PK)를 쓰나
 
@@ -498,11 +514,18 @@ COMMIT
 
 ### 3.12 출석: 로그인 세션으로 자동, 7일 주기 (GAME-04)
 
-- ⏳ 버튼을 누르지 않아도, 로그인 상태로 그날(한국 시간) 처음 사이트를 열면 출석이 기록된다. 어느 세션에서 됐는지 `session_id`, 시각은 `checked_at`.
-- `sessions → attendances`는 선택 관계: 세션 하나가 날짜를 넘겨 살아 있으면(로그인 상태 유지는 7일) 출석 여러 개를 만들 수 있고, 로그아웃으로 세션이 지워져도 출석은 남아야 하므로 `ON DELETE SET NULL`.
-- ⏳ `cycle_day`(1~7): 내 마지막 출석이 어제이고 1~6일차면 +1, 그 밖(처음, 7일차 다음 날, 하루 이상 빠짐)은 1.
-- ⏳ 일차별 보상은 `attendance_rewards` 표(1~7행). `attendances.cycle_day → attendance_rewards.day`. 숫자를 바꿀 때 표만 고친다.
-- 하루 한 번은 복합 PK (`user_id`, `date`).
+- 버튼을 누르지 않아도, 로그인 상태로 그날(한국 시간) 처음 사이트를 열면 출석이 기록된다. 어느 세션에서 됐는지 `session_id`, 시각은 `checked_at`.
+- `sessions → attendances`는 선택 관계: 세션 하나가 날짜를 넘겨 살아 있으면(로그인 상태 유지는 7일) 출석 여러 개를 만들 수 있고, 로그아웃으로 세션이 지워져도 출석은 남아야 하므로 `ON DELETE SET NULL`. 세션 삭제 때 대상을 찾도록 `attendances_session_idx (session_id)`.
+- `cycle_day`(1~7): 내 마지막 출석이 어제이고 1~6일차면 +1, 그 밖(처음, 7일차 다음 날, 하루 이상 빠짐)은 1.
+- 일차별 보상은 `attendance_rewards` 표(1~7행, CHECK `day` 1~7·`exp`·`coins` ≥ 0·둘 중 하나는 > 0). `attendances.cycle_day → attendance_rewards.day`. 숫자 변경은 데이터 마이그레이션으로 표만 고친다 (지난 원장 기록은 그대로).
+
+  | 일차 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+  |---|---|---|---|---|---|---|---|
+  | 경험치 | 10 | 10 | 15 | 15 | 20 | 20 | 30 |
+  | 코인 | 10 | 20 | 30 | 40 | 50 | 70 | 100 |
+
+- 하루 한 번은 복합 PK (`user_id`, `date`). 출석 보상 원장 줄(`reason = 'attendance'`, `ref_id` = 날짜)도 부분 고유 인덱스 `point_ledger_attendance_uq`로 하루 한 번.
+- 옛 `streak`은 지웠다 (`0024_attendance_cycle`: `cycle_day = ((streak − 1) % 7) + 1`로 옮김).
 
 ### 3.13 친구 초대 (GAME-09) — 보류
 
@@ -513,13 +536,13 @@ COMMIT
 
 | 지워지는 것 | 함께 처리 |
 |---|---|
-| 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 남의 답글 없는 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 알림(game) 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
+| 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 남의 답글 없는 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 받은 알림과 남긴(행동한) 알림 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
 | 블로그 | 카테고리, 글, 방문 기록 삭제 (블로그만 지우는 기능은 없다, 3.1) |
-| 글 | 태그 연결, 댓글(→ 답글), 공감, 조회 기록 삭제. 첨부는 `post_id`만 비움(트리거가 `detached_at` 기록 → 하루 뒤 정리) |
+| 글 | 태그 연결, 댓글(→ 답글), 공감, 조회 기록, 그 글 알림 삭제. 첨부는 `post_id`만 비움(트리거가 `detached_at` 기록 → 하루 뒤 정리) |
 | 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움. 블로그 관리의 삭제는 한 트랜잭션에서 블로그 행을 잠그고 글의 두 칸을 먼저 비운 뒤 남은 대분류 순서를 0부터 다시 매긴다 (`deleteCategory`). 회원 삭제 같은 다른 경로는 트리거 `posts_clear_subcategory`가 지킨다 (3.18) |
 | 소분류 | 글은 남기고 `subcategory_id`만 비움 (대분류는 그대로) |
 | 댓글·답글 | 행을 지우지 않고 `deleted_at`을 기록하고 내용을 비운다 |
-| 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
+| 세션 (로그아웃·만료) | 출석은 남기고 `attendances.session_id`만 비움 (`SET NULL`) |
 | 첨부 | 프로필 사진이었으면 `profiles.photo_key`만 비움 (`SET NULL`) |
 | 동물 | 돌보기 기록 삭제, 전시 중이면 블로그의 `showcase_animal_id`만 비움 (`SET NULL`) |
 
@@ -534,6 +557,7 @@ COMMIT
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
+| `notification_kind` | `level_up`(레벨업), `like`(공감), `comment`(댓글), `reply`(답글) |
 
 ### 3.16 인덱스
 
@@ -545,7 +569,13 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `posts (visibility, created_at DESC)` | 마을 최신 글 |
 | `comments (post_id, created_at)` | 글 상세 댓글 |
 | `replies (comment_id, created_at)` | 댓글들의 답글 |
-| `point_ledger (user_id, ref_id) WHERE reason = 'like_received'` (UNIQUE) | 같은 사람·같은 글 공감 보상 1번 (SOC-03) |
+| `point_ledger (user_id, ref_id) WHERE reason = 'like_received'` (UNIQUE) | 같은 사람·같은 글 공감 보상 1번 (SOC-03), 이름 `point_ledger_like_received_uq` |
+| `point_ledger (user_id, ref_id) WHERE reason = 'attendance'` (UNIQUE) | 출석 보상 하루 1번 (GAME-04), 이름 `point_ledger_attendance_uq` |
+| `attendances (session_id)` | 세션 삭제 때 `SET NULL` 대상 찾기 (`attendances_session_idx`) |
+| `notifications (user_id, level) WHERE kind = 'level_up'` (UNIQUE) | 레벨업 알림 회원·레벨마다 1번 (`notifications_level_up_uq`) |
+| `notifications (user_id, created_at DESC, id DESC)` | 알림함 최신순 (`notifications_user_created_idx`) |
+| `notifications (user_id) WHERE read_at IS NULL` | 안 읽은 알림 수 (`notifications_unread_idx`) |
+| `notifications (post_id) WHERE post_id IS NOT NULL` | 글 삭제 때 CASCADE 대상 찾기 (`notifications_post_idx`) |
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
 | `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 최신순 (GAME-07) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
@@ -597,6 +627,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 글 작성자를 `posts`에 두지 않았다: 블로그 → 주인으로 찾는다 (`posts.blog_id → blogs.owner_id`). 두면 작성자가 블로그를 거쳐 정해지는 이행 종속이 된다. ✅
 - 잔액·레벨을 저장하지 않고 원장 합계로 계산한다 (3.5). ✅
 - 닉네임은 `profiles`에만, 블로그 이름은 `blogs`에만 있다. 다른 표는 FK로 찾아간다. ✅
+- 알림(`notifications`)에 문구·행동한 회원 닉네임·글 제목을 저장하지 않는다. `actor_id`·`post_id`로 보여 줄 때 찾는다 (3.21). ✅
 
 **일부러 남긴 중복 (반정규화)** — 계산 비용이나 기록 보존 때문에 저장한다.
 
@@ -611,6 +642,26 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `users.display_username` | `username`의 대소문자 | 로그인 라이브러리 형식 |
 
 **BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `subcategories (category_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`, `login_attempts.username`(PK))는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
+
+### 3.21 알림 (GAME-06·GAME-08)
+
+- 알림은 종류마다 표를 나누지 않고 **`notifications` 한 표**에 `kind`(`notification_kind`)로 구별한다 (`0025_notifications`). 엔티티라 자기 번호 `id`가 PK (3.7).
+
+  | `kind` | 받는 사람 | `actor_id` | `post_id` | `level` |
+  |---|---|---|---|---|
+  | `level_up` | 레벨이 오른 회원 | NULL | NULL | 오른 레벨 |
+  | `like` | 글 주인 | 공감한 회원 | 그 글 | NULL |
+  | `comment` | 글 주인 | 댓글 단 회원 | 그 글 | NULL |
+  | `reply` | 원댓글 작성자 | 답글 단 회원 | 그 글 | NULL |
+
+- CHECK
+  - `notifications_shape_check`: 위 표의 모양 (레벨업이면 `level`만, 나머지는 `actor_id`·`post_id`만)
+  - `notifications_level_check`: `level`은 NULL 또는 2~99
+  - `notifications_not_self_check`: 자기 활동은 알리지 않는다 (`actor_id <> user_id`)
+- **레벨업 알림은 회원·레벨마다 한 번**: 부분 고유 인덱스 `notifications_level_up_uq (user_id, level) WHERE kind = 'level_up'`. 레벨업 알림은 경험치 원장 기록과 같은 트랜잭션에서 넣는다.
+- 삭제: `user_id`·`actor_id`·`post_id` 모두 `ON DELETE CASCADE`. 받는 회원이 탈퇴하면 받은 알림이, 행동한 회원이 탈퇴하면 그 회원이 남긴 알림이, 글을 지우면 그 글 알림이 지워진다. 공감 취소·댓글 삭제로는 지우지 않는다.
+- 문구·닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다 (`profiles.nickname`, `posts.title`, `blogs.slug`) (3.17).
+- `read_at`이 NULL이면 안 읽음. 조회·변경은 늘 `user_id = 로그인한 회원`으로 거른다.
 
 ## 4. 데이터 마이그레이션
 
@@ -647,12 +698,13 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 1 | (식별 관계 표는 지금 DB와 같다. 바꿀 것 없음) | |
 | 2 | ✅ `replies` 만들기, `comments.parent_id` 삭제 | 답글(`parent_id`가 있는 댓글)을 `replies`로 옮긴다 (`0020_reply_backfill`) |
 | 3 | ✅ `attachments.post_id`(+ `detached_at`, post), ✅ `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 (`0018_attachment_backfill`) |
-| 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
+| 4 | ✅ `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제, `point_ledger_attendance_uq` | `cycle_day = ((streak − 1) % 7) + 1` (`0024_attendance_cycle`) |
 | 5 | ✅ `users.username` NOT NULL·CHECK, `accounts` UNIQUE (`user_id`, `provider_id`), 소셜 토큰 비우기, `sessions.remember_me`, `login_attempts` | 아이디 없는 회원·프로필 없는 회원 정리 (auth 마이그레이션) |
 | 6 | ✅ `follows.is_favorite` | 없음 |
 | 6-3 | ✅ `subcategories` 만들기 (blog), ✅ `posts.subcategory_id` + 복합 FK + CHECK + 트리거 (post) | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), ✅ `user_animals` UNIQUE (`user_id`, `id`), ✅ `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
-| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리 포함), ✅ 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
+| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리 포함), ✅ 닉네임·블로그 주소 수정(blog), ✅ 자동 출석(game) | 코드 |
+| 8 | ✅ `notifications`, `notification_kind` (game, GAME-06·GAME-08) | 없음 (`0025_notifications`) |
 
 ## 부록: 컬럼 타입
 
@@ -704,4 +756,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`

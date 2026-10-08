@@ -88,8 +88,8 @@ async function signIn(page, id, pw) {
   check("맞는 비밀번호로 로그인 → 광장", new URL(page.url()).pathname === "/town");
   const banner = page.getByRole("banner");
   check(
-    "헤더에 레벨·코인 100",
-    (await banner.getByTitle("레벨").isVisible()) && (await banner.getByTitle("코인").innerText()).includes("100"),
+    "헤더에 레벨·코인 110 (가입 100 + 1일차 자동 출석 10)",
+    (await banner.getByTitle("레벨").isVisible()) && (await banner.getByTitle("코인").innerText()).includes("110"),
   );
   await ctx.close();
 }

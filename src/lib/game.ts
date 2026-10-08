@@ -24,13 +24,12 @@ export function levelProgress(exp: number) {
   return { level, current: exp - base, needed: next - base, ratio: (exp - base) / (next - base), isMax: false };
 }
 
-export type RewardReason = "signup" | "attendance" | "attendance_streak" | "post" | "comment" | "like_received" | "farm_care";
+/** 고정 규칙 보상 사유. 출석은 일차별 보상표(attendance_rewards)를 쓰므로 여기 없다 (GAME-04) */
+export type RewardReason = "signup" | "post" | "comment" | "like_received" | "farm_care";
 
 /** 활동 보상 규칙. dailyLimit: 하루에 보상받을 수 있는 최대 횟수 */
 export const REWARD_RULES: Record<RewardReason, { exp: number; coins: number; dailyLimit: number }> = {
   signup: { exp: 0, coins: 100, dailyLimit: 1 },
-  attendance: { exp: 10, coins: 20, dailyLimit: 1 },
-  attendance_streak: { exp: 0, coins: 50, dailyLimit: 1 },
   post: { exp: 30, coins: 30, dailyLimit: 3 },
   comment: { exp: 5, coins: 5, dailyLimit: 10 },
   like_received: { exp: 2, coins: 2, dailyLimit: 20 },
@@ -40,9 +39,6 @@ export const REWARD_RULES: Record<RewardReason, { exp: number; coins: number; da
 /** 글 작성 보상을 받으려면 본문이 이 글자 수 이상이어야 한다 */
 export const POST_REWARD_MIN_LENGTH = 100;
 
-/** 연속 출석 보너스를 주는 주기 (7일마다) */
-export const ATTENDANCE_STREAK_BONUS_EVERY = 7;
-
 /** YYYY-MM-DD의 하루 전 날짜 */
 export function previousDay(date: string): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -50,13 +46,25 @@ export function previousDay(date: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** 출석 주기 길이: 1~7일차를 돌고 8일째는 다시 1일차 (GAME-04 / FR-020) */
+export const ATTENDANCE_CYCLE_DAYS = 7;
+
 /**
- * 지금 이어지고 있는 연속 출석 일수.
- * 마지막 출석이 오늘이나 어제면 그 기록의 연속 일수, 그보다 오래됐으면 끊긴 것(0)이다. (GAME-04)
+ * 오늘 출석의 일차 (GAME-04 / FR-022).
+ * last = 오늘 이전 가장 최근 출석. 없거나 어제가 아니면 1, 어제가 7일차면 1, 아니면 어제 + 1.
  */
-export function currentStreak(last: { date: string; streak: number } | null | undefined, today: string): number {
-  if (!last) return 0;
-  return last.date === today || last.date === previousDay(today) ? last.streak : 0;
+export function nextCycleDay(last: { date: string; cycleDay: number } | null | undefined, today: string): number {
+  if (!last || last.date !== previousDay(today)) return 1;
+  return last.cycleDay >= ATTENDANCE_CYCLE_DAYS ? 1 : last.cycleDay + 1;
+}
+
+/** 누적 경험치가 beforeExp → afterExp로 늘 때 새로 도달한 레벨 목록 (GAME-06 / FR-037). 99를 넘지 않는다 */
+export function levelsGained(beforeExp: number, afterExp: number): number[] {
+  const from = levelFromExp(beforeExp);
+  const to = levelFromExp(afterExp);
+  const levels: number[] = [];
+  for (let l = from + 1; l <= to; l++) levels.push(l);
+  return levels;
 }
 
 /** 서비스 기준 시간대의 오늘 날짜 (YYYY-MM-DD) */

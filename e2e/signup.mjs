@@ -157,7 +157,8 @@ let mainSession;
   check("2 가입 후 광장 도착", r === "town", r);
   check("14 시작부터 광장까지 1분 이내", Date.now() - started < 60_000, `${Date.now() - started}ms`);
   const coinsText = await page.getByRole("banner").getByTitle("코인").innerText().catch(() => "");
-  check("2 헤더 코인 100", coinsText.replace(/[^0-9]/g, "") === "100", coinsText);
+  // 가입 직후 광장 화면에서 1일차 자동 출석(🪙 10)이 함께 일어난다 (GAME-04, game plan 남은 문제 1)
+  check("2 헤더 코인 110 (가입 100 + 1일차 출석 10)", coinsText.replace(/[^0-9]/g, "") === "110", coinsText);
   await page.screenshot({ path: `${outDir}/52-signup-done.png` });
 
   const u = await one(
@@ -165,7 +166,7 @@ let mainSession;
             ci.code AS character, bi.code AS background,
             (SELECT array_agg(c.name ORDER BY c.position) FROM categories c WHERE c.blog_id = b.id) AS categories,
             (SELECT array_agg(i.code ORDER BY i.code) FROM user_items ui JOIN items i ON i.id = ui.item_id WHERE ui.user_id = u.id) AS owned,
-            (SELECT json_agg(json_build_object('reason', l.reason, 'coins', l.coin_delta)) FROM point_ledger l WHERE l.user_id = u.id) AS ledger,
+            (SELECT json_agg(json_build_object('reason', l.reason, 'coins', l.coin_delta) ORDER BY l.id) FROM point_ledger l WHERE l.user_id = u.id) AS ledger,
             (SELECT count(*)::int FROM accounts a WHERE a.user_id = u.id AND a.provider_id = 'credential' AND a.password LIKE '%:%') AS credential
      FROM users u JOIN profiles p ON p.user_id = u.id JOIN blogs b ON b.owner_id = u.id
      JOIN items ci ON ci.id = p.character_item_id JOIN items bi ON bi.id = b.background_item_id
@@ -178,7 +179,7 @@ let mainSession;
   check("2 블로그 이름·주소·소개", u?.title === `${main}의 블로그` && u?.slug === main && u?.description === "");
   check("2 대분류 일상", JSON.stringify(u?.categories) === JSON.stringify(["일상"]));
   check("2 보유 = 여자 주민 + 초원, 둘 다 장착", JSON.stringify(u?.owned) === JSON.stringify(["bg_meadow", "char_girl"]) && u?.character === "char_girl" && u?.background === "bg_meadow");
-  check("2 원장 signup 🪙 100 한 건", JSON.stringify(u?.ledger) === JSON.stringify([{ reason: "signup", coins: 100 }]));
+  check("2 원장 signup 🪙 100 한 건 + 1일차 출석", JSON.stringify(u?.ledger) === JSON.stringify([{ reason: "signup", coins: 100 }, { reason: "attendance", coins: 10 }]));
   check("2 credential 로그인 수단(해시)", u?.credential === 1);
   const blog = await page.goto(`${BASE}/@${main}`);
   check("2 /@아이디 블로그 열림", blog?.status() === 200);

@@ -1,67 +1,64 @@
-import { and, desc, eq, gte } from "drizzle-orm";
-import { db } from "@/db";
-import { attendances } from "@/db/schema";
-import { formatDate } from "@/lib/format";
-import { ATTENDANCE_STREAK_BONUS_EVERY, currentStreak, REWARD_RULES, todayKST } from "@/lib/game";
+import { todayKST } from "@/lib/game";
+import { ensureTodayAttendance, listAttendanceRewards, listMonthAttendances } from "@/server/attendance";
 import { requireMember } from "@/server/dal";
-import { AttendButton } from "./attend-button";
 
 export const metadata = { title: "출석 체크" };
 
+// 출석은 버튼 없이 자동으로 된다 (GAME-04 / FR-021). 이 화면은 결과와 보상표, 이번 달 달력만 보여 준다
 export default async function AttendancePage() {
   const viewer = await requireMember();
   const today = todayKST();
-  const monthStart = `${today.slice(0, 7)}-01`;
-
-  const [rows, [last]] = await Promise.all([
-    // 달력용: 이번 달 출석
-    db
-      .select({ date: attendances.date, streak: attendances.streak })
-      .from(attendances)
-      .where(and(eq(attendances.userId, viewer.userId), gte(attendances.date, monthStart)))
-      .orderBy(desc(attendances.date)),
-    // 연속 일수용: 달과 상관없이 가장 최근 출석 1건 (GAME-04)
-    db
-      .select({ date: attendances.date, streak: attendances.streak })
-      .from(attendances)
-      .where(eq(attendances.userId, viewer.userId))
-      .orderBy(desc(attendances.date))
-      .limit(1),
-  ]);
+  // 헤더의 자동 출석이 실패했으면 한 번 더. 또 실패하면 오류 화면으로
+  const attendance = viewer.attendance ?? (await ensureTodayAttendance(viewer.userId, viewer.sessionId));
+  const [rows, rewards] = await Promise.all([listMonthAttendances(viewer.userId, today), listAttendanceRewards()]);
   const attendedDates = new Set(rows.map((r) => r.date));
-  const attendedToday = attendedDates.has(today);
 
   // 이번 달 달력
   const [y, m] = today.split("-").map(Number);
   const firstWeekday = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const cells = [...Array(firstWeekday).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
-  const streak = currentStreak(last, today);
-  const streakText = streak
-    ? `현재 연속 ${streak}일`
-    : last
-      ? `연속 출석이 끊겼어요 (마지막 출석 ${formatDate(new Date(`${last.date}T00:00:00+09:00`))})`
-      : "아직 출석 기록이 없어요";
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="font-display text-3xl">📮 출석 체크</h1>
-      <p className="mt-1 text-ink-soft">
-        하루 한 번 ✨ {REWARD_RULES.attendance.exp} · 🪙 {REWARD_RULES.attendance.coins}, {ATTENDANCE_STREAK_BONUS_EVERY}일 연속마다 🪙{" "}
-        {REWARD_RULES.attendance_streak.coins} 보너스
-      </p>
 
-      <section className="card mt-6 flex min-h-48 flex-col items-center justify-center p-8">
-        <AttendButton attended={attendedToday} />
+      <section className="card mt-6 flex flex-col items-center justify-center p-8 text-center">
+        <p className="text-6xl" aria-hidden>
+          🎁
+        </p>
+        <p className="mt-2 font-display text-2xl">🎁 출석 완료! {attendance.cycleDay}일차</p>
+        <p className="mt-1 font-bold text-leaf-dark">오늘 {attendance.cycleDay}일차 출석 완료</p>
+      </section>
+
+      <section className="card mt-6 p-4 sm:p-6" aria-label="일차별 출석 보상">
+        <ol className="grid grid-cols-7 gap-1 whitespace-nowrap text-center text-[10px] sm:gap-2 sm:text-sm">
+          {rewards.map((r) => {
+            const isToday = r.day === attendance.cycleDay;
+            return (
+              <li
+                key={r.day}
+                aria-current={isToday ? "true" : undefined}
+                className={`flex min-w-0 flex-col items-center gap-0.5 rounded-xl border-2 px-0.5 py-2 ${
+                  isToday ? "border-sun bg-[#fff8e1] font-bold" : "border-line bg-white"
+                }`}
+              >
+                <span>{r.day}일차</span>
+                <span>✨ {r.exp}</span>
+                <span>🪙 {r.coins}</span>
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
       <section className="card mt-6 p-6">
-        <div className="mb-3 flex items-baseline justify-between">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
           <h2 className="font-display text-xl">
             {y}년 {m}월
           </h2>
           <p className="text-sm text-ink-soft">
-            이번 달 {rows.length}일 출석 · {streakText}
+            이번 달 {rows.length}일 출석 · 현재 {attendance.cycleDay}일차
           </p>
         </div>
         <div className="grid grid-cols-7 gap-1.5 text-center text-sm">
@@ -74,11 +71,13 @@ export default async function AttendancePage() {
             if (!d) return <span key={`e${i}`} />;
             const key = `${today.slice(0, 7)}-${String(d).padStart(2, "0")}`;
             const done = attendedDates.has(key);
+            const isToday = key === today;
             return (
               <span
                 key={key}
-                className={`grid aspect-square place-items-center rounded-xl border-2 ${
-                  done ? "border-leaf bg-[#e8f5e9] font-bold" : key === today ? "border-sun" : "border-transparent bg-cream"
+                data-date={key}
+                className={`grid aspect-square place-items-center rounded-xl border-2 ${done ? "bg-[#e8f5e9] font-bold" : "bg-cream"} ${
+                  isToday ? "border-sun" : done ? "border-leaf" : "border-transparent"
                 }`}
                 title={done ? "출석" : undefined}
               >

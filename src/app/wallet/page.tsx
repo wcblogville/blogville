@@ -2,12 +2,12 @@ import Link from "next/link";
 import { Pagination, parsePage } from "@/components/pagination";
 import { formatDateTime } from "@/lib/format";
 import { requireMember } from "@/server/dal";
-import { getWallet, listLedger } from "@/server/points";
+import { getWallet, type LedgerReason, listLedger } from "@/server/points";
 
 export const metadata = { title: "경험치·코인 내역" };
 
-// 원장 사유를 화면에 보일 이름으로 (GAME-07)
-const REASON_LABEL: Record<string, string> = {
+// 원장 사유를 화면에 보일 이름으로 (GAME-07). 연속 출석 보너스는 지난 기록용 (FR-030)
+const REASON_LABEL: Record<LedgerReason, string> = {
   signup: "🎉 가입 축하",
   attendance: "📮 출석",
   attendance_streak: "🔥 연속 출석 보너스",
@@ -55,7 +55,7 @@ export default async function WalletPage(props: PageProps<"/wallet">) {
             {ledger.rows.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-3">
                 <span className="min-w-0 flex-1">
-                  <b>{REASON_LABEL[r.reason] ?? r.reason}</b>
+                  <b>{REASON_LABEL[r.reason]}</b>
                   {r.itemName && <span className="text-ink-soft"> · {r.itemName}</span>}
                   <span className="block text-xs text-ink-soft">{formatDateTime(r.createdAt)}</span>
                 </span>

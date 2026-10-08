@@ -1,4 +1,5 @@
-// 2026-10-02 팀 결정 구현 확인: TOWN-01, GAME-01, GAME-02, GAME-04, GAME-07, SHOP-04, TOWN-02, TOWN-04
+// 2026-10-02 팀 결정 구현 확인: TOWN-01, GAME-01, GAME-02, GAME-07, SHOP-04, TOWN-02, TOWN-04
+// (GAME-04 출석은 자동 출석으로 바뀌어 e2e/attendance.mjs가 확인한다)
 // 사용: npm run db:reset && npm run admin:create 후 node e2e/decisions.mjs <스크린샷 폴더>
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
@@ -14,6 +15,9 @@ const kstDate = (offsetDays) => {
   return d.toISOString().slice(0, 10);
 };
 
+// 실행마다 새 회원 (같은 DB에서 다시 돌려도 이미 받은 아이템·출석과 겹치지 않게)
+const NAME = `dc${Date.now().toString(36)}`;
+
 const results = [];
 const check = (name, ok, extra = "") => results.push(`${ok ? "✅" : "❌"} ${name}${extra ? ` (${extra})` : ""}`);
 const browser = await chromium.launch();
@@ -22,14 +26,14 @@ const page = await ctx.newPage();
 const errors = collectErrors(page);
 
 // ── GAME-01: 가입할 때 남자/여자 중 고른 캐릭터 하나만 받고 장착 ──
-await loginDev(page, "decide01", "여자 주민");
+await loginDev(page, NAME, "여자 주민");
 await page.goto(`${BASE}/closet`);
 const characterNames = await page.locator("section", { hasText: "내 캐릭터" }).getByRole("button").allInnerTexts();
 check("GAME-01 가입하면 고른 캐릭터 1개만 보유", characterNames.length === 1, characterNames.join(", ").replace(/\n/g, " "));
 check("GAME-01 고른 캐릭터(여자 주민)가 장착됨", characterNames.some((t) => t.includes("✓") && t.includes("여자 주민")));
 
 // ── SHOP-04: 장착 저장 확인 표시 (바꿔 낄 캐릭터를 하나 더 넣어 둔다) ──
-await db.query("INSERT INTO user_items (user_id, item_id) SELECT u.id, i.id FROM users u, items i WHERE u.username = 'decide01' AND i.code = 'char_cat'");
+await db.query("INSERT INTO user_items (user_id, item_id) SELECT u.id, i.id FROM users u, items i WHERE u.username = $1 AND i.code = 'char_cat'", [NAME]);
 await page.reload();
 await page.getByRole("button", { name: /고양이/ }).click();
 const saved = await page.getByRole("status").filter({ hasText: "저장했어요" }).waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
@@ -38,23 +42,9 @@ await page.screenshot({ path: `${outDir}/50-closet-saved.png` });
 await page.waitForTimeout(2300);
 check("SHOP-04 '저장했어요'는 2초 뒤 사라짐", (await page.getByRole("status").innerText()).trim() === "");
 
-// ── GAME-04: 달이 바뀌어도 연속 일수가 맞게 보이고, 7일째 보너스 ──
-const uid = await userId("decide01");
-await db.query("INSERT INTO attendances (user_id, date, streak) VALUES ($1, $2, 6)", [uid, kstDate(-1)]);
-await page.goto(`${BASE}/attendance`);
-check("GAME-04 어제까지 6일 연속이면 '현재 연속 6일'", await page.getByText("현재 연속 6일").isVisible());
-const before = await coins(page);
-await page.getByRole("button", { name: /출석하고/ }).click();
-await page.getByText(/출석 완료! 7일 연속/).waitFor();
-check("GAME-04 7일째 출석 보너스 문구", await page.getByText("7일 연속 보너스 포함").isVisible());
-await page.reload();
-check("GAME-04 7일째 코인 +70 (20 + 보너스 50)", (await coins(page)) - before === 70, `${before} → ${await coins(page)}`);
-// 마지막 출석이 그저께면 끊김
-await db.query("DELETE FROM attendances WHERE user_id = $1", [uid]);
-await db.query("INSERT INTO attendances (user_id, date, streak) VALUES ($1, $2, 4)", [uid, kstDate(-2)]);
-await page.goto(`${BASE}/attendance`);
-check("GAME-04 그저께가 마지막이면 '연속 출석이 끊겼어요'", await page.getByText("연속 출석이 끊겼어요").isVisible());
-await page.screenshot({ path: `${outDir}/51-attendance-broken.png` });
+// ── GAME-07 옛 기록: 연속 출석 보너스는 더 생기지 않지만 지난 기록은 이름이 보인다 (FR-030) ──
+const uid = await userId(NAME);
+await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta, ref_id) VALUES ($1, 'attendance_streak', 50, $2)", [uid, kstDate(-30)]);
 
 // ── GAME-07: 내역 화면 (헤더 코인을 누르면 이동, 구매에 아이템 이름) ──
 await page.goto(`${BASE}/shop`);
@@ -65,7 +55,7 @@ await page.waitForURL(/\/wallet/);
 const walletText = await page.locator("main").innerText();
 check("GAME-07 헤더 코인을 누르면 내역 화면", page.url().endsWith("/wallet"));
 check("GAME-07 구매 기록에 아이템 이름", /아이템 구매 · 바닷가/.test(walletText) && walletText.includes("−120"));
-check("GAME-07 가입 축하·출석·보너스 기록", ["가입 축하", "출석", "연속 출석 보너스"].every((t) => walletText.includes(t)));
+check("GAME-07 가입 축하·출석·옛 연속 출석 보너스 기록", ["가입 축하", "출석", "연속 출석 보너스"].every((t) => walletText.includes(t)));
 const walletCoins = Number(walletText.match(/🪙 ([\d,]+)/)[1].replace(/,/g, ""));
 check("GAME-07 내역 화면 코인 = 헤더 코인", walletCoins === (await coins(page)), `${walletCoins}`);
 await page.screenshot({ path: `${outDir}/52-wallet.png`, fullPage: true });
@@ -104,7 +94,7 @@ await page.screenshot({ path: `${outDir}/53-town-desktop.png` });
 const mobile = await browser.newContext({ viewport: { width: 820, height: 1180 }, isMobile: true, hasTouch: true });
 const mp = await mobile.newPage();
 const mErrors = collectErrors(mp);
-await loginDev(mp, "decide01");
+await loginDev(mp, NAME);
 await mp.goto(`${BASE}/town`);
 const canvas = mp.locator("canvas");
 await canvas.waitFor();

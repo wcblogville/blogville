@@ -6,8 +6,10 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/db";
-import { blogs, items, profiles, sessions } from "@/db/schema";
+import { attendances, blogs, items, profiles, sessions } from "@/db/schema";
 import { auth, SESSION_SHORT_SECONDS } from "@/lib/auth";
+import { todayKST } from "@/lib/game";
+import { ensureTodayAttendance, type TodayAttendance } from "@/server/attendance";
 
 /**
  * 로그인 세션 (한 요청 안에서는 한 번만 조회).
@@ -50,14 +52,18 @@ export const getSession = cache(async () => {
 /**
  * 로그인한 회원과 프로필·블로그. 로그인하지 않았으면 null.
  * 가입이 한 트랜잭션으로 회원·프로필·블로그를 함께 만들므로(AUTH-01, FR-007) 로그인한 회원은 늘 profile이 있다.
- * sessionId는 자동 출석(GAME-04)이 "그날 처음 만든 세션"을 알아보는 데 쓴다.
+ * 자동 출석 (GAME-04 / FR-021): 오늘(한국 시간) 출석이 없으면 여기서 기록한다. 모든 화면의 헤더가 getViewer()를 부르므로
+ * 로그인한 채 그날 처음 연 화면에서 한 번 일어난다. 실패하면 서버 로그만 남기고 attendance: null (화면은 그대로 그린다).
+ * 트랜잭션 안에서 getViewer()를 부르면 안 된다 (출석이 새 연결로 트랜잭션을 열기 때문, CLAUDE.md).
  */
 export const getViewer = cache(async () => {
   const session = await getSession();
   if (!session) return null;
 
+  const today = todayKST();
   const [profile] = await db
     .select({
+      cycleDay: attendances.cycleDay,
       nickname: profiles.nickname,
       characterAsset: items.assetKey,
       blogId: blogs.id,
@@ -67,12 +73,30 @@ export const getViewer = cache(async () => {
     .from(profiles)
     .innerJoin(items, eq(items.id, profiles.characterItemId))
     .innerJoin(blogs, eq(blogs.ownerId, profiles.userId))
+    .leftJoin(attendances, and(eq(attendances.userId, profiles.userId), eq(attendances.date, today)))
     .where(eq(profiles.userId, session.user.id));
 
   // 마이그레이션이 프로필 없는 회원을 정리했고 가입은 한 트랜잭션이라 생기지 않는다. 생겼다면 데이터 오류다
   if (!profile) throw new Error(`프로필이나 블로그가 없는 회원이에요 (회원 ID ${session.user.id})`);
 
-  return { userId: session.user.id, user: session.user, sessionId: session.session.id, rememberMe: session.session.rememberMe, profile };
+  const { cycleDay, ...rest } = profile;
+  let attendance: TodayAttendance | null = cycleDay ? { date: today, cycleDay } : null;
+  if (!attendance) {
+    try {
+      attendance = await ensureTodayAttendance(session.user.id, session.session.id);
+    } catch (err) {
+      console.error("자동 출석 실패", session.user.id, err);
+    }
+  }
+
+  return {
+    userId: session.user.id,
+    user: session.user,
+    sessionId: session.session.id,
+    rememberMe: session.session.rememberMe,
+    profile: rest,
+    attendance,
+  };
 });
 
 export type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;

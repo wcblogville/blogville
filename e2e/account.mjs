@@ -268,7 +268,7 @@ async function wCounts(wId, wPostId) {
     실패기록: await q("SELECT count(*)::int AS c FROM login_attempts WHERE username = $1", [W]),
   };
   if (notificationsTable) {
-    // TODO(005-game): 칸 이름은 game data-model 2.4 기준(받는 회원 user_id, 행동한 회원 actor_id). game이 표를 만들면 맞춘다
+    // 받는 회원 user_id, 행동한 회원 actor_id (game data-model 2.4)
     c.알림 = await q("SELECT count(*)::int AS c FROM notifications WHERE user_id = $1 OR actor_id = $1", [wId]).catch(() => -1);
   }
   return c;
@@ -310,6 +310,8 @@ let wCommentIds = {};
   // 다른 회원이 W 글에 단 댓글·공감, W가 한 공감, 이웃 양쪽, 첨부 행, 연동 행, 출석(없으면). 실패 기록은 W가 로그인한 뒤에 넣는다
   await insertComment(wPostId, bId, `B가 W 글에 단 댓글 ${n}`);
   await db.query("INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2), ($3, $4)", [wPostId, bId, aPostId, wId]);
+  // 받은 알림(B → W)과 남긴 알림(W → A) (GAME-08 FR-046)
+  await db.query("INSERT INTO notifications (user_id, kind, actor_id, post_id) VALUES ($1, 'like', $2, $3), ($4, 'like', $1, $5)", [wId, bId, wPostId, aId, aPostId]);
   await db.query("INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2), ($3, $1)", [wId, aId, bId]);
   await db.query("INSERT INTO attachments (key, user_id, kind, name, mime, size) VALUES ($1, $2, 'file', 'w.txt', 'text/plain', 1)", [
     randomUUID().replaceAll("-", ""),
@@ -317,7 +319,7 @@ let wCommentIds = {};
   ]);
   await db.query("INSERT INTO accounts (id, user_id, provider_id, account_id) VALUES ($1, $2, 'kakao', $3)", [randomUUID(), wId, `kakao-w-${n}`]);
   await db.query(
-    "INSERT INTO attendances (user_id, date, streak) VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 1) ON CONFLICT DO NOTHING",
+    "INSERT INTO attendances (user_id, date, cycle_day) VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 1) ON CONFLICT DO NOTHING",
     [wId],
   );
   const c = await wCounts(wId, wPostId);

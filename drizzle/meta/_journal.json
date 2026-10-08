@@ -169,6 +169,20 @@
       "when": 1791430436743,
       "tag": "0023_like_reward_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791431858189,
+      "tag": "0024_attendance_cycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791431925998,
+      "tag": "0025_notifications",
+      "breakpoints": true
     }
   ]
 }

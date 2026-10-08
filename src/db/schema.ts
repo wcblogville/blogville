@@ -28,6 +28,7 @@ const updatedAt = () =>
 export const itemType = pgEnum("item_type", ["character", "background", "furniture"]);
 export const visibility = pgEnum("visibility", ["public", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);
+export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply"]);
 export const ledgerReason = pgEnum("ledger_reason", [
   "signup",
   "attendance",
@@ -426,7 +427,23 @@ export const follows = pgTable(
 );
 
 // ===== 보상 =====
-// 기본 키 (user_id, date) → 하루에 한 번만 출석
+// 일차별 출석 보상표 (GAME-04 / FR-020). 숫자를 바꾸려면 데이터 마이그레이션으로 고친다
+export const attendanceRewards = pgTable(
+  "attendance_rewards",
+  {
+    day: integer("day").primaryKey(),
+    exp: integer("exp").notNull(),
+    coins: integer("coins").notNull(),
+  },
+  (t) => [
+    check("attendance_rewards_day_check", sql`${t.day} BETWEEN 1 AND 7`),
+    check("attendance_rewards_exp_check", sql`${t.exp} >= 0`),
+    check("attendance_rewards_coins_check", sql`${t.coins} >= 0`),
+    check("attendance_rewards_nonzero_check", sql`${t.exp} > 0 OR ${t.coins} > 0`),
+  ],
+);
+
+// 기본 키 (user_id, date) → 하루에 한 번만 출석. 로그인한 채 그날 첫 화면을 열면 자동으로 생긴다 (GAME-04)
 export const attendances = pgTable(
   "attendances",
   {
@@ -434,11 +451,17 @@ export const attendances = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     date: date("date").notNull(),
-    streak: integer("streak").notNull(),
+    cycleDay: integer("cycle_day")
+      .notNull()
+      .references(() => attendanceRewards.day),
+    // 출석이 일어난 세션. 로그아웃·만료로 세션이 지워져도 출석은 남는다
+    sessionId: text("session_id").references(() => sessions.id, { onDelete: "set null" }),
+    checkedAt: timestamp("checked_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.userId, t.date] }),
-    check("attendances_streak_check", sql`${t.streak} >= 1`),
+    check("attendances_cycle_day_check", sql`${t.cycleDay} BETWEEN 1 AND 7`),
+    index("attendances_session_idx").on(t.sessionId),
   ],
 );
 
@@ -462,7 +485,39 @@ export const pointLedger = pgTable(
     index("point_ledger_user_reason_created_idx").on(t.userId, t.reason, t.createdAt),
     index("point_ledger_user_created_idx").on(t.userId, t.createdAt.desc()), // 내역 화면 최신순 (GAME-07)
     // 같은 사람·같은 글 공감 보상은 1번 (ref_id = "글ID:공감한 회원ID", SOC-03 / FR-029, 원칙 V)
+    // 출석 보상은 하루 한 번 (ref_id = 출석 날짜, GAME-04 / FR-047)
+    uniqueIndex("point_ledger_attendance_uq").on(t.userId, t.refId).where(sql`${t.reason} = 'attendance'`),
     uniqueIndex("point_ledger_like_received_uq").on(t.userId, t.refId).where(sql`${t.reason} = 'like_received'`),
+  ],
+);
+
+// 알림 (GAME-06·GAME-08): 레벨업 · 공감 · 댓글 · 답글. 닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    userId: text("user_id") // 받는 회원
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: notificationKind("kind").notNull(),
+    actorId: text("actor_id").references(() => users.id, { onDelete: "cascade" }), // 행동한 회원 (레벨업은 NULL)
+    postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }), // 관련 글 (레벨업은 NULL)
+    level: integer("level"), // 레벨업일 때 오른 레벨
+    createdAt: createdAt(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+  },
+  (t) => [
+    check(
+      "notifications_shape_check",
+      sql`(${t.kind} = 'level_up' AND ${t.level} IS NOT NULL AND ${t.actorId} IS NULL AND ${t.postId} IS NULL) OR (${t.kind} <> 'level_up' AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NOT NULL)`,
+    ),
+    check("notifications_level_check", sql`${t.level} IS NULL OR ${t.level} BETWEEN 2 AND 99`),
+    check("notifications_not_self_check", sql`${t.actorId} IS NULL OR ${t.actorId} <> ${t.userId}`),
+    // 레벨업 알림은 회원·레벨마다 한 번 (FR-037)
+    uniqueIndex("notifications_level_up_uq").on(t.userId, t.level).where(sql`${t.kind} = 'level_up'`),
+    index("notifications_user_created_idx").on(t.userId, t.createdAt.desc(), t.id.desc()),
+    index("notifications_unread_idx").on(t.userId).where(sql`${t.readAt} IS NULL`),
+    index("notifications_post_idx").on(t.postId).where(sql`${t.postId} IS NOT NULL`),
   ],
 );
 

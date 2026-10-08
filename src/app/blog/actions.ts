@@ -10,6 +10,7 @@ import { todayKST } from "@/lib/game";
 import { getBlogVisitStats } from "@/server/blog";
 import { getViewer, requireMember, type Viewer } from "@/server/dal";
 import { foreignKeyViolation } from "@/server/db-errors";
+import { notifyActivity } from "@/server/notifications";
 import { grantReward, lockUser, type Tx } from "@/server/points";
 import { ensureVisitorId } from "@/server/visitor";
 
@@ -49,6 +50,9 @@ export async function toggleLike(postId: unknown) {
     // 두 탭에서 동시에 눌러도 1행만 (빈 배열이면 다른 요청이 먼저 넣었다)
     const inserted = await tx.insert(postLikes).values({ postId: id, userId: viewer.userId }).onConflictDoNothing().returning({ postId: postLikes.postId });
     if (!inserted.length || post.ownerId === viewer.userId) return true;
+
+    // 글 주인에게 공감 알림 (보상 여부·하루 상한과 상관없이 새로 저장될 때마다, GAME-08 / SOC FR-033)
+    await notifyActivity(tx, { recipientId: post.ownerId, actorId: viewer.userId, kind: "like", postId: id });
 
     // 글 주인에게 보상. 이 사람에게서 이 글로 받은 적이 없을 때만 (취소 후 재공감 방지, FR-029)
     await lockUser(tx, post.ownerId);
@@ -90,6 +94,8 @@ export async function addComment(_prev: CommentState, formData: FormData): Promi
       if (post.ownerId !== viewer.userId) {
         await lockUser(tx, viewer.userId);
         await grantReward(tx, viewer.userId, "comment", created.id);
+        // 글 주인에게 댓글 알림 (GAME-08 / SOC FR-055)
+        await notifyActivity(tx, { recipientId: post.ownerId, actorId: viewer.userId, kind: "comment", postId });
       }
     });
   } catch (err) {
@@ -116,7 +122,7 @@ export async function addReply(_prev: CommentState, formData: FormData): Promise
       if (!post) throw new Refused(SOCIAL_ERRORS.postNotFound);
       // 원댓글을 FOR SHARE로 잠가 삭제와 겹치지 않게 한다 (research R5)
       const [parent] = await tx
-        .select({ postId: comments.postId, deletedAt: comments.deletedAt })
+        .select({ postId: comments.postId, authorId: comments.authorId, deletedAt: comments.deletedAt })
         .from(comments)
         .where(eq(comments.id, commentId))
         .for("share");
@@ -131,6 +137,8 @@ export async function addReply(_prev: CommentState, formData: FormData): Promise
         await lockUser(tx, viewer.userId);
         await grantReward(tx, viewer.userId, "comment", `reply:${created.id}`);
       }
+      // 원댓글 작성자에게 답글 알림. 글 주인에게는 남기지 않는다 (GAME-08 / SOC FR-056). 탈퇴한 작성자(NULL)면 없음
+      await notifyActivity(tx, { recipientId: parent.authorId, actorId: viewer.userId, kind: "reply", postId: parent.postId });
     });
   } catch (err) {
     if (err instanceof Refused) return { error: err.message, content };

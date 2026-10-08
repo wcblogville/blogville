@@ -19,7 +19,7 @@ await page.waitForURL(/town/, { timeout: 20000 });
 const slug = "normal01";
 // 검색 결과(주인 전용 블로그 홈 검색 모드, BLOG 검색 / T067)
 const searchPath = `/@${slug}?q=${encodeURIComponent("글")}`;
-const pages = ["/town", "/feed", `/@${slug}`, searchPath, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm", "/settings/account"];
+const pages = ["/town", "/feed", `/@${slug}`, searchPath, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm", "/settings/account", "/notifications"];
 
 console.log("== NF-06 모바일(375px) 가로 스크롤");
 for (const path of pages) {
