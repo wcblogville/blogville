@@ -105,3 +105,38 @@ export function cleanFileName(name: string): string {
   const ext = extensionOf(cleaned);
   return `${cleaned.slice(0, FILE_NAME_MAX - ext.length - 1)}.${ext}`;
 }
+
+/**
+ * 첨부를 누가 열 수 있나 (POST-02 첨부 공개 범위 / FR-029, FR-059, data-model 3.4). 관리자 예외 없음.
+ * postVisibility가 null이면 어느 글에도 붙지 않은 첨부
+ */
+export function attachmentAccess(a: {
+  postVisibility: "public" | "private" | null;
+  postOwnerId: string | null;
+  uploaderId: string;
+  isProfilePhoto: boolean;
+  viewerId: string | null;
+}): boolean {
+  if (a.postVisibility === "public") return true;
+  if (a.postVisibility === "private") return a.viewerId !== null && a.viewerId === a.postOwnerId;
+  if (a.isProfilePhoto) return true;
+  return a.viewerId !== null && a.viewerId === a.uploaderId;
+}
+
+export type PasteAction = "keep" | "reupload" | "drop";
+
+/**
+ * 에디터에 붙여 넣은 첨부를 어떻게 할까 (POST-07·POST-09 / FR-047, contracts/write-actions.md §4).
+ * keep: 내 것이고 이 글(또는 어느 글에도 안 붙음)·프로필 사진 아님 / reupload: 내 것인데 다른 글·프로필 사진 / drop: 남의 것·없는 키.
+ * row가 null이면 없는 키. currentPostId는 수정 화면의 글 번호(새 글이면 null)
+ */
+export function pasteAction(
+  row: { uploaderId: string; postId: number | null; isProfilePhoto: boolean } | null,
+  viewerId: string,
+  currentPostId: number | null,
+): PasteAction {
+  if (!row || row.uploaderId !== viewerId) return "drop";
+  if (row.isProfilePhoto) return "reupload";
+  if (row.postId === null || row.postId === currentPostId) return "keep";
+  return "reupload";
+}

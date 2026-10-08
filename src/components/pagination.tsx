@@ -15,7 +15,7 @@ export function Pagination({ page, pageCount, hrefFor }: { page: number; pageCou
           <Link
             href={hrefFor(n)}
             aria-current={n === page ? "page" : undefined}
-            className={`min-w-9 rounded-lg border-2 px-2.5 py-1 text-center font-bold ${
+            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-2 px-2.5 text-center font-bold ${
               n === page ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-sun"
             }`}
           >

@@ -19,7 +19,9 @@
     "test:ids": "tsx scripts/test-ids.ts",
     "test:auth": "tsx scripts/test-auth.ts",
     "test:blog": "tsx scripts/test-blog.ts",
-    "test": "npm run test:game && npm run test:ids && npm run test:sanitize && npm run test:auth && npm run test:blog"
+    "test:post": "tsx scripts/test-post.ts",
+    "posts:cleanup": "tsx --conditions=react-server scripts/cleanup-posts.ts",
+    "test": "npm run test:game && npm run test:ids && npm run test:sanitize && npm run test:auth && npm run test:blog && npm run test:post"
   },
   "dependencies": {
     "@tiptap/extension-image": "^3.31.4",

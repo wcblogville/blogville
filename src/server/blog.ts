@@ -89,7 +89,7 @@ export async function getBlogByOwner(ownerId: string) {
 /**
  * 카테고리 트리 (BLOG-05 / FR-039·040, research R-14): 대분류마다 subcategories 배열, 정렬은 position → id.
  * 대분류 글 수는 그 대분류의 글(소분류 글 포함). includePrivate(주인·관리 화면)이면 비공개 글도 센다.
- * 소분류 글 수는 posts.subcategory_id(post 단계 3)가 생긴 뒤부터 센다 — 그 전에는 null(화면에 그리지 않음).
+ * 소분류 글 수는 posts.subcategory_id로 센다 (POST-03, 같은 공개 범위 규칙).
  */
 export async function getCategories(blogId: number, includePrivate: boolean) {
   const cats = await db
@@ -115,6 +115,11 @@ export async function getCategories(blogId: number, includePrivate: boolean) {
           categoryId: subcategories.categoryId,
           name: subcategories.name,
           position: subcategories.position,
+          postCount: sql<number>`(
+            SELECT COUNT(*)::int FROM ${posts} AS p
+            WHERE p.subcategory_id = "subcategories"."id"
+            ${includePrivate ? sql`` : sql`AND p.visibility = 'public'`}
+          )`,
         })
         .from(subcategories)
         .where(
@@ -124,11 +129,7 @@ export async function getCategories(blogId: number, includePrivate: boolean) {
           ),
         )
     : [];
-  // TODO(post 단계 3, 003-post T041): posts.subcategory_id가 생기면 소분류 글 수를 하위 쿼리 COUNT로 센다
-  return buildCategoryTree(
-    cats,
-    subs.map((s) => ({ ...s, postCount: null as number | null })),
-  );
+  return buildCategoryTree(cats, subs);
 }
 
 export type CategoryTree = Awaited<ReturnType<typeof getCategories>>;
@@ -188,6 +189,8 @@ const listColumns = {
   viewCount: posts.viewCount,
   createdAt: posts.createdAt,
   categoryName: categories.name,
+  // 카드 배지 `대분류 › 소분류` (POST-03 / FR-033)
+  subcategoryName: subcategories.name,
   likeCount: sql<number>`(SELECT COUNT(*)::int FROM ${postLikes} WHERE ${postLikes.postId} = ${posts.id})`,
   commentCount: sql<number>`(SELECT COUNT(*)::int FROM ${comments} WHERE ${comments.postId} = ${posts.id} AND ${comments.deletedAt} IS NULL)`,
 };
@@ -216,6 +219,7 @@ function baseList(where: SQL | undefined) {
     .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))
     .innerJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
     .leftJoin(categories, eq(categories.id, posts.categoryId))
+    .leftJoin(subcategories, eq(subcategories.id, posts.subcategoryId))
     .where(where)
     .orderBy(desc(posts.createdAt), desc(posts.id));
 }
@@ -234,9 +238,7 @@ export async function listBlogPosts(opts: {
   const where = and(
     eq(posts.blogId, opts.blogId),
     opts.isOwner ? undefined : eq(posts.visibility, "public"),
-    // TODO(post 단계 3, 003-post T041·변경 13): posts.subcategory_id가 생기면 eq(posts.subcategoryId, opts.subcategoryId)로 바꾼다.
-    // 지금은 소분류에 속한 글이 있을 수 없으므로 소분류를 고르면 빈 목록이다
-    opts.subcategoryId ? sql`false` : opts.categoryId ? eq(posts.categoryId, opts.categoryId) : undefined,
+    opts.subcategoryId ? eq(posts.subcategoryId, opts.subcategoryId) : opts.categoryId ? eq(posts.categoryId, opts.categoryId) : undefined,
   );
   return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE));
 }
@@ -276,11 +278,14 @@ export async function getPost(blogId: number, postId: number) {
       viewCount: posts.viewCount,
       categoryId: posts.categoryId,
       categoryName: categories.name,
+      subcategoryId: posts.subcategoryId,
+      subcategoryName: subcategories.name,
       createdAt: posts.createdAt,
       updatedAt: posts.updatedAt,
     })
     .from(posts)
     .leftJoin(categories, eq(categories.id, posts.categoryId))
+    .leftJoin(subcategories, eq(subcategories.id, posts.subcategoryId))
     .where(and(eq(posts.id, postId), eq(posts.blogId, blogId)));
   return row ?? null;
 }
@@ -345,14 +350,6 @@ export async function getAdjacentPosts(blogId: number, post: { id: number; creat
     .orderBy(asc(posts.createdAt), asc(posts.id))
     .limit(1);
   return { prev: prev ?? null, next: next ?? null };
-}
-
-export async function incrementViewCount(postId: number) {
-  // updated_at은 글 내용이 바뀔 때만 갱신되어야 하므로 그대로 둔다 ($onUpdate 덮어쓰기)
-  await db
-    .update(posts)
-    .set({ viewCount: sql`${posts.viewCount} + 1`, updatedAt: sql`${posts.updatedAt}` })
-    .where(eq(posts.id, postId));
 }
 
 export async function getAllTags(limit = 30) {

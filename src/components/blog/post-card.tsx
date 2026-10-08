@@ -9,6 +9,7 @@ export type PostCardData = {
   visibility: "public" | "private";
   createdAt: Date;
   categoryName: string | null;
+  subcategoryName?: string | null;
   likeCount: number;
   commentCount: number;
   viewCount: number;
@@ -23,15 +24,22 @@ export function PostCard({ post, showAuthor = false }: { post: PostCardData; sho
   return (
     <article className="card p-5 transition hover:-translate-y-0.5">
       {showAuthor && (
-        <Link href={`/@${post.blogSlug}`} className="mb-2 flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
+        // 작성자 줄 → 블로그 홈. 누르는 영역 44px (FR-037, R21)
+        <Link href={`/@${post.blogSlug}`} className="mb-1 flex min-h-11 min-w-0 items-center gap-2 text-sm text-ink-soft hover:text-ink">
           <CharacterBadge asset={post.characterAsset} size={26} />
-          <b className="text-ink">{post.nickname}</b>
+          <b className="shrink-0 text-ink">{post.nickname}</b>
           <span className="truncate">· {post.blogTitle}</span>
         </Link>
       )}
       <Link href={`/@${post.blogSlug}/${post.id}`} className="block">
         <div className="mb-1 flex items-center gap-2 text-xs font-bold">
-          {post.categoryName && <span className="rounded-full bg-[#fff3d6] px-2 py-0.5 text-sun-dark">{post.categoryName}</span>}
+          {/* 배지 `대분류` 또는 `대분류 › 소분류` (FR-033). 카드 안 배지는 따로 눌리지 않는다 */}
+          {post.categoryName && (
+            <span className="rounded-full bg-[#fff3d6] px-2 py-0.5 text-sun-dark">
+              {post.categoryName}
+              {post.subcategoryName && ` › ${post.subcategoryName}`}
+            </span>
+          )}
           {post.visibility === "private" && <span className="rounded-full bg-ink/10 px-2 py-0.5 text-ink-soft">🔒 비공개</span>}
         </div>
         <h3 className="font-display text-xl leading-snug">{post.title}</h3>

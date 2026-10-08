@@ -296,6 +296,8 @@ export const posts = pgTable(
       .notNull()
       .references(() => blogs.id, { onDelete: "cascade" }),
     categoryId: integer("category_id").references(() => categories.id, { onDelete: "set null" }),
+    // 소분류 (POST-03 / FR-030, data-model 2.1). 복합 FK로 "고른 대분류 소속"을 DB가 확인한다
+    subcategoryId: integer("subcategory_id"),
     title: text("title").notNull(),
     contentHtml: text("content_html").notNull(),
     contentText: text("content_text").notNull(), // 태그를 뺀 본문: 요약, 검색, 글자 수 확인용
@@ -307,6 +309,14 @@ export const posts = pgTable(
   (t) => [
     check("posts_title_check", sql`char_length(${t.title}) BETWEEN 1 AND 100`),
     check("posts_view_count_check", sql`${t.viewCount} >= 0`),
+    // 소분류만 있는 글은 없다 (POST-03 / FR-030)
+    check("posts_subcategory_check", sql`${t.subcategoryId} IS NULL OR ${t.categoryId} IS NOT NULL`),
+    // 소분류가 지워지면 글의 소분류만 비운다. drizzle은 SET NULL (컬럼)을 못 적어 마이그레이션에서 손으로 고쳤다 (research R5)
+    foreignKey({
+      name: "posts_subcategory_fk",
+      columns: [t.categoryId, t.subcategoryId],
+      foreignColumns: [subcategories.categoryId, subcategories.id],
+    }).onDelete("set null"),
     index("posts_blog_created_idx").on(t.blogId, t.createdAt.desc()),
     index("posts_visibility_created_idx").on(t.visibility, t.createdAt.desc()),
   ],
@@ -508,6 +518,10 @@ export const attachments = pgTable(
     name: text("name").notNull(), // 올린 사람이 붙인 원래 파일 이름 (내려받을 때 이 이름으로)
     mime: text("mime").notNull(),
     size: integer("size").notNull(),
+    // 붙은 글 (POST-07·POST-09 / FR-047). NULL이면 어느 글에도 붙지 않음 → 올린 사람만 열고, 하루 뒤 정리된다 (FR-059)
+    postId: integer("post_id").references(() => posts.id, { onDelete: "set null" }),
+    // 글에서 떨어진 시각. 붙어 있거나 한 번도 안 붙었으면 NULL (트리거 attachments_track_detached, research R7)
+    detachedAt: timestamp("detached_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [
@@ -516,6 +530,7 @@ export const attachments = pgTable(
     check("attachments_name_check", sql`char_length(${t.name}) BETWEEN 1 AND 255`),
     check("attachments_size_check", sql`${t.size} > 0`),
     index("attachments_user_created_idx").on(t.userId, t.createdAt),
+    index("attachments_post_idx").on(t.postId),
   ],
 );
 
@@ -531,4 +546,19 @@ export const blogVisits = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.blogId, t.date, t.visitorId] })],
+);
+
+// 글 조회 기록 (POST-06 / FR-046, data-model 4): 같은 브라우저(쿠키 bv_visitor)는 글마다 하루(한국 시간) 1줄.
+// IP·회원 ID는 저장하지 않는다. 오늘·어제만 필요해서 정리 작업(npm run posts:cleanup)이 그 전 행을 지운다
+export const postViews = pgTable(
+  "post_views",
+  {
+    postId: integer("post_id")
+      .notNull()
+      .references(() => posts.id, { onDelete: "cascade" }),
+    date: date("date").notNull(),
+    visitorId: uuid("visitor_id").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.postId, t.date, t.visitorId] })],
 );

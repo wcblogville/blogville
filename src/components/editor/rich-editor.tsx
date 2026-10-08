@@ -62,18 +62,25 @@ const TOOLS: (ToolButton | "sep")[] = [
   { label: "↷", title: "다시 실행", run: (e) => e.chain().focus().redo().run() },
 ];
 
+/** 붙여 넣는 HTML 안의 이 사이트 첨부 주소 (/files/키) */
+const ATTACHMENT_IN_HTML = /\/files\/[a-f0-9]{32}/;
+
 export function RichEditor({
   initialHtml,
+  postId,
   onChange,
   onUploadingChange,
 }: {
   initialHtml: string;
+  /** 수정 화면이면 글 번호 (붙여 넣은 첨부가 이 글 것인지 판정, FR-047) */
+  postId?: number;
   onChange: (html: string, textLength: number) => void;
   /** 첨부를 올리는 동안 true (그동안 발행 버튼을 막는다) */
   onUploadingChange?: (uploading: boolean) => void;
 }) {
   // 붙여 넣기·끌어다 놓기는 에디터 설정(처음 한 번 만들어짐) 안에서 불리므로 최신 함수를 ref로 넘긴다
   const uploadRef = useRef<(files: File[], at?: number) => void>(() => {});
+  const pasteRef = useRef<(html: string) => void>(() => {});
   const editor = useEditor({
     extensions: [
       PostImage.configure({ inline: false, allowBase64: false }), // 사진 (POST-07)
@@ -91,9 +98,14 @@ export function RichEditor({
       // 사진·파일을 붙여 넣거나(Ctrl+V) 끌어다 놓으면 올려서 넣는다. 여러 개도 한 번에
       handlePaste: (_view, event) => {
         const files = filesFrom(event.clipboardData?.files);
+        const html = event.clipboardData?.getData("text/html") ?? "";
+        // 이 사이트 첨부가 든 HTML(다른 글에서 복사한 사진·파일 카드)은 서버에 물어 넣는다 (FR-047, R8)
+        if (html && ATTACHMENT_IN_HTML.test(html)) {
+          pasteRef.current(html);
+          return true;
+        }
         if (!files.length) return false;
         // 엑셀·키노트처럼 글자와 그림을 함께 복사하면 글자를 붙여 넣는다 (스크린샷·파일 복사는 글자가 없다)
-        const html = event.clipboardData?.getData("text/html") ?? "";
         if (html && new DOMParser().parseFromString(html, "text/html").body.textContent?.trim()) return false;
         uploadRef.current(files);
         return true;
@@ -118,10 +130,11 @@ export function RichEditor({
     onCreate: ({ editor }) => onChange(editor.getHTML(), postTextLength(editor.getHTML())),
   });
 
-  const { upload, progress, errors, clearErrors } = useAttachmentUpload(editor);
+  const { upload, pasteHtml, progress, errors, clearErrors } = useAttachmentUpload(editor, postId);
   useEffect(() => {
     uploadRef.current = upload;
-  }, [upload]);
+    pasteRef.current = pasteHtml;
+  }, [upload, pasteHtml]);
   useEffect(() => {
     onUploadingChange?.(!!progress);
   }, [progress, onUploadingChange]);
@@ -167,7 +180,7 @@ export function RichEditor({
               disabled={!editor}
               onMouseDown={(e) => e.preventDefault()} // 버튼이 포커스를 가져가 커서 위치를 잃지 않게
               onClick={() => editor && tool.run(editor)}
-              className={`rounded-lg px-2.5 py-1 text-sm font-bold transition ${
+              className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-sm font-bold transition ${
                 active?.[i] ? "bg-ink text-cream" : "text-ink-soft hover:bg-white hover:text-ink"
               }`}
             >
@@ -181,7 +194,7 @@ export function RichEditor({
           title="사진 올리기 (PNG·JPG·GIF·WEBP, 10MB까지)"
           disabled={!editor || !!progress}
           onClick={() => imageInput.current?.click()}
-          className="rounded-lg px-2.5 py-1 text-sm font-bold text-ink-soft transition hover:bg-white hover:text-ink disabled:opacity-40"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-sm font-bold text-ink-soft transition hover:bg-white hover:text-ink disabled:opacity-40"
         >
           🖼 사진
         </button>
@@ -190,7 +203,7 @@ export function RichEditor({
           title="파일 올리기 (PDF·한글·오피스·ZIP 등, 30MB까지)"
           disabled={!editor || !!progress}
           onClick={() => fileInput.current?.click()}
-          className="rounded-lg px-2.5 py-1 text-sm font-bold text-ink-soft transition hover:bg-white hover:text-ink disabled:opacity-40"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-sm font-bold text-ink-soft transition hover:bg-white hover:text-ink disabled:opacity-40"
         >
           📎 파일
         </button>
@@ -211,7 +224,12 @@ export function RichEditor({
                   <li key={e}>{e}</li>
                 ))}
               </ul>
-              <button type="button" onClick={clearErrors} className="shrink-0 text-ink-soft hover:text-ink" aria-label="안내 닫기">
+              <button
+                type="button"
+                onClick={clearErrors}
+                className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-ink-soft hover:text-ink"
+                aria-label="안내 닫기"
+              >
                 ✕
               </button>
             </div>

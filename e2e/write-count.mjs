@@ -30,8 +30,10 @@ async function write(name, typeBody, wantLength, wantReward) {
   await page.screenshot({ path: `${outDir}/80-${wantReward ? "reward" : "no-reward"}.png` });
   await page.getByRole("button", { name: "발행하기" }).click();
   await page.waitForURL(/\/@cnt\d+\/\d+/);
-  const rewarded = page.url().includes("new=reward");
-  const postId = Number(page.url().match(/\/(\d+)\?/)[1]);
+  // 보상 여부는 주소가 아니라 주인에게 보이는 발행 안내 문구로 (POST-01 / FR-013)
+  const notice = await page.getByText("🎉 글을 발행했어요!").innerText();
+  const rewarded = notice.includes("코인을 받았어요");
+  const postId = Number(new URL(page.url()).pathname.match(/\/(\d+)$/)[1]);
   const { rows } = await db.query("SELECT char_length(content_text)::int AS n FROM posts WHERE id = $1", [postId]);
   const server = rows[0].n;
   check(`${name}: 화면 ${shown}자 = 서버 ${server}자`, shown === server && shown === wantLength);
