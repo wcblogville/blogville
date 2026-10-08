@@ -168,7 +168,7 @@ function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <CharacterBadge asset={data.player!.characterAsset} size={64} />
+        <CharacterBadge asset={data.player!.characterAsset} outfit={data.player!.outfit} size={64} />
         <div className="min-w-0">
           <p className="truncate font-display text-xl">{data.player!.nickname}</p>
           <p className="text-sm text-ink-soft">Lv.{wallet.level}</p>

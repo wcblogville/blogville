@@ -1,6 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
 import { blogs, follows, items, pointLedger, posts, profiles } from "@/db/schema";
 import { levelFromExp } from "@/lib/game";
@@ -31,6 +32,7 @@ function houseQuery() {
       title: blogs.title,
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
+      outfit: outfitOf(blogs.ownerId),
       backgroundAsset: backgroundItem.assetKey,
       exp: ownerExp,
     })

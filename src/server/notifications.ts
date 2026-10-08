@@ -35,7 +35,7 @@ export async function getPendingLevelUp(userId: string, range?: { min: number; m
     min = header.pendingMinLevel;
     max = header.pendingLevel;
   }
-  const where = and(ne(items.type, "character"), eq(items.isStarter, false), gte(items.requiredLevel, min), lte(items.requiredLevel, max));
+  const where = and(ne(items.type, "character"), eq(items.isOnSale, true), gte(items.requiredLevel, min), lte(items.requiredLevel, max));
   const [rows, [{ total }]] = await Promise.all([
     db
       .select({ id: items.id, name: items.name, assetKey: items.assetKey, type: items.type })

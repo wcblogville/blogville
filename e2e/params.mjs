@@ -269,6 +269,22 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
   const t2Now = tester2 ? (await one("SELECT slug FROM blogs WHERE id = $1", [tester2.blog_id])).slug : "tester2";
   check("블로그 주소: 조작 요청 뒤 tester1·tester2 주소 그대로", slugNow === "tester1" && t2Now === "tester2", `${slugNow}, ${t2Now}`);
 }
+// 상점·꾸미기 (SHOP NF-02): 장착·구매 요청을 잡아 이상한 아이템 ID로 다시 보내도 500 없이 그대로
+{
+  await page.goto(`${BASE}/closet`);
+  const equip = await capture(() => page.locator('[data-closet-section="background"] button').first().click());
+  for (const v of [HUGE, "abc"]) check(`SHOP 꾸미기 장착: 아이템 ID ${JSON.stringify(v)} → 오류 없음`, (await replay(equip, [v])) === 200);
+  await page.goto(`${BASE}/shop`);
+  const buyable = page.locator('article[data-state="buy"]').first();
+  if (await buyable.count()) {
+    const coinsBefore = (await one("SELECT COALESCE(SUM(coin_delta), 0)::int AS c FROM point_ledger p JOIN users u ON u.id = p.user_id WHERE u.username = 'tester1'")).c;
+    const buy = await capture(() => buyable.getByRole("button").click());
+    const coinsAfterBuy = (await one("SELECT COALESCE(SUM(coin_delta), 0)::int AS c FROM point_ledger p JOIN users u ON u.id = p.user_id WHERE u.username = 'tester1'")).c;
+    for (const v of [HUGE, "abc", 1.5]) check(`SHOP 사기: 아이템 ID ${JSON.stringify(v)} → 오류 없음`, (await replay(buy, [v])) === 200);
+    const coinsNow = (await one("SELECT COALESCE(SUM(coin_delta), 0)::int AS c FROM point_ledger p JOIN users u ON u.id = p.user_id WHERE u.username = 'tester1'")).c;
+    check("SHOP 사기: 이상한 ID는 코인을 빼지 않음", coinsNow === coinsAfterBuy && coinsAfterBuy <= coinsBefore, `${coinsBefore} → ${coinsAfterBuy} → ${coinsNow}`);
+  }
+}
 await page.screenshot({ path: `${outDir}/70-params.png` });
 
 console.log(results.join("\n"));

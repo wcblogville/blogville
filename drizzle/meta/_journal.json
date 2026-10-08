@@ -190,6 +190,13 @@
       "when": 1791436505991,
       "tag": "0026_house_furniture",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791438378175,
+      "tag": "0027_shop_items",
+      "breakpoints": true
     }
   ]
 }

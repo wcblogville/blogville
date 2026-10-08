@@ -1,6 +1,5 @@
 import { CharacterArt } from "@/components/character";
-import { backgroundDataUri } from "@/lib/assets";
-import { furnitureDataUri } from "@/lib/art/furniture";
+import { backgroundDataUri, furnitureDataUri, growthDataUri, MANNEQUIN } from "@/lib/assets";
 
 /** 아이템 미리보기 그림 (상점, 꾸미기) */
 export function ItemArt({
@@ -21,11 +20,20 @@ export function ItemArt({
       </div>
     );
   }
-  if (type === "furniture") {
+  // 아바타 꾸미기: 회색 몸 위에 그 아이템만 입혀 보여 준다 (SHOP-06)
+  if (type === "avatar") {
     return (
-      <div className={`grid place-items-center rounded-xl bg-[#f6ead7] ${className}`} aria-hidden>
+      <div className={`grid place-items-center rounded-xl bg-cream ${className}`} aria-hidden>
+        <CharacterArt asset={MANNEQUIN} outfit={[assetKey]} size={characterSize} />
+      </div>
+    );
+  }
+  if (type === "furniture" || type === "growth") {
+    const uri = type === "furniture" ? furnitureDataUri(assetKey, 160) : growthDataUri(assetKey, 160);
+    return (
+      <div className={`grid place-items-center rounded-xl ${type === "furniture" ? "bg-[#f6ead7]" : "bg-[#e9f6e4]"} ${className}`} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-        <img src={furnitureDataUri(assetKey, 160)} alt="" width={characterSize} height={characterSize} />
+        <img src={uri} alt="" width={characterSize} height={characterSize} />
       </div>
     );
   }

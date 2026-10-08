@@ -11,6 +11,7 @@ import { parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
 import { uniqueViolation } from "@/server/db-errors";
 import { addGrowth, countActive } from "@/server/farm";
+import { consumeGrowthItem } from "@/server/inventory";
 import { getWallet, grantReward, lockUser } from "@/server/points";
 
 export type FarmResult = { ok: true; text: string } | { ok: false; text: string };
@@ -111,4 +112,29 @@ export async function careAnimal(animalId: number, action: CareAction): Promise<
     if (uniqueViolation(err) !== null) return { ok: false, text: `오늘은 이미 ${care.label}를 했어요` };
     throw err;
   }
+}
+
+/** 성장 아이템 쓰기 (SHOP FR-044): 상점에서 산 먹이 하나를 줄이고 그만큼 성장. 하루 횟수 제한은 없다 */
+export async function feedGrowthItem(animalId: unknown, itemId: unknown): Promise<FarmResult> {
+  const viewer = await requireMember();
+  const id = parseId(animalId);
+  const item = parseId(itemId);
+  if (id === null || item === null) return { ok: false, text: "잘못된 요청이에요" };
+  const result = await db.transaction(async (tx): Promise<FarmResult> => {
+    await lockUser(tx, viewer.userId);
+    const [animal] = await tx
+      .select({ id: userAnimals.id })
+      .from(userAnimals)
+      .where(and(eq(userAnimals.id, id), eq(userAnimals.userId, viewer.userId), eq(userAnimals.status, "growing")));
+    if (!animal) return { ok: false, text: "먹일 수 있는 동물이 아니에요" };
+    const used = await consumeGrowthItem(tx, viewer.userId, item);
+    if (!used) return { ok: false, text: "가지고 있는 성장 아이템이 없어요" };
+    const [grown] = await addGrowth(tx, viewer.userId, used.growthValue, [id]);
+    if (grown) {
+      return { ok: true, text: `🎉 ${subject(grown.name)} 다 자랐어요! 경험치 +${grown.rewardExp}, 🪙 +${grown.rewardCoins}` };
+    }
+    return { ok: true, text: `🌱 ${used.name} 먹였어요! 성장 +${used.growthValue}` };
+  });
+  if (result.ok) revalidatePath("/", "layout");
+  return result;
 }

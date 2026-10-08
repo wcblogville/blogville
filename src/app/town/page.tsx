@@ -27,7 +27,7 @@ export default async function TownPage(props: PageProps<"/town">) {
 
   const data: TownData = {
     player: member?.profile
-      ? { nickname: member.profile.nickname, characterAsset: member.profile.characterAsset }
+      ? { nickname: member.profile.nickname, characterAsset: member.profile.characterAsset, outfit: member.profile.outfit }
       : null,
     myHouse,
     neighbors,

@@ -3,7 +3,7 @@
 // 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
 import type * as PhaserNS from "phaser";
 import { backgroundAccent } from "@/lib/art/backgrounds";
-import { characterDataUri, VISITOR_CHARACTER } from "@/lib/art/characters";
+import { characterDataUri, lookKey, VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
   BOARD_SIZE,
   boardSvg,
@@ -84,7 +84,8 @@ type Entrance = {
   verb?: string;
 };
 
-const charKey = (asset: string) => `char:${asset}`;
+/** 캐릭터 + 입은 아바타 아이템마다 그림 하나 (SHOP-06) */
+const charKey = (asset: string, outfit: string[] = []) => `char:${lookKey(asset, outfit)}`;
 const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
 const stageOf = (h: TownHouse) => houseStage(h.level);
 
@@ -92,9 +93,12 @@ const stageOf = (h: TownHouse) => houseStage(h.level);
 export function townTextures(data: TownData) {
   const list = new Map<string, string>();
   const houses = [data.myHouse, ...data.neighbors].filter(Boolean) as TownHouse[];
-  list.set(charKey(data.player?.characterAsset ?? VISITOR_CHARACTER), characterDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, PLAYER_SIZE * 2));
+  list.set(
+    charKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit),
+    characterDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, PLAYER_SIZE * 2, data.player?.outfit ?? []),
+  );
   for (const h of houses) {
-    list.set(charKey(h.characterAsset), characterDataUri(h.characterAsset, PLAYER_SIZE * 2));
+    list.set(charKey(h.characterAsset, h.outfit), characterDataUri(h.characterAsset, PLAYER_SIZE * 2, h.outfit));
     const roof = backgroundAccent(h.backgroundAsset);
     list.set(houseKey(stageOf(h), roof), toDataUri(houseSvg(stageOf(h), roof)));
   }
@@ -178,7 +182,7 @@ function layout(data: TownData) {
       label: mine ? "내 집" : `${h.nickname}의 집`, sub: h.title,
     });
     // 집 주인 캐릭터가 문 옆에 서 있다
-    structures.push({ texture: charKey(h.characterAsset), x: pos.x - w / 2 + 4, y: pos.y + 2, w: 46, h: 46 });
+    structures.push({ texture: charKey(h.characterAsset, h.outfit), x: pos.x - w / 2 + 4, y: pos.y + 2, w: 46, h: 46 });
     entrances.push({
       label: mine ? "내 집" : `${h.nickname}의 집`, emoji: "🏠", x: pos.x, y: pos.y + 22, target: { kind: "link", href: `/@${h.slug}` },
       area: { x: pos.x - w / 2, y: pos.y - hh, w, h: hh }, promptY: pos.y - hh - 4,
@@ -264,7 +268,7 @@ export function createTownScene(
       this.playerBody.setCollideWorldBounds(true);
       this.physics.add.collider(this.feet, walls);
       this.player = this.add
-        .image(0, 0, charKey(data.player?.characterAsset ?? VISITOR_CHARACTER))
+        .image(0, 0, charKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit))
         .setDisplaySize(PLAYER_SIZE, PLAYER_SIZE)
         .setOrigin(0.5, 0.94);
 

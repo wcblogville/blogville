@@ -25,7 +25,10 @@ const updatedAt = () =>
     .$onUpdate(() => new Date());
 
 // ===== 열거형 =====
-export const itemType = pgEnum("item_type", ["character", "background", "furniture"]);
+// avatar(모자·옷·소품)·growth(동물 성장 아이템)는 SHOP-01·SHOP-06에서 뒤에 더했다
+export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth"]);
+// 아바타 꾸미기 부위 (SHOP-06)
+export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory"]);
 export const visibility = pgEnum("visibility", ["public", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);
 export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply"]);
@@ -153,11 +156,21 @@ export const items = pgTable(
     requiredLevel: integer("required_level").notNull().default(1),
     isStarter: boolean("is_starter").notNull().default(false), // 가입 시 고를 수 있는 기본 아이템
     assetKey: text("asset_key").notNull(),
+    // 아바타 꾸미기만 부위가 있다 (SHOP-06)
+    avatarSlot: avatarSlot("avatar_slot"),
+    // 성장 아이템을 하나 쓸 때 자라는 양 (SHOP-01 2026-10-07, TOWN-09)
+    growthValue: integer("growth_value"),
+    // 상점 목록·구매 가능 여부. 캐릭터·기본 아이템은 false (SHOP-01, D12). 판매를 멈춰도 가진 사람은 계속 쓴다
+    isOnSale: boolean("is_on_sale").notNull().default(true),
     createdAt: createdAt(),
   },
   (t) => [
     check("items_price_check", sql`${t.price} >= 0`),
     check("items_required_level_check", sql`${t.requiredLevel} >= 1`),
+    // 새 열거형 값은 같은 마이그레이션 안에서 글자로 비교한다 (research R2)
+    check("items_avatar_slot_check", sql`(${t.type}::text = 'avatar') = (${t.avatarSlot} IS NOT NULL)`),
+    check("items_growth_type_check", sql`(${t.type}::text = 'growth') = (${t.growthValue} IS NOT NULL)`),
+    check("items_growth_value_check", sql`${t.growthValue} IS NULL OR ${t.growthValue} > 0`),
   ],
 );
 
@@ -172,8 +185,31 @@ export const userItems = pgTable(
       .notNull()
       .references(() => items.id),
     acquiredAt: timestamp("acquired_at", { withTimezone: true }).notNull().defaultNow(),
+    // 보유 수량 (SHOP-01). 꾸미기 아이템은 늘 1, 성장 아이템은 살 때 +1·쓸 때 −1. 0이어도 행은 남고 "보유"는 quantity > 0
+    quantity: integer("quantity").notNull().default(1),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.itemId] })],
+  (t) => [primaryKey({ columns: [t.userId, t.itemId] }), check("user_items_quantity_check", sql`${t.quantity} >= 0`)],
+);
+
+// 아바타 착용 (SHOP-06): 회원·부위마다 하나, 가진 것만 (복합 FK)
+export const avatarEquips = pgTable(
+  "avatar_equips",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    slot: avatarSlot("slot").notNull(),
+    itemId: integer("item_id").notNull(),
+    equippedAt: timestamp("equipped_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.slot] }),
+    foreignKey({
+      name: "avatar_equips_owned_fk",
+      columns: [t.userId, t.itemId],
+      foreignColumns: [userItems.userId, userItems.itemId],
+    }).onDelete("cascade"),
+  ],
 );
 
 // ===== 회원 프로필 · 블로그 =====

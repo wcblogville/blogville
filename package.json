@@ -22,8 +22,9 @@
     "test:post": "tsx scripts/test-post.ts",
     "test:social": "tsx scripts/test-social.ts",
     "test:notifications": "tsx scripts/test-notifications.ts",
+    "test:shop": "tsx scripts/test-shop.ts",
     "posts:cleanup": "tsx --conditions=react-server scripts/cleanup-posts.ts",
-    "test": "npm run test:game && npm run test:ids && npm run test:sanitize && npm run test:auth && npm run test:blog && npm run test:post && npm run test:social && npm run test:notifications"
+    "test": "npm run test:game && npm run test:ids && npm run test:sanitize && npm run test:auth && npm run test:blog && npm run test:post && npm run test:social && npm run test:notifications && npm run test:shop"
   },
   "dependencies": {
     "@tiptap/extension-image": "^3.31.4",

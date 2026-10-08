@@ -1,8 +1,8 @@
-import { backgroundDataUri, characterDataUri } from "@/lib/assets";
+import { backgroundDataUri, characterDataUri, lookKey } from "@/lib/assets";
 import { animalSvg, hasAnimalArt, toAnimalDataUri } from "@/lib/art/animals";
 
 /** 동그란 캐릭터 얼굴 (헤더, 댓글, 글 목록) */
-export function CharacterBadge({ asset, size = 36 }: { asset: string; size?: number }) {
+export function CharacterBadge({ asset, size = 36, outfit = [] }: { asset: string; size?: number; outfit?: string[] }) {
   return (
     <span
       className="inline-grid shrink-0 place-items-center overflow-hidden rounded-full border-2 border-line bg-cream"
@@ -10,15 +10,35 @@ export function CharacterBadge({ asset, size = 36 }: { asset: string; size?: num
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)라 최적화가 필요 없다 */}
-      <img src={characterDataUri(asset, 96)} alt="" width={size * 1.15} height={size * 1.15} style={{ marginTop: size * 0.2 }} />
+      <img
+        src={characterDataUri(asset, 96, outfit)}
+        alt=""
+        data-look={lookKey(asset, outfit)}
+        width={size * 1.15}
+        height={size * 1.15}
+        style={{ marginTop: size * 0.2 }}
+      />
     </span>
   );
 }
 
 /** 캐릭터 전신 그림 */
-export function CharacterArt({ asset, size = 96, className = "" }: { asset: string; size?: number; className?: string }) {
-  // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
-  return <img src={characterDataUri(asset, size * 2)} alt="" width={size} height={size} className={className} aria-hidden />;
+export function CharacterArt({
+  asset,
+  size = 96,
+  className = "",
+  outfit = [],
+}: {
+  asset: string;
+  size?: number;
+  className?: string;
+  /** 입은 아바타 아이템 asset_key (SHOP-06) */
+  outfit?: string[];
+}) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
+    <img src={characterDataUri(asset, size * 2, outfit)} alt="" data-look={lookKey(asset, outfit)} width={size} height={size} className={className} aria-hidden />
+  );
 }
 
 /** 다 키운 동물 그림 (도감 카드, 미니룸 전시). 어른 단계로 그린다 */
@@ -36,9 +56,11 @@ export function MiniRoom({
   backgroundAsset: bgKey,
   nickname,
   showcase = null,
+  outfit = [],
   className = "",
 }: {
   characterAsset: string;
+  outfit?: string[];
   backgroundAsset: string;
   nickname?: string;
   showcase?: { assetKey: string; name: string } | null;
@@ -53,7 +75,7 @@ export function MiniRoom({
     >
       <div className="absolute inset-x-0 bottom-[6%] flex flex-col items-center">
         <div className="relative">
-          <CharacterArt asset={characterAsset} size={112} className="animate-bounce drop-shadow-md [animation-duration:2s]" />
+          <CharacterArt asset={characterAsset} outfit={outfit} size={112} className="animate-bounce drop-shadow-md [animation-duration:2s]" />
           {animal && (
             <span data-showcase className="absolute bottom-0 left-full -ml-3 flex w-16 flex-col items-center" title={animal.name}>
               {/* 절대 위치라 쓸 수 있는 너비가 0이 되므로 max-width를 풀어 64px 그대로 그린다 */}

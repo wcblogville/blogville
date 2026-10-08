@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { animalSvg, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
 import { animalStage, CARE_ACTIONS, STAGE_LABEL } from "@/lib/farm";
 import type { FarmAnimal } from "@/server/farm";
-import { buyEgg, careAnimal, claimEgg, type FarmResult, hatchEgg } from "./actions";
+import { buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg } from "./actions";
 
 type FreeEgg = { kind: "starter"; label: string } | { kind: "level"; level: number; label: string };
 
@@ -26,6 +26,7 @@ export function FarmView({
   coins,
   eggPrice,
   eggEvery,
+  growthItems = [],
 }: {
   active: FarmAnimal[];
   grown: FarmAnimal[];
@@ -34,6 +35,8 @@ export function FarmView({
   coins: number;
   eggPrice: number;
   eggEvery: number;
+  /** 상점에서 산 성장 아이템 (SHOP FR-044) */
+  growthItems?: { id: number; name: string; growthValue: number | null; quantity: number }[];
 }) {
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<FarmResult | null>(null);
@@ -118,6 +121,22 @@ export function FarmView({
                         );
                       })}
                     </div>
+                    {growthItems.length > 0 && (
+                      <div className="mt-2 flex flex-wrap justify-center gap-2" data-growth-items>
+                        {growthItems.map((g) => (
+                          <button
+                            key={g.id}
+                            type="button"
+                            disabled={pending}
+                            onClick={() => run(() => feedGrowthItem(a.id, g.id))}
+                            className="btn bg-[#e9f6e4] px-2.5 py-1.5 text-xs text-ink"
+                            title={`성장 +${g.growthValue ?? 0}`}
+                          >
+                            🌱 {g.name} ×{g.quantity}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </li>

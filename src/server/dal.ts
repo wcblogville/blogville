@@ -10,6 +10,7 @@ import { attendances, blogs, items, profiles, sessions } from "@/db/schema";
 import { auth, SESSION_SHORT_SECONDS } from "@/lib/auth";
 import { todayKST } from "@/lib/game";
 import { ensureTodayAttendance, type TodayAttendance } from "@/server/attendance";
+import { outfitOf } from "@/server/inventory";
 
 /**
  * 로그인 세션 (한 요청 안에서는 한 번만 조회).
@@ -69,6 +70,7 @@ export const getViewer = cache(async () => {
       blogId: blogs.id,
       blogSlug: blogs.slug,
       blogTitle: blogs.title,
+      outfit: outfitOf(profiles.userId),
     })
     .from(profiles)
     .innerJoin(items, eq(items.id, profiles.characterItemId))

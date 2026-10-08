@@ -3,6 +3,8 @@ export type TownHouse = {
   title: string;
   nickname: string;
   characterAsset: string;
+  /** 주인이 입은 아바타 아이템 (SHOP-06) */
+  outfit: string[];
   backgroundAsset: string;
   /** 집 주인 레벨 → 집 단계 (TOWN-11) */
   level: number;
@@ -11,7 +13,7 @@ export type TownHouse = {
 };
 
 export type TownData = {
-  player: { nickname: string; characterAsset: string } | null; // null = 로그인하지 않은 방문자
+  player: { nickname: string; characterAsset: string; outfit: string[] } | null; // null = 로그인하지 않은 방문자
   myHouse: TownHouse | null;
   /** 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그. 모자라면 빈 집터 */
   neighbors: TownHouse[];
