@@ -116,6 +116,7 @@ erDiagram
         varchar description
         int background_item_id FK
         int showcase_animal_id FK "전시 동물, NULL 허용"
+        varchar roof_color "집 지붕 색 8색, NULL = 배경 색"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -348,6 +349,11 @@ erDiagram
 예약한 시도가 성공 ──▶ 행 삭제
 ```
 
+### 3.20 집 지붕 색 (`blogs.roof_color`, TOWN-07)
+
+- 광장 내 집의 지붕 색. `blogs.roof_color`(NULL 허용) + CHECK `blogs_roof_color_check`: NULL 또는 `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` 8개 코드값 (`0013_blog_roof_description`).
+- NULL이면 장착한 배경 색을 따라간다. 값과 실제 색(hex)의 대응·고르는 화면은 town 그림 코드가 맡는다 (DB에는 코드값만, 그림 규칙과 같다). 값 목록은 `src/lib/blog.ts` `ROOF_COLORS`.
+
 ### 3.4 장착은 "보유한 아이템"만: 복합 외래 키
 
 `profiles.character_item_id`가 그냥 `items.id`를 가리키면, **사지 않은 아이템도 장착**할 수 있다. 그래서 두 컬럼을 묶어 `user_items`의 **복합 PK (`user_id`, `item_id`)**를 가리키게 한다.
@@ -463,15 +469,18 @@ COMMIT
   - `user_items.quantity`(가진 개수, 기본 1, CHECK ≥ 0): 같은 먹이를 또 사면 줄을 늘리지 않고 수량 +1, 쓰면 −1. 0이 돼도 줄은 남긴다. 복합 PK (`user_id`, `item_id`)는 그대로 "아이템마다 한 줄"을 지킨다
   - 쓸 때: 회원 잠금 트랜잭션에서 `quantity − 1`(성장 아이템만), `user_animals.growth + growth_value`. 다 자라면 지금처럼 보상
   - 사용 기록 표는 두지 않는다: 요구사항에 "먹인 기록" 화면이 없고, 성장치는 `user_animals.growth`에, 구매는 원장(`purchase`)에 남는다. 필요해지면 그때 추가해도 다른 구조는 바뀌지 않는다
-- ⏳ **다 키운 동물은 블로그에서**: 다 키운 동물(`status = 'grown'`)이 곧 카드다. 블로그는 주인(`blogs.owner_id = user_animals.user_id`)으로 도감을 모아 보여준다. 블로그와 동물을 따로 잇는 표는 필요 없다 (같은 정보를 두 번 두게 된다).
-- ⏳ **블로그에 한 마리 전시**: `blogs.showcase_animal_id`(NULL 허용). **내 동물만** 전시하도록 장착처럼 복합 FK를 쓴다.
+- **다 키운 동물은 블로그에서** (BLOG-04, 블로그 홈 `🏅 동물 도감`): 다 키운 동물(`status = 'grown'`)이 곧 카드다. 블로그는 주인(`blogs.owner_id = user_animals.user_id`)으로 도감을 모아 보여준다. 블로그와 동물을 따로 잇는 표는 필요 없다 (같은 정보를 두 번 두게 된다).
+- **블로그에 한 마리 전시** (BLOG-04, `0015_blog_showcase`): `blogs.showcase_animal_id`(NULL 허용). **내 동물만** 전시하도록 장착처럼 복합 FK를 쓴다.
 
   ```sql
   -- user_animals에 UNIQUE (user_id, id) 추가 (복합 FK가 가리킬 대상)
-  FOREIGN KEY (owner_id, showcase_animal_id) REFERENCES user_animals (user_id, id) ON DELETE SET NULL
+  -- user_animals_user_id_id_uq (0014, town T-M1)
+  FOREIGN KEY (owner_id, showcase_animal_id) REFERENCES user_animals (user_id, id)
+      ON DELETE SET NULL (showcase_animal_id)   -- 전시만 비운다 (PostgreSQL 15+)
   ```
 
-  "다 키운 동물만"은 다른 표의 상태라 CHECK로 막을 수 없어 코드에서 확인한다.
+  Drizzle은 `SET NULL`에 열 목록을 적지 못해 생성 SQL의 FK 줄을 손으로 고쳤다 (열 목록이 없으면 NOT NULL인 `owner_id`까지 비우려 해 동물 삭제가 실패한다). `schema.ts`의 FK 옆에도 같은 주석이 있다.
+  "다 키운 동물만"은 다른 표의 상태라 CHECK로 막을 수 없어 코드에서 확인한다 (`setShowcaseAnimal`의 UPDATE 한 문장 조건).
 
 ### 3.12 출석: 로그인 세션으로 자동, 7일 주기 (GAME-04)
 
@@ -493,7 +502,7 @@ COMMIT
 | 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 알림(game) 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
 | 블로그 | 카테고리, 글, 방문 기록 삭제 (블로그만 지우는 기능은 없다, 3.1) |
 | 글 | 태그 연결, 댓글(→ 답글), 공감 삭제. 첨부는 `post_id`만 비움 |
-| 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움 |
+| 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움. 블로그 관리의 삭제는 한 트랜잭션에서 블로그 행을 잠그고 남은 대분류 순서를 0부터 다시 매긴다 (`deleteCategory`) |
 | 소분류 | 글은 남기고 `subcategory_id`만 비움 (대분류는 그대로) |
 | 댓글·답글 | 행을 지우지 않고 `deleted_at`만 기록 |
 | 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
@@ -545,6 +554,8 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
   복합 FK는 칸 하나라도 비어 있으면 검사하지 않으므로, "소분류가 있으면 대분류도 있다"는 CHECK로 따로 막는다.
 - 예: "여행 > 맛집"은 되고, "여행 > 알고리즘"(공부의 소분류)은 DB가 거부한다.
 - 블로그에서 대분류를 누르면 그 아래 소분류 글까지 모두 보인다 (`WHERE category_id = ?`). 소분류를 누르면 그 소분류 글만 (`WHERE subcategory_id = ?`).
+- 대분류를 지울 때는 앱(`deleteCategory`)이 같은 트랜잭션에서 그 대분류 글의 두 칸을 먼저 비운 뒤 지운다 (post 단계 3에서 `posts.subcategory_id`가 생긴 뒤부터. 지금은 `posts.category_id` FK `SET NULL`만 동작).
+- 대분류·소분류의 추가·삭제·순서 바꾸기는 트랜잭션 첫 줄에서 블로그 행을 `FOR UPDATE`로 잠가 `position`이 0부터 겹침·빈틈 없이 유지된다 (`subcategories`는 `0016_blog_subcategories`).
 
 ### 3.17 정규화 점검
 
@@ -620,9 +631,9 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | ✅ `users.username` NOT NULL·CHECK, `accounts` UNIQUE (`user_id`, `provider_id`), 소셜 토큰 비우기, `sessions.remember_me`, `login_attempts` | 아이디 없는 회원·프로필 없는 회원 정리 (auth 마이그레이션) |
 | 6 | `follows.is_favorite` | 없음 |
-| 6-3 | `subcategories` 만들기, `posts.subcategory_id` + 복합 FK + CHECK | 없음 (기존 글은 대분류만) |
-| 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), `user_animals` UNIQUE (`user_id`, `id`), `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
-| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리는 2번 뒤), 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
+| 6-3 | ✅ `subcategories` 만들기 (blog), `posts.subcategory_id` + 복합 FK + CHECK (post) | 없음 (기존 글은 대분류만) |
+| 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), ✅ `user_animals` UNIQUE (`user_id`, `id`), ✅ `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
+| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리는 2번 뒤), ✅ 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
 
 ## 부록: 컬럼 타입
 
@@ -658,7 +669,8 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
-| `blogs.description` | `VARCHAR(160)` | |
+| `blogs.description` | `VARCHAR(160)` | 0~160자 (CHECK `blogs_description_check`) |
+| `blogs.roof_color` | `VARCHAR(10)` | `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` 중 하나 (CHECK `blogs_roof_color_check`, TOWN-07) |
 | `categories.name`, `subcategories.name`, `tags.name` | `VARCHAR(20)` | 1~20자 |
 | `posts.title` | `VARCHAR(100)` | 1~100자 |
 | `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자 |
@@ -673,4 +685,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`

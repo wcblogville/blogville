@@ -1,0 +1,2 @@
+-- TOWN-09 (요청: blog, BLOG-04) (2026-10-08): 전시 동물 복합 FK가 가리킬 UNIQUE (ERD 3.11, 7장 6-2, town data-model T-M1). blog 브랜치가 먼저 넣음
+ALTER TABLE "user_animals" ADD CONSTRAINT "user_animals_user_id_id_uq" UNIQUE("user_id","id");

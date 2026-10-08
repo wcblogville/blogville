@@ -8,6 +8,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, blogs, categories, items, loginAttempts, profiles, userItems, users } from "@/db/schema";
 import { newAuthId } from "@/lib/auth-id";
+import { defaultBlogFor } from "@/lib/blog";
 import { isReservedName } from "@/lib/names";
 import { uniqueViolation } from "@/server/db-errors";
 import { findNameConflict, hasNameConflict, lockName } from "@/server/names";
@@ -55,7 +56,9 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
         .from(items)
         .where(and(eq(items.id, characterId), eq(items.type, "character"), eq(items.isStarter, true)));
       if (!character) throw new SignupRejected(SIGNUP_ERRORS.character);
-      const [background] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "bg_meadow"));
+      // 블로그 기본값은 blog가 정한다 (BLOG-01 / FR-001·002, research R-27)
+      const defaults = defaultBlogFor(username);
+      const [background] = await tx.select({ id: items.id }).from(items).where(eq(items.code, defaults.backgroundCode));
       if (!background) throw new Error("기본 배경(bg_meadow)이 없어요. npm run db:seed 를 실행해 주세요");
 
       // 1) 회원. role은 넣지 않아 DB 기본값 user (관리자는 scripts/create-admin.ts만)
@@ -79,13 +82,13 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       ]);
       // 5) 프로필: 닉네임 = 아이디 (나중에 blog의 내 정보에서 바꾼다)
       await tx.insert(profiles).values({ userId, nickname: username, characterItemId: character.id });
-      // 6) 블로그: 주소 = 아이디
+      // 6) 블로그: 주소 = 아이디, 이름 `{아이디}의 블로그`, 빈 소개, 초원 배경
       const [blog] = await tx
         .insert(blogs)
-        .values({ ownerId: userId, slug: username, title: `${username}의 블로그`, description: "", backgroundItemId: background.id })
+        .values({ ownerId: userId, slug: defaults.slug, title: defaults.title, description: defaults.description, backgroundItemId: background.id })
         .returning({ id: blogs.id });
       // 7) 대분류 "일상"
-      await tx.insert(categories).values({ blogId: blog.id, name: "일상", position: 0 });
+      await tx.insert(categories).values({ blogId: blog.id, name: defaults.categoryName, position: 0 });
       // 8) 가입 축하 🪙 100 (보상 규칙: CLAUDE.md, src/lib/game.ts)
       await lockUser(tx, userId);
       await grantReward(tx, userId, "signup");
