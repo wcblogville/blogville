@@ -1,4 +1,5 @@
 // 내 정보: 소셜 연동·해제 (AUTH-05 / FR-036~FR-042, FR-054, SC-011 / quickstart 4.5의 1~11번)
+// 회원 탈퇴 (AUTH-06 / FR-050~FR-052, SC-014 / quickstart 4.5의 12~20번)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/account.mjs <스크린샷 폴더>
 // 소셜 키 없이 확인한다. "연동됨" 상태는 DB에 소셜 로그인 수단 행을 직접 넣어 만든다 (실제 연동 흐름은 quickstart 6장 수동 확인).
 // DB는 .env.local의 DATABASE_URL로 준비·확인한다. 실행마다 새 아이디를 쓴다.
@@ -235,6 +236,200 @@ await ctx.close();
   check("11 버튼·링크 44px 이상, 글자 한 줄", small.length === 0, small.join(", "));
   await mp.screenshot({ path: `${outDir}/82-account-375.png`, fullPage: true });
   await m.close();
+}
+
+// ══ 회원 탈퇴 (quickstart 4.5의 12~20번) ══
+// 탈퇴할 회원 W, 글 주인 A(위의 ID), 다른 회원 B. 글·댓글·공감 등은 DB에 직접 넣는다 (화면 흐름은 blog.mjs가 확인한다).
+// 지금 스키마는 답글 = comments.parent_id다. social 5단계가 답글을 replies 표로 나누고 comments.author_id를 SET NULL로 바꾸면
+// 12번 준비와 18번 기대를 그 구조로 고친다 (TODO(004-social T046), src/server/account.ts removeAuthorComments).
+const W = `wd${n}`;
+const WPW = "withdraw-pass-1234";
+const B = `wb${n}`;
+const W_TEXT = { lone: `W 답글 없는 댓글 ${n}`, reply: `W가 B 댓글에 단 답글 ${n}`, parent: `W 댓글 남의 답글 2개 ${n}` };
+const repliesTable = (await one("SELECT to_regclass('public.replies') IS NOT NULL AS ok")).ok;
+const notificationsTable = (await one("SELECT to_regclass('public.notifications') IS NOT NULL AS ok")).ok;
+const authorNullable = (await one(
+  "SELECT is_nullable = 'YES' AS ok FROM information_schema.columns WHERE table_name = 'comments' AND column_name = 'author_id'",
+)).ok;
+
+/** W에 딸린 행 수 (15번 표). 글·블로그는 W가 가진 것, 공감·이웃은 양쪽 */
+async function wCounts(wId, wPostId) {
+  const q = async (sql, params) => (await one(sql, params)).c;
+  const c = {
+    회원: await q("SELECT count(*)::int AS c FROM users WHERE id = $1", [wId]),
+    로그인수단: await q("SELECT count(*)::int AS c FROM accounts WHERE user_id = $1", [wId]),
+    세션: await q("SELECT count(*)::int AS c FROM sessions WHERE user_id = $1", [wId]),
+    프로필: await q("SELECT count(*)::int AS c FROM profiles WHERE user_id = $1", [wId]),
+    블로그: await q("SELECT count(*)::int AS c FROM blogs WHERE owner_id = $1", [wId]),
+    글: await q("SELECT count(*)::int AS c FROM posts WHERE id = $1", [wPostId]),
+    원장: await q("SELECT count(*)::int AS c FROM point_ledger WHERE user_id = $1", [wId]),
+    보유아이템: await q("SELECT count(*)::int AS c FROM user_items WHERE user_id = $1", [wId]),
+    출석: await q("SELECT count(*)::int AS c FROM attendances WHERE user_id = $1", [wId]),
+    이웃: await q("SELECT count(*)::int AS c FROM follows WHERE follower_id = $1 OR followee_id = $1", [wId]),
+    공감: await q("SELECT count(*)::int AS c FROM post_likes WHERE user_id = $1 OR post_id = $2", [wId, wPostId]),
+    첨부: await q("SELECT count(*)::int AS c FROM attachments WHERE user_id = $1", [wId]),
+    댓글: await q("SELECT count(*)::int AS c FROM comments WHERE author_id = $1 OR post_id = $2", [wId, wPostId]),
+    실패기록: await q("SELECT count(*)::int AS c FROM login_attempts WHERE username = $1", [W]),
+  };
+  if (notificationsTable) {
+    // TODO(005-game): 칸 이름은 game data-model 2.4 기준(받는 회원 user_id, 행동한 회원 actor_id). game이 표를 만들면 맞춘다
+    c.알림 = await q("SELECT count(*)::int AS c FROM notifications WHERE user_id = $1 OR actor_id = $1", [wId]).catch(() => -1);
+  }
+  return c;
+}
+
+let wId;
+let wPostId;
+let aPostId;
+let wCommentIds = {};
+// ── 12) 탈퇴할 회원 W 준비 ──
+{
+  const prep = await fresh();
+  await loginDev(prep.page, B, "여자 주민");
+  await prep.ctx.close();
+  const w = await fresh();
+  await loginDev(w.page, W, "남자 주민", WPW);
+  await w.ctx.close();
+
+  wId = (await one("SELECT id FROM users WHERE username = $1", [W])).id;
+  const aId = await userId();
+  const bId = (await one("SELECT id FROM users WHERE username = $1", [B])).id;
+  const blogOf = async (uid) => (await one("SELECT id FROM blogs WHERE owner_id = $1", [uid])).id;
+  const insertPost = async (uid, title) =>
+    (await one("INSERT INTO posts (blog_id, title, content_html, content_text) VALUES ($1, $2, '<p>본문</p>', '본문') RETURNING id", [await blogOf(uid), title])).id;
+  const insertComment = async (postId, uid, content, parentId = null) =>
+    (await one("INSERT INTO comments (post_id, author_id, parent_id, content) VALUES ($1, $2, $3, $4) RETURNING id", [postId, uid, parentId, content])).id;
+
+  wPostId = await insertPost(wId, `W의 글 ${n}`);
+  aPostId = await insertPost(aId, `A의 글 ${n}`);
+  // A의 글: W 답글 없는 댓글, B 댓글에 W 답글, W 댓글 + B·A 답글 2개
+  wCommentIds.lone = await insertComment(aPostId, wId, W_TEXT.lone);
+  const bComment = await insertComment(aPostId, bId, `B 댓글 ${n}`);
+  wCommentIds.reply = await insertComment(aPostId, wId, W_TEXT.reply, bComment);
+  wCommentIds.parent = await insertComment(aPostId, wId, W_TEXT.parent);
+  await insertComment(aPostId, bId, `B 답글 1 ${n}`, wCommentIds.parent);
+  await insertComment(aPostId, aId, `A 답글 2 ${n}`, wCommentIds.parent);
+  // 다른 회원이 W 글에 단 댓글·공감, W가 한 공감, 이웃 양쪽, 첨부 행, 연동 행, 출석(없으면). 실패 기록은 W가 로그인한 뒤에 넣는다
+  await insertComment(wPostId, bId, `B가 W 글에 단 댓글 ${n}`);
+  await db.query("INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2), ($3, $4)", [wPostId, bId, aPostId, wId]);
+  await db.query("INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2), ($3, $1)", [wId, aId, bId]);
+  await db.query("INSERT INTO attachments (key, user_id, kind, name, mime, size) VALUES ($1, $2, 'file', 'w.txt', 'text/plain', 1)", [
+    randomUUID().replaceAll("-", ""),
+    wId,
+  ]);
+  await db.query("INSERT INTO accounts (id, user_id, provider_id, account_id) VALUES ($1, $2, 'kakao', $3)", [randomUUID(), wId, `kakao-w-${n}`]);
+  await db.query(
+    "INSERT INTO attendances (user_id, date, streak) VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 1) ON CONFLICT DO NOTHING",
+    [wId],
+  );
+  const c = await wCounts(wId, wPostId);
+  const empty = Object.entries(c).filter(([k, v]) => v <= 0 && k !== "세션" && k !== "실패기록").map(([k]) => k);
+  check("12 준비: W의 회원·로그인 수단·프로필·블로그·글·원장·아이템·출석·이웃(양쪽)·공감·첨부·댓글 행 있음", empty.length === 0, empty.join(", ") || JSON.stringify(c));
+  if (repliesTable || authorNullable) results.push("⏸️ 12·18 social 구조(replies 표·author_id NULL)가 생겼다. 준비·기대를 그 구조로 고쳐야 한다 (TODO 004-social T046)");
+}
+
+const wc = await fresh();
+await loginDev(wc.page, W, "남자 주민", WPW);
+// 로그인 성공이 실패 기록을 지우므로 로그인한 뒤에 넣는다 (다른 기기에서 W 아이디로 틀린 시도가 있었던 상태)
+await db.query("INSERT INTO login_attempts (username, failed_count) VALUES ($1, 1) ON CONFLICT (username) DO NOTHING", [W]);
+check("12 준비: W 아이디 실패 기록 1행, 이웃 양쪽 2행", (await wCounts(wId, wPostId)).실패기록 === 1 && (await wCounts(wId, wPostId)).이웃 === 2);
+const sessionCookie = async () => (await wc.ctx.cookies()).filter((c) => c.name.includes("session_token")).length;
+
+// ── 13) 빈 칸·틀린 비밀번호로 탈퇴 → 거부 문구, W에 딸린 행 수 그대로 ──
+{
+  await accountPage(wc.page);
+  await wc.page.getByRole("heading", { name: "회원 탈퇴" }).waitFor();
+  const before = await wCounts(wId, wPostId);
+  const form = wc.page.locator('section[data-section="withdraw"]');
+  await form.getByRole("button", { name: "회원 탈퇴" }).click();
+  await form.getByText("비밀번호를 적어 주세요").waitFor({ timeout: 10000 }).catch(() => {});
+  check("13 빈 칸 → `비밀번호를 적어 주세요`", await form.getByText("비밀번호를 적어 주세요").isVisible());
+  await form.getByLabel("비밀번호").fill("wrong-pass-0000");
+  await form.getByRole("button", { name: "회원 탈퇴" }).click();
+  await form.getByText("비밀번호가 맞지 않아요").waitFor({ timeout: 10000 }).catch(() => {});
+  check("13 틀린 비밀번호 → `비밀번호가 맞지 않아요`", await form.getByText("비밀번호가 맞지 않아요").isVisible());
+  check("13 거부 뒤 비밀번호 칸 비움", (await form.getByLabel("비밀번호").inputValue()) === "");
+  const after = await wCounts(wId, wPostId);
+  check("13 W에 딸린 행 수 그대로", JSON.stringify(before) === JSON.stringify(after), JSON.stringify(after));
+  await wc.page.screenshot({ path: `${outDir}/83-account-withdraw-wrong.png`, fullPage: true });
+}
+
+// ── 14) 맞는 비밀번호로 탈퇴 → 처리 중 비활성 → 로그아웃되어 / ──
+{
+  const form = wc.page.locator('section[data-section="withdraw"]');
+  await form.getByLabel("비밀번호").fill(WPW);
+  const btn = form.getByRole("button", { name: /회원 탈퇴|탈퇴하는 중/ });
+  await btn.click();
+  const pendingDisabled = await form
+    .getByRole("button", { name: "탈퇴하는 중..." })
+    .evaluate((b) => b.disabled, null, { timeout: 2000 })
+    .catch(() => null);
+  await wc.page.waitForURL((u) => new URL(u).pathname === "/", { timeout: 20000 }).catch(() => {});
+  check("14 맞는 비밀번호 → `/`", new URL(wc.page.url()).pathname === "/", wc.page.url());
+  if (pendingDisabled !== null) check("14 처리 중 버튼 비활성", pendingDisabled === true);
+  check("14 세션 쿠키 지워짐", (await sessionCookie()) === 0);
+  await wc.page.getByLabel("아이디").waitFor({ timeout: 10000 }).catch(() => {});
+  check("14 첫 화면 로그인 폼", await wc.page.getByLabel("아이디").isVisible());
+}
+check("탈퇴 화면 콘솔 오류 없음", wc.errors.length === 0, wc.errors.join(" | "));
+await wc.ctx.close();
+
+// ── 15) DB: W에 딸린 행 모두 0 ──
+{
+  const c = await wCounts(wId, wPostId);
+  const left = Object.entries(c).filter(([, v]) => v !== 0).map(([k, v]) => `${k} ${v}`);
+  check("15 W의 회원·로그인 수단·세션·프로필·블로그·글·원장·아이템·출석·이웃·공감·첨부·댓글·실패 기록 0행", left.length === 0, left.join(", "));
+  if (!notificationsTable) results.push("⏸️ 15 알림 0행: notifications 표가 아직 없다 (game 6단계, TODO 005-game)");
+}
+
+// ── 16) W 아이디로 로그인 → `아이디 또는 비밀번호가 맞지 않아요` ──
+{
+  const { ctx: c, page: p } = await fresh();
+  await p.goto(BASE);
+  await p.getByLabel("아이디").fill(W);
+  await p.getByLabel("비밀번호", { exact: true }).fill(WPW);
+  await p.getByRole("button", { name: "로그인", exact: true }).click();
+  await p.getByText("아이디 또는 비밀번호가 맞지 않아요").waitFor({ timeout: 10000 }).catch(() => {});
+  check("16 W 로그인 → `아이디 또는 비밀번호가 맞지 않아요`", await p.getByText("아이디 또는 비밀번호가 맞지 않아요").isVisible());
+
+  // ── 17) /@{W 주소} → 404 ──
+  const res = await p.goto(`${BASE}/@${W}`);
+  check("17 /@{W 주소} → 404 `길을 잃었어요`", res?.status() === 404 && (await p.getByText("길을 잃었어요").isVisible()), String(res?.status()));
+
+  // ── 18) A의 글 화면: W 댓글·답글 사라짐 ──
+  await p.goto(`${BASE}/@${ID}/${aPostId}`);
+  await p.getByRole("region", { name: "댓글" }).waitFor({ timeout: 10000 }).catch(() => {});
+  const comments = await p.getByRole("region", { name: "댓글" }).innerText().catch(() => "");
+  check("18 답글 없던 W 댓글 → 자리 없이 사라짐", !comments.includes(W_TEXT.lone));
+  check("18 B 댓글에 단 W 답글 → 자리 없이 사라짐, B 댓글은 그대로", !comments.includes(W_TEXT.reply) && comments.includes(`B 댓글 ${n}`));
+  check("18 남의 답글이 달린 W 댓글 원문 없음", !comments.includes(W_TEXT.parent));
+  if (repliesTable || authorNullable) {
+    const placeholder = await p.getByText("삭제된 댓글이에요").count();
+    check("18 그 자리에 `삭제된 댓글이에요`, 남의 답글 2개 그대로",
+      placeholder >= 1 && comments.includes(`B 답글 1 ${n}`) && comments.includes(`A 답글 2 ${n}`), comments.slice(0, 300));
+  } else {
+    const kept = Number(comments.includes(`B 답글 1 ${n}`)) + Number(comments.includes(`A 답글 2 ${n}`));
+    results.push(
+      `⏸️ 18 \`삭제된 댓글이에요\` 자리와 남의 답글 2개 유지: 지금 스키마(답글 = comments.parent_id, author_id CASCADE)로는 불가. ` +
+        `social 5단계 뒤 확인 (TODO 004-social T046). 지금 남은 남의 답글 ${kept}개`,
+    );
+  }
+  await p.screenshot({ path: `${outDir}/84-account-withdrawn-comments.png`, fullPage: true });
+
+  // ── 19) 그 글의 HTML·RSC 응답 본문에 W 닉네임·원문 0건 ──
+  const html = await (await p.request.get(`${BASE}/@${ID}/${aPostId}`)).text();
+  const rsc = await (await p.request.get(`${BASE}/@${ID}/${aPostId}`, { headers: { RSC: "1" } })).text();
+  const leaks = [W, ...Object.values(W_TEXT)].filter((t) => html.includes(t) || rsc.includes(t));
+  check("19 HTML·RSC 응답에 W 닉네임·댓글·답글 원문 0건", leaks.length === 0 && html.length > 0 && rsc.length > 0, leaks.join(", "));
+  await c.close();
+}
+
+// ── 20) 같은 아이디로 다시 가입 → 가입됨 ──
+{
+  const { ctx: c, page: p } = await fresh();
+  await loginDev(p, W, "여자 주민", WPW);
+  check("20 같은 아이디로 다시 가입", /\/town/.test(p.url()) && (await one("SELECT count(*)::int AS c FROM users WHERE username = $1", [W])).c === 1, p.url());
+  await c.close();
 }
 
 console.log(results.join("\n"));
