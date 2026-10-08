@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { TownGame } from "@/components/town/town-game";
 import { TownMenu } from "@/components/town/town-menu";
 import type { TownData } from "@/components/town/types";
@@ -10,7 +9,6 @@ export const metadata = { title: "중앙 광장" };
 
 export default async function TownPage(props: PageProps<"/town">) {
   const viewer = await getViewer();
-  if (viewer && !viewer.profile) redirect("/onboarding");
   const member = viewer?.profile ? viewer : null;
   const { welcome } = await props.searchParams;
 
