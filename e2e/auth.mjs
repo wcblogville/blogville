@@ -1,4 +1,4 @@
-// 회원가입·로그인·관리자 권한
+// 회원가입·로그인·관리자 권한 (AUTH-01, AUTH-02, AUTH-08 / quickstart 4.1)
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import { BASE, collectErrors } from "./helpers.mjs";
@@ -18,6 +18,10 @@ async function fresh() {
   return { ctx, page, errors: collectErrors(page) };
 }
 
+// 실행마다 새 아이디 (DB를 비우지 않고 여러 번 돌려도 같은 결과)
+const NEWBIE = `au${Date.now() % 100_000_000}`;
+const NEWBIE_PW = "newbie-pass-1";
+
 async function signUp(page, id, pw, confirm = pw) {
   await page.goto(BASE);
   await page.getByRole("tab", { name: "회원가입" }).click();
@@ -34,45 +38,59 @@ async function signIn(page, id, pw) {
   await page.getByRole("button", { name: "로그인", exact: true }).click();
 }
 
-// 1) 새 회원가입 → 온보딩으로 이동
+// 1) 새 회원가입 → 온보딩 없이 바로 광장, 환영 문구
 {
   const { ctx, page, errors } = await fresh();
   await page.goto(BASE);
   await page.getByRole("tab", { name: "회원가입" }).click();
   await page.screenshot({ path: `${outDir}/40-signup.png` });
-  await signUp(page, "newbie01", "newbie-pass-1");
-  await page.waitForURL(/onboarding/, { timeout: 15000 }).catch(() => {});
-  check("회원가입 후 온보딩으로 이동", page.url().includes("onboarding"));
+  await signUp(page, NEWBIE, NEWBIE_PW);
+  await page.waitForURL(/\/town/, { timeout: 15000 }).catch(() => {});
+  check("회원가입 후 바로 광장(/town)으로 이동", new URL(page.url()).pathname === "/town");
+  check(
+    "광장에 환영 문구",
+    await page
+      .getByText(/님, Blogville에 오신 걸 환영해요!/)
+      .filter({ visible: true }) // 휴대폰용 메뉴의 같은 문구는 숨어 있다
+      .first()
+      .waitFor({ timeout: 10000 })
+      .then(() => true)
+      .catch(() => false),
+  );
+  check("환영 문구에 닉네임(= 아이디)", (await page.getByText(`${NEWBIE}님, Blogville에 오신 걸 환영해요!`).count()) > 0);
+  await page.screenshot({ path: `${outDir}/40-signup-town.png` });
   check("콘솔 오류 없음", errors.length === 0);
+  if (errors.length) console.log(errors.join("\n"));
   await ctx.close();
 }
 
-// 2) 같은 아이디로 다시 가입 → 오류
+// 2) 같은 아이디로 다시 가입 → 오류, 비밀번호 확인 불일치 → 오류
 {
   const { ctx, page } = await fresh();
-  await signUp(page, "newbie01", "another-pass-1");
-  check("중복 아이디 거부", await page.getByText("이미 있는 아이디예요").isVisible({ timeout: 10000 }).catch(() => false) || (await page.getByText("이미 있는 아이디예요").waitFor({ timeout: 10000 }).then(() => true).catch(() => false)));
-  // 비밀번호 확인 불일치
-  await signUp(page, "newbie02", "pass-word-1", "pass-word-2");
+  await signUp(page, NEWBIE, "another-pass-1");
+  check("중복 아이디 거부", await page.getByText("이미 있는 아이디예요").waitFor({ timeout: 10000 }).then(() => true).catch(() => false));
+  await signUp(page, `${NEWBIE}x`, "pass-word-1", "pass-word-2");
   check("비밀번호 확인 불일치 거부", await page.getByText("비밀번호가 서로 달라요").waitFor({ timeout: 10000 }).then(() => true).catch(() => false));
   await ctx.close();
 }
 
-// 3) 틀린 비밀번호 → 오류, 맞으면 로그인
+// 3) 틀린 비밀번호 → 오류, 맞으면 로그인 → 광장, 헤더에 레벨·코인·캐릭터
 {
   const { ctx, page } = await fresh();
-  await signIn(page, "newbie01", "wrong-password");
+  await signIn(page, NEWBIE, "wrong-password");
   check("틀린 비밀번호 거부", await page.getByText("아이디 또는 비밀번호가 맞지 않아요").waitFor({ timeout: 10000 }).then(() => true).catch(() => false));
-  await signIn(page, "newbie01", "newbie-pass-1");
-  await page.waitForURL(/onboarding|town/, { timeout: 15000 }).catch(() => {});
-  check("맞는 비밀번호로 로그인", /onboarding|town/.test(page.url()));
-  // 온보딩 전 회원: 관리자 화면 대신 온보딩으로
-  await page.goto(`${BASE}/admin`);
-  check("온보딩 전 회원 /admin 차단", (await page.getByText("최근 가입").count()) === 0);
+  await signIn(page, NEWBIE, NEWBIE_PW);
+  await page.waitForURL(/\/town/, { timeout: 15000 }).catch(() => {});
+  check("맞는 비밀번호로 로그인 → 광장", new URL(page.url()).pathname === "/town");
+  const banner = page.getByRole("banner");
+  check(
+    "헤더에 레벨·코인 100",
+    (await banner.getByTitle("레벨").isVisible()) && (await banner.getByTitle("코인").innerText()).includes("100"),
+  );
   await ctx.close();
 }
 
-// 3-2) 온보딩까지 마친 일반 회원도 /admin은 404
+// 3-2) 일반 회원도 /admin은 404
 {
   const { ctx, page } = await fresh();
   const { loginDev } = await import("./helpers.mjs");
