@@ -92,6 +92,13 @@
       "when": 1791421213662,
       "tag": "0012_auth_account_per_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791423191944,
+      "tag": "0013_blog_roof_description",
+      "breakpoints": true
     }
   ]
 }

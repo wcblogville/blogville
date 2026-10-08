@@ -217,12 +217,21 @@ export const blogs = pgTable(
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     backgroundItemId: integer("background_item_id").notNull(),
+    // 집 지붕 색 (TOWN-07 요청, BLOG data-model 2.1). NULL = 배경 색 따라가기. 값 목록은 src/lib/blog.ts ROOF_COLORS
+    roofColor: text("roof_color"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     check("blogs_slug_check", sql`${t.slug} ~ '^[a-z0-9_]{3,20}$'`),
     check("blogs_title_check", sql`char_length(${t.title}) BETWEEN 1 AND 40`),
+    // 소개 0~160자 (BLOG-03 / FR-016, research R-23)
+    check("blogs_description_check", sql`char_length(${t.description}) <= 160`),
+    // 지붕 색은 8색 코드값만 (ROOF_COLORS와 같게, research R-22)
+    check(
+      "blogs_roof_color_check",
+      sql`${t.roofColor} IS NULL OR ${t.roofColor} IN ('red', 'orange', 'yellow', 'green', 'sky', 'blue', 'purple', 'brown')`,
+    ),
     foreignKey({
       name: "blogs_background_owned_fk",
       columns: [t.ownerId, t.backgroundItemId],

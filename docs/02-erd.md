@@ -116,6 +116,7 @@ erDiagram
         varchar description
         int background_item_id FK
         int showcase_animal_id FK "전시 동물, NULL 허용"
+        varchar roof_color "집 지붕 색 8색, NULL = 배경 색"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -658,7 +659,8 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
-| `blogs.description` | `VARCHAR(160)` | |
+| `blogs.description` | `VARCHAR(160)` | 0~160자 (CHECK `blogs_description_check`) |
+| `blogs.roof_color` | `VARCHAR(10)` | `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` 중 하나 (CHECK `blogs_roof_color_check`, TOWN-07) |
 | `categories.name`, `subcategories.name`, `tags.name` | `VARCHAR(20)` | 1~20자 |
 | `posts.title` | `VARCHAR(100)` | 1~100자 |
 | `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자 |
@@ -673,4 +675,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
