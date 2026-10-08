@@ -84,12 +84,60 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
   check("1 아이디 칸 아래 안내", await page.getByText("영문 소문자, 숫자, _ 로 4~20자", { exact: true }).isVisible());
   check("1 비밀번호 칸 안내", (await page.getByLabel("비밀번호", { exact: true }).getAttribute("placeholder")) === "비밀번호 (8자 이상)");
   check("1 처음엔 남자 주민이 골라져 있음", await page.getByRole("radio", { name: "남자 주민" }).isChecked());
+  // 소셜 키가 없는 환경 기준 (.env.local의 소셜 키를 비워 둔다, quickstart 0장)
   const social = page.getByRole("button", { name: /^(카카오|네이버|Google)$/ });
-  const titles = await social.evaluateAll((bs) => bs.map((b) => [b.disabled, b.title]));
-  check("1 소셜 버튼 3칸 비활성 + 안내", titles.length === 3 && titles.every(([d, t]) => d && t === "아직 연결 준비 중이에요"), JSON.stringify(titles));
+  const states = await social.evaluateAll((bs) =>
+    bs.map((b) => {
+      const st = getComputedStyle(b);
+      return { label: b.textContent, disabled: b.disabled, title: b.title, opacity: Number(st.opacity), pointer: st.pointerEvents };
+    }),
+  );
+  check(
+    "1 소셜 버튼 [카카오][네이버][Google] 3칸 비활성 + 안내",
+    states.map((s) => s.label).join() === "카카오,네이버,Google" && states.every((s) => s.disabled && s.title === "아직 연결 준비 중이에요"),
+    JSON.stringify(states),
+  );
+  check("1 비활성 버튼은 흐림", states.every((s) => s.opacity < 1), states.map((s) => s.opacity).join());
+  // 마우스를 올리면 안내(title 말풍선)가 보이려면 버튼이 포인터를 받아야 한다
+  check("1 비활성 버튼도 마우스를 받음 (안내가 뜸)", states.every((s) => s.pointer !== "none"), states.map((s) => s.pointer).join());
+  const hovered = await social.first().hover().then(() => social.first().evaluate((b) => b.matches(":hover")), () => false);
+  check("1 비활성 [카카오]에 마우스를 올릴 수 있음", hovered);
   check("1 간편 로그인 준비 중 문구", await page.getByText("간편 로그인은 준비 중이에요").isVisible());
   check("1 회원가입 후 연동 안내", await page.getByText("처음이라면 회원가입 후 내 정보에서 연동해 주세요").isVisible());
+  check("1 처음엔 연동 없음 문구 없음", (await page.getByText("연동된 계정이 없어요").count()) === 0);
   await page.screenshot({ path: `${outDir}/51-signup-tab.png` });
+
+  // 키가 없는 서비스로 소셜 로그인 시작을 조작해 보냄 (비활성을 풀고 누름) → 이동하지 않고 안내, bv_remember 쿠키 없음
+  await page.getByRole("tab", { name: "로그인" }).click();
+  const kakao = page.getByRole("button", { name: "카카오", exact: true });
+  await kakao.evaluate((b) => b.removeAttribute("disabled"));
+  await kakao.click({ force: true });
+  const startError = await page
+    .getByRole("alert")
+    .filter({ hasText: "아직 연결 준비 중이에요" })
+    .waitFor({ timeout: 10000 })
+    .then(() => true, () => false);
+  check("1 키 없는 서비스 소셜 로그인 시작 → 이동 없음 + `아직 연결 준비 중이에요`", startError && new URL(page.url()).pathname === "/", page.url());
+  check("1 키 없는 서비스 → bv_remember 쿠키 없음", !(await ctx.cookies()).some((c) => c.name === "bv_remember"));
+  await ctx.close();
+}
+
+// ── 1-2) 소셜 로그인에서 돌아온 오류 (FR-033, spec Edge Case) ──
+{
+  const { ctx, page } = await fresh();
+  const NOT_LINKED = "연동된 계정이 없어요. 아이디로 로그인한 뒤 내 정보에서 연동해 주세요";
+  const before = await userCount();
+  for (const code of ["signup_disabled", "account_not_linked", "email_not_found"]) {
+    await page.goto(`${BASE}/?error=${code}`);
+    check(`1 /?error=${code} → 연동 없음 문구`, await page.getByText(NOT_LINKED).isVisible());
+  }
+  await page.goto(`${BASE}/?error=signup_disabled`);
+  await page.screenshot({ path: `${outDir}/53-social-not-linked.png` });
+  for (const code of ["access_denied", "invalid_code", "x"]) {
+    await page.goto(`${BASE}/?error=${code}`);
+    check(`1 /?error=${code} (취소 등) → 문구 없음`, (await page.getByText("연동된 계정이 없어요").count()) === 0);
+  }
+  check("1 소셜 오류 화면을 열어도 회원 수 그대로", (await userCount()) === before);
   await ctx.close();
 }
 
@@ -375,6 +423,7 @@ let mainSession;
     "/api/auth/sign-up/email": { email: `${id}@example.com`, password: PW, name: id, username: id },
     "/api/auth/sign-in/username": { username: id, password: PW },
     "/api/auth/update-user": { name: "hacked" },
+    "/api/auth/sign-in/social": { provider: "kakao", callbackURL: "/town" },
     "/api/auth/link-social": { provider: "google" },
     "/api/auth/unlink-account": { providerId: "credential" },
   };
