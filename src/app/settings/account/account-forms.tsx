@@ -1,10 +1,10 @@
 "use client";
 
-// 내 정보의 소셜 연동·해제 버튼 (AUTH-05 / FR-036~FR-041, FR-054)
-import { useTransition } from "react";
+// 내 정보의 소셜 연동·해제 버튼 (AUTH-05 / FR-036~FR-041, FR-054)과 탈퇴 폼 (AUTH-06 / FR-050)
+import { useActionState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import type { SocialProvider } from "@/lib/social";
-import { startLinkSocial, unlinkSocial } from "./actions";
+import { deleteAccount, startLinkSocial, unlinkSocial, type DeleteAccountState } from "./actions";
 
 // 누르는 영역 44×44px 이상, 글자 한 줄, 키보드 초점 표시 (FR-054)
 const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky focus-visible:ring-offset-2";
@@ -45,5 +45,43 @@ export function UnlinkSocialButton({ provider, label }: { provider: SocialProvid
     >
       {pending ? "해제하는 중..." : "연동 해제"}
     </button>
+  );
+}
+
+/**
+ * 회원 탈퇴 폼: 비밀번호를 다시 적고 [회원 탈퇴] (버튼 문구는 spec에 없음 — 제안).
+ * 처리 중에는 누를 수 없다. 오류가 나면 비밀번호 칸은 비운다 (폼 action이 끝나면 React가 폼을 초기화한다).
+ */
+export function DeleteAccountForm() {
+  const [state, action, pending] = useActionState<DeleteAccountState, FormData>(deleteAccount, {});
+  return (
+    <form action={action} className="mt-4 flex flex-col gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="text-sm font-bold">비밀번호</span>
+        <input
+          type="password"
+          name="password"
+          autoComplete="current-password"
+          maxLength={64}
+          aria-invalid={state.error ? true : undefined}
+          aria-describedby={state.error ? "delete-account-error" : undefined}
+          className="min-h-11 w-full rounded-xl border-2 border-line bg-white px-3 py-2 outline-none focus:border-sun"
+        />
+      </label>
+      {state.error && (
+        <p id="delete-account-error" role="alert" className="text-sm font-bold text-berry">
+          {state.error}
+        </p>
+      )}
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={pending}
+          className={`btn min-h-11 min-w-11 whitespace-nowrap bg-berry px-4 py-2 text-sm text-white disabled:opacity-50 ${focusRing}`}
+        >
+          {pending ? "탈퇴하는 중..." : "회원 탈퇴"}
+        </button>
+      </div>
+    </form>
   );
 }

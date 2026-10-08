@@ -1,6 +1,6 @@
 "use server";
 
-// 내 정보: 소셜 연동·해제 (AUTH-05 / FR-037~FR-042, contracts/account.md 2·3장, research R10)
+// 내 정보: 소셜 연동·해제 (AUTH-05 / FR-037~FR-042, contracts/account.md 2·3장, research R10), 회원 탈퇴 (AUTH-06 / FR-050~FR-052, 4장, R11)
 // 대상은 늘 로그인한 나(requireMember)다. 다른 회원 ID를 입력으로 받지 않는다 (FR-042).
 // 다른 사이트에서 보낸 요청은 Next.js Server Action의 Origin 확인이 막는다 (FR-024).
 import { and, eq } from "drizzle-orm";
@@ -11,7 +11,7 @@ import { db } from "@/db";
 import { accounts } from "@/db/schema";
 import { auth, enabledProviders } from "@/lib/auth";
 import { isSocialProvider } from "@/lib/social";
-import { hasSocialLogin } from "@/server/account";
+import { deleteMember, hasSocialLogin, verifyMemberPassword } from "@/server/account";
 import { requireMember } from "@/server/dal";
 
 /**
@@ -48,4 +48,31 @@ export async function unlinkSocial(provider: string): Promise<void> {
   if (!isSocialProvider(provider)) return;
   await db.delete(accounts).where(and(eq(accounts.userId, viewer.userId), eq(accounts.providerId, provider)));
   revalidatePath("/settings/account");
+}
+
+export type DeleteAccountState = { error?: string };
+
+// 탈퇴 문구는 spec에 없다 — 제안 (contracts/account.md 4장, plan 남은 문제 1)
+const DELETE_ERRORS = {
+  empty: "비밀번호를 적어 주세요",
+  wrong: "비밀번호가 맞지 않아요",
+} as const;
+
+/**
+ * 회원 탈퇴 (FR-050, FR-051, contracts/account.md 4장, research R11).
+ * 대상은 늘 로그인한 나다. 비밀번호를 다시 확인하고, 비거나 틀리면 아무것도 지우지 않는다.
+ * 맞으면 한 트랜잭션으로 지운 뒤(deleteMember) 쿠키를 지우고 첫 화면으로 간다.
+ * 세션 행은 트랜잭션에서 이미 지워졌다. 라이브러리 signOut은 세션 행이 없어도 쿠키를 지운다 (better-auth 1.7.7 sign-out.mjs 확인).
+ */
+export async function deleteAccount(_prev: DeleteAccountState, formData: FormData): Promise<DeleteAccountState> {
+  const viewer = await requireMember();
+  const password = String(formData.get("password") ?? "");
+  if (!password) return { error: DELETE_ERRORS.empty };
+  if (!(await verifyMemberPassword(viewer.userId, password))) return { error: DELETE_ERRORS.wrong };
+
+  await deleteMember(viewer.userId);
+
+  await auth.api.signOut({ headers: await headers() });
+  revalidatePath("/", "layout");
+  redirect("/");
 }
