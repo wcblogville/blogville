@@ -70,7 +70,8 @@ const uid1 = await userId(ids.R1);
 {
   const owned = (await db.query("SELECT i.code FROM user_items ui JOIN items i ON i.id = ui.item_id WHERE ui.user_id = $1 ORDER BY i.code", [uid1])).rows.map((r) => r.code);
   const equip = await one("SELECT ci.code AS c, bi.code AS b FROM profiles p JOIN items ci ON ci.id = p.character_item_id JOIN blogs b2 ON b2.owner_id = p.user_id JOIN items bi ON bi.id = b2.background_item_id WHERE p.user_id = $1", [uid1]);
-  check("US1-2 보유 = 여자 주민 + 초원", JSON.stringify(owned) === JSON.stringify(["bg_meadow", "char_girl"]), owned.join(","));
+  // 마을 개편 2차부터 기본 가구(화분·나무 의자)도 함께 받는다 (e2e/house.mjs)
+  check("US1-2 보유 = 여자 주민 + 초원 + 기본 가구 2개", JSON.stringify(owned) === JSON.stringify(["bg_meadow", "char_girl", "fur_chair", "fur_plant"]), owned.join(","));
   check("US1-2 둘 다 장착", equip.c === "char_girl" && equip.b === "bg_meadow");
   const signup = (await db.query("SELECT coin_delta FROM point_ledger WHERE user_id = $1 AND reason = 'signup'", [uid1])).rows;
   check("US1-2 원장 signup 🪙 100 한 줄", JSON.stringify(signup) === JSON.stringify([{ coin_delta: 100 }]));
