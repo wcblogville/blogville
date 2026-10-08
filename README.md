@@ -80,6 +80,8 @@ npm run dev                     # http://localhost:3000
 | `npm run db:migrate` | 마이그레이션 적용 |
 | `npm run db:seed` | 아이템 카탈로그 넣기 (여러 번 실행해도 안전) |
 | `npm run db:reset` | (로컬 전용) 회원·글 데이터 비우기 (관리자도 지워지므로 `admin:create` 다시 실행) |
+| `npm run posts:cleanup` | 하루 넘게 어느 글에도 붙지 않은 첨부·주인 없는 파일·지난 조회 기록 지우기 (세기만: `npm run posts:cleanup -- --dry-run`. 배포 환경에서 하루 1번) |
+| `npm run test:post` | 글 입력 규칙·태그·첨부 공개 범위·붙여 넣기 판정 테스트 (`npm test`에 포함) |
 | `npm run admin:create` | 관리자 계정 생성·비밀번호 갱신 (여러 번 실행해도 안전). `ADMIN_PASSWORD`는 12~64자 |
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
@@ -90,10 +92,16 @@ npm run dev                     # http://localhost:3000
 | `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E |
 | `node e2e/blog-home.mjs <폴더>` | 가입하면 생기는 블로그 기본값, 보는 사람별 블로그 홈(주인·회원·방문자), 404·탭 제목, 375px·44px (실행마다 새 회원) |
 | `node e2e/blog-address.mjs <폴더>` | 블로그 이름·소개·주소 바꾸기, 닉네임 바꾸기, 겹치는 이름·조작 요청 거부 (실행마다 새 회원) |
-| `node e2e/categories.mjs <폴더>` | 카테고리 2단계: 대분류·소분류 추가·이름·순서·삭제, 블로그 홈 트리, 동시 요청, 조작 요청 (실행마다 새 회원, 소분류 글 줄은 post 단계 3 뒤) |
+| `node e2e/categories.mjs <폴더>` | 카테고리 2단계: 대분류·소분류 추가·이름·순서·삭제, 블로그 홈 트리, 동시 요청, 조작 요청 (실행마다 새 회원, 소분류 글 수·거르기·삭제 뒤 글 포함) |
 | `node e2e/blog-search.mjs <폴더>` | 내 블로그 홈 검색: 마을 공개 글·블로그 찾기, `%`·`_`, 주인에게만 검색창 (실행마다 새 회원) |
 | `node e2e/blog-showcase.mjs <폴더>` | 미니룸·주인 프로필 사진·동물 도감·전시 동물, 조작한 전시 요청 거부 (실행마다 새 회원) |
 | `node e2e/blog-scale.mjs <폴더> [주소]` | 공개 글 1,000개 블로그의 블로그 홈·대분류·소분류·검색 load 중앙값 (프로덕션 빌드 대상, 전용 회원 `scale01`) |
+| `node e2e/post-write.mjs <폴더>` | 글쓰기·발행 안내·수정·삭제·공개 범위 E2E (실행마다 새 회원) |
+| `node e2e/post-lists.mjs <폴더>` | 글 목록 8개씩·페이지 번호·태그별 목록·인기 태그, 375px 44px E2E (실행마다 새 회원) |
+| `node e2e/post-categories.mjs <폴더>` | 글쓰기 대분류·소분류, 배지, 조작 요청, 카테고리 삭제 뒤 글 E2E (실행마다 새 회원) |
+| `node e2e/post-views.mjs <폴더>` | 글 조회수: 같은 브라우저 하루 1번, 주인·비공개 제외 E2E (실행마다 새 회원) |
+| `node e2e/attachment-links.mjs <폴더>` | 첨부를 글에 잇기, 비공개 글 첨부 권한, 붙여 넣기 다시 올리기, 정리 작업 E2E (실행마다 새 회원) |
+| `node e2e/post-drafts.mjs <폴더>` | 새 글 임시 저장·불러오기·지우기 E2E (실행마다 새 회원) |
 | `node e2e/write-count.mjs <폴더>` | 글쓰기 화면 글자 수·보상 안내가 서버의 실제 보상 판단과 같은지 E2E (실행마다 새 회원) |
 | `node e2e/attachments.mjs <폴더>` | 글 첨부 E2E: 사진·파일을 버튼·붙여 넣기·끌어다 놓기로 올리고 원래 이름으로 내려받기, 조작한 올리기 요청 거부 (실행마다 새 회원) |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |

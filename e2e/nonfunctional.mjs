@@ -52,7 +52,9 @@ for (const path of pages) {
 
 console.log("== NF-07 서버 응답 시간 (HTML 첫 바이트, 5회 중앙값)");
 const cookies = (await ctx.cookies()).map((c) => `${c.name}=${c.value}`).join("; ");
-for (const path of ["/feed", `/@${slug}`, searchPath, "/town"]) {
+// 태그별 글 목록 (post SC-002): 마을 소식과 같은 목록 규칙
+const tagPath = `/tags/${encodeURIComponent("git")}`;
+for (const path of ["/feed", `/@${slug}`, searchPath, "/town", tagPath]) {
   const times = [];
   for (let i = 0; i < 5; i++) {
     const t0 = performance.now();

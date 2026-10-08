@@ -211,8 +211,24 @@ const travelId = (await one("SELECT id FROM categories WHERE blog_id = $1 AND na
   const subLink = page.getByRole("navigation", { name: "카테고리" }).getByRole("link", { name: "└ 카페" });
   const subSize = await subLink.boundingBox();
   check("FR-059 소분류 링크 44px 이상·`?sub=` 주소", subSize.height >= 44 && /\?sub=\d+$/.test(await subLink.getAttribute("href")));
-  if (hasSubcolumn) skip("US5-7 `└ 맛집 (3)`·\"맛집\" 3개", "post 단계 3 뒤 이 스크립트에 줄을 더한다");
-  else skip("US5-7 `└ 맛집 (3)`·\"맛집\" 3개", POST3);
+  if (hasSubcolumn) {
+    // 여행 › 맛집 글 3개 (대분류 여행 글 수에도 포함되어 8개가 된다)
+    const food = await one("SELECT id FROM subcategories WHERE category_id = $1 AND name = '맛집'", [travelId]);
+    for (let i = 1; i <= 3; i++)
+      await db.query(
+        "INSERT INTO posts (blog_id, category_id, subcategory_id, title, content_html, content_text, updated_at) VALUES ($1, $2, $3, $4, '<p>x</p>', 'x', '2026-01-01T00:00:00Z')",
+        [owner.blog_id, travelId, food.id, `맛집 글 ${i}`],
+      );
+    await page.goto(`${BASE}/@${OWNER}`);
+    const foodLink = page.getByRole("navigation", { name: "카테고리" }).locator(`a[href$="?sub=${food.id}"]`);
+    const foodText = (await foodLink.innerText()).replace(/\s+/g, " ").trim();
+    check("US5-7 `└ 맛집 (3)`", foodText === "└ 맛집 (3)", foodText);
+    await foodLink.click();
+    await page.waitForURL(/sub=/);
+    const foodHeading = (await page.locator("main h2").filter({ hasText: "개" }).first().innerText()).replace(/\s+/g, " ");
+    check("US5-7 \"맛집\" 누르면 3개", (await page.locator("main article").count()) === 3, foodHeading);
+    await page.goto(`${BASE}/@${OWNER}`);
+  } else skip("US5-7 `└ 맛집 (3)`·\"맛집\" 3개", POST3);
   await subLink.click();
   await page.waitForURL(/sub=/);
   const subSel = await subLink.evaluate((a) => getComputedStyle(a).backgroundColor);
@@ -224,6 +240,13 @@ const travelId = (await one("SELECT id FROM categories WHERE blog_id = $1 AND na
   await page.goto(`${BASE}/settings/blog`);
   let dialogText = "";
   page.once("dialog", (d) => (dialogText = d.message()));
+  const cafe = hasSubcolumn ? await one("SELECT id FROM subcategories WHERE category_id = $1 AND name = '카페'", [travelId]) : null;
+  const cafePost = cafe
+    ? await one(
+        "INSERT INTO posts (blog_id, category_id, subcategory_id, title, content_html, content_text, updated_at) VALUES ($1, $2, $3, '카페 글', '<p>x</p>', 'x', '2026-01-01T00:00:00Z') RETURNING id",
+        [owner.blog_id, travelId, cafe.id],
+      )
+    : null;
   const row = page.locator("main li", { has: page.getByRole("button", { name: "카페 위로", exact: true }) }).last();
   await row.getByRole("button", { name: "삭제" }).click();
   await settled();
@@ -231,8 +254,12 @@ const travelId = (await one("SELECT id FROM categories WHERE blog_id = $1 AND na
   const subs = await subNames("여행");
   check("US5-8 소분류만 지워지고 남은 소분류 0부터", subs.map((s) => s.name).join() === "맛집" && contiguous(subs), JSON.stringify(subs));
   const posts = (await one("SELECT count(*)::int AS c FROM posts WHERE category_id = $1", [travelId])).c;
-  check("US5-8 글은 대분류 \"여행\"에 그대로", posts === 5, `${posts}개`);
-  if (!hasSubcolumn) skip("US5-8 소분류 글 subcategory_id NULL·category_id 유지", POST3);
+  // 소분류 단계 뒤에는 맛집 글 3개 + 카페 글 1개가 더 있다
+  check("US5-8 글은 대분류 \"여행\"에 그대로", posts === (hasSubcolumn ? 9 : 5), `${posts}개`);
+  if (cafePost) {
+    const p = await one("SELECT category_id, subcategory_id FROM posts WHERE id = $1", [cafePost.id]);
+    check("US5-8 소분류 글 subcategory_id NULL·category_id 유지", p.category_id === travelId && p.subcategory_id === null, JSON.stringify(p));
+  } else skip("US5-8 소분류 글 subcategory_id NULL·category_id 유지", POST3);
 }
 
 // US5-9 대분류 삭제: 취소 → 그대로, 수락 → 대분류·소분류 삭제, 글 남고 카테고리 없음, updated_at 그대로
@@ -252,6 +279,13 @@ const travelId = (await one("SELECT id FROM categories WHERE blog_id = $1 AND na
   const posts = (await db.query("SELECT category_id, updated_at FROM posts WHERE blog_id = $1 AND title LIKE '여행 글%'", [owner.blog_id])).rows;
   check("US5-9 수락 → 대분류·그 소분류 삭제, 남은 대분류 0부터", !cats.some((c) => c.name === "여행") && subsLeft === 0 && contiguous(cats), JSON.stringify(cats));
   check("US5-9 글 5개는 남고 카테고리 없음", posts.length === 5 && posts.every((p) => p.category_id === null));
+  if (hasSubcolumn) {
+    const food = (await db.query("SELECT category_id, subcategory_id, updated_at FROM posts WHERE blog_id = $1 AND title LIKE '맛집 글%'", [owner.blog_id])).rows;
+    check(
+      "US5-9 소분류 글도 대분류·소분류 모두 비고 updated_at 그대로",
+      food.length === 3 && food.every((p) => p.category_id === null && p.subcategory_id === null && new Date(p.updated_at).toISOString() === "2026-01-01T00:00:00.000Z"),
+    );
+  }
   check("US5-9 글 updated_at 그대로", posts.every((p) => new Date(p.updated_at).toISOString() === "2026-01-01T00:00:00.000Z"));
   page.on("dialog", (d) => d.accept());
 }
@@ -350,11 +384,20 @@ const travelId = (await one("SELECT id FROM categories WHERE blog_id = $1 AND na
 
 // FR-005 소분류가 있는 회원 삭제 → 오류 없이 CASCADE (소분류 글은 post 단계 3 뒤)
 {
+  if (hasSubcolumn) {
+    // 소분류 글이 있어도 CASCADE 중 CHECK(소분류만 있는 글 없음)에 걸리지 않는다 (트리거 posts_clear_subcategory)
+    const s = await one("SELECT s.id, s.category_id FROM subcategories s JOIN categories c ON c.id = s.category_id WHERE c.blog_id = $1 LIMIT 1", [other.blog_id]);
+    await db.query(
+      "INSERT INTO posts (blog_id, category_id, subcategory_id, title, content_html, content_text) VALUES ($1, $2, $3, '소분류 글', '<p>x</p>', 'x')",
+      [other.blog_id, s.category_id, s.id],
+    );
+  }
   const del = await db.query("DELETE FROM users WHERE id = $1", [other.id]).then(() => "ok", (e) => e.message);
   const left = (await one("SELECT count(*)::int AS c FROM categories WHERE blog_id = $1", [other.blog_id])).c;
   check("FR-005 소분류가 있는 회원 삭제 → 오류 없이 대분류·소분류 함께 삭제", del === "ok" && left === 0, del);
   if (!hasSubcolumn) skip("FR-005 소분류 글이 있는 회원 삭제 (posts_clear_subcategory 트리거)", POST3);
-  skip("US5-11 글쓰기 대분류·소분류 두 칸", "post 단계 3 (003-post e2e/post-categories.mjs)");
+  else check("FR-005 소분류 글이 있는 회원 삭제 → 오류 없음", del === "ok", del);
+  skip("US5-11 글쓰기 대분류·소분류 두 칸", "e2e/post-categories.mjs에서 확인");
 }
 
 // 375px 관리 화면·블로그 홈 가로 스크롤 0

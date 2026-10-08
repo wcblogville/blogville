@@ -17,7 +17,9 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 - **인증**: 페이지와 Server Action마다 `requireMember()`(비로그인 → `/`) / `requireAdmin()`(비로그인·일반 회원 모두 404) (`src/server/dal.ts`). `requireUser()`는 없다 (온보딩이 없어져 로그인한 회원은 늘 프로필·블로그가 있다). 레이아웃에서 권한 검사를 하지 않는다.
 - **보상·코인**: 잔액 컬럼을 만들지 않는다. `point_ledger`에 기록하고 `getWallet()`으로 계산한다. 지급·차감은 `lockUser(tx, userId)`를 건 트랜잭션 안에서 `grantReward()` 사용. 규칙 숫자는 `src/lib/game.ts`.
 - **헤더 갱신**: 코인·캐릭터가 바뀌는 Server Action은 `revalidatePath("/", "layout")`을 호출한다 (루트 레이아웃은 이동만으로 다시 그려지지 않는다).
-- **글 HTML**: 저장 전에 `sanitizePostHtml()`로 정화한다. 허용 태그를 늘리면 에디터와 `src/server/sanitize.ts`를 같이 고친다.
+- **글 HTML**: 저장 전에 `sanitizePostHtml()`로 정화한다. 허용 태그를 늘리면 에디터와 `src/server/sanitize.ts`를 같이 고친다. 글 입력 검사 순서·문구는 `src/lib/post-rules.ts`(`postInputSchema`, 브라우저·서버 공용).
+- **첨부**: 글을 저장할 때 본문의 내 첨부가 그 글에 붙는다(`attachments.post_id`, `src/server/posts.ts` `lockLinkableAttachments`). 비공개 글 첨부는 주인만, 안 붙은 첨부는 올린 사람만 연다(`attachmentAccess`). 하루 넘게 안 붙은 첨부는 `npm run posts:cleanup`이 지운다.
+- **조회수**: 같은 브라우저(쿠키 `bv_visitor`, `src/server/visitor.ts`)는 글마다 하루 1번(`post_views`). 서버 렌더는 조회수를 바꾸지 않고 `ViewCount`가 `recordPostView`를 한 번 부른다.
 - **그림**: DB에는 `asset_key`만. 실제 모양은 `src/lib/art/`에서 코드로 그린 SVG (`characters.ts` 캐릭터, `backgrounds.ts` 배경, `town.ts` 광장 건물). 외부 그림 파일을 쓰지 않는다. 아이소메트릭(TOWN-05) 전까지 2D.
 - **광장이 메인**: 헤더에 다른 화면으로 가는 메뉴를 두지 않는다. 광장 밖 화면은 헤더의 `← 광장으로 나가기`(`src/components/exit-button.tsx`)로 돌아온다. 새 장소는 광장 건물 입구(`scene.ts`의 `entrances`)로 연결한다.
 - **기본 캐릭터**: 가입할 때 남자/여자 주민(`is_starter`) 중 하나만 받는다. 아이템을 바꾸면 `npm run db:seed`.
@@ -25,4 +27,4 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 - **라이브러리 HTTP 경로**: `src/app/api/auth/[...all]/route.ts`는 **허용 목록**만 Better Auth로 넘기고 나머지는 404다 (`get-session`, 소셜 `callback/*`, `error`). 가입·로그인·로그아웃·연동·해제·탈퇴는 Server Action이 서버에서 `auth.api.*`를 부른다. 새 경로가 필요하면 허용 목록에 이유와 함께 한 줄 더한다.
 - **이름 규칙**: 아이디·블로그 주소·닉네임의 형식·예약어는 `src/lib/names.ts`(순수 함수, `RESERVED_NAMES`·`normalizeName`·`USERNAME_RE`), 서로 겹치는지는 `src/server/names.ts`(`lockName` → `findNameConflict`, 트랜잭션 안에서). 이름을 바꾸는 코드는 이 순서를 따른다.
 - **탈퇴**: `src/server/account.ts` `deleteMember` 한 트랜잭션 (`users` 삭제 + CASCADE). 회원을 가리키는 새 표는 FK를 `ON DELETE CASCADE` 또는 `SET NULL`로 둔다 (아니면 탈퇴가 막힌다). FK 없는 표(`login_attempts`)는 `deleteMember`와 `scripts/reset-dev.ts`에서 직접 지운다.
-- **검증**: `npx tsc --noEmit`, `npx eslint`, `npm test`, 개발 서버를 띄운 상태에서 `npm run db:seed && npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>` (회원/인증은 `signup`·`session`·`login-limit`·`account`도), `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. `e2e/flow.mjs`는 예전 온보딩 흐름이라 낡았다. 화면 변경은 스크린샷으로 확인한다.
+- **검증**: `npx tsc --noEmit`, `npx eslint`, `npm test`, 개발 서버를 띄운 상태에서 `npm run db:seed && npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>` (회원/인증은 `signup`·`session`·`login-limit`·`account`도), `node e2e/blog.mjs <폴더>` (글은 `post-write`·`post-lists`·`post-categories`·`post-views`·`attachment-links`·`post-drafts`도), `node e2e/game.mjs <폴더>`. `e2e/flow.mjs`는 예전 온보딩 흐름이라 낡았다. 화면 변경은 스크린샷으로 확인한다.

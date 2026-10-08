@@ -62,5 +62,15 @@ if (failed) process.exit(1);
   expect("보통 링크는 새 탭", out, out.includes('target="_blank"') && out.includes('rel="noopener noreferrer nofollow"'));
   out = sanitizePostHtml(`<img src="/files/${"b".repeat(32)}">`);
   expect("known 없으면 형식만 확인", out, out === `<img src="/files/${"b".repeat(32)}" />`);
+
+  // 저장 때 붙일 수 있는 첨부만 known으로 좁혀 넘긴 경우 (POST-09 / FR-055, research R17):
+  // 남의 것·다른 글 것이라 known에서 빠진 키의 카드는 빠지고, 남은 카드 이름·크기는 처음 올린 값으로 다시 쓴다
+  const narrowed = new Map([[OTHER, { kind: "file" as const, name: "보고서 최종.pdf", size: 1258291 }]]);
+  out = sanitizePostHtml(`<a href="/files/${KEY}" data-file="" data-name="남의.pdf" data-size="9"></a><a href="/files/${OTHER}" data-file="" data-name="바꾼.pdf" data-size="1"></a>`, narrowed);
+  expect(
+    "좁힌 known: 빠진 키 카드 뺌, 남은 카드 다시 씀",
+    out,
+    !out.includes(KEY) && out.includes('data-name="보고서 최종.pdf"') && out.includes('data-size="1258291"') && !out.includes("바꾼"),
+  );
   if (bad) process.exit(1);
 }
