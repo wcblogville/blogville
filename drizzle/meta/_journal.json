@@ -50,6 +50,27 @@
       "when": 1791251144280,
       "tag": "0006_blog_visits",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791418260499,
+      "tag": "0007_auth_drop_incomplete_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791418294510,
+      "tag": "0008_auth_username_required",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791418302862,
+      "tag": "0009_auth_profile_photo",
+      "breakpoints": true
     }
   ]
 }
