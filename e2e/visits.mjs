@@ -59,8 +59,14 @@ if (cat) {
   await a.goto(`${BASE}/@tester1?category=${cat.id}`);
   await settle(a);
 }
+// 소분류 거르기·검색 주소(?sub=, ?q= — 주인이 아니면 보통 블로그 홈)도 같은 날 다시 세지 않는다 (BLOG-05·검색, T069)
+const sub = (await db.query("SELECT s.id FROM subcategories s JOIN categories c ON c.id = s.category_id WHERE c.blog_id = $1 LIMIT 1", [blogId])).rows[0];
+for (const q of [`sub=${sub?.id ?? "abc"}`, "q=검색"]) {
+  await a.goto(`${BASE}/@tester1?${q}`);
+  await settle(a);
+}
 const sameA = await dbStats();
-check("같은 사람이 새로고침·페이지·카테고리 이동해도 그대로", sameA.today === afterA.today && sameA.total === afterA.total, JSON.stringify(sameA));
+check("같은 사람이 새로고침·페이지·카테고리·소분류·검색 주소로 이동해도 그대로", sameA.today === afterA.today && sameA.total === afterA.total, JSON.stringify(sameA));
 
 // ── 다른 브라우저(쿠키가 다른 사람) B ──
 const b = await (await browser.newContext()).newPage();

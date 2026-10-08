@@ -32,6 +32,12 @@ for (const [path, want] of [
   ["/@tester1?category=Infinity", 200],
   ["/@tester1?category=99999999999", 200],
   ["/@tester1?page=99999999999999999999", 200],
+  // 소분류 거르기 (BLOG-05 / FR-057, T059)
+  ["/@tester1?sub=abc", 200],
+  ["/@tester1?sub=1.5", 200],
+  ["/@tester1?sub=99999999999", 200],
+  ["/@tester1?sub=1&category=abc", 200],
+  [`/@tester1?q=${"가".repeat(60)}`, 200],
   ["/feed?page=99999999999999999999", 200],
   ["/feed?page=1e300", 200],
   ["/feed/following?page=99999999999999999999", 200],
@@ -99,7 +105,7 @@ check("댓글 삭제: 범위 밖 댓글 ID → 오류 없음", (await replay(del
 await page.goto(`${BASE}/settings/blog`);
 const tempName = `임시${Date.now() % 100000}`;
 await page.getByLabel("새 카테고리 이름").fill(tempName);
-await page.getByRole("button", { name: "추가" }).click();
+await page.getByRole("button", { name: "추가", exact: true }).last().click();
 await page.getByText(tempName).waitFor();
 const move = await capture(() => page.getByRole("button", { name: `${tempName} 위로` }).click());
 await page.getByRole("button", { name: `${tempName} 아래로` }).click();
@@ -107,11 +113,74 @@ await page.waitForLoadState("networkidle");
 check("카테고리 순서: 범위 밖 ID → 오류 없음", (await replay(move, [HUGE, -1])) === 200);
 check("카테고리 순서: 이상한 방향 값 → 오류 없음", (await replay(move, [move.args[0], "x"])) === 200);
 await page.locator("li", { hasText: tempName }).getByRole("button", { name: "이름 바꾸기" }).click();
-const editingRow = page.locator("li", { has: page.getByLabel("카테고리 이름") }); // 고치는 동안 이름은 입력칸 안에 있다
+const editingRow = page.locator("li", { has: page.getByLabel("카테고리 이름", { exact: true }) }); // 고치는 동안 이름은 입력칸 안에 있다
 const rename = await capture(() => editingRow.getByRole("button", { name: "저장" }).click());
 check("카테고리 이름: 범위 밖 ID → 오류 없음", (await replay(rename, [HUGE, "새 이름"])) === 200);
 const del = await capture(() => page.locator("li", { hasText: tempName }).getByRole("button", { name: "삭제" }).click());
 check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del, [HUGE])) === 200);
+
+// 소분류 4개 (BLOG-05 / FR-042, T059): 임시 대분류·소분류를 만들어 요청을 잡고 이상한 ID로 다시 보낸다
+{
+  await page.goto(`${BASE}/settings/blog`);
+  const catName = `소임시${Date.now() % 100000}`;
+  await page.getByLabel("새 카테고리 이름").fill(catName);
+  await page.getByRole("button", { name: "추가", exact: true }).last().click();
+  await page.getByRole("button", { name: `${catName} 위로`, exact: true }).waitFor();
+  const row = page.locator("main li", { has: page.getByRole("button", { name: `${catName} 위로`, exact: true }) }).first();
+  await row.getByRole("button", { name: "소분류 추가" }).click();
+  const addSub = await capture(async () => {
+    await row.getByLabel("새 소분류 이름").fill("소1");
+    await row.getByRole("button", { name: "추가", exact: true }).click();
+  });
+  await row.getByLabel("새 소분류 이름").fill("소2");
+  await row.getByRole("button", { name: "추가", exact: true }).click();
+  await row.getByRole("button", { name: "소2 위로", exact: true }).waitFor();
+  const moveSub = await capture(() => row.getByRole("button", { name: "소2 위로", exact: true }).click());
+  await row.locator("li", { hasText: "소1" }).getByRole("button", { name: "이름 바꾸기" }).click();
+  const renameSub = await capture(() => row.locator("li", { has: page.getByLabel("소분류 이름", { exact: true }) }).getByRole("button", { name: "저장" }).click());
+  const delSub = await capture(() => row.locator("li", { hasText: "소2" }).getByRole("button", { name: "삭제" }).click());
+  const subsBefore = (await one("SELECT count(*)::int AS n FROM subcategories")).n;
+  for (const v of [HUGE, "abc", 1.5]) {
+    check(`소분류 순서: ${JSON.stringify(v)} → 오류 없음`, (await replay(moveSub, [v, -1])) === 200);
+    check(`소분류 이름: ${JSON.stringify(v)} → 오류 없음`, (await replay(renameSub, [v, "새 이름"])) === 200);
+    check(`소분류 삭제: ${JSON.stringify(v)} → 오류 없음`, (await replay(delSub, [v])) === 200);
+    // 소분류 추가는 폼 칸 "0"에 [묶은 대분류 ID, 이전 상태, "$K1"]가 들어간다
+    const status = await page.evaluate(
+      async ({ id, v }) => {
+        const fd = new FormData();
+        fd.append("_1_name", "조작");
+        fd.append("0", JSON.stringify([v, {}, "$K1"]));
+        return (await fetch(location.href, { method: "POST", headers: { "Next-Action": id, Accept: "text/x-component" }, body: fd })).status;
+      },
+      { id: addSub.actionId, v },
+    );
+    check(`소분류 추가: 대분류 ${JSON.stringify(v)} → 오류 없음`, status === 200);
+  }
+  check("소분류 순서: 이상한 방향 값 → 오류 없음", (await replay(moveSub, [moveSub.args[0], "x"])) === 200);
+  check("소분류 조작 요청 뒤 소분류 수 그대로", (await one("SELECT count(*)::int AS n FROM subcategories")).n === subsBefore);
+  // 정리
+  await row.getByRole("button", { name: "삭제" }).first().click();
+  await page.waitForLoadState("networkidle");
+}
+
+// 전시 동물 (BLOG-04 / FR-031, T046): 다 키운 동물을 잠깐 넣어 [전시하기] 요청을 잡고 이상한 값으로 다시 보낸다
+{
+  const me = await one("SELECT u.id, b.id AS blog_id FROM users u JOIN blogs b ON b.owner_id = u.id WHERE u.username = 'tester1'");
+  const animal = await one(
+    "INSERT INTO user_animals (user_id, species_id, status, source, hatched_at, grown_at) VALUES ($1, (SELECT min(id) FROM animal_species), 'grown', 'shop', now(), now()) RETURNING id",
+    [me.id],
+  );
+  await page.goto(`${BASE}/@tester1`);
+  const show = await capture(() => page.locator("[data-animal-card]").first().getByRole("button", { name: "전시하기" }).click());
+  const now = async () => (await one("SELECT showcase_animal_id AS id FROM blogs WHERE id = $1", [me.blog_id])).id;
+  const before = await now();
+  for (const v of [undefined, "abc", 1.5, HUGE]) {
+    const status = await replay(show, v === undefined ? [] : [v]);
+    check(`전시 동물: ${v === undefined ? "undefined" : JSON.stringify(v)} → 오류 없음·그대로`, status === 200 && (await now()) === before, `HTTP ${status}`);
+  }
+  await db.query("DELETE FROM user_animals WHERE id = $1", [animal.id]); // FK가 전시 칸을 비운다
+  check("전시 동물: 동물을 지우면 전시 칸이 비워짐", (await now()) === null);
+}
 
 // 블로그 주소 (BLOG-03, updateBlogSlug): 이상한 문자열·남의 값을 섞어 보내도 500 없이 문구, tester1 주소는 그대로
 {
