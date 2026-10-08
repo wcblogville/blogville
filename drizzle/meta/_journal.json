@@ -78,6 +78,20 @@
       "when": 1791419337497,
       "tag": "0010_auth_remember_login_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791421203451,
+      "tag": "0011_auth_clear_social_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791421213662,
+      "tag": "0012_auth_account_per_provider",
+      "breakpoints": true
     }
   ]
 }

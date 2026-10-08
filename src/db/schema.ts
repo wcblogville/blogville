@@ -122,8 +122,11 @@ export const accounts = pgTable(
   },
   (t) => [
     index("accounts_user_id_idx").on(t.userId),
-    // 같은 소셜 계정이 두 회원에 연결될 수 없다
+    // 같은 소셜 계정이 두 회원에 연결될 수 없다 (FR-038)
     unique("accounts_provider_account_uq").on(t.providerId, t.accountId),
+    // 한 회원은 서비스마다 로그인 수단 1개 (아이디 로그인 1개 + 카카오·네이버·구글 각 1개, FR-039).
+    // 두 탭에서 동시에 연동해도 DB가 막는다
+    unique("accounts_user_provider_uq").on(t.userId, t.providerId),
   ],
 );
 

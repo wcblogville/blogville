@@ -299,9 +299,10 @@ erDiagram
 ### 3.2 로그인: 아이디로 가입하고, 소셜 계정은 연동한다
 
 - 모든 회원은 **사이트 아이디로 가입**한다 → `users.username`은 ⏳ **NOT NULL**. 가입하면 `accounts`에 `provider_id = 'credential'` 행과 비밀번호 **해시**가 생긴다. 비밀번호 원문은 어디에도 없다.
-- ⏳ 소셜 계정(카카오·네이버·구글)은 로그인한 뒤 **연동**할 때 `accounts`에 행이 더해진다. 소셜로 새로 가입하지는 않는다 (AUTH-01, AUTH-05).
+- 소셜 계정(카카오·네이버·구글)은 로그인한 뒤 내 정보에서 **연동**할 때 `accounts`에 행이 더해진다. 소셜로 새로 가입하지는 않는다 (AUTH-01, AUTH-05). 해제하면 그 행만 지운다 (`credential` 행은 지울 수 없다).
+- 소셜 행에는 토큰을 두지 않는다: `access_token`·`refresh_token`·`id_token`·두 만료 칸·`scope`는 늘 NULL (우리 서비스는 소셜 API를 부르지 않는다, FR-035). 남는 것은 `provider_id`, `account_id`, 연동한 날짜 `created_at`.
 - 회원 1명 ── 로그인 수단 1~4개 (아이디 1 + 서비스마다 0~1).
-  - ⏳ **UNIQUE (`user_id`, `provider_id`)**: 한 회원에 같은 서비스는 하나만
+  - **UNIQUE (`user_id`, `provider_id`)** (`accounts_user_provider_uq`): 한 회원에 같은 서비스는 하나만
   - **UNIQUE (`provider_id`, `account_id`)**: 소셜 계정 하나는 한 회원에만
 - 이메일은 가입할 때 정한 값이다. 카카오처럼 이메일을 주지 않는 서비스를 위해 만들던 가짜 이메일이 필요 없다.
 - 관리자는 `users.role = 'admin'`. 가입 요청으로는 바꿀 수 없고 관리자 생성 스크립트로만 정한다.
