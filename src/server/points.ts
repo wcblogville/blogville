@@ -1,8 +1,8 @@
 import "server-only";
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { items, pointLedger } from "@/db/schema";
-import { levelProgress, REWARD_RULES, type RewardReason } from "@/lib/game";
+import { items, type ledgerReason, notifications, pointLedger } from "@/db/schema";
+import { levelProgress, levelsGained, REWARD_RULES, type RewardReason } from "@/lib/game";
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | Tx;
@@ -30,6 +30,46 @@ export async function getWallet(userId: string, executor: Executor = db) {
   return { coins: row.coins, exp: row.exp, ...levelProgress(row.exp) };
 }
 
+export type LedgerReason = (typeof ledgerReason.enumValues)[number];
+
+/** 누적 경험치 (같은 tx로 읽어야 잠금 안의 값이 된다) */
+async function totalExp(tx: Tx, userId: string) {
+  const [row] = await tx
+    .select({ exp: sql<number>`COALESCE(SUM(${pointLedger.expDelta}), 0)::int` })
+    .from(pointLedger)
+    .where(eq(pointLedger.userId, userId));
+  return row.exp;
+}
+
+/**
+ * 원장 1줄을 넣고, 경험치로 레벨이 오르면 오른 레벨마다 레벨업 알림을 같은 트랜잭션에 넣는다 (GAME-06 / FR-037).
+ * 경험치가 생기는 기록은 모두 이 함수(또는 grantReward)로 넣는다. 반드시 lockUser를 건 트랜잭션 안에서 부른다.
+ */
+export async function addLedgerEntry(
+  tx: Tx,
+  entry: { userId: string; reason: LedgerReason; expDelta?: number; coinDelta?: number; refId?: string | number | null },
+): Promise<{ levelUps: number[] }> {
+  const expDelta = entry.expDelta ?? 0;
+  const before = expDelta > 0 ? await totalExp(tx, entry.userId) : 0;
+  await tx.insert(pointLedger).values({
+    userId: entry.userId,
+    reason: entry.reason,
+    expDelta,
+    coinDelta: entry.coinDelta ?? 0,
+    refId: entry.refId === undefined || entry.refId === null ? null : String(entry.refId),
+  });
+  if (expDelta <= 0) return { levelUps: [] };
+
+  const levelUps = levelsGained(before, before + expDelta);
+  if (levelUps.length) {
+    await tx
+      .insert(notifications)
+      .values(levelUps.map((level) => ({ userId: entry.userId, kind: "level_up" as const, level })))
+      .onConflictDoNothing();
+  }
+  return { levelUps };
+}
+
 export type RewardResult = { granted: false } | { granted: true; exp: number; coins: number };
 
 /**
@@ -55,13 +95,7 @@ export async function grantReward(
     );
   if (count >= rule.dailyLimit) return { granted: false };
 
-  await tx.insert(pointLedger).values({
-    userId,
-    reason,
-    expDelta: rule.exp,
-    coinDelta: rule.coins,
-    refId: refId === undefined ? null : String(refId),
-  });
+  await addLedgerEntry(tx, { userId, reason, expDelta: rule.exp, coinDelta: rule.coins, refId });
   return { granted: true, exp: rule.exp, coins: rule.coins };
 }
 

@@ -103,13 +103,13 @@ function layout(data: TownData) {
   const bw = BOARD_SIZE.width, bh = BOARD_SIZE.height;
   structures.push({
     texture: "board", ...BOARD_POS, w: bw, h: bh, solid: { w: bw * 0.92, h: 22 },
-    label: "마을 게시판", sub: `마을 소식 · 출석 체크 ${data.attendedToday ? "(오늘 완료 ✅)" : "(보상 받기 🎁)"}`,
+    label: "마을 게시판", sub: `마을 소식 · 출석 체크${data.attendanceDay ? ` (오늘 ${data.attendanceDay}일차 ✅)` : ""}`,
   });
   const boardArea = { x: BOARD_POS.x - bw / 2, y: BOARD_POS.y - bh, w: bw, h: bh };
   entrances.push(
     { label: "마을 소식", emoji: "📋", x: BOARD_POS.x - 55, y: BOARD_POS.y + 26, target: { kind: "link", href: "/feed" },
       area: { ...boardArea, w: bw / 2 }, promptY: BOARD_POS.y - bh - 6 },
-    { label: data.attendedToday ? "출석 체크 (오늘 완료)" : "출석 체크", emoji: "📮", x: BOARD_POS.x + 55, y: BOARD_POS.y + 26,
+    { label: data.attendanceDay ? `출석 체크 (오늘 ${data.attendanceDay}일차 ✅)` : "출석 체크", emoji: "📮", x: BOARD_POS.x + 55, y: BOARD_POS.y + 26,
       target: need("/attendance"), area: { ...boardArea, x: BOARD_POS.x, w: bw / 2 }, promptY: BOARD_POS.y - bh - 6 },
   );
 

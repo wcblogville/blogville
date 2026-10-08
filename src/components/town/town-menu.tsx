@@ -15,7 +15,7 @@ export function TownMenu({ data, welcome, className = "" }: { data: TownData; we
     ? [
         ...(data.myHouse ? [{ emoji: "🏠", label: "내 블로그", sub: data.myHouse.title, href: `/@${data.myHouse.slug}` }] : []),
         { emoji: "✏️", label: "글쓰기", sub: "새 글 쓰기", href: "/write" },
-        { emoji: "📮", label: "출석 체크", sub: data.attendedToday ? "오늘 완료 ✅" : "보상 받기 🎁", href: "/attendance" },
+        { emoji: "📮", label: "출석 체크", sub: data.attendanceDay ? `오늘 ${data.attendanceDay}일차 ✅` : undefined, href: "/attendance" },
         { emoji: "📋", label: "마을 소식", sub: "새 글 · 이웃 새 글", href: "/feed" },
         { emoji: "🏪", label: "상점", sub: "캐릭터·배경", href: "/shop" },
         { emoji: "🐮", label: "동물 농장", sub: "알 부화 · 동물 키우기", href: "/farm" },

@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { ExitButton, HomeLogo } from "@/components/exit-button";
+import { AttendanceDayWatcher } from "@/components/game/attendance-day-watcher";
+import { LevelUpPopup } from "@/components/game/level-up-popup";
+import { NotificationBell } from "@/components/game/notification-bell";
 import { SessionKeeper } from "@/components/session-keeper";
 import { SignOutButton } from "@/components/sign-out-button";
+import { todayKST } from "@/lib/game";
 import { getViewer } from "@/server/dal";
+import { getHeaderNotifications } from "@/server/notifications";
 import { getWallet } from "@/server/points";
 
 export async function SiteHeader() {
   const viewer = await getViewer();
   const member = viewer?.profile ? { ...viewer, profile: viewer.profile } : null;
-  const wallet = member ? await getWallet(member.userId) : null;
+  // getViewer()가 자동 출석(GAME-04)을 먼저 끝내므로 코인·레벨은 출석 보상까지 반영된 값이다
+  const [wallet, alerts] = member ? await Promise.all([getWallet(member.userId), getHeaderNotifications(member.userId)]) : [null, null];
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-line bg-cream/95 backdrop-blur">
@@ -20,7 +26,7 @@ export async function SiteHeader() {
           <ExitButton />
         </div>
 
-        {member && wallet ? (
+        {member && wallet && alerts ? (
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {/* 좁은 화면에서도 레벨이 보이게 글씨와 여백만 줄인다 (GAME-02, 이슈 #5) */}
             <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm" title="레벨">
@@ -29,6 +35,8 @@ export async function SiteHeader() {
             <Link href="/wallet" className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm hover:text-leaf-dark sm:px-2.5 sm:text-sm" title="코인">
               🪙 {wallet.coins.toLocaleString()}
             </Link>
+            {/* 알림함 🔔 (GAME-08 / FR-042) */}
+            <NotificationBell unread={alerts.unread} />
             {member.user.role === "admin" && (
               <Link href="/admin" className="rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-cream">
                 👑 관리자
@@ -42,6 +50,11 @@ export async function SiteHeader() {
             {member.rememberMe && <SessionKeeper />}
             {/* 로그아웃 때 이 브라우저의 임시 글도 지운다 (POST-08 / FR-063) */}
             <SignOutButton userId={member.userId} />
+            {/* 안 본 레벨업 팝업 (GAME-06 / FR-038), 0시를 넘긴 화면의 자동 출석 (GAME-04) */}
+            {alerts.pendingLevel !== null && alerts.pendingMinLevel !== null && (
+              <LevelUpPopup userId={member.userId} minLevel={alerts.pendingMinLevel} maxLevel={alerts.pendingLevel} />
+            )}
+            <AttendanceDayWatcher today={member.attendance?.date ?? todayKST()} />
           </div>
         ) : viewer ? (
           <SignOutButton />

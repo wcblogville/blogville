@@ -317,7 +317,7 @@ let wCommentIds = {};
   ]);
   await db.query("INSERT INTO accounts (id, user_id, provider_id, account_id) VALUES ($1, $2, 'kakao', $3)", [randomUUID(), wId, `kakao-w-${n}`]);
   await db.query(
-    "INSERT INTO attendances (user_id, date, streak) VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 1) ON CONFLICT DO NOTHING",
+    "INSERT INTO attendances (user_id, date, cycle_day) VALUES ($1, (now() AT TIME ZONE 'Asia/Seoul')::date, 1) ON CONFLICT DO NOTHING",
     [wId],
   );
   const c = await wCounts(wId, wPostId);

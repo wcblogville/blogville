@@ -2,8 +2,7 @@ import "server-only";
 import { and, desc, eq, isNotNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { attendances, blogs, items, posts, profiles } from "@/db/schema";
-import { todayKST } from "@/lib/game";
+import { blogs, items, posts, profiles } from "@/db/schema";
 import type { TownHouse } from "@/components/town/types";
 
 const characterItem = alias(items, "character_item");
@@ -48,12 +47,4 @@ export async function getMyHouse(userId: string): Promise<TownHouse | null> {
     .innerJoin(backgroundItem, eq(backgroundItem.id, blogs.backgroundItemId))
     .where(eq(blogs.ownerId, userId));
   return row ?? null;
-}
-
-export async function hasAttendedToday(userId: string) {
-  const [row] = await db
-    .select({ userId: attendances.userId })
-    .from(attendances)
-    .where(and(eq(attendances.userId, userId), eq(attendances.date, todayKST())));
-  return Boolean(row);
 }

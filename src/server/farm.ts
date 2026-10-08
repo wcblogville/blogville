@@ -1,10 +1,10 @@
 import "server-only";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { animalCares, animalSpecies, pointLedger, userAnimals } from "@/db/schema";
+import { animalCares, animalSpecies, userAnimals } from "@/db/schema";
 import { type CareAction, levelEggLevels, MAX_ACTIVE_ANIMALS, POST_GROWTH } from "@/lib/farm";
 import { todayKST } from "@/lib/game";
-import type { Tx } from "@/server/points";
+import { addLedgerEntry, type Tx } from "@/server/points";
 
 export type FarmAnimal = {
   id: number;
@@ -108,13 +108,8 @@ export async function addGrowth(tx: Tx, userId: string, amount: number, animalId
       .where(eq(userAnimals.id, u.id));
     // 다 키운 보상은 종류마다 달라서 REWARD_RULES가 아니라 종류 표의 숫자로 기록한다
     if (sp.rewardExp || sp.rewardCoins) {
-      await tx.insert(pointLedger).values({
-        userId,
-        reason: "farm_grown",
-        expDelta: sp.rewardExp,
-        coinDelta: sp.rewardCoins,
-        refId: String(u.id),
-      });
+      // 경험치가 생기므로 레벨업 알림도 함께 남기는 addLedgerEntry로 (GAME-06 / FR-037)
+      await addLedgerEntry(tx, { userId, reason: "farm_grown", expDelta: sp.rewardExp, coinDelta: sp.rewardCoins, refId: u.id });
     }
     grown.push({ id: u.id, name: sp.name, rewardExp: sp.rewardExp, rewardCoins: sp.rewardCoins });
   }

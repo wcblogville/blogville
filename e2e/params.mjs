@@ -47,6 +47,7 @@ for (const [path, want] of [
   ["/feed/following?page=99999999999999999999", 200],
   [`/tags/${encodeURIComponent("git")}?page=99999999999999999999`, 200],
   ["/wallet?page=99999999999999999999", 200],
+  ["/notifications?page=99999999999999999999", 200],
 ]) {
   const got = await status(path);
   check(`주소 ${path} → ${want}`, got === want, `HTTP ${got}`);

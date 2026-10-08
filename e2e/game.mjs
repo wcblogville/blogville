@@ -1,31 +1,15 @@
-// 출석(동시 클릭 포함) → 상점 → 꾸미기 흐름
+// 상점 → 꾸미기 흐름 (출석은 자동 출석이라 e2e/attendance.mjs가 확인한다)
 import { chromium } from "@playwright/test";
 import { BASE, coins, collectErrors, loginDev } from "./helpers.mjs";
 
 const outDir = process.argv[2] ?? "e2e-shots";
+const NAME = `gm${Date.now().toString(36)}`; // 실행마다 새 회원
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 const errors = collectErrors(page);
-await loginDev(page, "gamer1", "남자 주민");
-console.log("start coins:", await coins(page));
-
-// 같은 계정으로 탭 두 개를 열어 출석 버튼을 동시에 누른다
-const tab2 = await ctx.newPage();
-await Promise.all([page.goto(`${BASE}/attendance`), tab2.goto(`${BASE}/attendance`)]);
-await Promise.all([
-  page.getByRole("button", { name: /출석하고/ }).click(),
-  tab2.getByRole("button", { name: /출석하고/ }).click(),
-]);
-await page.waitForTimeout(1500);
-const results = [await page.locator("main").innerText(), await tab2.locator("main").innerText()].map((t) =>
-  t.includes("출석 완료") ? "완료" : t.includes("이미 출석") ? "이미" : "?",
-);
-console.log("동시 출석 결과:", results);
-await page.screenshot({ path: `${outDir}/20-attendance.png`, fullPage: true });
-await tab2.close();
-await page.reload();
-console.log("after attendance:", await coins(page));
+await loginDev(page, NAME, "남자 주민");
+console.log("start coins (가입 100 + 1일차 출석 10):", await coins(page));
 
 // 상점: 바닷가 배경(120, Lv1) 사기, 토끼(Lv2)는 잠김
 await page.goto(`${BASE}/shop`);
@@ -43,7 +27,7 @@ await page.goto(`${BASE}/closet`);
 await page.getByRole("button", { name: /바닷가/ }).click();
 await page.waitForTimeout(800);
 await page.screenshot({ path: `${outDir}/22-closet.png`, fullPage: true });
-await page.goto(`${BASE}/@gamer1`);
+await page.goto(`${BASE}/@${NAME}`);
 await page.screenshot({ path: `${outDir}/23-blog-beach.png` });
 
 console.log("errors:", errors.length ? errors : "none");

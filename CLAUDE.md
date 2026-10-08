@@ -16,6 +16,9 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 - **스키마 변경**: `src/db/schema.ts` 수정 → `npm run db:generate` → `npm run db:migrate`. `docs/02-erd.md`도 함께 고친다.
 - **인증**: 페이지와 Server Action마다 `requireMember()`(비로그인 → `/`) / `requireAdmin()`(비로그인·일반 회원 모두 404) (`src/server/dal.ts`). `requireUser()`는 없다 (온보딩이 없어져 로그인한 회원은 늘 프로필·블로그가 있다). 레이아웃에서 권한 검사를 하지 않는다.
 - **보상·코인**: 잔액 컬럼을 만들지 않는다. `point_ledger`에 기록하고 `getWallet()`으로 계산한다. 지급·차감은 `lockUser(tx, userId)`를 건 트랜잭션 안에서 `grantReward()` 사용. 규칙 숫자는 `src/lib/game.ts`.
+- **경험치·레벨업**: 경험치가 생기는 원장 기록은 `addLedgerEntry()`(또는 그것을 부르는 `grantReward()`)로만 넣는다. 레벨이 오르면 같은 트랜잭션에 `level_up` 알림을 넣는다. 경험치 0인 구매(`purchase`, `egg_purchase`)만 직접 INSERT해도 된다.
+- **자동 출석**: `getViewer()`가 오늘(한국 시간) 출석이 없으면 `ensureTodayAttendance()`(`src/server/attendance.ts`)로 출석과 일차 보상(`attendance_rewards`)을 한 트랜잭션에 기록한다. 그래서 `requireMember()`·`getViewer()`는 `db.transaction()` 밖에서, Server Action·페이지 맨 앞에서 먼저 부른다.
+- **알림**: 표는 `notifications`(레벨업·공감·댓글·답글). 공감·댓글·답글 알림은 그 Action의 트랜잭션 안에서 `notifyActivity()`(`src/server/notifications.ts`)로 넣는다. 닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN한다.
 - **헤더 갱신**: 코인·캐릭터가 바뀌는 Server Action은 `revalidatePath("/", "layout")`을 호출한다 (루트 레이아웃은 이동만으로 다시 그려지지 않는다).
 - **글 HTML**: 저장 전에 `sanitizePostHtml()`로 정화한다. 허용 태그를 늘리면 에디터와 `src/server/sanitize.ts`를 같이 고친다. 글 입력 검사 순서·문구는 `src/lib/post-rules.ts`(`postInputSchema`, 브라우저·서버 공용).
 - **첨부**: 글을 저장할 때 본문의 내 첨부가 그 글에 붙는다(`attachments.post_id`, `src/server/posts.ts` `lockLinkableAttachments`). 비공개 글 첨부는 주인만, 안 붙은 첨부는 올린 사람만 연다(`attachmentAccess`). 하루 넘게 안 붙은 첨부는 `npm run posts:cleanup`이 지운다.
