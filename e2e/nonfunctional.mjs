@@ -17,7 +17,9 @@ await page.getByRole("button", { name: "로그인", exact: true }).click();
 await page.waitForURL(/town/, { timeout: 20000 });
 
 const slug = "normal01";
-const pages = ["/town", "/feed", `/@${slug}`, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm", "/settings/account"];
+// 검색 결과(주인 전용 블로그 홈 검색 모드, BLOG 검색 / T067)
+const searchPath = `/@${slug}?q=${encodeURIComponent("글")}`;
+const pages = ["/town", "/feed", `/@${slug}`, searchPath, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm", "/settings/account"];
 
 console.log("== NF-06 모바일(375px) 가로 스크롤");
 for (const path of pages) {
@@ -28,7 +30,7 @@ for (const path of pages) {
     clientW: document.documentElement.clientWidth,
   }));
   const ok = scrollW <= clientW;
-  console.log(`${ok ? "✅" : "❌"} ${path.padEnd(16)} 문서 너비 ${scrollW}px / 화면 ${clientW}px`);
+  console.log(`${ok ? "✅" : "❌"} ${path.slice(0, 24).padEnd(16)} 문서 너비 ${scrollW}px / 화면 ${clientW}px`);
   if (!ok || path === "/town" || path === `/@${slug}`) {
     await page.screenshot({ path: `${outDir}/m-${path.replace(/[^a-z0-9]/gi, "_")}.png`, fullPage: true });
   }
@@ -50,7 +52,7 @@ for (const path of pages) {
 
 console.log("== NF-07 서버 응답 시간 (HTML 첫 바이트, 5회 중앙값)");
 const cookies = (await ctx.cookies()).map((c) => `${c.name}=${c.value}`).join("; ");
-for (const path of ["/feed", `/@${slug}`, "/town"]) {
+for (const path of ["/feed", `/@${slug}`, searchPath, "/town"]) {
   const times = [];
   for (let i = 0; i < 5; i++) {
     const t0 = performance.now();
@@ -66,7 +68,7 @@ console.log("== NF-07 브라우저에서 화면 완성까지 (데스크톱, 캐�
 const desk = await browser.newContext({ viewport: { width: 1280, height: 860 } });
 await desk.addCookies(await ctx.cookies());
 const dp = await desk.newPage();
-for (const path of ["/feed", `/@${slug}`]) {
+for (const path of ["/feed", `/@${slug}`, searchPath]) {
   await dp.goto(BASE + path, { waitUntil: "load" });
   const ms = await dp.evaluate(() => {
     const nav = performance.getEntriesByType("navigation")[0];
