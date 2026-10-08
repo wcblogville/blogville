@@ -45,7 +45,11 @@ export function ShopGrid({ items, level, coins }: { items: ShopItem[]; level: nu
                 onClick={() =>
                   start(async () => {
                     const r = await buyItem(item.id);
-                    setMessage(r.ok ? { ok: true, text: `🎉 ${r.name}을(를) 샀어요! 꾸미기에서 장착해 보세요.` } : { ok: false, text: r.error });
+                    setMessage(
+                      r.ok
+                        ? { ok: true, text: `🎉 ${r.name}을(를) 샀어요! ${item.type === "furniture" ? "내 블로그의 우리 집에 놓아 보세요." : "꾸미기에서 장착해 보세요."}` }
+                        : { ok: false, text: r.error },
+                    );
                   })
                 }
                 className="btn mt-3 bg-sun py-1.5 text-sm text-ink"

@@ -6,6 +6,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth, enabledProviders, REMEMBER_COOKIE } from "@/lib/auth";
+import { defaultBlogFor } from "@/lib/blog";
 import { parseId } from "@/lib/ids";
 import { LOGIN_LOCKED_MESSAGE } from "@/lib/login-limit";
 import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
@@ -30,7 +31,7 @@ const signUpSchema = z
 
 /**
  * 회원가입 (AUTH-01 / FR-002~FR-008, FR-010, FR-011).
- * 입력 검사 → createMember(한 트랜잭션) → 커밋 뒤 라이브러리로 로그인 → 광장.
+ * 입력 검사 → createMember(한 트랜잭션) → 커밋 뒤 라이브러리로 로그인 → 내 블로그(집 안).
  * FormData의 다른 칸(예: role)은 읽지 않는다 (FR-011).
  */
 export async function signUp(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -61,7 +62,8 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   await auth.api.signInUsername({ body: { username, password, rememberMe: false }, headers: await headers() });
 
   revalidatePath("/", "layout"); // 헤더에 코인·캐릭터가 바로 보이도록
-  redirect("/town?welcome=1");
+  // 첫 가입은 내 블로그(집 안)에서 시작한다. 우리 집의 🚪 문으로 나가며 마을을 처음 본다 (마을 개편 2차)
+  redirect(`/@${defaultBlogFor(username).slug}?welcome=1`);
 }
 
 /**

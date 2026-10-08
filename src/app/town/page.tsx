@@ -16,7 +16,7 @@ export const metadata = { title: "중앙 광장" };
 export default async function TownPage(props: PageProps<"/town">) {
   const viewer = await getViewer();
   const member = viewer?.profile ? viewer : null;
-  const { welcome } = await props.searchParams;
+  const { welcome, at } = await props.searchParams;
 
   // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 최근 글이 있는 블로그
   const [neighbors, myHouse, hud] = await Promise.all([
@@ -39,8 +39,8 @@ export default async function TownPage(props: PageProps<"/town">) {
   return (
     <div className="relative h-[calc(100dvh-var(--header-h))] min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible">
       <h1 className="sr-only">중앙 광장</h1>
-      {/* 처음 온 회원은 내 집 앞에서 시작한다 */}
-      <TownGame data={data} startAt={welcome && member ? "house:0" : null} className="h-full w-full phone:hidden" />
+      {/* 집의 🚪 문으로 나오면(?at=블로그 주소) 그 집 앞에서, 처음 온 회원은 내 집 앞에서 시작한다 */}
+      <TownGame data={data} startAt={startAt(data, welcome && member ? myHouse?.slug : at)} className="h-full w-full phone:hidden" />
       <TownHud data={data} member={hud} className="phone:hidden" />
       <TownMenu data={data} member={hud} welcome={Boolean(welcome)} className="hidden phone:block" />
 
@@ -48,8 +48,7 @@ export default async function TownPage(props: PageProps<"/town">) {
         <div className="card absolute inset-x-3 bottom-14 z-10 mx-auto flex max-w-2xl items-start gap-3 border-sun bg-[#fff3d6] p-4 phone:hidden">
           <span className="text-3xl">🎉</span>
           <p className="flex-1 text-sm sm:text-base">
-            <b>{member.profile.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요.
-            눈앞의 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 왼쪽 위 <b>☰ 메뉴</b>에서 내 프로필·알림·텔레포트·친구 목록을 볼 수 있어요.
+            <b>{member.profile.nickname}</b>님, 마을에 처음 나왔어요! 뒤에 있는 <b>내 집</b>에 다시 들어가면 글을 쓸 수 있어요. 왼쪽 위 <b>☰ 메뉴</b>에서 내 프로필·알림·텔레포트·친구 목록을 볼 수 있어요.
             마을 가운데 <b>🚏 정류장</b>에서는 즐겨찾기한 이웃의 집으로 바로 갈 수 있어요.
           </p>
           <Link href="/town" className="shrink-0 rounded-lg px-2 py-1 text-ink-soft hover:bg-white" aria-label="환영 문구 닫기">
@@ -82,4 +81,12 @@ async function getHudMember(userId: string): Promise<TownHudMember> {
     notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
     friends,
   };
+}
+
+/** 블로그 주소 → 그 집의 텔레포트 key (마을 둘레에 없는 집이면 null = 정류장 옆) */
+function startAt(data: TownData, slug: string | string[] | undefined): string | null {
+  if (typeof slug !== "string") return null;
+  if (data.myHouse?.slug === slug) return "house:0";
+  const i = data.neighbors.findIndex((h) => h.slug === slug);
+  return i >= 0 ? `house:${i + 1}` : null;
 }

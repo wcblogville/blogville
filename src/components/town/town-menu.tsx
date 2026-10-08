@@ -45,8 +45,7 @@ export function TownMenu({
         <div className="card mb-4 flex items-start gap-3 border-sun bg-[#fff3d6] p-4">
           <span className="text-2xl">🎉</span>
           <p className="flex-1 text-sm">
-            <b>{member.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요.
-            아래 <b>내 블로그</b>에서 첫 글을 써 보세요. <b>출석 체크</b>로 보상을 받고, <b>동물 농장</b>에서 첫 알도 받아 보세요.
+            <b>{member.nickname}</b>님, 마을에 처음 나왔어요! 아래 <b>내 블로그</b>에서 첫 글을 써 보세요. <b>출석 체크</b>로 보상을 받고, <b>동물 농장</b>에서 첫 알도 받아 보세요.
           </p>
           <Link href="/town" className="shrink-0 rounded-lg px-2 py-1 text-ink-soft hover:bg-white" aria-label="환영 문구 닫기">
             ✕

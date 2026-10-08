@@ -42,17 +42,17 @@ async function signIn(page, id, pw) {
   await page.getByRole("button", { name: "로그인", exact: true }).click();
 }
 
-// 1) 새 회원가입 → 온보딩 없이 바로 광장, 환영 문구
+// 1) 새 회원가입 → 온보딩 없이 바로 내 블로그(집 안), 환영 문구 → 🚪 문으로 마을에 처음 나감 (마을 개편 2차)
 {
   const { ctx, page, errors } = await fresh();
   await page.goto(BASE);
   await page.getByRole("tab", { name: "회원가입" }).click();
   await page.screenshot({ path: `${outDir}/40-signup.png` });
   await signUp(page, NEWBIE, NEWBIE_PW);
-  await page.waitForURL(/\/town/, { timeout: 15000 }).catch(() => {});
-  check("회원가입 후 바로 광장(/town)으로 이동", new URL(page.url()).pathname === "/town");
+  await page.waitForURL(/\/@/, { timeout: 15000 }).catch(() => {});
+  check("회원가입 후 바로 내 블로그(/@아이디)로 이동", new URL(page.url()).pathname === `/@${NEWBIE}`, page.url());
   check(
-    "광장에 환영 문구",
+    "블로그에 환영 문구",
     await page
       .getByText(/님, Blogville에 오신 걸 환영해요!/)
       .filter({ visible: true }) // 휴대폰용 메뉴의 같은 문구는 숨어 있다
@@ -62,6 +62,10 @@ async function signIn(page, id, pw) {
       .catch(() => false),
   );
   check("환영 문구에 닉네임(= 아이디)", (await page.getByText(`${NEWBIE}님, Blogville에 오신 걸 환영해요!`).count()) > 0);
+  await page.screenshot({ path: `${outDir}/40-signup-blog.png` });
+  await page.locator("[data-house-door]").click();
+  await page.waitForURL(/\/town\?welcome=1/, { timeout: 15000 }).catch(() => {});
+  check("🚪 문 → 마을, `마을에 처음 나왔어요`", await page.getByText(/님, 마을에 처음 나왔어요!/).filter({ visible: true }).first().waitFor({ timeout: 10000 }).then(() => true).catch(() => false));
   await page.screenshot({ path: `${outDir}/40-signup-town.png` });
   check("콘솔 오류 없음", errors.length === 0);
   if (errors.length) console.log(errors.join("\n"));

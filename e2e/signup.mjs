@@ -64,7 +64,8 @@ async function signUp(page, { id, pw = PW, confirm = pw, character, tamper, tamp
 const formError = (page) => page.locator('form [role="alert"]');
 
 async function outcome(page) {
-  const town = page.waitForURL(/\/town/, { timeout: 20000 }).then(() => "town");
+  // 가입하면 내 블로그(집 안)로 간다 (마을 개편 2차). 결과 이름은 예전처럼 "town"
+  const town = page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 }).then(() => "town");
   const alert = formError(page)
     .waitFor({ timeout: 20000 })
     .then(() => formError(page).innerText());
@@ -409,7 +410,7 @@ let mainSession;
     await page.screenshot({ path: `${outDir}/54-signup-keyboard.png` });
     await page.keyboard.press("Enter");
   }
-  const r = await page.waitForURL(/\/town/, { timeout: 20000 }).then(() => "town").catch(() => page.url());
+  const r = await page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 }).then(() => "town").catch(() => page.url());
   check("13 키보드만으로 가입", r === "town", r);
   check("13 이동하는 동안 초점 테두리가 보임", ringSeen.length === 4 && ringSeen.every(Boolean), JSON.stringify(ringSeen));
   await ctx.close();

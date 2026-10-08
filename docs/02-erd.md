@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -55,6 +55,7 @@ erDiagram
     users ||..o{ notifications : "받은 알림"
     users |o..o{ notifications : "행동한 회원"
     posts |o..o{ notifications : "관련 글"
+    user_items ||..o{ house_furniture : "집 안에 놓은 가진 가구"
 
     users ||..o{ user_animals : "알·동물"
     animal_species |o..o{ user_animals : "종류 (알이면 없음)"
@@ -662,6 +663,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 삭제: `user_id`·`actor_id`·`post_id` 모두 `ON DELETE CASCADE`. 받는 회원이 탈퇴하면 받은 알림이, 행동한 회원이 탈퇴하면 그 회원이 남긴 알림이, 글을 지우면 그 글 알림이 지워진다. 공감 취소·댓글 삭제로는 지우지 않는다.
 - 문구·닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다 (`profiles.nickname`, `posts.title`, `blogs.slug`) (3.17).
 - `read_at`이 NULL이면 안 읽음. 조회·변경은 늘 `user_id = 로그인한 회원`으로 거른다.
+
+### 3.22 집 안 가구 (마을 개편 2차, 2026-10-08 요청)
+
+- 블로그의 "우리 집" 구역에 칸(`slot`)마다 가구 하나: **`house_furniture (user_id, slot, item_id, placed_at)`** (`0026_house_furniture`). 관계 표라 PK는 `(user_id, slot)`.
+- 가진 가구만: 복합 FK `house_furniture_owned_fk (user_id, item_id) → user_items` (`ON DELETE CASCADE`). 가구 종류인지는 앱이 확인한다.
+- 같은 가구는 한 칸에만: `house_furniture_item_uq (user_id, item_id)`. 다른 칸에 놓으면 앱이 옮긴다.
+- 칸 번호 0~7: `house_furniture_slot_check`. 쓸 수 있는 칸 수는 집 단계(주인 레벨)로 앱이 정한다: Lv.1~9 4칸, Lv.10~29 6칸, Lv.30~ 8칸 (`src/lib/house.ts`). 레벨은 원장 합계라 내려가지 않는다.
+- 가구 아이템은 `items.type = 'furniture'` 8종. 화분·나무 의자는 `is_starter`라 가입할 때 받고(마이그레이션이 기존 회원에게도 지급), 나머지는 상점에서 산다.
 
 ## 4. 데이터 마이그레이션
 

@@ -33,6 +33,15 @@ const ITEMS: NewItem[] = [
   { code: "bg_sakura", type: "background", name: "벚꽃길", description: "봄바람이 부는 벚꽃길", price: 300, requiredLevel: 3, isStarter: false, assetKey: "bg.sakura" },
   { code: "bg_night", type: "background", name: "밤의 도시", description: "불빛이 반짝이는 밤", price: 450, requiredLevel: 4, isStarter: false, assetKey: "bg.night" },
   { code: "bg_space", type: "background", name: "우주", description: "끝없이 펼쳐진 우주", price: 900, requiredLevel: 6, isStarter: false, assetKey: "bg.space" },
+  // 집 안 가구 (마을 개편 2차). 화분·나무 의자는 가입할 때 모두 받는 기본 가구. 마이그레이션 0026에도 같은 값이 있다
+  { code: "fur_plant", type: "furniture", name: "초록 화분", description: "집 안을 싱그럽게 해 주는 화분", price: 0, requiredLevel: 1, isStarter: true, assetKey: "furniture.plant" },
+  { code: "fur_chair", type: "furniture", name: "나무 의자", description: "처음 이사 온 날부터 함께한 의자", price: 0, requiredLevel: 1, isStarter: true, assetKey: "furniture.chair" },
+  { code: "fur_table", type: "furniture", name: "둥근 탁자", description: "따뜻한 차 한 잔 놓기 좋은 탁자", price: 40, requiredLevel: 1, isStarter: false, assetKey: "furniture.table" },
+  { code: "fur_rug", type: "furniture", name: "알록달록 러그", description: "발이 포근해지는 동그란 러그", price: 50, requiredLevel: 1, isStarter: false, assetKey: "furniture.rug" },
+  { code: "fur_shelf", type: "furniture", name: "책장", description: "읽은 책과 쓴 글이 쌓이는 책장", price: 80, requiredLevel: 2, isStarter: false, assetKey: "furniture.shelf" },
+  { code: "fur_lamp", type: "furniture", name: "스탠드 조명", description: "밤에 글 쓸 때 켜는 조명", price: 60, requiredLevel: 2, isStarter: false, assetKey: "furniture.lamp" },
+  { code: "fur_bed", type: "furniture", name: "포근한 침대", description: "푹 자고 일어나면 글이 술술", price: 120, requiredLevel: 3, isStarter: false, assetKey: "furniture.bed" },
+  { code: "fur_sofa", type: "furniture", name: "푹신한 소파", description: "이웃이 놀러 오면 앉는 소파", price: 200, requiredLevel: 4, isStarter: false, assetKey: "furniture.sofa" },
 ];
 
 // 동물 농장 동물 종류 (TOWN-09). 흔한 동물일수록 빨리 자라고 보상이 작다

@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { AnimalCollection } from "@/components/blog/animal-collection";
 import { BlogHeader } from "@/components/blog/blog-header";
 import { BlogSearchBox, BlogSearchResults } from "@/components/blog/blog-search";
+import { HouseRoom } from "@/components/blog/house-room";
 import { CategoryNav } from "@/components/blog/category-nav";
 import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
 import { parseSearchQuery } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
+import { houseInfo } from "@/lib/house";
 import { parseId } from "@/lib/ids";
 import {
   getBlogBySlug,
@@ -20,6 +22,8 @@ import {
   searchBlogs,
 } from "@/server/blog";
 import { getViewer } from "@/server/dal";
+import { getOwnedFurniture, getPlacedFurniture } from "@/server/house";
+import { getWallet } from "@/server/points";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
   const { slug } = await props.params;
@@ -47,7 +51,8 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const search = isOwner ? parseSearchQuery(sp.q) : null; // 51자 이상은 null → 보통 블로그 홈
   const base = `/@${blog.slug}`;
 
-  const [cats, list, following, visits, grown, found] = await Promise.all([
+  const welcome = isOwner && Boolean(sp.welcome);
+  const [cats, list, following, visits, grown, found, ownerWallet, placed, owned] = await Promise.all([
     getCategories(blog.id, isOwner),
     search
       ? search.empty
@@ -58,7 +63,12 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
     getBlogVisitStats(blog.id),
     getGrownAnimals(blog.ownerId),
     search && !search.empty && page === 1 ? searchBlogs(search.q) : [],
+    getWallet(blog.ownerId),
+    getPlacedFurniture(blog.ownerId),
+    isOwner ? getOwnedFurniture(blog.ownerId) : null,
   ]);
+  // 문: 마을의 이 집 앞으로 나간다. 처음 가입한 회원은 환영 문구가 있는 마을로 (마을 개편 2차)
+  const doorHref = welcome ? "/town?welcome=1" : `/town?at=${blog.slug}`;
 
   // 전시 동물은 주인의 다 키운 동물 목록에서 찾는다. 없으면(지워짐·다 자라지 않음) 빈 자리 (spec Edge Cases)
   const shown = grown.find((a) => a.id === blog.showcaseAnimalId) ?? null;
@@ -81,6 +91,17 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {welcome && (
+        <div className="card mb-4 flex items-start gap-3 border-sun bg-[#fff3d6] p-4" data-welcome>
+          <span className="text-3xl" aria-hidden>
+            🎉
+          </span>
+          <p className="flex-1 text-sm sm:text-base">
+            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.
+            아래 <b>우리 집</b>의 <b>🚪 문</b>을 눌러 밖으로 나가 마을을 구경해 보세요.
+          </p>
+        </div>
+      )}
       <BlogHeader
         blog={blog}
         viewerId={viewerId}
@@ -94,6 +115,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         showcaseId={shown?.id ?? null}
         isOwner={isOwner}
       />
+      <HouseRoom house={houseInfo(ownerWallet.level)} placed={placed} owned={owned} doorHref={doorHref} highlightDoor={welcome} />
 
       <div className="mt-6 grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="min-w-0 md:sticky md:top-20 md:self-start">

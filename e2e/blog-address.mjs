@@ -311,7 +311,7 @@ const A_SLUG = `c5_${n}`;
   await Promise.all([form.getByRole("button", { name: "주소 바꾸기" }).click(), s.getByRole("button", { name: "회원가입", exact: true }).click()]);
   await Promise.all([
     form.locator('[role="alert"], [role="status"]').first().waitFor({ timeout: 20000 }).catch(() => {}),
-    s.waitForURL(/\/town/, { timeout: 20000 }).catch(() => s.locator('form [role="alert"]').waitFor({ timeout: 5000 }).catch(() => {})),
+    s.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 }).catch(() => s.locator('form [role="alert"]').waitFor({ timeout: 5000 }).catch(() => {})),
   ]);
   const signedUp = Boolean(await one("SELECT 1 AS x FROM users WHERE username = $1", [V]));
   const moved = (await blogOf(a.userId)).slug === V;
