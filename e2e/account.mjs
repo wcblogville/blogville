@@ -105,7 +105,8 @@ await loginDev(page, ID, "남자 주민", PW);
   await page.getByRole("main").getByRole("link", { name: "내 정보", exact: true }).click();
   await page.waitForURL(/\/settings\/account$/, { timeout: 10000 }).catch(() => {});
   check("3 블로그 관리 `내 정보` 링크 → 내 정보", new URL(page.url()).pathname === "/settings/account", page.url());
-  await page.goto(`${BASE}/town`);
+  // 마을 화면은 헤더 막대가 없어서(사용자 요청 2026-10-08) 다른 화면의 헤더로 확인한다
+  await page.goto(`${BASE}/feed`);
   await page.getByRole("banner").getByRole("link", { name: "내 정보" }).click();
   await page.waitForURL(/\/settings\/account$/, { timeout: 10000 }).catch(() => {});
   check("3 헤더 캐릭터 배지 → 내 정보", new URL(page.url()).pathname === "/settings/account", page.url());

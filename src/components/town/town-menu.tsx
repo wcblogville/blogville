@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { unreadBadge } from "@/lib/notifications";
-import { FriendsPanel, type TownHudMember } from "./town-hud";
+import { AccountLinks, FriendsPanel, type TownHudMember } from "./town-hud";
 import type { TownData } from "./types";
 
 type Place = { emoji: string; label: string; sub?: string; href: string };
@@ -31,7 +31,7 @@ export function TownMenu({
         { emoji: "🔔", label: "알림", sub: badge ? `안 읽은 알림 ${badge}개` : "새 알림 없음", href: "/notifications" },
         { emoji: "📮", label: "출석 체크", sub: data.attendanceDay ? `오늘 ${data.attendanceDay}일차 ✅` : undefined, href: "/attendance" },
         { emoji: "📋", label: "마을 소식", sub: "새 글 · 이웃 새 글", href: "/feed" },
-        { emoji: "🏪", label: "상점", sub: "캐릭터·배경", href: "/shop" },
+        { emoji: "🏪", label: "상점", sub: "아바타·가구·배경", href: "/shop" },
         { emoji: "🐮", label: "동물 농장", sub: "알 부화 · 동물 키우기", href: "/farm" },
       ]
     : [
@@ -120,6 +120,11 @@ export function TownMenu({
           <div className="card p-2">
             <FriendsPanel data={data} member={hud} />
           </div>
+        </div>
+      )}
+      {hud && (
+        <div className="mt-6">
+          <AccountLinks member={hud} />
         </div>
       )}
     </nav>

@@ -90,6 +90,8 @@ async function signIn(page, id, pw) {
   await signIn(page, NEWBIE, NEWBIE_PW);
   await page.waitForURL(/\/town/, { timeout: 15000 }).catch(() => {});
   check("맞는 비밀번호로 로그인 → 광장", new URL(page.url()).pathname === "/town");
+  // 마을에는 헤더 막대가 없어서(사용자 요청 2026-10-08) 다른 화면의 헤더로 확인한다
+  await page.goto(`${BASE}/feed`);
   const banner = page.getByRole("banner");
   check(
     "헤더에 레벨·코인 110 (가입 100 + 1일차 자동 출석 10)",
@@ -138,7 +140,9 @@ let deleteAction = null;
   await signIn(page, ADMIN.username, ADMIN.password);
   await page.waitForURL(/town/, { timeout: 15000 }).catch(() => {});
   check("7 관리자 로그인 → 광장", page.url().includes("/town"));
-  check("7 헤더에 [👑 관리자]", await page.getByRole("link", { name: "👑 관리자" }).isVisible());
+  // 마을에는 헤더 막대가 없어서 ☰ 메뉴 아래에 있다 (사용자 요청 2026-10-08)
+  await page.getByRole("button", { name: /메뉴/ }).click();
+  check("7 ☰ 메뉴에 [👑 관리자]", await page.getByRole("link", { name: "👑 관리자" }).isVisible());
   await page.getByRole("link", { name: "👑 관리자" }).click();
   await page.waitForURL(/admin/);
   await page.getByText("최근 가입").waitFor();

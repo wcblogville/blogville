@@ -1,4 +1,4 @@
-// 마을 개편 1차 (사용자 요청 2026-10-08): 집 11채 원형 배치, 정류장 텔레포트, 우체통, ☰ 메뉴(프로필·알림·텔레포트·친구), ⭐ 즐겨찾기
+// 마을 개편 1차 (사용자 요청 2026-10-08): 집 11채 원형 배치, ☰ 메뉴 텔레포트(정류장은 없앰), 우체통, ☰ 메뉴(프로필·알림·텔레포트·친구), ⭐ 즐겨찾기
 // 사용: 개발 서버를 띄운 상태에서 node e2e/town.mjs <스크린샷 폴더>
 // 실행마다 새 회원 A와 이웃 B~L(11명)을 만들고, 이웃 관계·글은 pg로 넣어 준비한다
 import { chromium } from "@playwright/test";
@@ -54,17 +54,26 @@ async function openMenu(item) {
 await page.locator("canvas").waitFor();
 await openMenu("텔레포트");
 const houseButtons = panel().locator('[data-spot^="house:"]');
-check("텔레포트 목록: 마을 5곳 + 집 11자리", (await panel().locator('[data-spot]:not([data-spot^="house:"])').count()) === 5 && (await houseButtons.count()) === 11);
+// 마을 화면에는 헤더 막대가 없고 Blogville 글자만 뜬다. 내 정보·로그아웃은 ☰ 메뉴 아래 (사용자 요청 2026-10-08)
+{
+  const banner = page.getByRole("banner");
+  check("마을 헤더: Blogville 글자만 (레벨·코인·알림·로그아웃 숨김)", (await banner.innerText()).trim() === "Blogville" && !(await banner.getByTitle("코인").isVisible()), (await banner.innerText()).replace(/\n/g, " "));
+  await openMenu();
+  const account = await panel().locator("[data-account-links]").innerText();
+  check("☰ 메뉴 아래 내 정보·로그아웃", account.includes("내 정보") && account.includes("로그아웃"), account.replace(/\n/g, " "));
+  await openMenu("텔레포트");
+}
+check("텔레포트 목록: 마을 4곳(분수·게시판·상점·농장) + 집 11자리", (await panel().locator('[data-spot]:not([data-spot^="house:"])').count()) === 4 && (await houseButtons.count()) === 11);
 const disabled = await houseButtons.evaluateAll((els) => els.filter((e) => e.disabled).length);
 check("이웃이 없으면 빈 집터 10자리 (누를 수 없음), 내 집은 누를 수 있음", disabled === 10 && (await panel().locator('[data-spot="house:0"]').isEnabled()));
 await page.screenshot({ path: `${outDir}/town-teleport.png` });
 
 // 프로필: 헤더와 같은 코인, 경험치 n/m
 await openMenu("내 프로필");
-const banner = await page.getByRole("banner").innerText();
 const coinText = await panel().locator("[data-profile-coins]").innerText();
 const expText = await panel().locator("[data-profile-exp]").innerText();
-check("프로필: 코인이 헤더와 같음", banner.includes(coinText), `${coinText}`);
+const ledgerCoins = (await one("SELECT COALESCE(SUM(coin_delta), 0)::int AS c FROM point_ledger WHERE user_id = $1", [aId])).c;
+check("프로필: 코인이 원장 합계와 같음", Number(coinText.replace(/[^0-9]/g, "")) === ledgerCoins, `${coinText} / ${ledgerCoins}`);
 check("프로필: 경험치 `현재 / 필요`", /^[\d,]+ \/ [\d,]+$/.test(expText), expText);
 
 // 알림: 알림 없음 안내와 알림함 링크
@@ -118,20 +127,14 @@ await openMenu("텔레포트");
 const disabled2 = await houseButtons.evaluateAll((els) => els.filter((e) => e.disabled).length);
 check("즐겨찾기 10명이면 빈 집터 없음", disabled2 === 0);
 
-// 정류장으로 텔레포트 → Space → 집 11채 목록
-await panel().locator('[data-spot="signpost"]').click();
-check("텔레포트하면 창이 닫힘", (await panel().count()) === 0);
-await page.waitForTimeout(500);
-await page.locator("canvas").focus().catch(() => {});
-await page.keyboard.press("Space");
-await panel().waitFor({ timeout: 5000 }).catch(() => {});
-check("정류장에서 Space → 집 11채 목록", (await panel().getAttribute("data-town-panel").catch(() => null)) === "signpost" &&
-  (await panel().locator('[data-spot^="house:"]').count()) === 11);
-await page.screenshot({ path: `${outDir}/town-signpost.png` });
+// 정류장은 없앴다 (사용자 요청 2026-10-08): 텔레포트 목록에 정류장 없음
+check("텔레포트 목록에 정류장 없음", (await panel().locator('[data-spot="signpost"]').count()) === 0 && !(await panel().innerText()).includes("정류장"));
 
-// 정류장 목록에서 B의 집 → 문 앞에서 Space → B의 블로그
+// 텔레포트 목록에서 B의 집 → 창이 닫히고, 문 앞에서 Space → B의 블로그
 await panel().locator('[data-spot="house:1"]').click();
+check("텔레포트하면 창이 닫힘", (await panel().count()) === 0);
 await page.waitForTimeout(800);
+await page.locator("canvas").focus().catch(() => {});
 await page.screenshot({ path: `${outDir}/town-house-front.png` });
 await page.keyboard.press("Space");
 await page.waitForURL(new RegExp(`/@${B}$`), { timeout: 10000 }).catch(() => {});
@@ -147,6 +150,18 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
   await gp.getByRole("button", { name: /메뉴/ }).click();
   const items = await gp.locator("[data-town-panel]").getByRole("listitem").allInnerTexts();
   check("방문자 메뉴: 텔레포트·로그인", items.length === 2 && items[0].includes("텔레포트") && items[1].includes("로그인"), items.join("|"));
+  // 공지사항(관리자) 블로그는 집이 아니다: 공개 글이 있어도 방문자 집 목록에 없음 (사용자 요청 2026-10-08)
+  const admin = await one("SELECT p.nickname, b.id AS blog_id FROM users u JOIN profiles p ON p.user_id = u.id JOIN blogs b ON b.owner_id = u.id WHERE u.role = 'admin' LIMIT 1");
+  if (admin) {
+    await db.query("INSERT INTO posts (blog_id, title, content_html, content_text) VALUES ($1, '마을 소식 테스트', '<p>공지</p>', '공지')", [admin.blog_id]);
+    await gp.reload();
+    await gp.locator("canvas").waitFor();
+    await gp.getByRole("button", { name: /메뉴/ }).click();
+    await gp.locator("[data-town-panel]").getByRole("button", { name: /텔레포트/ }).click();
+    const spots = await gp.locator("[data-town-panel]").innerText();
+    check("공지사항 블로그는 마을 집 목록에 없음", !spots.includes(`${admin.nickname}의 집`), spots.replace(/\n/g, " ").slice(0, 120));
+    await db.query("DELETE FROM posts WHERE blog_id = $1 AND title = '마을 소식 테스트'", [admin.blog_id]);
+  }
   errors.push(...gErrors);
   await g.close();
 }

@@ -204,6 +204,7 @@ async function reopen(ctx) {
   });
   await login(page);
   const s = await newestSession();
+  await page.goto(`${BASE}/feed`); // 마을에는 헤더 막대가 없다 (사용자 요청 2026-10-08)
   const out = page.getByRole("banner").getByRole("button", { name: "로그아웃" });
   const box = await out.boundingBox();
   check("8 로그아웃 누르는 영역 44×44px 이상", box && box.width >= 44 && box.height >= 44, box ? `${Math.round(box.width)}×${Math.round(box.height)}` : "버튼 없음");
@@ -277,6 +278,7 @@ async function forgeOrigin(page) {
   await login(page);
   const s = await newestSession();
   const statuses = await forgeOrigin(page);
+  await page.goto(`${BASE}/feed`); // 마을에는 헤더 막대가 없다 (사용자 요청 2026-10-08)
   await page.getByRole("banner").getByRole("button", { name: "로그아웃" }).click();
   await page.waitForTimeout(2500);
   check("12 다른 Origin 로그아웃: 성공 아님", statuses.length > 0 && statuses.every((st) => st >= 400), statuses.join(","));

@@ -25,7 +25,6 @@ export type TownData = {
 export type TownTarget =
   | { kind: "link"; href: string }
   | { kind: "login" }
-  | { kind: "signpost" } // 정류장: 집 11채 텔레포트 목록
   | { kind: "mailbox"; slot: number }; // 집 앞 우체통 (0 = 내 집)
 
 /** 메뉴의 친구 목록 한 줄: 내가 이웃으로 추가한 사람 */

@@ -13,7 +13,7 @@ export function TownGame({
   className = "",
 }: {
   data: TownData;
-  /** 처음 설 곳 (townSpots의 key). 없으면 정류장 옆 */
+  /** 처음 설 곳 (townSpots의 key). 없으면 광장 아래쪽 */
   startAt?: string | null;
   className?: string;
 }) {

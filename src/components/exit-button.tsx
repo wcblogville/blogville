@@ -24,7 +24,7 @@ export function HomeLogo({ href }: { href: string }) {
   const pathname = usePathname();
   const exitShown = !HIDDEN_ON.has(pathname);
   return (
-    <Link href={href} className={`shrink-0 font-display text-xl text-leaf-dark sm:text-2xl ${exitShown ? "max-sm:hidden" : ""}`}>
+    <Link href={href} className={`shrink-0 font-display text-xl text-leaf-dark sm:text-2xl ${exitShown ? "max-sm:hidden" : ""} group-data-[town]:pointer-events-auto group-data-[town]:text-3xl group-data-[town]:text-white group-data-[town]:[text-shadow:0_2px_0_#2f6b2a,0_0_10px_rgba(0,0,0,.25)] group-data-[town]:phone:text-leaf-dark group-data-[town]:phone:[text-shadow:none]`}>
       Blogville
     </Link>
   );

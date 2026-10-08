@@ -22,8 +22,6 @@ import {
   mailboxSvg,
   SHOP_SIZE,
   shopSvg,
-  SIGNPOST_SIZE,
-  signpostSvg,
   toDataUri,
   TREE_SIZE,
   treeSvg,
@@ -40,7 +38,7 @@ import {
   POND_POS,
   RING_RADIUS,
   SHOP_POS,
-  SIGNPOST_POS,
+  START_POS,
   TOWN_RADIUS,
   townSpots,
   WORLD,
@@ -55,8 +53,8 @@ const INTERACT_DISTANCE = 90;
 const PLAYER_SIZE = 72; // 캐릭터 그림 크기
 // 가상 조이스틱 (터치 화면 전용, TOWN-02)
 const JOYSTICK = { radius: 56, thumb: 26, margin: 28, deadZone: 8 };
-/** 처음 서는 곳: 정류장 옆 */
-const START = { x: SIGNPOST_POS.x - 70, y: SIGNPOST_POS.y + 30 };
+/** 처음 서는 곳: 광장 아래쪽 */
+const START = START_POS;
 
 /** 광장에 놓는 그림 하나. (x, y) = 아랫변 가운데 (발 닿는 곳) */
 type Structure = {
@@ -110,7 +108,6 @@ export function townTextures(data: TownData) {
   list.set("lot", toDataUri(lotSvg()));
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
-  list.set("signpost", toDataUri(signpostSvg()));
   for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
@@ -136,7 +133,7 @@ function layout(data: TownData) {
   );
 
   // 상점
-  structures.push({ texture: "shop", ...SHOP_POS, w: SHOP_SIZE.width, h: SHOP_SIZE.height, solid: { w: SHOP_SIZE.width * 0.86, h: 60 }, label: "상점", sub: "캐릭터·배경" });
+  structures.push({ texture: "shop", ...SHOP_POS, w: SHOP_SIZE.width, h: SHOP_SIZE.height, solid: { w: SHOP_SIZE.width * 0.86, h: 60 }, label: "상점", sub: "아바타·가구·배경" });
   entrances.push({
     label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 24, target: need("/shop"),
     area: { x: SHOP_POS.x - SHOP_SIZE.width / 2, y: SHOP_POS.y - SHOP_SIZE.height, w: SHOP_SIZE.width, h: SHOP_SIZE.height },
@@ -152,17 +149,6 @@ function layout(data: TownData) {
     label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
     area: { x: FARM_POS.x - FARM_SIZE.width / 2, y: FARM_POS.y - FARM_SIZE.height, w: FARM_SIZE.width, h: FARM_SIZE.height },
     promptY: FARM_POS.y - FARM_SIZE.height - 6,
-  });
-
-  // 정류장: 집 11채로 텔레포트
-  structures.push({
-    texture: "signpost", ...SIGNPOST_POS, w: SIGNPOST_SIZE.width, h: SIGNPOST_SIZE.height, solid: { w: 24, h: 14 },
-    label: "정류장", sub: "이웃집으로 바로 가기",
-  });
-  entrances.push({
-    label: "정류장", emoji: "🚏", x: SIGNPOST_POS.x - 50, y: SIGNPOST_POS.y + 14, target: { kind: "signpost" }, verb: "갈 곳 고르기",
-    area: { x: SIGNPOST_POS.x - SIGNPOST_SIZE.width / 2, y: SIGNPOST_POS.y - SIGNPOST_SIZE.height, w: SIGNPOST_SIZE.width, h: SIGNPOST_SIZE.height },
-    promptY: SIGNPOST_POS.y - SIGNPOST_SIZE.height - 6,
   });
 
   // 집 11채: 0번 = 내 집, 1~10번 = 즐겨찾기 이웃(방문자는 인기 블로그). 없으면 빈 집터
@@ -217,7 +203,7 @@ export function createTownScene(
   images: Map<string, HTMLImageElement>,
   onEnter: (target: TownTarget) => void,
   fontFamily = "sans-serif",
-  /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 정류장 옆 */
+  /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 광장 아래쪽 */
   startAt: string | null = null,
 ) {
   const allSpots = (() => {
@@ -335,7 +321,7 @@ export function createTownScene(
       this.input.on("pointerup", release);
       this.input.on("pointerupoutside", release);
 
-      // 메뉴·정류장에서 고른 곳으로 순간 이동 (TownGame이 game.events로 전한다)
+      // 메뉴에서 고른 곳으로 순간 이동 (TownGame이 game.events로 전한다)
       const teleport = (key: string) => {
         const spot = allSpots.find((p) => p.key === key);
         if (!spot) return;
@@ -586,7 +572,7 @@ export function createTownScene(
     private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
       const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
       const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...SIGNPOST_POS, r: 110 }, { ...POND_POS, r: 150 },
+        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...POND_POS, r: 150 },
         ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
       ];
       const onRoad = (x: number, y: number) => {
