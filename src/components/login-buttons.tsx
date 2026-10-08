@@ -1,6 +1,6 @@
 "use client";
 
-// 첫 화면의 로그인·회원가입 카드 (AUTH-01, AUTH-02 / FR-001, FR-002, FR-004, FR-005, FR-030, FR-031, FR-054)
+// 첫 화면의 로그인·회원가입 카드 (AUTH-01, AUTH-02, AUTH-09 / FR-001, FR-002, FR-004, FR-005, FR-030, FR-031, FR-054)
 import { useActionState, useState } from "react";
 import { signIn, signUp, type AuthFormState } from "@/app/(auth)/actions";
 import { CharacterArt } from "@/components/character";
@@ -22,9 +22,20 @@ const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible
 function SignInForm() {
   const [state, action, pending] = useActionState<AuthFormState, FormData>(signIn, {});
   return (
-    <form action={action} className="space-y-3">
-      <input name="username" defaultValue={state.values?.username} placeholder="아이디" autoComplete="username" required className={input} aria-label="아이디" />
-      <input name="password" type="password" placeholder="비밀번호" autoComplete="current-password" required className={input} aria-label="비밀번호" />
+    // noValidate: 빈 칸은 브라우저 말풍선 대신 서버 문구 `아이디와 비밀번호를 적어 주세요`로 알린다 (FR-017)
+    <form action={action} noValidate className="space-y-3">
+      <input name="username" defaultValue={state.values?.username} placeholder="아이디" autoComplete="username" className={input} aria-label="아이디" />
+      <input name="password" type="password" placeholder="비밀번호" autoComplete="current-password" className={input} aria-label="비밀번호" />
+      {/* [로그인 상태 유지]: 처음엔 선택 안 됨. 고르면 7일, 아니면 브라우저 종료·마지막 사용 2시간 (FR-019~FR-021) */}
+      <label className="flex min-h-11 w-fit cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          name="rememberMe"
+          defaultChecked={state.values?.rememberMe ?? false}
+          className={`size-5 accent-leaf ${focusRing}`}
+        />
+        로그인 상태 유지
+      </label>
       {state.error && <p role="alert" className="text-sm font-bold text-berry">{state.error}</p>}
       <button disabled={pending} className={`btn min-h-11 w-full whitespace-nowrap bg-leaf py-3 text-white ${focusRing}`}>
         {pending ? "들어가는 중..." : "로그인"}

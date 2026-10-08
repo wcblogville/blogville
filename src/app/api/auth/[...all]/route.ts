@@ -17,10 +17,7 @@ const ALLOWED: Record<"GET" | "POST", RegExp[]> = {
     /^\/callback\/(google|kakao|naver)$/,
     // 1단계 동안만 임시: 첫 화면 소셜 버튼이 아직 authClient.signIn.social을 쓴다. 8단계 startSocialSignIn(Server Action)으로 바꾸며 뺀다
     /^\/sign-in\/social$/,
-    // 1단계 동안만 임시: 헤더 로그아웃 버튼(sign-out-button.tsx)이 아직 authClient.signOut을 쓴다.
-    // 계약(contracts/auth-entry.md 6장)은 404지만, 로그아웃을 Server Action으로 바꾸는 작업(T032·T033)이 다음 단계라
-    // 막으면 로그아웃이 깨진다. 자기 세션만 지우는 경로라 위험이 없다. T033에서 뺀다
-    /^\/sign-out$/,
+    // 로그아웃은 signOut Server Action이 서버에서 auth.api.signOut을 부른다 (T032·T033). /sign-out은 404
   ],
 };
 

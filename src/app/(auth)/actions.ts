@@ -2,7 +2,7 @@
 
 import { APIError } from "better-auth/api";
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -11,7 +11,7 @@ import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
 import { getSession } from "@/server/dal";
 import { createMember, SIGNUP_ERRORS } from "@/server/signup";
 
-export type AuthFormState = { error?: string; values?: { username: string; characterId?: string } };
+export type AuthFormState = { error?: string; values?: { username: string; characterId?: string; rememberMe?: boolean } };
 
 // 검사 순서와 문구: contracts/auth-entry.md 2장 (위에서 처음 걸린 것 하나만 보여준다)
 const signUpSchema = z
@@ -61,18 +61,44 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   redirect("/town?welcome=1");
 }
 
+/**
+ * 아이디 로그인 (AUTH-09 / FR-015~FR-019, contracts/auth-entry.md 3장).
+ * 아이디는 앞뒤 공백·대문자를 무시한다. 없는 아이디와 틀린 비밀번호는 같은 문구다 (아이디 존재 여부를 알리지 않는다).
+ * 로그인 시도 제한(FR-025~)은 US6(T060)에서 이 함수에 더한다.
+ */
 export async function signIn(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
-  const username = normalizeName(String(formData.get("username") ?? ""));
+  const rawUsername = String(formData.get("username") ?? "");
+  const username = normalizeName(rawUsername);
   const password = String(formData.get("password") ?? "");
-  if (!username || !password) return { error: "아이디와 비밀번호를 적어 주세요", values: { username } };
+  const rememberMe = formData.get("rememberMe") === "on";
+  const fail = (error: string): AuthFormState => ({ error, values: { username: rawUsername, rememberMe } });
+  if (!username || !password) return fail("아이디와 비밀번호를 적어 주세요");
 
   try {
-    await auth.api.signInUsername({ body: { username, password }, headers: await headers() });
+    // rememberMe를 늘 true/false로 넘긴다. 빠지면 라이브러리는 "유지"로 보고 쿠키에 Max-Age 7일을 심는다
+    await auth.api.signInUsername({ body: { username, password, rememberMe }, headers: await headers() });
   } catch (err) {
-    if (err instanceof APIError) return { error: "아이디 또는 비밀번호가 맞지 않아요", values: { username } };
+    if (err instanceof APIError) return fail("아이디 또는 비밀번호가 맞지 않아요");
     throw err;
+  }
+
+  if (rememberMe) {
+    // better-auth 1.7.7은 유지로 다시 로그인해도 예전 유지 안 함 로그인이 남긴 dont_remember 쿠키를 지우지 않는다.
+    // 남아 있으면 get-session이 연장을 건너뛰어(SessionKeeper가 7일로 늘리지 못함) 여기서 지운다
+    const { authCookies } = await auth.$context;
+    (await cookies()).delete({ name: authCookies.dontRememberToken.name, path: "/" });
   }
 
   revalidatePath("/", "layout");
   redirect("/town");
+}
+
+/**
+ * 로그아웃 (AUTH-04 / FR-029, contracts/auth-entry.md 5장). 확인 없이 세션 행·쿠키를 지우고 첫 화면으로.
+ * 로그인하지 않았어도 오류 없이 첫 화면으로 간다 (라이브러리 sign-out은 쿠키가 없으면 지울 것이 없을 뿐이다).
+ */
+export async function signOut(): Promise<void> {
+  await auth.api.signOut({ headers: await headers() });
+  revalidatePath("/", "layout");
+  redirect("/");
 }
