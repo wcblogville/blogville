@@ -75,10 +75,15 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       await tx.insert(accounts).values({ id: newAuthId(), userId, providerId: "credential", accountId: userId, password: passwordHash });
       // 3) 그 아이디의 로그인 실패 기록을 지운다 (새 계정이 가입 전 실패·잠금을 물려받지 않게, research R8)
       await tx.delete(loginAttempts).where(eq(loginAttempts.username, username));
-      // 4) 보유 아이템: 고른 캐릭터 하나 + 초원 (GAME-01)
+      // 4) 보유 아이템: 고른 캐릭터 하나 + 초원 (GAME-01) + 기본 가구(화분·나무 의자, 마을 개편 2차)
+      const starterFurniture = await tx
+        .select({ id: items.id })
+        .from(items)
+        .where(and(eq(items.type, "furniture"), eq(items.isStarter, true)));
       await tx.insert(userItems).values([
         { userId, itemId: character.id },
         { userId, itemId: background.id },
+        ...starterFurniture.map((f) => ({ userId, itemId: f.id })),
       ]);
       // 5) 프로필: 닉네임 = 아이디 (나중에 blog의 내 정보에서 바꾼다)
       await tx.insert(profiles).values({ userId, nickname: username, characterItemId: character.id });

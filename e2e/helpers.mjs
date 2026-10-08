@@ -23,7 +23,7 @@ export function collectErrors(page, { keepLevelUp = false } = {}) {
 }
 
 /**
- * 아이디로 로그인하고, 없는 계정이면 회원가입한다 (AUTH-01: 가입 폼에서 캐릭터를 고르고 바로 광장).
+ * 아이디로 로그인하고, 없는 계정이면 회원가입한다 (AUTH-01: 가입 폼에서 캐릭터를 고르면 내 블로그, 그다음 광장으로 옮긴다).
  * 가입한 회원의 닉네임·블로그 주소는 아이디(소문자)와 같다.
  */
 export async function loginDev(page, devId, character = "남자 주민", password = "test-password-1234") {
@@ -45,7 +45,9 @@ export async function loginDev(page, devId, character = "남자 주민", passwor
     await page.getByLabel("비밀번호 확인").fill(password);
     await page.locator("label", { hasText: character }).click();
     await page.getByRole("button", { name: "회원가입", exact: true }).click();
-    await page.waitForURL(/\/town/, { timeout: 20000 });
+    // 첫 가입은 내 블로그(집 안)에서 시작한다 (마을 개편 2차). 시험은 광장에서 이어 간다
+    await page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 });
+    await page.goto(`${BASE}/town`);
   }
 }
 

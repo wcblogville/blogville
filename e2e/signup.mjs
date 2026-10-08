@@ -64,7 +64,8 @@ async function signUp(page, { id, pw = PW, confirm = pw, character, tamper, tamp
 const formError = (page) => page.locator('form [role="alert"]');
 
 async function outcome(page) {
-  const town = page.waitForURL(/\/town/, { timeout: 20000 }).then(() => "town");
+  // 가입하면 내 블로그(집 안)로 간다 (마을 개편 2차). 결과 이름은 예전처럼 "town"
+  const town = page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 }).then(() => "town");
   const alert = formError(page)
     .waitFor({ timeout: 20000 })
     .then(() => formError(page).innerText());
@@ -178,7 +179,8 @@ let mainSession;
   check("2 닉네임 = 아이디", u?.nickname === main);
   check("2 블로그 이름·주소·소개", u?.title === `${main}의 블로그` && u?.slug === main && u?.description === "");
   check("2 대분류 일상", JSON.stringify(u?.categories) === JSON.stringify(["일상"]));
-  check("2 보유 = 여자 주민 + 초원, 둘 다 장착", JSON.stringify(u?.owned) === JSON.stringify(["bg_meadow", "char_girl"]) && u?.character === "char_girl" && u?.background === "bg_meadow");
+  // 마을 개편 2차부터 기본 가구(화분·나무 의자)도 함께 받는다
+  check("2 보유 = 여자 주민 + 초원 + 기본 가구, 둘 다 장착", JSON.stringify(u?.owned) === JSON.stringify(["bg_meadow", "char_girl", "fur_chair", "fur_plant"]) && u?.character === "char_girl" && u?.background === "bg_meadow");
   check("2 원장 signup 🪙 100 한 건 + 1일차 출석", JSON.stringify(u?.ledger) === JSON.stringify([{ reason: "signup", coins: 100 }, { reason: "attendance", coins: 10 }]));
   check("2 credential 로그인 수단(해시)", u?.credential === 1);
   const blog = await page.goto(`${BASE}/@${main}`);
@@ -409,7 +411,7 @@ let mainSession;
     await page.screenshot({ path: `${outDir}/54-signup-keyboard.png` });
     await page.keyboard.press("Enter");
   }
-  const r = await page.waitForURL(/\/town/, { timeout: 20000 }).then(() => "town").catch(() => page.url());
+  const r = await page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 }).then(() => "town").catch(() => page.url());
   check("13 키보드만으로 가입", r === "town", r);
   check("13 이동하는 동안 초점 테두리가 보임", ringSeen.length === 4 && ringSeen.every(Boolean), JSON.stringify(ringSeen));
   await ctx.close();

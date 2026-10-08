@@ -192,6 +192,8 @@ check("US2 지운 글도 하루 3번에 포함", (await a.getByText("🎉 글을
 
 // ── US3 공개 범위 ──
 const privatePost = await publish(a, { title: "비밀 글", body: "주인만 보는 글입니다", visibility: "private" });
+// 글 화면으로 옮긴 직후에는 이전 화면 제목이 남아 있을 수 있어 바뀔 때까지 기다린다
+await a.waitForFunction(() => document.title === "글 | Blogville", null, { timeout: 5000 }).catch(() => {});
 check("US3 비공개 글 탭 제목(주인)", (await a.title()) === "글 | Blogville", await a.title());
 for (const [who, page] of [
   ["다른 회원", b],

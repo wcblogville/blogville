@@ -251,6 +251,30 @@ export const blogs = pgTable(
   ],
 );
 
+// 집 안 가구 (마을 개편 2차, 사용자 요청 2026-10-08). 블로그의 "우리 집" 구역에 칸(slot)마다 가구 하나.
+// 칸 수는 집 단계(주인 레벨)로 정한다: 1단계 4칸, 2단계 6칸, 3단계 8칸 (src/lib/house.ts). 가진 가구만, 같은 가구는 한 칸에만
+export const houseFurniture = pgTable(
+  "house_furniture",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(),
+    itemId: integer("item_id").notNull(),
+    placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.slot] }),
+    unique("house_furniture_item_uq").on(t.userId, t.itemId),
+    check("house_furniture_slot_check", sql`${t.slot} BETWEEN 0 AND 7`),
+    foreignKey({
+      name: "house_furniture_owned_fk",
+      columns: [t.userId, t.itemId],
+      foreignColumns: [userItems.userId, userItems.itemId],
+    }).onDelete("cascade"),
+  ],
+);
+
 export const categories = pgTable(
   "categories",
   {
