@@ -54,7 +54,7 @@ await page.locator(".ProseMirror").waitFor();
 await page.getByPlaceholder("제목").fill("범위 밖 카테고리");
 await page.locator(".ProseMirror").click();
 await page.keyboard.type("본문");
-await page.getByLabel("카테고리").evaluate((s, v) => {
+await page.getByLabel("대분류").evaluate((s, v) => {
   s.add(new Option("조작", String(v)));
   s.value = String(v);
 }, HUGE);

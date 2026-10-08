@@ -40,7 +40,8 @@ export async function SiteHeader() {
             </Link>
             {/* 로그인 유지 세션만 7일 연장 (AUTH-09 / FR-021) */}
             {member.rememberMe && <SessionKeeper />}
-            <SignOutButton />
+            {/* 로그아웃 때 이 브라우저의 임시 글도 지운다 (POST-08 / FR-063) */}
+            <SignOutButton userId={member.userId} />
           </div>
         ) : viewer ? (
           <SignOutButton />

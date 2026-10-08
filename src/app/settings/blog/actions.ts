@@ -6,7 +6,7 @@
 import { and, asc, eq, exists, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { blogs, categories, subcategories, userAnimals } from "@/db/schema";
+import { blogs, categories, posts, subcategories, userAnimals } from "@/db/schema";
 import { BLOG_DESCRIPTION_MAX, BLOG_TITLE_MAX, charCount, SLUG_RE, swapPosition } from "@/lib/blog";
 import { parseId } from "@/lib/ids";
 import { isReservedName, normalizeName } from "@/lib/names";
@@ -223,8 +223,12 @@ export async function deleteCategory(categoryId: number) {
     await lockBlog(tx, blogId);
     const list = await myCategories(tx, blogId);
     if (!list.some((c) => c.id === id)) return; // 내 블로그 대분류가 아니면 아무것도 안 함
-    // TODO(post 단계 3, 003-post T041·T042): posts.subcategory_id가 생기면 여기서 그 대분류 글의 category_id·subcategory_id를
-    // 함께 NULL로 비운다 (updatedAt: sql`updated_at`으로 수정 시각 유지). 지금은 FK SET NULL이 category_id만 비운다
+    // 그 대분류 글의 대분류·소분류를 먼저 함께 비운다 (수정 시각은 그대로, POST-03 / research R-11).
+    // 다른 경로(회원 삭제 CASCADE 등)는 FK SET NULL과 트리거 posts_clear_subcategory가 지킨다
+    await tx
+      .update(posts)
+      .set({ categoryId: null, subcategoryId: null, updatedAt: sql`${posts.updatedAt}` })
+      .where(and(eq(posts.categoryId, id), eq(posts.blogId, blogId)));
     await tx.delete(categories).where(and(eq(categories.id, id), eq(categories.blogId, blogId)));
     const rest = list.filter((c) => c.id !== id);
     await renumber(

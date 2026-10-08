@@ -91,7 +91,8 @@ await page.getByPlaceholder("제목").fill("농장 동물에게 들려주는 글
 await page.locator(".ProseMirror").click();
 await page.keyboard.type("오늘은 동물 농장을 만들었다. ".repeat(8));
 await page.getByRole("button", { name: "발행하기" }).click();
-await page.waitForURL(/new=reward/);
+// 발행 보상은 안내 문구로 확인한다 (post: 보상 여부를 주소에 담지 않음, POST-01 / FR-013)
+await page.getByText("코인을 받았어요").waitFor();
 check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM user_animals WHERE id = $1", [growingId])).growth === 10);
 
 console.log(results.join("\n"));

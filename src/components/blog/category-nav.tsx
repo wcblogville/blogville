@@ -1,7 +1,7 @@
 // 블로그 홈 카테고리 트리 (BLOG-05 / FR-040·057·059, contracts/blog-home.md 1.1·1.2)
 // `전체 글 (N)`(공개 글 수) 아래 대분류 순서대로, 소분류는 `└ 이름 (N)`으로 들여 쓴다. 글 없는 카테고리도 (0).
 // 링크는 ?category= / ?sub= 만 남기고 q·page를 버린다 (검색 모드에서 누르면 검색을 벗어나 1페이지).
-// 소분류 글 수는 post 단계 3(posts.subcategory_id) 전에는 null이라 그리지 않는다.
+// 소분류 글 수는 posts.subcategory_id로 센다 (POST-03).
 import Link from "next/link";
 
 type Sub = { id: number; name: string; postCount: number | null };

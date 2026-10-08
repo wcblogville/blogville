@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.5 (2026-10-08, 회원/인증: 로그인 유지 `sessions.remember_me`, 로그인 실패 기록 `login_attempts`, 탈퇴 삭제 규칙)
+- 버전: 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
 - ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
 - ERDCloud에서 직접 그린 제출본: [erdcloud-final.sql](erdcloud-final.sql) (2026-10-07 내보내기. 점선 관계의 FK와 테이블 코멘트는 ERDCloud가 내보내지 않는다)
@@ -44,6 +44,7 @@ erDiagram
     users ||--o{ follows : "이웃 추가함"
     users ||--o{ follows : "이웃 추가됨"
     blogs ||--o{ blog_visits : "방문 기록"
+    posts ||--o{ post_views : "조회 기록"
 
     users ||--o{ attendances : "출석"
     sessions |o..o{ attendances : "자동 출석한 세션"
@@ -228,6 +229,13 @@ erDiagram
         varchar name "원래 파일 이름"
         varchar mime
         int size "바이트"
+        timestamptz detached_at "글에서 떨어진 시각"
+        timestamptz created_at
+    }
+    post_views {
+        int post_id PK,FK
+        date date PK
+        uuid visitor_id PK "방문자 쿠키"
         timestamptz created_at
     }
     blog_visits {
@@ -275,7 +283,7 @@ erDiagram
 |---|---|---|
 | 인증 | `users`, `accounts`, `sessions`, `verifications`, `login_attempts` | AUTH |
 | 회원·블로그 | `profiles`, `blogs`, `categories`, `subcategories` | AUTH-02, AUTH-07, BLOG |
-| 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows` | POST, SOC, TOWN-08 |
+| 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows`, `post_views` | POST, SOC, TOWN-08 |
 | 아이템 | `items`, `user_items` | GAME-01, SHOP, TOWN-09(성장 아이템) |
 | 보상 | `attendances`, `attendance_rewards`, `point_ledger` | GAME-02~05 |
 | 첨부 | `attachments` | POST-07, POST-09 |
@@ -415,6 +423,7 @@ COMMIT
 | `follows` | (`follower_id`, `followee_id`) | 같은 이웃 두 번 불가 (+ CHECK 자기 자신 불가) |
 | `attendances` | (`user_id`, `date`) | 하루 한 번 출석 |
 | `blog_visits` | (`blog_id`, `date`, `visitor_id`) | 같은 사람 하루 1번 |
+| `post_views` | (`post_id`, `date`, `visitor_id`) | 같은 브라우저는 글마다 하루 1번 조회 (POST-06) |
 | `animal_cares` | (`animal_id`, `action`, `date`) | 같은 돌보기 하루 한 번 |
 
 - 이 표들은 다른 표가 가리키지 않아서 복합 PK의 단점(가리키려면 키를 여러 개 들고 가야 함)이 없다. 예외로 `user_items`는 장착 FK(3.4)가 가리키는데, 복합 FK로 "보유한 것만"을 지키는 데 오히려 쓰인다.
@@ -435,8 +444,11 @@ COMMIT
   - 프로필 사진: `profiles.photo_key` → `attachments.key` (NULL 허용, 프로필당 1장).
 - `attachments.user_id`(올린 사람)는 남긴다. 글이 생기기 전의 주인이고, 남의 첨부를 내 글에 붙이지 못하게 확인하는 데 쓴다.
 - 파일 내용은 DB가 아니라 저장소(`src/server/storage.ts`)에 두고, `attachments`에는 원래 이름·형식·크기만 둔다. `key`는 서버가 만든 무작위 32자이고 저장 이름이자 주소(`/files/키`)다.
-- 어디에도 안 쓰인 첨부(글을 저장하지 않음, 사진을 뺌, 프로필 사진을 바꿈)는 하루 뒤 정리 작업이 파일과 함께 지운다.
-- 비공개 글의 사진은 `post_id`로 글을 찾아 주인만 열게 한다.
+- **글에 붙이는 규칙** (POST-07·POST-09, `savePost`): 글 P를 저장할 때 본문의 키는 ① 행이 있고 ② 내가 올렸고 ③ 어느 글에도 안 붙었거나 P에 붙었고(새 글은 안 붙은 것만) ④ 지금 프로필 사진이 아니고 ⑤ 종류가 자리와 맞을 때(`<img>`는 사진, 파일 카드는 파일)만 남는다. 행을 키 순서로 `FOR UPDATE` 잠가 동시에 저장하는 글과 엇갈리지 않는다. 그래서 **한 첨부는 한 글에만** 붙는다.
+- **붙여 넣기 다시 올리기**: 내 다른 글·프로필 사진의 첨부를 에디터에 붙여 넣으면 원본은 그대로 두고 새 키로 복사한 새 행(`post_id` NULL)을 만든다. 남의 첨부·없는 키는 넣지 않는다.
+- **누가 여나** (`GET /files/키`): 공개 글 첨부는 누구나, 비공개 글 첨부는 그 블로그 주인만(관리자도 안 됨), 어느 글에도 안 붙은 첨부는 올린 사람만, 프로필 사진은 누구나. 안 되면 없는 것과 같은 404. 캐시는 `private, no-cache` + `ETag`(키).
+- **떨어진 시각** `detached_at`: 트리거 `attachments_track_detached`(`BEFORE UPDATE OF post_id`)가 값→NULL이면 지금 시각을, NULL→값이면 NULL을 적는다. 본문에서 빼거나 글을 지울 때(`SET NULL`) 모두 지난다.
+- **정리 작업** `npm run posts:cleanup`(하루 1번): `post_id IS NULL`이고 `COALESCE(detached_at, created_at)`이 하루 넘었고 프로필 사진이 아닌 첨부를 `FOR UPDATE SKIP LOCKED`로 골라 행과 파일을 지운다. 행 없는 저장소 파일(1시간 넘은 것)과 어제보다 오래된 조회 기록(`post_views`)도 지운다.
 
 ### 3.10 방문자 수는 "사람·날짜마다 한 줄" (BLOG-06)
 
@@ -501,8 +513,8 @@ COMMIT
 |---|---|
 | 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 알림(game) 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
 | 블로그 | 카테고리, 글, 방문 기록 삭제 (블로그만 지우는 기능은 없다, 3.1) |
-| 글 | 태그 연결, 댓글(→ 답글), 공감 삭제. 첨부는 `post_id`만 비움 |
-| 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움. 블로그 관리의 삭제는 한 트랜잭션에서 블로그 행을 잠그고 남은 대분류 순서를 0부터 다시 매긴다 (`deleteCategory`) |
+| 글 | 태그 연결, 댓글(→ 답글), 공감, 조회 기록 삭제. 첨부는 `post_id`만 비움(트리거가 `detached_at` 기록 → 하루 뒤 정리) |
+| 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움. 블로그 관리의 삭제는 한 트랜잭션에서 블로그 행을 잠그고 글의 두 칸을 먼저 비운 뒤 남은 대분류 순서를 0부터 다시 매긴다 (`deleteCategory`). 회원 삭제 같은 다른 경로는 트리거 `posts_clear_subcategory`가 지킨다 (3.18) |
 | 소분류 | 글은 남기고 `subcategory_id`만 비움 (대분류는 그대로) |
 | 댓글·답글 | 행을 지우지 않고 `deleted_at`만 기록 |
 | 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
@@ -536,7 +548,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
 | `user_animals (user_id, status)` | 농장 화면, 5마리 세기 |
 | `attachments (user_id, created_at)` | 회원의 첨부, 정리 작업 |
-| ⏳ `attachments (post_id)` | 글의 첨부, 글 삭제 |
+| `attachments (post_id)` | 글의 첨부, 글 삭제 |
 
 ### 3.18 카테고리 2단계: 대분류·소분류 (BLOG-05, POST-03)
 
@@ -554,7 +566,9 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
   복합 FK는 칸 하나라도 비어 있으면 검사하지 않으므로, "소분류가 있으면 대분류도 있다"는 CHECK로 따로 막는다.
 - 예: "여행 > 맛집"은 되고, "여행 > 알고리즘"(공부의 소분류)은 DB가 거부한다.
 - 블로그에서 대분류를 누르면 그 아래 소분류 글까지 모두 보인다 (`WHERE category_id = ?`). 소분류를 누르면 그 소분류 글만 (`WHERE subcategory_id = ?`).
-- 대분류를 지울 때는 앱(`deleteCategory`)이 같은 트랜잭션에서 그 대분류 글의 두 칸을 먼저 비운 뒤 지운다 (post 단계 3에서 `posts.subcategory_id`가 생긴 뒤부터. 지금은 `posts.category_id` FK `SET NULL`만 동작).
+- 대분류를 지울 때는 앱(`deleteCategory`)이 같은 트랜잭션에서 그 대분류 글의 두 칸을 먼저 비운 뒤 지운다.
+- **트리거 `posts_clear_subcategory`** (`BEFORE UPDATE OF category_id`): 새 `category_id`가 NULL이면 `subcategory_id`도 비운다. 회원 삭제 CASCADE처럼 앱을 거치지 않는 경로에서 대분류 FK의 `SET NULL`과 소분류 CASCADE 중 어느 쪽이 먼저 돌아도 CHECK(소분류만 있는 글 금지)에 걸리지 않게 한다.
+- `ON DELETE SET NULL (subcategory_id)`는 drizzle이 적지 못해 마이그레이션 SQL(`0017_post_attachments_views_subcategory`)을 손으로 고쳤다. 스키마 파일(`src/db/schema.ts`)에는 `set null`로 적혀 있지만 실제 DB는 소분류 칸만 비운다.
 - 대분류·소분류의 추가·삭제·순서 바꾸기는 트랜잭션 첫 줄에서 블로그 행을 `FOR UPDATE`로 잠가 `position`이 0부터 겹침·빈틈 없이 유지된다 (`subcategories`는 `0016_blog_subcategories`).
 
 ### 3.17 정규화 점검
@@ -586,7 +600,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 컬럼 | 어디서 계산할 수 있나 | 저장하는 이유 |
 |---|---|---|
 | `posts.content_text` | `content_html`에서 태그를 빼면 된다 | 목록 요약·검색·글자 수를 매번 HTML에서 뽑지 않으려고 |
-| `posts.view_count` | 조회 기록을 세면 된다 | 조회 기록 표를 두지 않아서 숫자만 쌓는다 |
+| `posts.view_count` | 조회 기록(`post_views`)을 세면 된다 | 조회 기록 표는 "하루 1번" 판단용이라 오늘·어제만 남긴다(정리 작업). 누적 숫자는 목록마다 세면 비싸서 쌓는다. 표가 생기기 전 조회도 들어 있어 행 수와 같지 않다 |
 | `point_ledger.exp_delta`, `coin_delta` | 사유 + 보상 규칙 | **그때의 보상**을 남기려고. 규칙 숫자가 바뀌어도 지난 기록은 바뀌면 안 된다 |
 | `attendances.cycle_day` | 지난 출석을 거슬러 세면 된다 | 매번 거슬러 세지 않고, 규칙이 바뀌어도 그날 받은 일차를 남기려고 |
 | `user_animals.status` | 종류 유무, 성장치 ≥ 필요 성장치 | 상태별로 세고(5마리) 찾는 일이 잦아서. CHECK로 종류 유무와 어긋나지 않게 묶었다 |
@@ -602,6 +616,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 파일 | 내용 |
 |---|---|
 | `0002_give_all_starters.sql` | GAME-01 결정(그때는 기본 캐릭터 3종 모두 지급)에 맞춰, 이미 온보딩을 마친 회원에게 없는 기본 캐릭터를 채웠다. `ON CONFLICT DO NOTHING`이라 여러 번 실행해도 중복되지 않는다 |
+| `0018_attachment_backfill.sql` | POST-07·POST-09: 기존 첨부마다 올린 회원의 글 중 본문에 `/files/키`가 든 가장 먼저 쓴 글에 `post_id`를 채웠다. 못 찾으면 NULL(정리 대상). `post_id IS NULL` 행만 고쳐 다시 실행해도 같다 |
 
 ## 5. 남은 확인 사항
 
@@ -627,11 +642,11 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 |---|---|---|
 | 1 | (식별 관계 표는 지금 DB와 같다. 바꿀 것 없음) | |
 | 2 | `replies` 만들기, `comments.parent_id` 삭제 | 답글(`parent_id`가 있는 댓글)을 `replies`로 옮긴다 |
-| 3 | `attachments.post_id`, `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 |
+| 3 | ✅ `attachments.post_id`(+ `detached_at`, post), ✅ `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 (`0018_attachment_backfill`) |
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | ✅ `users.username` NOT NULL·CHECK, `accounts` UNIQUE (`user_id`, `provider_id`), 소셜 토큰 비우기, `sessions.remember_me`, `login_attempts` | 아이디 없는 회원·프로필 없는 회원 정리 (auth 마이그레이션) |
 | 6 | `follows.is_favorite` | 없음 |
-| 6-3 | ✅ `subcategories` 만들기 (blog), `posts.subcategory_id` + 복합 FK + CHECK (post) | 없음 (기존 글은 대분류만) |
+| 6-3 | ✅ `subcategories` 만들기 (blog), ✅ `posts.subcategory_id` + 복합 FK + CHECK + 트리거 (post) | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), ✅ `user_animals` UNIQUE (`user_id`, `id`), ✅ `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
 | 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리는 2번 뒤), ✅ 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
 
@@ -685,4 +700,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`

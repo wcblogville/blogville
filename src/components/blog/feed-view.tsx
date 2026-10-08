@@ -27,11 +27,11 @@ export function FeedView({
         <h1 className="font-display text-3xl">{title}</h1>
         {tab && (
           <div className="mt-4 flex gap-2">
-            <Link href="/feed" className={`btn py-1.5 text-sm ${tab === "all" ? "bg-ink text-cream" : "bg-white text-ink"}`}>
+            <Link href="/feed" className={`btn min-h-11 whitespace-nowrap py-1.5 text-sm ${tab === "all" ? "bg-ink text-cream" : "bg-white text-ink"}`}>
               🏘 마을 전체
             </Link>
             {showFollowingTab && (
-              <Link href="/feed/following" className={`btn py-1.5 text-sm ${tab === "following" ? "bg-ink text-cream" : "bg-white text-ink"}`}>
+              <Link href="/feed/following" className={`btn min-h-11 whitespace-nowrap py-1.5 text-sm ${tab === "following" ? "bg-ink text-cream" : "bg-white text-ink"}`}>
                 💛 이웃 새 글
               </Link>
             )}
@@ -50,7 +50,7 @@ export function FeedView({
             <ul className="flex flex-wrap gap-1.5">
               {tags.map((t) => (
                 <li key={t.name}>
-                  <Link href={`/tags/${encodeURIComponent(t.name)}`} className="inline-block rounded-full bg-cream px-2.5 py-1 text-sm hover:text-leaf-dark">
+                  <Link href={`/tags/${encodeURIComponent(t.name)}`} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-cream px-2.5 text-sm hover:text-leaf-dark">
                     #{t.name} <span className="text-ink-soft">{t.count}</span>
                   </Link>
                 </li>
