@@ -1,10 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AnimalCollection } from "@/components/blog/animal-collection";
 import { BlogHeader } from "@/components/blog/blog-header";
+import { BlogSearchBox, BlogSearchResults } from "@/components/blog/blog-search";
+import { CategoryNav } from "@/components/blog/category-nav";
 import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
+import { parseSearchQuery } from "@/lib/blog";
+import { formatDate } from "@/lib/format";
 import { parseId } from "@/lib/ids";
-import { getBlogBySlug, getBlogVisitStats, getCategories, isFollowing, listBlogPosts } from "@/server/blog";
+import {
+  getBlogBySlug,
+  getBlogVisitStats,
+  getCategories,
+  getGrownAnimals,
+  isFollowing,
+  listBlogPosts,
+  listFeed,
+  searchBlogs,
+} from "@/server/blog";
 import { getViewer } from "@/server/dal";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
@@ -13,6 +27,11 @@ export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
   return { title: blog ? blog.title : "블로그를 찾을 수 없어요" };
 }
 
+/**
+ * 블로그 홈 (BLOG-02·04·05 / contracts/blog-home.md 1절).
+ * 주소 값: ?sub=(소분류, category보다 먼저) ?category=(대분류) ?page= — 숫자는 parseId, 이상한 값은 무시 (FR-057, research R-13).
+ * ?q= 는 주인일 때만 검색 모드 (FR-050, research R-15). 주인이 아니면 q를 무시하고 검색 쿼리를 돌리지 않는다.
+ */
 export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const { slug } = await props.params;
   const sp = await props.searchParams;
@@ -23,72 +42,94 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const viewerId = viewer?.profile ? viewer.userId : null;
   const isOwner = viewerId === blog.ownerId;
   const page = parsePage(sp.page);
-  const categoryId = parseId(sp.category) ?? undefined; // 이상한 값이면 전체 글
+  const subcategoryId = parseId(sp.sub) ?? undefined; // 이상한 값이면 category 또는 전체 글
+  const categoryId = subcategoryId ? undefined : (parseId(sp.category) ?? undefined);
+  const search = isOwner ? parseSearchQuery(sp.q) : null; // 51자 이상은 null → 보통 블로그 홈
+  const base = `/@${blog.slug}`;
 
-  const [cats, list, following, visits] = await Promise.all([
+  const [cats, list, following, visits, grown, found] = await Promise.all([
     getCategories(blog.id, isOwner),
-    listBlogPosts({ blogId: blog.id, isOwner, categoryId, page }),
+    search
+      ? search.empty
+        ? null
+        : listFeed({ page, search: search.q })
+      : listBlogPosts({ blogId: blog.id, isOwner, categoryId, subcategoryId, page }),
     viewerId && !isOwner ? isFollowing(viewerId, blog.ownerId) : false,
     getBlogVisitStats(blog.id),
+    getGrownAnimals(blog.ownerId),
+    search && !search.empty && page === 1 ? searchBlogs(search.q) : [],
   ]);
-  const currentCat = cats.find((c) => c.id === categoryId);
-  const base = `/@${blog.slug}`;
+
+  // 전시 동물은 주인의 다 키운 동물 목록에서 찾는다. 없으면(지워짐·다 자라지 않음) 빈 자리 (spec Edge Cases)
+  const shown = grown.find((a) => a.id === blog.showcaseAnimalId) ?? null;
+  const currentCat = categoryId ? cats.find((c) => c.id === categoryId) : undefined;
+  const currentSub = subcategoryId ? cats.flatMap((c) => c.subcategories).find((s) => s.id === subcategoryId) : undefined;
+  const selected = search
+    ? null
+    : currentSub
+      ? ({ kind: "sub", id: currentSub.id } as const)
+      : currentCat
+        ? ({ kind: "category", id: currentCat.id } as const)
+        : !categoryId && !subcategoryId
+          ? ({ kind: "all" } as const)
+          : null; // 없는 번호·다른 블로그 번호: 선택 표시 없음, 제목 `전체 글 0개`
+  const pageHref = (n: number) =>
+    `${base}?${new URLSearchParams({
+      ...(search ? { q: search.q } : subcategoryId ? { sub: String(subcategoryId) } : categoryId ? { category: String(categoryId) } : {}),
+      page: String(n),
+    })}`;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
-      <BlogHeader blog={blog} viewerId={viewerId} following={following} visits={visits} />
+      <BlogHeader
+        blog={blog}
+        viewerId={viewerId}
+        following={following}
+        visits={visits}
+        showcase={shown && { assetKey: shown.assetKey, name: shown.name }}
+      />
+      {/* 도감: 블로그 정보 아래 작은 카드 줄 (FR-029, research R-20). 전시 버튼은 주인에게만 */}
+      <AnimalCollection
+        animals={grown.map((a) => ({ id: a.id, name: a.name, assetKey: a.assetKey, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
+        showcaseId={shown?.id ?? null}
+        isOwner={isOwner}
+      />
 
       <div className="mt-6 grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="md:sticky md:top-20 md:self-start">
-          <nav className="card p-4" aria-label="카테고리">
-            <h2 className="mb-2 font-display text-lg">카테고리</h2>
-            {/* 카테고리 링크는 누르는 영역 44px 이상 (FR-059, research R-24) */}
-            <ul className="space-y-0.5 text-sm">
-              <li>
-                <Link href={base} className={`flex min-h-11 items-center gap-1 rounded-lg px-2 ${!categoryId ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`}>
-                  전체 글 <span className="text-ink-soft">({blog.postCount})</span>
-                </Link>
-              </li>
-              {cats.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`${base}?category=${c.id}`}
-                    className={`flex min-h-11 items-center gap-1 rounded-lg px-2 ${c.id === categoryId ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`}
-                  >
-                    └ {c.name} <span className="text-ink-soft">({c.postCount})</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
+        <aside className="min-w-0 md:sticky md:top-20 md:self-start">
+          {isOwner && <BlogSearchBox base={base} q={search?.q ?? ""} />}
+          <CategoryNav base={base} tree={cats} publicCount={blog.postCount} selected={selected} />
         </aside>
 
-        <section>
-          <h2 className="mb-3 font-display text-xl">
-            {currentCat ? currentCat.name : "전체 글"} <span className="text-base text-ink-soft">{list.total}개</span>
-          </h2>
-          {list.items.length ? (
-            <div className="grid gap-4">
-              {list.items.map((p) => (
-                <PostCard key={p.id} post={p} />
-              ))}
-            </div>
+        <section className="min-w-0">
+          {search ? (
+            <BlogSearchResults q={search.q} empty={search.empty} blogs={found} posts={list?.items ?? []} total={list?.total ?? 0} />
           ) : (
-            <div className="card p-10 text-center text-ink-soft">
-              <p className="text-4xl">🌱</p>
-              <p className="mt-2">아직 글이 없어요.</p>
-              {isOwner && (
-                <Link href="/write" className="btn mt-4 min-h-11 min-w-11 whitespace-nowrap bg-leaf text-white">
-                  첫 글 쓰기
-                </Link>
+            <>
+              <h2 className="mb-3 font-display text-xl">
+                {currentSub ? currentSub.name : currentCat ? currentCat.name : "전체 글"}{" "}
+                <span className="text-base text-ink-soft">{list?.total ?? 0}개</span>
+              </h2>
+              {list?.items.length ? (
+                <div className="grid gap-4">
+                  {list.items.map((p) => (
+                    <PostCard key={p.id} post={p} />
+                  ))}
+                </div>
+              ) : (
+                <div className="card p-10 text-center text-ink-soft">
+                  <p className="text-4xl">🌱</p>
+                  <p className="mt-2">아직 글이 없어요.</p>
+                  {isOwner && (
+                    <Link href="/write" className="btn mt-4 min-h-11 min-w-11 whitespace-nowrap bg-leaf text-white">
+                      첫 글 쓰기
+                    </Link>
+                  )}
+                </div>
               )}
-            </div>
+            </>
           )}
-          <Pagination
-            page={list.page}
-            pageCount={list.pageCount}
-            hrefFor={(n) => `${base}?${new URLSearchParams({ ...(categoryId && { category: String(categoryId) }), page: String(n) })}`}
-          />
+          {list && <Pagination page={list.page} pageCount={list.pageCount} hrefFor={pageHref} />}
         </section>
       </div>
     </div>

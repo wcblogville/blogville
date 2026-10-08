@@ -47,6 +47,11 @@ function wrap(body: string, size: number) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}">${body}</svg>`;
 }
 
+/** 그림 키에 맞는 동물 그림이 있는지 (블로그 전시 동물은 없으면 그리지 않는다, BLOG-04 / research R-20) */
+export function hasAnimalArt(assetKey: string): boolean {
+  return Object.hasOwn(ANIMALS, assetKey);
+}
+
 /** 동물 SVG. 단계가 낮을수록 작게 (발바닥 기준으로 줄인다) */
 export function animalSvg(assetKey: string, stage: AnimalStage, size = 64): string {
   const body = (ANIMALS[assetKey] ?? ANIMALS["animal.chick"]) + (stage === "adult" ? RIBBON : "");
