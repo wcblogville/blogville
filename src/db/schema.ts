@@ -77,9 +77,28 @@ export const sessions = pgTable(
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     createdAt: createdAt(),
+    // 마지막 사용(근사). 유지 안 함 세션은 이 값이 2시간보다 오래되면 expires_at과 상관없이 끝난다 (AUTH-09 / FR-020, src/server/dal.ts)
     updatedAt: updatedAt(),
+    // [로그인 상태 유지] 여부. 서버는 쿠키가 아니라 이 칸으로 2시간/7일을 정한다 (AUTH-09 / FR-019~FR-021, research R6)
+    rememberMe: boolean("remember_me").notNull().default(false),
   },
   (t) => [index("sessions_user_id_idx").on(t.userId)],
+);
+
+// 로그인 실패 기록: 아이디별 연속 실패 수와 잠금 해제 시각 (AUTH-09 / FR-025~FR-027, research R8)
+// 없는 아이디도 기록하므로 users와 FK가 없다 (FK가 있으면 아이디 존재 여부가 드러난다). 규칙 숫자는 src/lib/login-limit.ts
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    username: text("username").primaryKey(), // 정규화한 입력 그대로
+    failedCount: integer("failed_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("login_attempts_username_check", sql`char_length(${t.username}) BETWEEN 1 AND 64`),
+    check("login_attempts_failed_count_check", sql`${t.failedCount} >= 0`),
+  ],
 );
 
 export const accounts = pgTable(

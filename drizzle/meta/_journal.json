@@ -71,6 +71,13 @@
       "when": 1791418302862,
       "tag": "0009_auth_profile_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791419337497,
+      "tag": "0010_auth_remember_login_attempts",
+      "breakpoints": true
     }
   ]
 }
