@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getBlogByOwner, getBlogVisitDays, getBlogVisitStats, getCategories } from "@/server/blog";
 import { requireMember } from "@/server/dal";
-import { BlogInfoForm, CategoryManager } from "./settings-forms";
+import { BlogInfoForm, BlogSlugForm, CategoryManager } from "./settings-forms";
 
 export const metadata = { title: "블로그 관리" };
 
@@ -18,9 +18,11 @@ export default async function BlogSettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <div className="flex items-end justify-between">
+      <div className="flex items-end justify-between gap-2">
         <h1 className="font-display text-3xl">⚙️ 블로그 관리</h1>
-        <Link href={`/@${blog.slug}`} className="text-sm text-ink-soft hover:text-ink">내 블로그로 →</Link>
+        <Link href={`/@${blog.slug}`} className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap px-1 text-sm text-ink-soft hover:text-ink">
+          내 블로그로 →
+        </Link>
       </div>
       {/* 로그인 수단(소셜 연동)·닉네임은 내 정보에서 (AUTH-05 / FR-036) */}
       <p className="mt-2 text-sm text-ink-soft">
@@ -60,7 +62,8 @@ export default async function BlogSettingsPage() {
       <section className="card mt-6 p-6">
         <h2 className="mb-4 font-display text-xl">기본 정보</h2>
         <BlogInfoForm title={blog.title} description={blog.description} />
-        <p className="mt-3 text-sm text-ink-soft">블로그 주소: /@{blog.slug} (주소는 바꿀 수 없어요)</p>
+        {/* 주소는 이름·소개와 따로 바꾼다 (BLOG-03 / FR-018, research R-09) */}
+        <BlogSlugForm slug={blog.slug} />
       </section>
 
       <section className="card mt-6 p-6">

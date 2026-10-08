@@ -1,26 +1,92 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { addCategory, deleteCategory, moveCategory, renameCategory, updateBlogInfo, type FormState } from "./actions";
+import { addCategory, deleteCategory, moveCategory, renameCategory, updateBlogInfo, updateBlogSlug, type FormState } from "./actions";
 
 const input = "w-full rounded-xl border-2 border-line bg-white px-3 py-2 outline-none focus:border-sun";
 
+/** 폼 결과 한 줄: 버튼 왼쪽에 빨간 오류 또는 초록 성공 (FR-016·017) */
+function FormResult({ state, id }: { state: FormState; id: string }) {
+  if (state.error)
+    return (
+      <span id={id} role="alert" className="text-sm font-bold text-berry">
+        {state.error}
+      </span>
+    );
+  if (state.ok)
+    return (
+      <span role="status" className="text-sm text-leaf-dark">
+        저장했어요 ✓
+      </span>
+    );
+  return null;
+}
+
+/** 이름·소개 (BLOG-03 / FR-016·017). 오류가 나도 보낸 값이 칸에 남는다 (research R-08) */
 export function BlogInfoForm({ title, description }: { title: string; description: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateBlogInfo, {});
+  const invalid = state.error ? { "aria-invalid": true, "aria-describedby": "blog-info-error" } : {};
   return (
     <form action={action} className="space-y-3">
       <label className="block">
         <span className="mb-1 block font-bold">블로그 이름</span>
-        <input name="title" defaultValue={title} maxLength={40} required className={input} />
+        <input name="title" defaultValue={state.values?.title ?? title} maxLength={40} required className={input} {...invalid} />
       </label>
       <label className="block">
         <span className="mb-1 block font-bold">소개</span>
-        <textarea name="description" defaultValue={description} maxLength={160} rows={2} className={input} placeholder="어떤 이야기를 쓰는 블로그인가요?" />
+        <textarea
+          name="description"
+          defaultValue={state.values?.description ?? description}
+          maxLength={160}
+          rows={2}
+          className={input}
+          placeholder="어떤 이야기를 쓰는 블로그인가요?"
+          {...invalid}
+        />
       </label>
       <div className="flex items-center justify-end gap-3">
-        {state.error && <span className="text-sm text-berry">{state.error}</span>}
-        {state.ok && !state.error && <span className="text-sm text-leaf-dark">저장했어요 ✓</span>}
-        <button disabled={pending} className="btn bg-leaf text-white">저장</button>
+        <FormResult state={state} id="blog-info-error" />
+        <button disabled={pending} className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-leaf text-white">
+          저장
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * 블로그 주소 (BLOG-03 / FR-009·018, contracts/blog-home.md 3절, research R-09).
+ * 이름·소개와 따로 저장한다. 라벨 `블로그 주소`·버튼 `주소 바꾸기`는 plan 임시 문구.
+ * 성공하면 칸은 서버가 정규화한 값(My_Blog → my_blog), 오류면 보낸 값.
+ */
+export function BlogSlugForm({ slug }: { slug: string }) {
+  const [state, action, pending] = useActionState<FormState, FormData>(updateBlogSlug, {});
+  return (
+    <form action={action} className="mt-5 space-y-2 border-t-2 border-line/60 pt-4">
+      <label htmlFor="blog-slug" className="block font-bold">
+        블로그 주소
+      </label>
+      <div className="flex items-center gap-1">
+        <span className="font-bold text-ink-soft">/@</span>
+        <input
+          id="blog-slug"
+          name="slug"
+          defaultValue={state.values?.slug ?? slug}
+          maxLength={20}
+          required
+          autoCapitalize="none"
+          autoComplete="off"
+          spellCheck={false}
+          className={input}
+          aria-invalid={state.error ? true : undefined}
+          aria-describedby={state.error ? "blog-slug-error" : undefined}
+        />
+      </div>
+      <div className="flex items-center justify-end gap-3">
+        <FormResult state={state} id="blog-slug-error" />
+        <button disabled={pending} className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink text-cream">
+          주소 바꾸기
+        </button>
       </div>
     </form>
   );

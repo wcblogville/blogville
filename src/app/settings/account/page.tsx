@@ -7,6 +7,7 @@ import { isSocialProvider, SOCIAL_LABEL } from "@/lib/social";
 import { getSocialLogins } from "@/server/account";
 import { requireMember } from "@/server/dal";
 import { DeleteAccountForm, LinkSocialButton, UnlinkSocialButton } from "./account-forms";
+import { NicknameForm } from "./nickname-form";
 
 export const metadata = { title: "내 정보" };
 
@@ -69,12 +70,12 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
         <p className="mt-3 text-xs text-ink-soft">연동한 소셜 계정으로 첫 화면 간편 로그인을 할 수 있어요. 서비스마다 계정 하나만 연동돼요.</p>
       </section>
 
-      {/* 닉네임: blog가 변경 칸을 올릴 자리 (BLOG-03) */}
+      {/* 닉네임: blog가 올린 변경 칸 (BLOG-03 / FR-019, research R-29) */}
       <section className="card mt-6 p-6" aria-labelledby="nickname-title" data-section="nickname">
         <h2 id="nickname-title" className="font-display text-xl">
           닉네임
         </h2>
-        <p className="mt-2">{viewer.profile.nickname}</p>
+        <NicknameForm nickname={viewer.profile.nickname} />
       </section>
 
       {/* 회원 탈퇴 (AUTH-06). 안내·버튼 문구는 spec에 없음 — 제안 (plan 남은 문제 1) */}
