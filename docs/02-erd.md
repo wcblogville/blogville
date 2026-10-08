@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.4 (2026-10-07, 친구 초대 데이터 보류: invited_by 제거)
+- 버전: 1.5 (2026-10-08, 회원/인증: 로그인 유지 `sessions.remember_me`, 로그인 실패 기록 `login_attempts`, 탈퇴 삭제 규칙)
 - 근거: [요구사항 명세서](01-requirements.md)
 - ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
 - ERDCloud에서 직접 그린 제출본: [erdcloud-final.sql](erdcloud-final.sql) (2026-10-07 내보내기. 점선 관계의 FK와 테이블 코멘트는 ERDCloud가 내보내지 않는다)
@@ -61,7 +61,7 @@ erDiagram
         varchar email UK
         boolean email_verified
         varchar image "소셜 프로필 사진 주소"
-        varchar username UK "사이트 아이디 (모두 가짐)"
+        varchar username UK "사이트 아이디 (모두 가짐, 소문자)"
         varchar display_username
         user_role role "user / admin"
         timestamptz created_at
@@ -83,9 +83,16 @@ erDiagram
         varchar user_id FK
         char token UK "쿠키에 담기는 값"
         timestamptz expires_at
+        boolean remember_me "로그인 상태 유지 (2시간 / 7일)"
         varchar ip_address
         varchar user_agent
         timestamptz created_at
+        timestamptz updated_at
+    }
+    login_attempts {
+        varchar username PK "정규화한 입력 (없는 아이디도)"
+        int failed_count "연속 실패 수"
+        timestamptz locked_until "잠금 해제 시각, NULL 허용"
         timestamptz updated_at
     }
     verifications {
@@ -259,12 +266,13 @@ erDiagram
 ```
 
 `verifications`는 로그인 과정의 임시 값을 담는 라이브러리 내부용이라 다른 테이블과 관계가 없다.
+`login_attempts`도 다른 테이블과 관계가 없다. 없는 아이디의 실패도 기록해야 해서 `users`와 FK를 두지 않는다 (3.19).
 
 ## 2. 테이블 그룹
 
 | 그룹 | 테이블 | 관련 요구사항 |
 |---|---|---|
-| 인증 | `users`, `accounts`, `sessions`, `verifications` | AUTH |
+| 인증 | `users`, `accounts`, `sessions`, `verifications`, `login_attempts` | AUTH |
 | 회원·블로그 | `profiles`, `blogs`, `categories`, `subcategories` | AUTH-02, AUTH-07, BLOG |
 | 글·교류 | `posts`, `tags`, `post_tags`, `comments`, `replies`, `post_likes`, `follows` | POST, SOC, TOWN-08 |
 | 아이템 | `items`, `user_items` | GAME-01, SHOP, TOWN-09(성장 아이템) |
@@ -273,14 +281,14 @@ erDiagram
 | 방문자 | `blog_visits` | BLOG-06 |
 | 동물 농장 | `animal_species`, `user_animals`, `animal_cares` | TOWN-09 |
 
-인증 테이블 4개는 로그인 라이브러리(Better Auth)가 정한 구조를 따르고, 나머지는 직접 설계했다.
+인증 테이블 중 `users`·`accounts`·`sessions`·`verifications`는 로그인 라이브러리(Better Auth)가 정한 구조를 따르고(칸 몇 개를 더했다), `login_attempts`와 나머지는 직접 설계했다.
 
 ## 3. 설계 결정
 
 ### 3.1 가입하면 프로필·블로그가 자동으로 생긴다 (회원당 블로그 1개 필수)
 
 - `users`는 "로그인할 수 있는 사람", `profiles`는 "마을 주민(닉네임·장착 캐릭터)", `blogs`는 "내 집(블로그)"이다. 로그인 라이브러리 테이블(`users`)을 건드리지 않으려고 셋을 나눴다.
-- ⏳ **회원가입 화면은 아이디·비밀번호(와 캐릭터 고르기)만 받는다.** 가입 트랜잭션이 `users`·`accounts`(credential)·`profiles`·`blogs`·기본 아이템을 한 번에 만들고, 이름은 **기본값을 쥐어 준다**:
+- **회원가입 화면은 아이디·비밀번호(와 캐릭터 고르기)만 받는다.** 가입 트랜잭션이 `users`·`accounts`(credential)·`profiles`·`blogs`·기본 아이템을 한 번에 만들고, 이름은 **기본값을 쥐어 준다**:
 
   | 값 | 기본값 | 나중에 바꾸는 곳 |
   |---|---|---|
@@ -289,7 +297,8 @@ erDiagram
   | 블로그 주소 | `/@{아이디}` (아이디와 블로그 주소 규칙이 같다: 영문 소문자·숫자·_) | 블로그 관리 (예전 주소 링크는 끊긴다) |
   | 블로그 소개 | 빈 값 | 블로그 관리 |
 
-  아이디는 이미 겹치지 않으므로 기본 닉네임·주소도 가입 순간에는 겹치지 않는다. 닉네임 길이는 아이디(4~20자)를 담도록 **2~20자**로 넓힌다.
+  아이디는 이미 겹치지 않으므로 기본 닉네임·주소도 가입 순간에는 겹치지 않는다. 닉네임 길이는 아이디(4~20자)를 담도록 **2~20자**로 넓혔다 (`profiles_nickname_check`).
+- 가입 트랜잭션 순서 (`src/server/signup.ts` `createMember`): 이름 잠금(`lockName`) → 남의 아이디·주소·닉네임과 겹치는지 확인 → `users` → `accounts`(credential, 해시) → 그 아이디의 `login_attempts` 행 삭제 → `user_items`(고른 캐릭터·초원) → `profiles` → `blogs` → `categories`("일상") → 가입 축하 코인(원장). 이름 잠금은 가입과 닉네임·주소 변경을 한 줄로 세워, 동시에 같은 이름을 잡아도 하나만 성공한다. 하나라도 실패하면 전부 롤백된다.
 - 온보딩 단계는 없다 (AUTH-02를 AUTH-07에 합침).
 - **회원당 블로그 1개 필수**: `blogs.owner_id` **UNIQUE**가 "많아야 1개"를, 가입 트랜잭션이 "반드시 1개"를 지킨다. FK로는 "회원 → 블로그가 반드시 있다"를 강제할 수 없어서(서로 먼저 있어야 하는 문제), 블로그만 지우는 기능을 두지 않는 것으로 막는다. 회원을 지우면 블로그도 함께 지워진다.
 - 그래서 관계도는 `users ||--|| profiles`, `users ||--|| blogs`로 그린다.
@@ -298,13 +307,13 @@ erDiagram
 
 ### 3.2 로그인: 아이디로 가입하고, 소셜 계정은 연동한다
 
-- 모든 회원은 **사이트 아이디로 가입**한다 → `users.username`은 ⏳ **NOT NULL**. 가입하면 `accounts`에 `provider_id = 'credential'` 행과 비밀번호 **해시**가 생긴다. 비밀번호 원문은 어디에도 없다.
+- 모든 회원은 **사이트 아이디로 가입**한다 → `users.username`은 **NOT NULL** + CHECK `users_username_check` (`^[a-z0-9_]{4,20}$`). 소문자만 저장하므로 UNIQUE가 곧 대소문자 무시 유일이다. 가입하면 `accounts`에 `provider_id = 'credential'` 행과 비밀번호 **해시**가 생긴다. 비밀번호 원문은 어디에도 없다.
 - 소셜 계정(카카오·네이버·구글)은 로그인한 뒤 내 정보에서 **연동**할 때 `accounts`에 행이 더해진다. 소셜로 새로 가입하지는 않는다 (AUTH-01, AUTH-05). 해제하면 그 행만 지운다 (`credential` 행은 지울 수 없다).
 - 소셜 행에는 토큰을 두지 않는다: `access_token`·`refresh_token`·`id_token`·두 만료 칸·`scope`는 늘 NULL (우리 서비스는 소셜 API를 부르지 않는다, FR-035). 남는 것은 `provider_id`, `account_id`, 연동한 날짜 `created_at`.
 - 회원 1명 ── 로그인 수단 1~4개 (아이디 1 + 서비스마다 0~1).
   - **UNIQUE (`user_id`, `provider_id`)** (`accounts_user_provider_uq`): 한 회원에 같은 서비스는 하나만
   - **UNIQUE (`provider_id`, `account_id`)**: 소셜 계정 하나는 한 회원에만
-- 이메일은 가입할 때 정한 값이다. 카카오처럼 이메일을 주지 않는 서비스를 위해 만들던 가짜 이메일이 필요 없다.
+- 이메일은 라이브러리 필수 칸이라 가입 때 `{아이디}@users.blogville.invalid`를 넣는다 (메일을 보내지 않고 화면에 나오지 않는다). 소셜 계정용 대체 이메일은 로그인 과정에서만 쓰고 저장하지 않는다 (소셜로 회원을 만들지 않으므로).
 - 관리자는 `users.role = 'admin'`. 가입 요청으로는 바꿀 수 없고 관리자 생성 스크립트로만 정한다.
 
 ### 3.3 세션(`sessions`)이 왜 필요한가
@@ -317,10 +326,27 @@ erDiagram
 토큰을 DB에 두기 때문에:
 - **로그아웃이 된다**: 행을 지우면 그 쿠키는 바로 쓸모없어진다.
 - **기기별 로그인**: 휴대폰·노트북마다 행이 따로 있다 (`ip_address`, `user_agent`로 어떤 기기인지 안다).
-- **만료와 연장**: ⏳ 마지막 사용(`updated_at`) 후 **2시간**이 지나면 로그아웃, 쓰는 동안은 연장. 기본 쿠키는 만료일이 없어 **브라우저를 닫으면 로그아웃**된다. [로그인 상태 유지]를 고르면 7일. 서버는 창이 닫힌 것을 알 수 없어서 세션 행과 만료 시간은 여전히 필요하다.
+- **만료와 연장**: `sessions.remember_me`가 [로그인 상태 유지] 여부다 (요청으로는 정할 수 없고 로그인할 때 서버가 정한다).
+  - 유지 안 함(기본, 가입 직후 포함): `expires_at` = 지금 + **2시간**, 쿠키는 만료일이 없어 **브라우저를 닫으면 로그아웃**. 쓰는 동안 `getSession()`(`src/server/dal.ts`)이 **5분 단위**로 `expires_at = now() + 2시간`, `updated_at = now()`로 늘린다. 마지막 사용(`updated_at`) 뒤 2시간이 지나면 `expires_at`과 상관없이 행을 지우고 로그아웃으로 처리한다.
+  - 유지: `expires_at` = 지금 + **7일**, 쿠키 Max-Age 7일. 화면의 `SessionKeeper`가 `GET /api/auth/get-session`을 불러 라이브러리가 1시간 단위로 다시 7일로 늘린다 (Route Handler라 쿠키도 다시 심는다).
+  - 서버는 창이 닫힌 것을 알 수 없어서 세션 행과 만료 시간은 여전히 필요하다.
 - ⏳ **자동 출석**: 그날 처음 들어온 세션이 출석을 만들고, `attendances.session_id`가 그 세션을 가리킨다 (3.12).
 
 회원 1명 ── 세션 0..N개.
+
+### 3.19 로그인 실패 기록 (`login_attempts`)
+
+- 같은 아이디로 **5번 연속** 실패하면 **5분** 동안 그 아이디의 아이디·비밀번호 로그인을 막는다 (AUTH-09). 규칙 숫자는 DB가 아니라 `src/lib/login-limit.ts`에 둔다 (CHECK에 넣으면 숫자를 바꿀 때 마이그레이션이 필요하다).
+- PK는 정규화한 입력 아이디(`username`, 1~64자 CHECK). **`users`와 FK를 두지 않는다**: 없는 아이디도 똑같이 세야 아이디가 있는지 드러나지 않는데, FK가 있으면 없는 아이디를 기록할 수 없다.
+- FK가 없어 회원 삭제의 `CASCADE`로 지워지지 않는다. 코드가 지운다: 로그인 성공, 그 아이디로 가입, 그 회원의 탈퇴. 개발 초기화(`npm run db:reset`)도 따로 비운다.
+- 비밀번호를 확인하기 **전에** 짧은 트랜잭션으로 이번 시도를 실패로 미리 센다(같은 아이디는 advisory lock으로 한 줄). 그래서 동시에 많이 보내도 잠금 창마다 비밀번호 확인은 최대 5번이다.
+
+```text
+(행 없음) ──시도──▶ n=1 ──…──▶ n=4 ──5번째 시도──▶ 잠금 (locked_until = now()+5분, n=0)
+잠금 ──어떤 시도든──▶ 잠금 그대로 (비밀번호 확인 안 함)
+잠금 풀림 ──시도──▶ n=1, locked_until = NULL
+예약한 시도가 성공 ──▶ 행 삭제
+```
 
 ### 3.4 장착은 "보유한 아이템"만: 복합 외래 키
 
@@ -464,13 +490,14 @@ COMMIT
 
 | 지워지는 것 | 함께 처리 |
 |---|---|
-| 회원 | 프로필, 블로그, 글, 댓글, 답글, 공감, 이웃, 원장, 출석, 동물, 첨부 정보 삭제 (`CASCADE`) (AUTH-06). 저장소의 파일은 정리 작업이 지운다 |
+| 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 알림(game) 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
 | 블로그 | 카테고리, 글, 방문 기록 삭제 (블로그만 지우는 기능은 없다, 3.1) |
 | 글 | 태그 연결, 댓글(→ 답글), 공감 삭제. 첨부는 `post_id`만 비움 |
 | 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움 |
 | 소분류 | 글은 남기고 `subcategory_id`만 비움 (대분류는 그대로) |
 | 댓글·답글 | 행을 지우지 않고 `deleted_at`만 기록 |
 | 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
+| 첨부 | 프로필 사진이었으면 `profiles.photo_key`만 비움 (`SET NULL`) |
 | 동물 | 돌보기 기록 삭제, 전시 중이면 블로그의 `showcase_animal_id`만 비움 (`SET NULL`) |
 
 ### 3.15 열거형 (ENUM)
@@ -555,7 +582,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `attachments.mime` | 파일 이름의 확장자 | 내려줄 때 그대로 쓰려고. 올릴 때 서버가 정하고 바뀌지 않는다 |
 | `users.display_username` | `username`의 대소문자 | 로그인 라이브러리 형식 |
 
-**BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `subcategories (category_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`)는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
+**BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `subcategories (category_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`, `login_attempts.username`(PK))는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
 
 ## 4. 데이터 마이그레이션
 
@@ -591,11 +618,11 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 2 | `replies` 만들기, `comments.parent_id` 삭제 | 답글(`parent_id`가 있는 댓글)을 `replies`로 옮긴다 |
 | 3 | `attachments.post_id`, `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 |
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
-| 5 | `users.username` NOT NULL, `accounts` UNIQUE (`user_id`, `provider_id`) | 아이디 없는 회원이 없는지 먼저 확인 (소셜 키 미발급이라 없음) |
+| 5 | ✅ `users.username` NOT NULL·CHECK, `accounts` UNIQUE (`user_id`, `provider_id`), 소셜 토큰 비우기, `sessions.remember_me`, `login_attempts` | 아이디 없는 회원·프로필 없는 회원 정리 (auth 마이그레이션) |
 | 6 | `follows.is_favorite` | 없음 |
 | 6-3 | `subcategories` 만들기, `posts.subcategory_id` + 복합 FK + CHECK | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), `user_animals` UNIQUE (`user_id`, `id`), `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
-| 7 | 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), 닉네임 2~20자, 닉네임·블로그 주소 수정, 소셜 연동 화면, 자동 출석 | 코드 |
+| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리는 2번 뒤), 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
 
 ## 부록: 컬럼 타입
 
@@ -620,6 +647,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `users.email` | `VARCHAR(254)` | 이메일 주소 최대 길이 |
 | `users.image` | `VARCHAR(2048)` | 주소(URL) |
 | `users.username`, `display_username` | `VARCHAR(20)` | 아이디 4~20자 |
+| `login_attempts.username` | `VARCHAR(64)` | 정규화한 입력 1~64자 (없는 아이디도) |
 | `accounts.provider_id` | `VARCHAR(20)` | |
 | `accounts.account_id`, `password` | `VARCHAR(255)` | |
 | `accounts.scope` | `VARCHAR(500)` | |
@@ -645,4 +673,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `point_ledger.ref_id`, `attachments.post_id`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
