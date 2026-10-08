@@ -1,11 +1,22 @@
+import { and, asc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { db } from "@/db";
+import { items } from "@/db/schema";
 import { LoginButtons } from "@/components/login-buttons";
 import { enabledProviders } from "@/lib/auth";
 import { getViewer } from "@/server/dal";
 
+// 첫 화면 (AUTH-01, AUTH-02 / FR-001, FR-014, contracts/auth-entry.md 1장)
 export default async function LandingPage() {
-  const viewer = await getViewer();
-  if (viewer) redirect(viewer.profile ? "/town" : "/onboarding");
+  // 로그인한 회원은 광장으로 (FR-014)
+  if (await getViewer()) redirect("/town");
+
+  // 가입 때 고를 수 있는 기본 캐릭터 (남자·여자 주민)
+  const starters = await db
+    .select({ id: items.id, code: items.code, name: items.name, description: items.description, assetKey: items.assetKey })
+    .from(items)
+    .where(and(eq(items.type, "character"), eq(items.isStarter, true)))
+    .orderBy(asc(items.id));
 
   return (
     <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 md:grid-cols-2 md:py-20">
@@ -35,7 +46,7 @@ export default async function LandingPage() {
           🧑🐱🐶
         </div>
         <h2 className="font-display text-2xl">마을에 들어가기</h2>
-        <LoginButtons providers={enabledProviders} />
+        <LoginButtons providers={enabledProviders} starters={starters} />
       </section>
     </div>
   );
