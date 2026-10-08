@@ -235,14 +235,14 @@ CREATE TABLE `post_tags` (
 CREATE TABLE `comments` (
   `id` INT NOT NULL AUTO_INCREMENT COMMENT '댓글 ID',
   `post_id` INT NOT NULL COMMENT '글 ID',
-  `author_id` VARCHAR(32) NOT NULL COMMENT '작성자 회원 ID',
+  `author_id` VARCHAR(32) NULL COMMENT '작성자 회원 ID (탈퇴하면 NULL)',
   `content` VARCHAR(1000) NOT NULL COMMENT '내용 (1~1000자)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '작성 일시',
   `deleted_at` DATETIME NULL COMMENT '삭제 일시 (지워도 답글이 남도록 행은 둔다)',
   PRIMARY KEY (`id`),
   KEY `comments_post_created_idx` (`post_id`, `created_at`),
   CONSTRAINT `comments_post_fk` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `comments_author_fk` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  CONSTRAINT `comments_author_fk` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) COMMENT = '댓글 (글에 단 것만)';
 
 CREATE TABLE `replies` (

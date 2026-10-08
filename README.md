@@ -82,6 +82,7 @@ npm run dev                     # http://localhost:3000
 | `npm run db:reset` | (로컬 전용) 회원·글 데이터 비우기 (관리자도 지워지므로 `admin:create` 다시 실행) |
 | `npm run posts:cleanup` | 하루 넘게 어느 글에도 붙지 않은 첨부·주인 없는 파일·지난 조회 기록 지우기 (세기만: `npm run posts:cleanup -- --dry-run`. 배포 환경에서 하루 1번) |
 | `npm run test:post` | 글 입력 규칙·태그·첨부 공개 범위·붙여 넣기 판정 테스트 (`npm test`에 포함) |
+| `npm run test:social` | 댓글 내용 정규화·길이, 삭제 권한, 즐겨찾는 이웃 기간 테스트 (`npm test`에 포함) |
 | `npm run admin:create` | 관리자 계정 생성·비밀번호 갱신 (여러 번 실행해도 안전). `ADMIN_PASSWORD`는 12~64자 |
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
@@ -106,7 +107,9 @@ npm run dev                     # http://localhost:3000
 | `node e2e/attachments.mjs <폴더>` | 글 첨부 E2E: 사진·파일을 버튼·붙여 넣기·끌어다 놓기로 올리고 원래 이름으로 내려받기, 조작한 올리기 요청 거부 (실행마다 새 회원) |
 | `node e2e/game.mjs <폴더>` | 출석·상점·꾸미기 E2E |
 | `node e2e/farm.mjs <폴더>` | 동물 농장: 알 받기·부화·돌보기·다 키움·알 사기·5마리 제한·글쓰기 연동 E2E (실행마다 새 회원) |
-| `node e2e/social.mjs <폴더>` | 이웃 추가·취소, 조작한 이웃 요청 거부 E2E (`e2e/blog.mjs` 다음에) |
+| `node e2e/social.mjs <폴더>` | 이웃·공감·마을 소식 E2E (이웃 추가·취소, 즐겨찾는 이웃 우선, 동시 공감, 조작 요청 거부) |
+| `node e2e/comments.mjs <폴더>` | 댓글·답글 E2E (등록·삭제 권한, 삭제 자리, 하루 보상 10번, 답글 거부 문구, 375px) |
+| `node e2e/feed-load.mjs <폴더> [주소]` | 마을 소식 첫 화면 속도(공개 글 1,000개, 1초 안). `npm run build && npm run start`로 띄운 서버에서 잰다 |
 | `node e2e/visits.mjs <폴더>` | 블로그 방문자 수 E2E: 하루 1번, 다른 브라우저, 글 상세, 어제, 관리 7일 그래프, 주인 제외, 쿠키 속성 (`e2e/blog.mjs` 다음에) |
 | `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
 | `npm test` | 아래 네 테스트를 함께 실행 |

@@ -1,7 +1,8 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
+- 버전: 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
+- 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
 - ERDCloud 가져오기용 SQL: [erdcloud-import.sql](erdcloud-import.sql) (테이블 25개, MySQL 문법)
 - ERDCloud에서 직접 그린 제출본: [erdcloud-final.sql](erdcloud-final.sql) (2026-10-07 내보내기. 점선 관계의 FK와 테이블 코멘트는 ERDCloud가 내보내지 않는다)
@@ -157,7 +158,7 @@ erDiagram
     comments {
         int id PK
         int post_id FK
-        varchar author_id FK
+        varchar author_id FK "탈퇴하면 NULL"
         varchar content
         timestamptz created_at
         timestamptz deleted_at "소프트 삭제"
@@ -434,7 +435,8 @@ COMMIT
 - 댓글(`comments`)은 글에 달고, 답글(`replies`)은 댓글에 단다 (`replies.comment_id → comments.id`).
 - 자기 참조(`comments.parent_id → comments.id`)를 쓰지 않는다. 자기 참조는 깊이 제한이 없어서 화면을 그리려면 부모를 따라 반복해야 하고, "답글의 답글"을 DB가 막지 못한다.
 - 답글을 담을 테이블이 `replies` 하나뿐이니 **답글의 답글은 구조상 만들 수 없다** (SOC-02 "1단계"). 화면은 쿼리 두 번(그 글의 댓글, 그 댓글들의 답글 `WHERE comment_id IN (...)`)으로 그린다.
-- 댓글을 지워도 답글이 남도록 댓글·답글은 행을 지우지 않고 `deleted_at`만 기록한다 ("삭제된 댓글입니다").
+- 댓글을 지워도 답글이 남도록 댓글·답글은 행을 지우지 않고 `deleted_at`을 기록하고 내용을 비운다 (CHECK: 삭제한 행의 `content`는 빈 글자). 화면 문구는 `삭제된 댓글이에요`.
+- 탈퇴: auth의 탈퇴 트랜잭션이 회원을 지우기 전에 social의 `prepareCommentsForWithdrawal`을 부른다. 남의 답글(삭제 표시 포함)이 없는 그 회원 댓글은 행을 지우고, 있는 댓글은 삭제 자리로 바꾼다. 이후 회원 행이 지워지면 그 회원 답글은 `CASCADE`, 남은 댓글의 `author_id`는 `SET NULL`. CHECK `comments_author_check`(작성자 NULL이면 삭제 표시)가 있어 도우미 없이 회원을 지우면 탈퇴 전체가 취소된다.
 
 ### 3.9 첨부: 글쓰기와 프로필 사진에서만
 
@@ -511,12 +513,12 @@ COMMIT
 
 | 지워지는 것 | 함께 처리 |
 |---|---|
-| 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 알림(game) 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
+| 회원 (탈퇴, AUTH-06) | 한 트랜잭션: `lockUser` → 탈퇴용 댓글 정리(3.8, social) → 그 아이디의 `login_attempts` 행 삭제(FK가 없어 코드가 지움) → `users` 삭제. 세션, 로그인 수단(연동한 소셜 포함), 프로필, 블로그(→ 글 → 남이 단 댓글·공감까지), 남의 답글 없는 댓글, 답글, 공감, 이웃(양쪽), 원장, 출석, 동물, 첨부 정보, 알림(game) 삭제 (`CASCADE`). 하나라도 실패하면 전부 취소. 남의 답글이 달린 댓글은 내용·작성자 없는 `삭제된 댓글이에요` 자리만 남는다(3.8). 회원을 가리키는 새 표는 모두 `CASCADE` 또는 `SET NULL`이어야 탈퇴가 막히지 않는다. 저장소의 파일은 정리 작업이 지운다 |
 | 블로그 | 카테고리, 글, 방문 기록 삭제 (블로그만 지우는 기능은 없다, 3.1) |
 | 글 | 태그 연결, 댓글(→ 답글), 공감, 조회 기록 삭제. 첨부는 `post_id`만 비움(트리거가 `detached_at` 기록 → 하루 뒤 정리) |
 | 대분류 | 그 아래 소분류 삭제 (`CASCADE`), 글은 남기고 `category_id`·`subcategory_id`를 비움. 블로그 관리의 삭제는 한 트랜잭션에서 블로그 행을 잠그고 글의 두 칸을 먼저 비운 뒤 남은 대분류 순서를 0부터 다시 매긴다 (`deleteCategory`). 회원 삭제 같은 다른 경로는 트리거 `posts_clear_subcategory`가 지킨다 (3.18) |
 | 소분류 | 글은 남기고 `subcategory_id`만 비움 (대분류는 그대로) |
-| 댓글·답글 | 행을 지우지 않고 `deleted_at`만 기록 |
+| 댓글·답글 | 행을 지우지 않고 `deleted_at`을 기록하고 내용을 비운다 |
 | 세션 | 출석은 남기고 `session_id`만 비움 (`SET NULL`) |
 | 첨부 | 프로필 사진이었으면 `profiles.photo_key`만 비움 (`SET NULL`) |
 | 동물 | 돌보기 기록 삭제, 전시 중이면 블로그의 `showcase_animal_id`만 비움 (`SET NULL`) |
@@ -542,7 +544,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `posts (blog_id, created_at DESC)` | 블로그 홈 글 목록 |
 | `posts (visibility, created_at DESC)` | 마을 최신 글 |
 | `comments (post_id, created_at)` | 글 상세 댓글 |
-| ⏳ `replies (comment_id, created_at)` | 댓글들의 답글 |
+| `replies (comment_id, created_at)` | 댓글들의 답글 |
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
 | `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 최신순 (GAME-07) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
@@ -616,6 +618,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 파일 | 내용 |
 |---|---|
 | `0002_give_all_starters.sql` | GAME-01 결정(그때는 기본 캐릭터 3종 모두 지급)에 맞춰, 이미 온보딩을 마친 회원에게 없는 기본 캐릭터를 채웠다. `ON CONFLICT DO NOTHING`이라 여러 번 실행해도 중복되지 않는다 |
+| `0020_reply_backfill.sql` | SOC-02: `comments.parent_id`가 있는 행을 `replies`로 옮겼다 (`id`·작성자·시각 그대로, 원댓글 = `parent_id`를 따라 올라간 첫 조상, 다른 글 부모는 일반 댓글로). 삭제한 행은 내용을 비웠다. `ON CONFLICT DO NOTHING`이라 다시 실행해도 같다 |
 | `0018_attachment_backfill.sql` | POST-07·POST-09: 기존 첨부마다 올린 회원의 글 중 본문에 `/files/키`가 든 가장 먼저 쓴 글에 `post_id`를 채웠다. 못 찾으면 NULL(정리 대상). `post_id IS NULL` 행만 고쳐 다시 실행해도 같다 |
 
 ## 5. 남은 확인 사항
@@ -641,14 +644,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 순서 | 할 일 | 데이터 옮기기 |
 |---|---|---|
 | 1 | (식별 관계 표는 지금 DB와 같다. 바꿀 것 없음) | |
-| 2 | `replies` 만들기, `comments.parent_id` 삭제 | 답글(`parent_id`가 있는 댓글)을 `replies`로 옮긴다 |
+| 2 | ✅ `replies` 만들기, `comments.parent_id` 삭제 | 답글(`parent_id`가 있는 댓글)을 `replies`로 옮긴다 (`0020_reply_backfill`) |
 | 3 | ✅ `attachments.post_id`(+ `detached_at`, post), ✅ `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 (`0018_attachment_backfill`) |
 | 4 | `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제 | `cycle_day = ((streak − 1) % 7) + 1` |
 | 5 | ✅ `users.username` NOT NULL·CHECK, `accounts` UNIQUE (`user_id`, `provider_id`), 소셜 토큰 비우기, `sessions.remember_me`, `login_attempts` | 아이디 없는 회원·프로필 없는 회원 정리 (auth 마이그레이션) |
-| 6 | `follows.is_favorite` | 없음 |
+| 6 | ✅ `follows.is_favorite` | 없음 |
 | 6-3 | ✅ `subcategories` 만들기 (blog), ✅ `posts.subcategory_id` + 복합 FK + CHECK + 트리거 (post) | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), ✅ `user_animals` UNIQUE (`user_id`, `id`), ✅ `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
-| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리는 2번 뒤), ✅ 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
+| 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리 포함), ✅ 닉네임·블로그 주소 수정(blog), 자동 출석(game) | 코드 |
 
 ## 부록: 컬럼 타입
 
@@ -688,7 +691,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `blogs.roof_color` | `VARCHAR(10)` | `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` 중 하나 (CHECK `blogs_roof_color_check`, TOWN-07) |
 | `categories.name`, `subcategories.name`, `tags.name` | `VARCHAR(20)` | 1~20자 |
 | `posts.title` | `VARCHAR(100)` | 1~100자 |
-| `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자 |
+| `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자, 삭제하면 빈 글자 |
 | `items.code`, `items.name` | `VARCHAR(30)` | |
 | `items.description` | `VARCHAR(200)` | |
 | `items.asset_key`, `animal_species.asset_key` | `VARCHAR(50)` | |
@@ -700,4 +703,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
