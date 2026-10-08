@@ -7,11 +7,13 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 
 // 키가 설정된 소셜 로그인만 켠다
+// 소셜 계정으로는 회원을 만들지 않는다 (AUTH-01 / FR-013, research R9).
+// 연동되지 않은 소셜 계정은 errorCallbackURL로 ?error=signup_disabled (better-auth 1.7 소스로 확인)
 function provider<T extends object>(id: string, extra?: T) {
   const clientId = process.env[`${id}_CLIENT_ID`];
   const clientSecret = process.env[`${id}_CLIENT_SECRET`];
   if (!clientId || !clientSecret) return undefined;
-  return { clientId, clientSecret, ...extra };
+  return { clientId, clientSecret, disableSignUp: true, ...extra };
 }
 
 // 이메일을 주지 않는 소셜 계정용 대체 주소 (실제로 메일을 보내지 않는다)
@@ -47,8 +49,9 @@ export const auth = betterAuth({
     ...(kakao && { kakao }),
     ...(naver && { naver }),
   },
-  // 사이트 자체 회원가입: 아이디 + 비밀번호 (username 플러그인이 이메일·비밀번호 로그인 위에 아이디를 얹는다)
-  emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 64 },
+  // 아이디 + 비밀번호 로그인 (username 플러그인이 이메일·비밀번호 로그인 위에 아이디를 얹는다).
+  // 가입은 우리 트랜잭션(src/server/signup.ts)만 한다. 라이브러리 가입(sign-up/email)은 끈다 (AUTH-01 / FR-007, FR-011)
+  emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 8, maxPasswordLength: 64 },
   user: {
     additionalFields: {
       // 관리자 여부. 가입 요청으로는 바꿀 수 없다 (input: false)

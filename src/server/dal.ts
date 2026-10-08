@@ -14,12 +14,16 @@ export const getSession = cache(async () => {
   return auth.api.getSession({ headers: await headers() });
 });
 
-/** 로그인한 회원의 프로필과 블로그. 온보딩 전이면 profile이 null */
+/**
+ * 로그인한 회원과 프로필·블로그. 로그인하지 않았으면 null.
+ * 가입이 한 트랜잭션으로 회원·프로필·블로그를 함께 만들므로(AUTH-01, FR-007) 로그인한 회원은 늘 profile이 있다.
+ * sessionId는 자동 출석(GAME-04)이 "그날 처음 만든 세션"을 알아보는 데 쓴다.
+ */
 export const getViewer = cache(async () => {
   const session = await getSession();
   if (!session) return null;
 
-  const [row] = await db
+  const [profile] = await db
     .select({
       nickname: profiles.nickname,
       characterAsset: items.assetKey,
@@ -32,26 +36,24 @@ export const getViewer = cache(async () => {
     .innerJoin(blogs, eq(blogs.ownerId, profiles.userId))
     .where(eq(profiles.userId, session.user.id));
 
-  return { userId: session.user.id, user: session.user, profile: row ?? null };
+  // 마이그레이션이 프로필 없는 회원을 정리했고 가입은 한 트랜잭션이라 생기지 않는다. 생겼다면 데이터 오류다
+  if (!profile) throw new Error(`프로필이나 블로그가 없는 회원이에요 (회원 ID ${session.user.id})`);
+
+  return { userId: session.user.id, user: session.user, sessionId: session.session.id, profile };
 });
 
-/** 로그인만 확인 (온보딩 페이지용) */
-export async function requireUser() {
+export type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
+
+/** 로그인한 회원만 통과. 아니면 첫 화면으로. 회원 전용 화면과 Server Action마다 부른다 */
+export async function requireMember(): Promise<Viewer> {
   const viewer = await getViewer();
   if (!viewer) redirect("/");
   return viewer;
 }
 
-/** 로그인 + 온보딩 완료 확인. 대부분의 회원 전용 화면에서 사용 */
-export async function requireMember() {
-  const viewer = await requireUser();
-  if (!viewer.profile) redirect("/onboarding");
-  return { ...viewer, profile: viewer.profile };
-}
-
-/** 관리자만 통과. 아니면 404처럼 보이게 한다 (관리자 페이지가 있다는 것도 숨김) */
-export async function requireAdmin() {
-  const viewer = await requireMember();
-  if (viewer.user.role !== "admin") notFound();
+/** 관리자만 통과. 로그인하지 않은 사람·일반 회원 모두 404처럼 보이게 한다 (관리자 화면이 있다는 것도 숨김, FR-043) */
+export async function requireAdmin(): Promise<Viewer> {
+  const viewer = await getViewer();
+  if (!viewer || viewer.user.role !== "admin") notFound();
   return viewer;
 }
