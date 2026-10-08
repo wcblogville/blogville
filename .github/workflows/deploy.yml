@@ -1,0 +1,83 @@
+# main에 코드가 들어오면 도커 이미지를 만들어 서버로 보내고, SSH로 접속해 scripts/deploy.sh를 실행한다.
+# Actions 탭의 "배포" → Run workflow 버튼으로도 실행할 수 있다.
+# 필요한 Repository secrets: DB_ADDRESS DB_PORT DB_NAME DB_USERNAME DB_PASSWORD DB_SCHEMA
+#                           SSH_ADDRESS SSH_ID SSH_PASSWORD SSH_PORT
+# 있으면 쓰는 secrets: BETTER_AUTH_SECRET ADMIN_USERNAME ADMIN_PASSWORD (없으면 서버가 만들어 ~/blogville/.secrets에 보관)
+name: 배포
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  APP_PORT: "8420" # 서버에서 앱이 쓰는 포트 (nginx proxy_pass와 같게)
+  APP_URL: https://wcblogville.java21.net # 사이트 주소 (BETTER_AUTH_URL)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 도커 이미지 만들기
+        run: |
+          docker build -t blogville:latest .
+          docker save blogville:latest | gzip > blogville.tar.gz
+
+      - name: 서버에서 쓸 .env 만들기
+        env:
+          DB_ADDRESS: ${{ secrets.DB_ADDRESS }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_SCHEMA: ${{ secrets.DB_SCHEMA }}
+          BETTER_AUTH_URL: ${{ secrets.BETTER_AUTH_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          for v in DB_ADDRESS DB_PORT DB_NAME DB_USERNAME DB_PASSWORD DB_SCHEMA; do
+            [ -n "${!v}" ] || { echo "::error::Repository secret $v 가 비어 있어요"; exit 1; }
+          done
+          url=$(node -e 'const e=process.env, u=encodeURIComponent;
+            console.log(`postgres://${u(e.DB_USERNAME)}:${u(e.DB_PASSWORD)}@${e.DB_ADDRESS}:${e.DB_PORT}/${u(e.DB_NAME)}?options=${u("-c search_path="+e.DB_SCHEMA)}`)')
+          umask 077
+          {
+            echo "DATABASE_URL=$url"
+            echo "DB_SCHEMA=$DB_SCHEMA"
+            echo "BETTER_AUTH_URL=${BETTER_AUTH_URL:-$APP_URL}"
+            [ -z "$BETTER_AUTH_SECRET" ] || echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
+            [ -z "$ADMIN_USERNAME" ] || echo "ADMIN_USERNAME=$ADMIN_USERNAME"
+            [ -z "$ADMIN_PASSWORD" ] || echo "ADMIN_PASSWORD=$ADMIN_PASSWORD"
+          } > deploy.env
+
+      - name: 서버로 파일 보내기
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_ADDRESS }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_ID }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          source: "blogville.tar.gz,deploy.env,scripts/deploy.sh"
+          target: blogville # 서버의 홈 폴더 아래 ~/blogville
+          command_timeout: 30m
+
+      - name: 서버에서 실행하기
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_ADDRESS }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_ID }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          envs: APP_PORT
+          command_timeout: 20m
+          script: |
+            cd ~/blogville
+            mv deploy.env .env && chmod 600 .env
+            APP_PORT="$APP_PORT" bash scripts/deploy.sh
