@@ -68,11 +68,20 @@ check("GAME-02 경험치 60만이어도 Lv.99", header.includes("Lv.99"));
 check("GAME-02 진행 막대 MAX", await page.getByText("MAX", { exact: true }).isVisible());
 
 // ── TOWN-04: 공개 글이 없는 블로그는 광장에 안 보임 ──
+// 회원의 둘레 집은 즐겨찾기 이웃이라(마을 개편), 최근 글 순 집은 방문자 광장의 ☰ 메뉴 → 텔레포트 목록에서 확인한다
 const other = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const op = await other.newPage();
 await loginDev(op, "quiet01", "남자 주민");
-await page.goto(`${BASE}/town`);
-const neighborsBefore = await page.locator("section", { hasText: "이웃집" }).innerText().catch(() => "");
+const guestCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const gp = await guestCtx.newPage();
+const visitorHouses = async () => {
+  await gp.goto(`${BASE}/town`);
+  await gp.locator("canvas").waitFor();
+  await gp.getByRole("button", { name: /메뉴/ }).click();
+  await gp.locator("[data-town-panel]").getByRole("button", { name: /텔레포트/ }).click();
+  return gp.locator("[data-town-panel]").innerText();
+};
+const neighborsBefore = await visitorHouses();
 check("TOWN-04 글 없는 블로그(quiet01)는 이웃집에 없음", !neighborsBefore.includes("quiet01"));
 await op.goto(`${BASE}/write`);
 await op.locator(".ProseMirror").waitFor();
@@ -81,8 +90,8 @@ await op.locator(".ProseMirror").click();
 await op.keyboard.type("광장에 집이 생기는지 확인하는 글이에요.");
 await op.getByRole("button", { name: "발행하기" }).click();
 await op.waitForURL(/\/@quiet01\/\d+/);
-await page.goto(`${BASE}/town`);
-const neighborsAfter = await page.locator("section", { hasText: "이웃집" }).innerText();
+const neighborsAfter = await visitorHouses();
+await guestCtx.close();
 check("TOWN-04 공개 글을 쓰면 이웃집에 나타남", neighborsAfter.includes("quiet01"));
 
 // ── TOWN-02: 가상 조이스틱 (터치 화면에만) ──

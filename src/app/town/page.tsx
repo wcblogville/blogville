@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { TownGame } from "@/components/town/town-game";
+import { TownHud, type TownHudMember } from "@/components/town/town-hud";
 import { TownMenu } from "@/components/town/town-menu";
 import type { TownData } from "@/components/town/types";
 import { getViewer } from "@/server/dal";
-import { getMyHouse, getTownHouses } from "@/server/town";
+import { getHeaderNotifications, listNotifications } from "@/server/notifications";
+import { getWallet } from "@/server/points";
+import { getFavoriteHouses, getFriends, getMyHouse, getTownHouses } from "@/server/town";
+
+/** 메뉴 알림 창에 보여 줄 최근 알림 수 */
+const MENU_NOTIFICATIONS = 5;
 
 export const metadata = { title: "중앙 광장" };
 
@@ -12,9 +18,11 @@ export default async function TownPage(props: PageProps<"/town">) {
   const member = viewer?.profile ? viewer : null;
   const { welcome } = await props.searchParams;
 
-  const [neighbors, myHouse] = await Promise.all([
-    getTownHouses(member?.userId ?? null),
+  // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 최근 글이 있는 블로그
+  const [neighbors, myHouse, hud] = await Promise.all([
+    member ? getFavoriteHouses(member.userId) : getTownHouses(null),
     member ? getMyHouse(member.userId) : null,
+    member ? getHudMember(member.userId) : null,
   ]);
 
   const data: TownData = {
@@ -31,41 +39,23 @@ export default async function TownPage(props: PageProps<"/town">) {
   return (
     <div className="relative h-[calc(100dvh-var(--header-h))] min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible">
       <h1 className="sr-only">중앙 광장</h1>
-      <TownGame data={data} className="h-full w-full phone:hidden" />
-      <TownMenu data={data} welcome={Boolean(welcome)} className="hidden phone:block" />
+      {/* 처음 온 회원은 내 집 앞에서 시작한다 */}
+      <TownGame data={data} startAt={welcome && member ? "house:0" : null} className="h-full w-full phone:hidden" />
+      <TownHud data={data} member={hud} className="phone:hidden" />
+      <TownMenu data={data} member={hud} welcome={Boolean(welcome)} className="hidden phone:block" />
 
       {welcome && member?.profile && (
-        <div className="card absolute inset-x-3 top-3 z-10 mx-auto flex max-w-2xl items-start gap-3 border-sun bg-[#fff3d6] p-4 phone:hidden">
+        <div className="card absolute inset-x-3 bottom-14 z-10 mx-auto flex max-w-2xl items-start gap-3 border-sun bg-[#fff3d6] p-4 phone:hidden">
           <span className="text-3xl">🎉</span>
           <p className="flex-1 text-sm sm:text-base">
             <b>{member.profile.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요.
-            광장 아래쪽 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 위쪽 <b>게시판</b>에서 출석 도장도 받을 수 있어요. 왼쪽 <b>동물 농장</b>에서 첫 알을 받아 동물을 키워 보세요.
+            눈앞의 <b>내 집</b>에 들어가서 첫 글을 써 보세요. 왼쪽 위 <b>☰ 메뉴</b>에서 내 프로필·알림·텔레포트·친구 목록을 볼 수 있어요.
+            마을 가운데 <b>🚏 정류장</b>에서는 즐겨찾기한 이웃의 집으로 바로 갈 수 있어요.
           </p>
           <Link href="/town" className="shrink-0 rounded-lg px-2 py-1 text-ink-soft hover:bg-white" aria-label="환영 문구 닫기">
             ✕
           </Link>
         </div>
-      )}
-
-      {/* 이웃집 목록: 광장에서 못 찾은 블로그도 여기서 들어갈 수 있다 (TOWN-04) */}
-      {neighbors.length > 0 && (
-        <section className="absolute left-3 top-3 z-[5] max-w-[calc(100%-1.5rem)] sm:max-w-xs phone:hidden">
-          <details open className="group rounded-2xl bg-white/90 shadow-md backdrop-blur">
-            <summary className="cursor-pointer list-none px-3 py-2 font-display text-lg">
-              🏘 이웃집 <span className="text-sm text-ink-soft">{neighbors.length}</span>
-              <span className="float-right text-sm text-ink-soft group-open:rotate-180">▾</span>
-            </summary>
-            <ul className="max-h-[40dvh] space-y-1 overflow-y-auto px-2 pb-2">
-              {neighbors.map((h) => (
-                <li key={h.slug}>
-                  <Link href={`/@${h.slug}`} className="block truncate rounded-lg px-2 py-1.5 text-sm hover:bg-cream hover:text-leaf-dark">
-                    {h.title} <span className="text-ink-soft">· {h.nickname}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </details>
-        </section>
       )}
 
       {/* 기기에 맞는 조작 안내: 마우스·키보드 / 터치 (TOWN-02) */}
@@ -77,4 +67,19 @@ export default async function TownPage(props: PageProps<"/town">) {
       </p>
     </div>
   );
+}
+
+async function getHudMember(userId: string): Promise<TownHudMember> {
+  const [wallet, header, list, friends] = await Promise.all([
+    getWallet(userId),
+    getHeaderNotifications(userId),
+    listNotifications(userId, 1),
+    getFriends(userId),
+  ]);
+  return {
+    wallet: { coins: wallet.coins, level: wallet.level, current: wallet.current, needed: wallet.needed, isMax: wallet.isMax },
+    unread: header.unread,
+    notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
+    friends,
+  };
 }

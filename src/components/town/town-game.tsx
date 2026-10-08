@@ -1,13 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { PHONE_MEDIA } from "@/lib/device";
+import { townBus } from "./bus";
 import type { TownData, TownTarget } from "./types";
 
-export function TownGame({ data, className = "" }: { data: TownData; className?: string }) {
+export function TownGame({
+  data: fresh,
+  startAt = null,
+  className = "",
+}: {
+  data: TownData;
+  /** 처음 설 곳 (townSpots의 key). 없으면 정류장 옆 */
+  startAt?: string | null;
+  className?: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  // 서버가 다시 그려도(⭐ 즐겨찾기 등) 내용이 같으면 게임을 다시 만들지 않는다
+  const key = JSON.stringify(fresh);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const data = useMemo(() => fresh, [key]);
 
   useEffect(() => {
     let game: import("phaser").Game | null = null;
@@ -17,8 +31,19 @@ export function TownGame({ data, className = "" }: { data: TownData; className?:
     const phone = window.matchMedia(PHONE_MEDIA);
 
     const onEnter = (target: TownTarget) => {
-      router.push(target.kind === "link" ? target.href : "/");
+      if (target.kind === "link") router.push(target.href);
+      else if (target.kind === "login") router.push("/");
+      else townBus.emit("open", target);
     };
+    // 메뉴에서 고른 곳으로 순간 이동, 메뉴 창이 열려 있으면 키보드를 메뉴에 양보
+    const offTeleport = townBus.on("teleport", (spot) => game?.events.emit("teleport", spot));
+    const offPanel = townBus.on("panel", (open) => {
+      const keyboard = game?.scene.getScene("town")?.input.keyboard;
+      if (!keyboard) return;
+      keyboard.enabled = !open;
+      if (open) keyboard.disableGlobalCapture();
+      else keyboard.enableGlobalCapture();
+    });
 
     // Phaser는 window가 필요해서 브라우저에서만 불러온다
     const start = async () => {
@@ -46,7 +71,7 @@ export function TownGame({ data, className = "" }: { data: TownData; className?:
         backgroundColor: "#8fd18a",
         physics: { default: "arcade", arcade: { debug: false } },
         scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
-        scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily),
+        scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily, startAt),
       });
     };
     const stop = () => {
@@ -61,11 +86,13 @@ export function TownGame({ data, className = "" }: { data: TownData; className?:
 
     return () => {
       cancelled = true;
+      offTeleport();
+      offPanel();
       phone.removeEventListener("change", sync);
       stop();
     };
     // 광장 데이터가 바뀌면(새 이웃 등) 게임을 다시 만든다
-  }, [data, router]);
+  }, [data, router, startAt]);
 
   return (
     <div

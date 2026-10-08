@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
+import { unreadBadge } from "@/lib/notifications";
+import { FriendsPanel, type TownHudMember } from "./town-hud";
 import type { TownData } from "./types";
 
 type Place = { emoji: string; label: string; sub?: string; href: string };
@@ -9,12 +11,24 @@ type Place = { emoji: string; label: string; sub?: string; href: string };
  * 블로그·출석·상점·농장 같은 주요 화면으로 가는 큰 버튼을 보여준다.
  * 어느 화면에서 보일지는 쓰는 쪽이 className(`hidden phone:block`)으로 정한다.
  */
-export function TownMenu({ data, welcome, className = "" }: { data: TownData; welcome: boolean; className?: string }) {
+export function TownMenu({
+  data,
+  member: hud,
+  welcome,
+  className = "",
+}: {
+  data: TownData;
+  member: TownHudMember | null;
+  welcome: boolean;
+  className?: string;
+}) {
   const member = data.player;
+  const badge = hud ? unreadBadge(hud.unread) : null;
   const places: Place[] = member
     ? [
         ...(data.myHouse ? [{ emoji: "🏠", label: "내 블로그", sub: data.myHouse.title, href: `/@${data.myHouse.slug}` }] : []),
         { emoji: "✏️", label: "글쓰기", sub: "새 글 쓰기", href: "/write" },
+        { emoji: "🔔", label: "알림", sub: badge ? `안 읽은 알림 ${badge}개` : "새 알림 없음", href: "/notifications" },
         { emoji: "📮", label: "출석 체크", sub: data.attendanceDay ? `오늘 ${data.attendanceDay}일차 ✅` : undefined, href: "/attendance" },
         { emoji: "📋", label: "마을 소식", sub: "새 글 · 이웃 새 글", href: "/feed" },
         { emoji: "🏪", label: "상점", sub: "캐릭터·배경", href: "/shop" },
@@ -44,7 +58,16 @@ export function TownMenu({ data, welcome, className = "" }: { data: TownData; we
         {member ? <CharacterBadge asset={member.characterAsset} size={44} /> : <span className="text-4xl" aria-hidden>🏘</span>}
         <div className="min-w-0">
           <h2 className="truncate font-display text-xl">{member ? `${member.nickname}님, 어디로 갈까요?` : "Blogville 마을 구경"}</h2>
-          <p className="text-sm text-ink-soft">{member ? "가고 싶은 곳을 눌러 주세요." : "로그인하면 내 블로그 집이 생겨요."}</p>
+          <p className="text-sm text-ink-soft">
+            {hud ? (
+              <>
+                Lv.{hud.wallet.level} · 🪙 {hud.wallet.coins.toLocaleString()} · ✨{" "}
+                {hud.wallet.isMax ? "최고 레벨" : `${hud.wallet.current.toLocaleString()} / ${hud.wallet.needed.toLocaleString()}`}
+              </>
+            ) : (
+              "로그인하면 내 블로그 집이 생겨요."
+            )}
+          </p>
         </div>
       </div>
 
@@ -65,11 +88,11 @@ export function TownMenu({ data, welcome, className = "" }: { data: TownData; we
         ))}
       </ul>
 
-      {/* 이웃집: 광장의 집과 같은 블로그 (TOWN-04). 데스크톱의 🏘 이웃집 패널(section)과 헷갈리지 않게 div로 둔다 */}
+      {/* 이웃집: 광장 둘레의 집과 같은 블로그 (회원은 즐겨찾기 이웃, 방문자는 최근 글이 있는 블로그) */}
       {data.neighbors.length > 0 && (
         <div className="mt-6">
           <h2 className="mb-2 font-display text-lg">
-            🏘 이웃집 <span className="text-sm text-ink-soft">{data.neighbors.length}</span>
+            🏘 {member ? "즐겨찾기 이웃집" : "이웃집"} <span className="text-sm text-ink-soft">{data.neighbors.length}</span>
           </h2>
           <ul className="card divide-y-2 divide-line overflow-hidden">
             {data.neighbors.map((h) => (
@@ -87,6 +110,17 @@ export function TownMenu({ data, welcome, className = "" }: { data: TownData; we
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {hud && (
+        <div className="mt-6">
+          <h2 className="mb-2 font-display text-lg">
+            👫 친구 목록 <span className="text-sm text-ink-soft">{hud.friends.length}</span>
+          </h2>
+          <div className="card p-2">
+            <FriendsPanel data={data} member={hud} />
+          </div>
         </div>
       )}
     </nav>
