@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { ExitButton, HomeLogo } from "@/components/exit-button";
+import { SessionKeeper } from "@/components/session-keeper";
 import { SignOutButton } from "@/components/sign-out-button";
 import { getViewer } from "@/server/dal";
 import { getWallet } from "@/server/points";
@@ -34,6 +35,8 @@ export async function SiteHeader() {
               </Link>
             )}
             <CharacterBadge asset={member.profile.characterAsset} size={32} />
+            {/* 로그인 유지 세션만 7일 연장 (AUTH-09 / FR-021) */}
+            {member.rememberMe && <SessionKeeper />}
             <SignOutButton />
           </div>
         ) : viewer ? (
