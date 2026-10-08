@@ -12,8 +12,9 @@ AI응용프로젝트 개인 프로젝트입니다. [Tistory](https://www.tistory
 
 | 분류 | 기능 |
 |---|---|
-| 회원 | 아이디·비밀번호 회원가입/로그인, 네이버·카카오·구글 소셜 로그인, 온보딩(닉네임·블로그 주소·기본 캐릭터) |
-| 관리자 | 통계, 회원 목록, 글 삭제 (`/admin`) |
+| 회원 | 가입 통합(아이디·비밀번호·기본 캐릭터만 받고 닉네임·블로그 주소는 아이디로 자동, 온보딩 없음), 아이디 로그인과 로그인 유지(기본 2시간·브라우저 종료, 선택 7일), 로그인 시도 제한(같은 아이디 5번 실패 → 5분), 로그아웃 |
+| 내 정보 | 로그인 수단 보기, 카카오·네이버·구글 연동·해제(연동한 소셜 계정으로 간편 로그인), 회원 탈퇴(비밀번호 재확인, 회원에 딸린 데이터 한 번에 삭제) (`/settings/account`) |
+| 관리자 | 통계 카드 5개, 회원 목록(로그인 방식), 글 삭제 (`/admin`, 관리자가 아니면 404) |
 | 광장 | Phaser 2D 마을. 방향키·WASD·클릭으로 이동, 건물에 들어가 기능 이용, 최근 글 쓴 이웃집 |
 | 블로그 | `/@주소` 블로그 홈, 미니룸, 카테고리, 글쓰기 에디터(Tiptap), 사진·파일 첨부, 공개/비공개, 태그 |
 | 교류 | 공감, 댓글·답글, 이웃 추가, 마을 소식, 이웃 새 글, 태그별 글 |
@@ -59,7 +60,7 @@ npm run dev                     # http://localhost:3000
 
 ### 소셜 로그인 설정
 
-각 개발자 센터에서 앱을 만들고 `.env.local`에 키를 넣습니다. 키가 있는 서비스만 로그인 버튼이 켜집니다.
+각 개발자 센터에서 앱을 만들고 `.env.local`에 키를 넣습니다. 키가 있는 서비스만 첫 화면 로그인 버튼과 내 정보의 [연동하기]가 켜집니다. 소셜 계정으로는 가입하지 않고, 아이디로 가입한 뒤 내 정보에서 연동합니다.
 
 | 서비스 | 콘솔 | Redirect URI |
 |---|---|---|
@@ -67,7 +68,7 @@ npm run dev                     # http://localhost:3000
 | 네이버 | developers.naver.com | `http://localhost:3000/api/auth/callback/naver` |
 | 구글 | console.cloud.google.com | `http://localhost:3000/api/auth/callback/google` |
 
-> 카카오는 개인 개발자 앱에서 이메일 동의항목을 쓰기 어려워 닉네임·프로필 사진만 요청하고, 이메일 자리에는 `kakao_<ID>@kakao.blogville.invalid` 대체 주소를 저장합니다.
+> 소셜 서비스에는 이메일을 요청하지 않고(카카오는 닉네임·프로필 사진만), 소셜 토큰도 저장하지 않습니다. 로그인 수단 행에는 서비스 이름·계정 식별자·연동한 날짜만 남습니다.
 
 ## 스크립트
 
@@ -79,9 +80,13 @@ npm run dev                     # http://localhost:3000
 | `npm run db:migrate` | 마이그레이션 적용 |
 | `npm run db:seed` | 아이템 카탈로그 넣기 (여러 번 실행해도 안전) |
 | `npm run db:reset` | (로컬 전용) 회원·글 데이터 비우기 (관리자도 지워지므로 `admin:create` 다시 실행) |
-| `npm run admin:create` | 관리자 계정 생성·비밀번호 갱신 (여러 번 실행해도 안전) |
+| `npm run admin:create` | 관리자 계정 생성·비밀번호 갱신 (여러 번 실행해도 안전). `ADMIN_PASSWORD`는 12~64자 |
 | `npm run db:studio` | DB를 브라우저에서 보기 (Drizzle Studio) |
 | `node e2e/auth.mjs <폴더>` | 회원가입·로그인·관리자 권한 E2E (개발 서버 실행 중) |
+| `node e2e/signup.mjs <폴더>` | 가입 통합 E2E: 아이디·캐릭터만으로 가입, 예약어·겹치는 이름 거부, 소셜 버튼 표시 |
+| `node e2e/session.mjs <폴더>` | 로그인 유지(2시간/7일)·로그아웃·쿠키 속성 E2E |
+| `node e2e/login-limit.mjs <폴더>` | 로그인 시도 제한(5번 실패 → 5분) E2E |
+| `node e2e/account.mjs <폴더>` | 내 정보: 소셜 연동·해제, 회원 탈퇴 E2E (소셜 키 없이 DB 행으로 확인) |
 | `node e2e/blog.mjs <폴더>` | 글쓰기·공감·댓글·보상 E2E |
 | `node e2e/write-count.mjs <폴더>` | 글쓰기 화면 글자 수·보상 안내가 서버의 실제 보상 판단과 같은지 E2E (실행마다 새 회원) |
 | `node e2e/attachments.mjs <폴더>` | 글 첨부 E2E: 사진·파일을 버튼·붙여 넣기·끌어다 놓기로 올리고 원래 이름으로 내려받기, 조작한 올리기 요청 거부 (실행마다 새 회원) |
@@ -90,10 +95,11 @@ npm run dev                     # http://localhost:3000
 | `node e2e/social.mjs <폴더>` | 이웃 추가·취소, 조작한 이웃 요청 거부 E2E (`e2e/blog.mjs` 다음에) |
 | `node e2e/visits.mjs <폴더>` | 블로그 방문자 수 E2E: 하루 1번, 다른 브라우저, 글 상세, 어제, 관리 7일 그래프, 주인 제외, 쿠키 속성 (`e2e/blog.mjs` 다음에) |
 | `node e2e/nonfunctional.mjs <폴더> [주소]` | 모바일 가로 스크롤·응답 시간 측정 (속도는 프로덕션 빌드 대상) |
-| `npm test` | 아래 세 테스트를 함께 실행 |
+| `npm test` | 아래 네 테스트를 함께 실행 |
 | `npm run test:game` | 레벨(최고 99)·연속 출석 계산 테스트 |
 | `npm run test:ids` | 주소·요청의 숫자 ID 검사(1 ~ 2147483647) 테스트 |
 | `npm run test:sanitize` | 글 HTML 정화(XSS 방지) 테스트 |
+| `npm run test:auth` | 아이디 정규화·형식, 예약어, 닉네임 길이, 로그인 시도 제한 계산 테스트 |
 | `node e2e/decisions.mjs <폴더>` | 팀 결정 구현 E2E: 3종 지급, 장착 표시, 연속 출석, 내역, 최고 레벨, 광장 이웃집, 조이스틱 |
 | `node e2e/params.mjs <폴더>` | 범위 밖·이상한 숫자(글 번호, 카테고리, 페이지, Server Action 인자)에서 500이 나지 않는지 E2E (`e2e/blog.mjs` 다음에) |
 
@@ -109,8 +115,8 @@ src/
 │   ├── blog/[slug]/      블로그 홈, 글 상세  (주소는 /@slug 로 rewrite)
 │   ├── town/             중앙 광장
 │   ├── write/            글쓰기·수정
-│   ├── attendance/ shop/ closet/ settings/blog/ feed/ tags/ onboarding/
-│   └── api/auth/         소셜 로그인 엔드포인트
+│   ├── attendance/ shop/ closet/ settings/blog/ settings/account/ feed/ tags/ admin/
+│   └── api/auth/         로그인 라이브러리 경로 (허용 목록만: 세션 연장, 소셜 콜백)
 ├── components/           화면 조각 (town/ = Phaser 씬, editor/ = Tiptap)
 ├── db/                   Drizzle 스키마, DB 연결
 ├── lib/                  게임 규칙(레벨·보상), 그림 정의, 로그인 설정
