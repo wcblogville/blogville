@@ -6,7 +6,7 @@ import "server-only";
 import { hashPassword } from "better-auth/crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { accounts, blogs, categories, items, profiles, userItems, users } from "@/db/schema";
+import { accounts, blogs, categories, items, loginAttempts, profiles, userItems, users } from "@/db/schema";
 import { newAuthId } from "@/lib/auth-id";
 import { isReservedName } from "@/lib/names";
 import { uniqueViolation } from "@/server/db-errors";
@@ -70,7 +70,8 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       });
       // 2) 아이디·비밀번호 로그인 수단 (Better Auth와 같은 형식: providerId = credential, accountId = 회원 ID)
       await tx.insert(accounts).values({ id: newAuthId(), userId, providerId: "credential", accountId: userId, password: passwordHash });
-      // 3) 로그인 실패 기록 삭제는 login_attempts 표가 생기는 8단계(US6)에서 더한다
+      // 3) 그 아이디의 로그인 실패 기록을 지운다 (새 계정이 가입 전 실패·잠금을 물려받지 않게, research R8)
+      await tx.delete(loginAttempts).where(eq(loginAttempts.username, username));
       // 4) 보유 아이템: 고른 캐릭터 하나 + 초원 (GAME-01)
       await tx.insert(userItems).values([
         { userId, itemId: character.id },

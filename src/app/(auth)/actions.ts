@@ -7,8 +7,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { parseId } from "@/lib/ids";
+import { LOGIN_LOCKED_MESSAGE } from "@/lib/login-limit";
 import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
 import { getSession } from "@/server/dal";
+import { clearLoginAttempts, reserveLoginAttempt } from "@/server/login-attempts";
 import { createMember, SIGNUP_ERRORS } from "@/server/signup";
 
 export type AuthFormState = { error?: string; values?: { username: string; characterId?: string; rememberMe?: boolean } };
@@ -64,7 +66,13 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
 /**
  * 아이디 로그인 (AUTH-09 / FR-015~FR-019, contracts/auth-entry.md 3장).
  * 아이디는 앞뒤 공백·대문자를 무시한다. 없는 아이디와 틀린 비밀번호는 같은 문구다 (아이디 존재 여부를 알리지 않는다).
- * 로그인 시도 제한(FR-025~)은 US6(T060)에서 이 함수에 더한다.
+ *
+ * 로그인 시도 제한 (FR-025~FR-028, research R8): 같은 아이디로 5번 연속 실패하면 5분 동안 막는다.
+ * 1) 비밀번호 확인 전에 짧은 트랜잭션으로 이번 시도를 실패로 미리 센다(잠금 중이면 거부).
+ * 2) 그 트랜잭션이 끝난 뒤에 라이브러리 로그인을 부른다 (트랜잭션 안에서 부르면 연결 풀 교착).
+ * 3) 성공하면 기록을 지운다. 없는 아이디도 똑같이 세고 같은 문구를 보여 존재 여부가 드러나지 않는다 (FR-027).
+ * 화면을 거치지 않고 Server Action을 직접 보내도 이 함수를 지나므로 같게 적용된다 (FR-028).
+ * 소셜 로그인은 이 경로를 지나지 않아 잠금이 적용되지 않는다 (spec Edge Case).
  */
 export async function signIn(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
   const rawUsername = String(formData.get("username") ?? "");
@@ -73,7 +81,10 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
   const rememberMe = formData.get("rememberMe") === "on";
   const fail = (error: string): AuthFormState => ({ error, values: { username: rawUsername, rememberMe } });
   if (!username || !password) return fail("아이디와 비밀번호를 적어 주세요");
+  // 64자를 넘는 아이디는 있을 수 없다. 기록하지 않는다 (login_attempts.username CHECK 1~64자, 행 크기 상한)
+  if (username.length > 64) return fail("아이디 또는 비밀번호가 맞지 않아요");
 
+  if (!(await reserveLoginAttempt(username))) return fail(LOGIN_LOCKED_MESSAGE);
   try {
     // rememberMe를 늘 true/false로 넘긴다. 빠지면 라이브러리는 "유지"로 보고 쿠키에 Max-Age 7일을 심는다
     await auth.api.signInUsername({ body: { username, password, rememberMe }, headers: await headers() });
@@ -81,6 +92,7 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
     if (err instanceof APIError) return fail("아이디 또는 비밀번호가 맞지 않아요");
     throw err;
   }
+  await clearLoginAttempts(username);
 
   if (rememberMe) {
     // better-auth 1.7.7은 유지로 다시 로그인해도 예전 유지 안 함 로그인이 남긴 dont_remember 쿠키를 지우지 않는다.
