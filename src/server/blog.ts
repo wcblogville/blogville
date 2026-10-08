@@ -7,7 +7,6 @@ import {
   blogs,
   blogVisits,
   categories,
-  comments,
   follows,
   items,
   postLikes,
@@ -19,6 +18,8 @@ import {
   userAnimals,
 } from "@/db/schema";
 import { buildCategoryTree, toLikePattern } from "@/lib/blog";
+import { favoriteWindowStart } from "@/lib/social";
+import { liveCommentCountSql } from "@/server/social";
 import { previousDay, todayKST } from "@/lib/game";
 
 const characterItem = alias(items, "character_item");
@@ -192,20 +193,27 @@ const listColumns = {
   // 카드 배지 `대분류 › 소분류` (POST-03 / FR-033)
   subcategoryName: subcategories.name,
   likeCount: sql<number>`(SELECT COUNT(*)::int FROM ${postLikes} WHERE ${postLikes.postId} = ${posts.id})`,
-  commentCount: sql<number>`(SELECT COUNT(*)::int FROM ${comments} WHERE ${comments.postId} = ${posts.id} AND ${comments.deletedAt} IS NULL)`,
+  // 삭제 안 된 댓글 + 답글 (SOC-01 / FR-016)
+  commentCount: liveCommentCountSql(posts.id),
 };
 
-async function paged<T>(where: SQL | undefined, page: number, extra: (q: ReturnType<typeof baseList>) => Promise<T[]>) {
+/** orderFirst: 기존 정렬(최신순) 앞에 붙일 정렬 (이웃 새 글의 즐겨찾기 우선, SOC-04). 없으면 최신순만 */
+async function paged<T>(
+  where: SQL | undefined,
+  page: number,
+  extra: (q: ReturnType<typeof baseList>) => Promise<T[]>,
+  orderFirst?: SQL,
+) {
   const [{ total }] = await db
     .select({ total: sql<number>`COUNT(*)::int` })
     .from(posts)
     .innerJoin(blogs, eq(blogs.id, posts.blogId))
     .where(where);
-  const items = await extra(baseList(where));
+  const items = await extra(baseList(where, orderFirst));
   return { items, total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
 }
 
-function baseList(where: SQL | undefined) {
+function baseList(where: SQL | undefined, orderFirst?: SQL) {
   return db
     .select({
       ...listColumns,
@@ -221,7 +229,7 @@ function baseList(where: SQL | undefined) {
     .leftJoin(categories, eq(categories.id, posts.categoryId))
     .leftJoin(subcategories, eq(subcategories.id, posts.subcategoryId))
     .where(where)
-    .orderBy(desc(posts.createdAt), desc(posts.id));
+    .orderBy(...(orderFirst ? [orderFirst] : []), desc(posts.createdAt), desc(posts.id));
 }
 
 /**
@@ -262,7 +270,13 @@ export async function listFeed(opts: { page: number; followerId?: string; tag?: 
         )
       : undefined,
   );
-  return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE));
+  // 이웃 새 글: 최근 7일(한국 날짜, 오늘 포함) 안에 쓴 즐겨찾는 이웃의 글이 맨 위 (SOC-04 / FR-042, D15)
+  const favoriteFirst = opts.followerId
+    ? sql`CASE WHEN ${posts.createdAt} >= (${favoriteWindowStart(todayKST())}::date::timestamp AT TIME ZONE 'Asia/Seoul')
+        AND EXISTS (SELECT 1 FROM ${follows} WHERE ${follows.followerId} = ${opts.followerId}
+          AND ${follows.followeeId} = ${blogs.ownerId} AND ${follows.isFavorite}) THEN 0 ELSE 1 END`
+    : undefined;
+  return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE), favoriteFirst);
 }
 
 // ===== 글 상세 =====
@@ -309,27 +323,6 @@ export async function getLikeState(postId: number, viewerId: string | null) {
     .from(postLikes)
     .where(eq(postLikes.postId, postId));
   return { count: row.count, liked: Boolean(row.liked) };
-}
-
-export async function getComments(postId: number) {
-  return db
-    .select({
-      id: comments.id,
-      parentId: comments.parentId,
-      content: comments.content,
-      createdAt: comments.createdAt,
-      deletedAt: comments.deletedAt,
-      authorId: comments.authorId,
-      nickname: profiles.nickname,
-      characterAsset: characterItem.assetKey,
-      blogSlug: blogs.slug,
-    })
-    .from(comments)
-    .innerJoin(profiles, eq(profiles.userId, comments.authorId))
-    .innerJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
-    .innerJoin(blogs, eq(blogs.ownerId, comments.authorId))
-    .where(eq(comments.postId, postId))
-    .orderBy(asc(comments.createdAt), asc(comments.id));
 }
 
 /** 같은 블로그 안에서 바로 이전 / 다음 글 */

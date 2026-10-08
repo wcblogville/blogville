@@ -12,13 +12,13 @@ import { parseId } from "@/lib/ids";
 import {
   getAdjacentPosts,
   getBlogBySlug,
-  getComments,
   getLikeState,
   getPost,
   getPostTags,
 } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 import { getPublishNotice, hasViewedToday } from "@/server/posts";
+import { getCommentThread } from "@/server/social";
 import { readVisitorId } from "@/server/visitor";
 
 async function load(props: PageProps<"/blog/[slug]/[postId]">) {
@@ -50,10 +50,10 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
   if (post.visibility === "private" && !isOwner) notFound();
 
   // 서버 렌더는 조회수를 바꾸지 않는다. 오늘 이 브라우저로 처음 여는 것이면 +1을 미리 보여 주고, 기록은 ViewCount가 한다 (FR-046, R2)
-  const [tagNames, like, comments, adjacent, viewed, notice] = await Promise.all([
+  const [tagNames, like, thread, adjacent, viewed, notice] = await Promise.all([
     getPostTags(post.id),
     getLikeState(post.id, viewerId),
-    getComments(post.id),
+    getCommentThread(post.id, viewerId && viewer ? { userId: viewerId, isAdmin: viewer.user.role === "admin" } : null),
     getAdjacentPosts(blog.id, post, isOwner),
     isOwner ? true : readVisitorId().then((v) => hasViewedToday(post.id, v)),
     // 발행 안내는 ?new가 있을 때만, 주인에게만 (FR-013, R13)
@@ -130,21 +130,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
           <LikeButton postId={post.id} count={like.count} liked={like.liked} canLike={Boolean(viewerId)} />
         </div>
 
-        <CommentSection
-          postId={post.id}
-          viewerId={viewerId}
-          comments={comments.map((c) => ({
-            id: c.id,
-            parentId: c.parentId,
-            content: c.deletedAt ? "" : c.content,
-            createdAtText: formatDateTime(c.createdAt),
-            deleted: Boolean(c.deletedAt),
-            authorId: c.authorId,
-            nickname: c.nickname,
-            characterAsset: c.characterAsset,
-            blogSlug: c.blogSlug,
-          }))}
-        />
+        <CommentSection postId={post.id} thread={thread} isMember={Boolean(viewerId)} />
       </article>
 
       <nav className="mt-6 grid gap-3 sm:grid-cols-2" aria-label="이전 글, 다음 글">

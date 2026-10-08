@@ -16,3 +16,8 @@ export function uniqueViolation(err: unknown): string | null {
   const e = pgError(err);
   return e?.code === "23505" ? (e.constraint ?? "") : null;
 }
+
+/** 외래 키 위반(23503)인지. 대상 행이 그 순간 지워진 경우를 가린다 */
+export function foreignKeyViolation(err: unknown): boolean {
+  return pgError(err)?.code === "23503";
+}

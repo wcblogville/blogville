@@ -134,6 +134,41 @@
       "when": 1791427198843,
       "tag": "0018_attachment_backfill",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791429408592,
+      "tag": "0019_replies",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791429425414,
+      "tag": "0020_reply_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791429434933,
+      "tag": "0021_comments_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791429443750,
+      "tag": "0022_follows_favorite",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791430436743,
+      "tag": "0023_like_reward_unique",
+      "breakpoints": true
     }
   ]
 }

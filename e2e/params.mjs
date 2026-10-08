@@ -40,6 +40,10 @@ for (const [path, want] of [
   [`/@tester1?q=${"가".repeat(60)}`, 200],
   ["/feed?page=99999999999999999999", 200],
   ["/feed?page=1e300", 200],
+  // 마을 소식 쪽 번호 (SOC-05 / US1-7, FR-052)
+  ["/feed?page=abc", 200],
+  ["/feed?page=0", 200],
+  ["/feed?page=2.5", 200],
   ["/feed/following?page=99999999999999999999", 200],
   [`/tags/${encodeURIComponent("git")}?page=99999999999999999999`, 200],
   ["/wallet?page=99999999999999999999", 200],
@@ -100,6 +104,43 @@ await page.getByRole("button", { name: "댓글 등록" }).click();
 await page.getByText("지울 댓글").first().waitFor();
 const delComment = await capture(() => page.getByRole("button", { name: "삭제", exact: true }).last().click());
 check("댓글 삭제: 범위 밖 댓글 ID → 오류 없음", (await replay(delComment, [HUGE])) === 200);
+check("댓글 삭제: 숫자가 아닌 댓글 ID → 오류 없음", (await replay(delComment, ["abc"])) === 200);
+
+// 댓글 폼 postId 형식 오류 (SOC-01 / US2-7): abc·0·2.5 → 잘못된 요청이에요, 저장 0
+for (const bad of ["abc", "0", "2.5"]) {
+  await page.goto(`${BASE}/@tester1/${post.id}`);
+  const before = (await one("SELECT count(*)::int AS n FROM comments")).n;
+  await page.locator('form:has(textarea) input[name="postId"]').first().evaluate((i, v) => (i.value = v), bad);
+  await page.locator("form textarea").first().fill("형식 오류 글 ID");
+  await page.getByRole("button", { name: "댓글 등록" }).click();
+  const shown = await page.getByText("잘못된 요청이에요").waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+  check(`댓글: 글 ID ${bad} → '잘못된 요청이에요', 저장 안 됨`, shown && (await one("SELECT count(*)::int AS n FROM comments")).n === before);
+}
+
+// 답글 폼 commentId (SOC-02 / US5-9) 와 답글 삭제 인자
+await page.goto(`${BASE}/@tester1/${post.id}`);
+await page.locator("form textarea").first().fill("답글 받을 댓글");
+await page.getByRole("button", { name: "댓글 등록" }).click();
+await page.getByText("답글 받을 댓글").last().waitFor();
+for (const bad of [String(HUGE), "abc"]) {
+  const before = (await one("SELECT count(*)::int AS n FROM replies")).n;
+  await page.getByRole("button", { name: "답글", exact: true }).last().click();
+  const form = page.locator("form", { has: page.getByRole("button", { name: "답글 등록" }) });
+  await form.locator('input[name="commentId"]').evaluate((i, v) => (i.value = v), bad);
+  await form.locator("textarea").fill("조작 답글");
+  await form.getByRole("button", { name: "답글 등록" }).click();
+  const shown = await form.getByText("잘못된 요청이에요").waitFor({ timeout: 10000 }).then(() => true).catch(() => false);
+  check(`답글: 댓글 ID ${bad} → '잘못된 요청이에요', 저장 안 됨`, shown && (await one("SELECT count(*)::int AS n FROM replies")).n === before);
+  await form.getByRole("button", { name: "답글 취소" }).click();
+}
+await page.getByRole("button", { name: "답글", exact: true }).last().click();
+const replyForm = page.locator("form", { has: page.getByRole("button", { name: "답글 등록" }) });
+await replyForm.locator("textarea").fill("지울 답글");
+await replyForm.getByRole("button", { name: "답글 등록" }).click();
+await page.getByText("지울 답글").waitFor();
+const delReply = await capture(() => page.locator('[id^="reply-"]').last().getByRole("button", { name: "삭제", exact: true }).click());
+check("답글 삭제: 범위 밖 답글 ID → 오류 없음", (await replay(delReply, [HUGE])) === 200);
+check("답글 삭제: 숫자가 아닌 답글 ID → 오류 없음", (await replay(delReply, ["abc"])) === 200);
 
 // 카테고리: 임시 카테고리를 만들어 이름 바꾸기·순서·삭제 요청을 잡는다
 await page.goto(`${BASE}/settings/blog`);

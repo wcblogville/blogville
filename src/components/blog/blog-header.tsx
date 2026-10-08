@@ -93,7 +93,7 @@ export function BlogHeader({
             </>
           ) : viewerId ? (
             <form action={toggleFollow.bind(null, blog.ownerId)}>
-              <button className={`btn whitespace-nowrap ${following ? "bg-white text-ink" : "bg-sky text-white"}`}>
+              <button className={`btn min-h-11 whitespace-nowrap ${following ? "bg-white text-ink" : "bg-sky text-white"}`}>
                 {following ? "✓ 이웃" : "+ 이웃 추가"}
               </button>
             </form>

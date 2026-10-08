@@ -240,17 +240,12 @@ await ctx.close();
 
 // ══ 회원 탈퇴 (quickstart 4.5의 12~20번) ══
 // 탈퇴할 회원 W, 글 주인 A(위의 ID), 다른 회원 B. 글·댓글·공감 등은 DB에 직접 넣는다 (화면 흐름은 blog.mjs가 확인한다).
-// 지금 스키마는 답글 = comments.parent_id다. social 5단계가 답글을 replies 표로 나누고 comments.author_id를 SET NULL로 바꾸면
-// 12번 준비와 18번 기대를 그 구조로 고친다 (TODO(004-social T046), src/server/account.ts removeAuthorComments).
+// 답글은 replies 표, 탈퇴하면 남의 답글이 달린 댓글은 `삭제된 댓글이에요` 자리로 남는다 (social prepareCommentsForWithdrawal).
 const W = `wd${n}`;
 const WPW = "withdraw-pass-1234";
 const B = `wb${n}`;
 const W_TEXT = { lone: `W 답글 없는 댓글 ${n}`, reply: `W가 B 댓글에 단 답글 ${n}`, parent: `W 댓글 남의 답글 2개 ${n}` };
-const repliesTable = (await one("SELECT to_regclass('public.replies') IS NOT NULL AS ok")).ok;
 const notificationsTable = (await one("SELECT to_regclass('public.notifications') IS NOT NULL AS ok")).ok;
-const authorNullable = (await one(
-  "SELECT is_nullable = 'YES' AS ok FROM information_schema.columns WHERE table_name = 'comments' AND column_name = 'author_id'",
-)).ok;
 
 /** W에 딸린 행 수 (15번 표). 글·블로그는 W가 가진 것, 공감·이웃은 양쪽 */
 async function wCounts(wId, wPostId) {
@@ -269,6 +264,7 @@ async function wCounts(wId, wPostId) {
     공감: await q("SELECT count(*)::int AS c FROM post_likes WHERE user_id = $1 OR post_id = $2", [wId, wPostId]),
     첨부: await q("SELECT count(*)::int AS c FROM attachments WHERE user_id = $1", [wId]),
     댓글: await q("SELECT count(*)::int AS c FROM comments WHERE author_id = $1 OR post_id = $2", [wId, wPostId]),
+    답글: await q("SELECT count(*)::int AS c FROM replies WHERE author_id = $1", [wId]),
     실패기록: await q("SELECT count(*)::int AS c FROM login_attempts WHERE username = $1", [W]),
   };
   if (notificationsTable) {
@@ -297,18 +293,20 @@ let wCommentIds = {};
   const blogOf = async (uid) => (await one("SELECT id FROM blogs WHERE owner_id = $1", [uid])).id;
   const insertPost = async (uid, title) =>
     (await one("INSERT INTO posts (blog_id, title, content_html, content_text) VALUES ($1, $2, '<p>본문</p>', '본문') RETURNING id", [await blogOf(uid), title])).id;
-  const insertComment = async (postId, uid, content, parentId = null) =>
-    (await one("INSERT INTO comments (post_id, author_id, parent_id, content) VALUES ($1, $2, $3, $4) RETURNING id", [postId, uid, parentId, content])).id;
+  const insertComment = async (postId, uid, content) =>
+    (await one("INSERT INTO comments (post_id, author_id, content) VALUES ($1, $2, $3) RETURNING id", [postId, uid, content])).id;
+  const insertReply = async (commentId, uid, content) =>
+    (await one("INSERT INTO replies (comment_id, author_id, content) VALUES ($1, $2, $3) RETURNING id", [commentId, uid, content])).id;
 
   wPostId = await insertPost(wId, `W의 글 ${n}`);
   aPostId = await insertPost(aId, `A의 글 ${n}`);
   // A의 글: W 답글 없는 댓글, B 댓글에 W 답글, W 댓글 + B·A 답글 2개
   wCommentIds.lone = await insertComment(aPostId, wId, W_TEXT.lone);
   const bComment = await insertComment(aPostId, bId, `B 댓글 ${n}`);
-  wCommentIds.reply = await insertComment(aPostId, wId, W_TEXT.reply, bComment);
+  wCommentIds.reply = await insertReply(bComment, wId, W_TEXT.reply);
   wCommentIds.parent = await insertComment(aPostId, wId, W_TEXT.parent);
-  await insertComment(aPostId, bId, `B 답글 1 ${n}`, wCommentIds.parent);
-  await insertComment(aPostId, aId, `A 답글 2 ${n}`, wCommentIds.parent);
+  await insertReply(wCommentIds.parent, bId, `B 답글 1 ${n}`);
+  await insertReply(wCommentIds.parent, aId, `A 답글 2 ${n}`);
   // 다른 회원이 W 글에 단 댓글·공감, W가 한 공감, 이웃 양쪽, 첨부 행, 연동 행, 출석(없으면). 실패 기록은 W가 로그인한 뒤에 넣는다
   await insertComment(wPostId, bId, `B가 W 글에 단 댓글 ${n}`);
   await db.query("INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2), ($3, $4)", [wPostId, bId, aPostId, wId]);
@@ -325,7 +323,6 @@ let wCommentIds = {};
   const c = await wCounts(wId, wPostId);
   const empty = Object.entries(c).filter(([k, v]) => v <= 0 && k !== "세션" && k !== "실패기록").map(([k]) => k);
   check("12 준비: W의 회원·로그인 수단·프로필·블로그·글·원장·아이템·출석·이웃(양쪽)·공감·첨부·댓글 행 있음", empty.length === 0, empty.join(", ") || JSON.stringify(c));
-  if (repliesTable || authorNullable) results.push("⏸️ 12·18 social 구조(replies 표·author_id NULL)가 생겼다. 준비·기대를 그 구조로 고쳐야 한다 (TODO 004-social T046)");
 }
 
 const wc = await fresh();
@@ -403,17 +400,11 @@ await wc.ctx.close();
   check("18 답글 없던 W 댓글 → 자리 없이 사라짐", !comments.includes(W_TEXT.lone));
   check("18 B 댓글에 단 W 답글 → 자리 없이 사라짐, B 댓글은 그대로", !comments.includes(W_TEXT.reply) && comments.includes(`B 댓글 ${n}`));
   check("18 남의 답글이 달린 W 댓글 원문 없음", !comments.includes(W_TEXT.parent));
-  if (repliesTable || authorNullable) {
-    const placeholder = await p.getByText("삭제된 댓글이에요").count();
-    check("18 그 자리에 `삭제된 댓글이에요`, 남의 답글 2개 그대로",
-      placeholder >= 1 && comments.includes(`B 답글 1 ${n}`) && comments.includes(`A 답글 2 ${n}`), comments.slice(0, 300));
-  } else {
-    const kept = Number(comments.includes(`B 답글 1 ${n}`)) + Number(comments.includes(`A 답글 2 ${n}`));
-    results.push(
-      `⏸️ 18 \`삭제된 댓글이에요\` 자리와 남의 답글 2개 유지: 지금 스키마(답글 = comments.parent_id, author_id CASCADE)로는 불가. ` +
-        `social 5단계 뒤 확인 (TODO 004-social T046). 지금 남은 남의 답글 ${kept}개`,
-    );
-  }
+  const placeholder = await p.getByText("삭제된 댓글이에요").count();
+  check("18 그 자리에 `삭제된 댓글이에요`, 남의 답글 2개 그대로",
+    placeholder === 1 && comments.includes(`B 답글 1 ${n}`) && comments.includes(`A 답글 2 ${n}`), comments.slice(0, 300));
+  const left = await one("SELECT author_id, content, deleted_at IS NOT NULL AS deleted FROM comments WHERE id = $1", [wCommentIds.parent]);
+  check("18 남은 자리 행: 작성자 NULL·내용 빈 글자·삭제 표시", left?.author_id === null && left.content === "" && left.deleted, JSON.stringify(left));
   await p.screenshot({ path: `${outDir}/84-account-withdrawn-comments.png`, fullPage: true });
 
   // ── 19) 그 글의 HTML·RSC 응답 본문에 W 닉네임·원문 0건 ──

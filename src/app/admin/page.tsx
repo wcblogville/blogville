@@ -4,11 +4,12 @@
 import { desc, eq, gte, sql } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
-import { attendances, blogs, comments, posts, profiles, users } from "@/db/schema";
+import { attendances, blogs, posts, profiles, users } from "@/db/schema";
 import { formatDateTime } from "@/lib/format";
 import { todayKST } from "@/lib/game";
 import { requireAdmin } from "@/server/dal";
 import { startOfTodayKST } from "@/server/points";
+import { countLiveComments } from "@/server/social";
 import { AdminDeletePostButton } from "./delete-button";
 
 export const metadata = { title: "관리자" };
@@ -23,17 +24,17 @@ const linkTap = "inline-flex min-h-11 items-center";
 export default async function AdminPage() {
   await requireAdmin();
 
-  const [[stats], recentUsers, recentPosts] = await Promise.all([
+  const [[stats], commentCount, recentUsers, recentPosts] = await Promise.all([
     db
       .select({
         users: sql<number>`(SELECT COUNT(*)::int FROM ${users})`,
         posts: sql<number>`(SELECT COUNT(*)::int FROM ${posts})`,
-        // 삭제되지 않은 댓글. social 5단계에서 replies 표가 생기면 그 표의 deleted_at IS NULL 행 수를 더한다
-        comments: sql<number>`(SELECT COUNT(*)::int FROM ${comments} WHERE ${comments.deletedAt} IS NULL)`,
         postsToday: sql<number>`(SELECT COUNT(*)::int FROM ${posts} WHERE ${posts.createdAt} >= ${startOfTodayKST})`,
         attendToday: sql<number>`(SELECT COUNT(*)::int FROM ${attendances} WHERE ${attendances.date} = ${todayKST()})`,
       })
       .from(sql`(SELECT 1) AS one`),
+    // 삭제되지 않은 댓글 + 답글 (SOC-01 / FR-016)
+    countLiveComments(),
     db
       .select({
         id: users.id,
@@ -62,7 +63,7 @@ export default async function AdminPage() {
   const cards = [
     { label: "가입 계정", value: stats.users },
     { label: "전체 글", value: stats.posts },
-    { label: "댓글", value: stats.comments },
+    { label: "댓글", value: commentCount },
     { label: "오늘 새 글", value: stats.postsToday },
     { label: "오늘 출석", value: stats.attendToday },
   ];

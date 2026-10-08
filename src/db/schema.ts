@@ -348,22 +348,44 @@ export const comments = pgTable(
     postId: integer("post_id")
       .notNull()
       .references(() => posts.id, { onDelete: "cascade" }),
+    // 탈퇴하면 NULL (남의 답글이 달린 댓글만 `삭제된 댓글이에요` 자리로 남는다, SOC-02)
+    authorId: text("author_id").references(() => users.id, { onDelete: "set null" }),
+    content: text("content").notNull(),
+    createdAt: createdAt(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }), // 답글이 남도록 행은 지우지 않고 내용만 비운다
+  },
+  (t) => [
+    check(
+      "comments_content_check",
+      sql`(${t.deletedAt} IS NULL AND char_length(${t.content}) BETWEEN 1 AND 1000) OR (${t.deletedAt} IS NOT NULL AND ${t.content} = '')`,
+    ),
+    // 작성자가 없는(탈퇴) 댓글은 삭제 자리뿐이다. 정리 없이 회원을 지우면 이 CHECK가 막는다 (data-model 7)
+    check("comments_author_check", sql`${t.authorId} IS NOT NULL OR ${t.deletedAt} IS NOT NULL`),
+    index("comments_post_created_idx").on(t.postId, t.createdAt),
+  ],
+);
+
+// 댓글 ↔ 답글 (1단계만, SOC-02). 원댓글이 지워져도(삭제 표시) 답글은 남는다
+export const replies = pgTable(
+  "replies",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    commentId: integer("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
     authorId: text("author_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    parentId: integer("parent_id"),
     content: text("content").notNull(),
     createdAt: createdAt(),
-    deletedAt: timestamp("deleted_at", { withTimezone: true }), // 답글이 남도록 행은 지우지 않는다
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => [
-    foreignKey({
-      name: "comments_parent_fk",
-      columns: [t.parentId],
-      foreignColumns: [t.id],
-    }).onDelete("cascade"),
-    check("comments_content_check", sql`char_length(${t.content}) BETWEEN 1 AND 1000`),
-    index("comments_post_created_idx").on(t.postId, t.createdAt),
+    check(
+      "replies_content_check",
+      sql`(${t.deletedAt} IS NULL AND char_length(${t.content}) BETWEEN 1 AND 1000) OR (${t.deletedAt} IS NOT NULL AND ${t.content} = '')`,
+    ),
+    index("replies_comment_created_idx").on(t.commentId, t.createdAt),
   ],
 );
 
@@ -392,6 +414,8 @@ export const follows = pgTable(
     followeeId: text("followee_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
+    // 즐겨찾는 이웃 (TOWN-08이 바꾸고, 이웃 새 글에서 최근 7일 글을 맨 위로, SOC-04)
+    isFavorite: boolean("is_favorite").notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [
@@ -437,6 +461,8 @@ export const pointLedger = pgTable(
     check("point_ledger_nonzero_check", sql`${t.expDelta} <> 0 OR ${t.coinDelta} <> 0`),
     index("point_ledger_user_reason_created_idx").on(t.userId, t.reason, t.createdAt),
     index("point_ledger_user_created_idx").on(t.userId, t.createdAt.desc()), // 내역 화면 최신순 (GAME-07)
+    // 같은 사람·같은 글 공감 보상은 1번 (ref_id = "글ID:공감한 회원ID", SOC-03 / FR-029, 원칙 V)
+    uniqueIndex("point_ledger_like_received_uq").on(t.userId, t.refId).where(sql`${t.reason} = 'like_received'`),
   ],
 );
 
