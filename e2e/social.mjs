@@ -157,6 +157,11 @@ const cardText = await G.page.locator("article", { hasText: "공감 받을 글" 
 check("US3-8 카드 ♥ N = 상세 공감 N", cardText.includes(`♥ ${detail}`), `${detail} / ${cardText.replace(/\n/g, " ").slice(0, 80)}`);
 const dup = await db.query("INSERT INTO post_likes (post_id, user_id) SELECT post_id, user_id FROM post_likes WHERE post_id = $1 LIMIT 1", [LP]).then(() => "ok").catch((e) => e.code);
 check("DB 직접 같은 공감 두 번 → 23505", dup === "23505", dup);
+const dupReward = await db
+  .query("INSERT INTO point_ledger (user_id, reason, exp_delta, coin_delta, ref_id) VALUES ($1, 'like_received', 2, 2, $2)", [uidH, `${LP}:${uidG}`])
+  .then(() => "ok")
+  .catch((e) => e.code);
+check("DB 직접 같은 공감 보상 두 번 → 23505 (point_ledger_like_received_uq)", dupReward === "23505", dupReward);
 
 // ══ US4 이웃 ══
 const X = await member(`scx${n}`);

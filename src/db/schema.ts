@@ -461,6 +461,8 @@ export const pointLedger = pgTable(
     check("point_ledger_nonzero_check", sql`${t.expDelta} <> 0 OR ${t.coinDelta} <> 0`),
     index("point_ledger_user_reason_created_idx").on(t.userId, t.reason, t.createdAt),
     index("point_ledger_user_created_idx").on(t.userId, t.createdAt.desc()), // 내역 화면 최신순 (GAME-07)
+    // 같은 사람·같은 글 공감 보상은 1번 (ref_id = "글ID:공감한 회원ID", SOC-03 / FR-029, 원칙 V)
+    uniqueIndex("point_ledger_like_received_uq").on(t.userId, t.refId).where(sql`${t.reason} = 'like_received'`),
   ],
 );
 

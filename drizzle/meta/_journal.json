@@ -162,6 +162,13 @@
       "when": 1791429443750,
       "tag": "0022_follows_favorite",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791430436743,
+      "tag": "0023_like_reward_unique",
+      "breakpoints": true
     }
   ]
 }

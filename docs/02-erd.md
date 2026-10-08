@@ -545,6 +545,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `posts (visibility, created_at DESC)` | 마을 최신 글 |
 | `comments (post_id, created_at)` | 글 상세 댓글 |
 | `replies (comment_id, created_at)` | 댓글들의 답글 |
+| `point_ledger (user_id, ref_id) WHERE reason = 'like_received'` (UNIQUE) | 같은 사람·같은 글 공감 보상 1번 (SOC-03) |
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
 | `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 최신순 (GAME-07) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
