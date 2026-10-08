@@ -1,6 +1,10 @@
 // 상점 → 꾸미기 흐름 (출석은 자동 출석이라 e2e/attendance.mjs가 확인한다)
 import { chromium } from "@playwright/test";
+import { config } from "dotenv";
+import pg from "pg";
 import { BASE, coins, collectErrors, loginDev } from "./helpers.mjs";
+
+config({ path: ".env.local", quiet: true });
 
 const outDir = process.argv[2] ?? "e2e-shots";
 const NAME = `gm${Date.now().toString(36)}`; // 실행마다 새 회원
@@ -10,6 +14,10 @@ const page = await ctx.newPage();
 const errors = collectErrors(page);
 await loginDev(page, NAME, "남자 주민");
 console.log("start coins (가입 100 + 1일차 출석 10):", await coins(page));
+// 바닷가(🪙 120)를 살 수 있게 코인 10을 더 넣는다 (예전 버튼 출석은 🪙 20이었다)
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta) SELECT id, 'signup', 10 FROM users WHERE username = $1", [NAME]);
+await db.end();
 
 // 상점: 바닷가 배경(120, Lv1) 사기, 토끼(Lv2)는 잠김
 await page.goto(`${BASE}/shop`);

@@ -1,7 +1,18 @@
 // E2E 공통 도우미
 export const BASE = "http://localhost:3000";
 
-export function collectErrors(page) {
+/**
+ * 화면 오류를 모은다. 레벨업 팝업(GAME-06)은 보상으로 언제든 뜰 수 있어서, 기본으로 뜨면 [확인]을 눌러 닫는다.
+ * 팝업 자체를 확인하는 시험(e2e/notifications.mjs)은 { keepLevelUp: true }로 끈다.
+ */
+export function collectErrors(page, { keepLevelUp = false } = {}) {
+  if (!keepLevelUp) {
+    const dialog = page.locator('dialog[open][aria-labelledby="level-up-title"]');
+    page.addLocatorHandler(dialog, async () => {
+      await dialog.getByRole("button", { name: "확인" }).click();
+      await dialog.waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
+    });
+  }
   const errors = [];
   page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
   page.on("console", (m) => {

@@ -30,6 +30,8 @@ await page.screenshot({ path: `${outDir}/90-farm-empty.png`, fullPage: true });
 await page.getByRole("button", { name: /농장 첫 알/ }).click();
 await page.getByText("알을 받았어요").waitFor();
 check("첫 알을 받는다", (await animals()).length === 1 && (await animals())[0].status === "egg");
+// 화면 갱신이 상태 문구보다 조금 늦게 올 수 있어 사라질 때까지 기다린다
+await page.getByRole("button", { name: /농장 첫 알/ }).waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
 check("첫 알 버튼은 사라진다", (await page.getByRole("button", { name: /농장 첫 알/ }).count()) === 0);
 await page.getByRole("button", { name: /부화시키기/ }).click();
 await page.getByText(/태어났어요/).waitFor();

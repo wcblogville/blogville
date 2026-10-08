@@ -22,7 +22,7 @@ const ids = { A: `nta${n}`, B: `ntb${n}`, C: `ntc${n}`, D: `ntd${n}`, E: `nte${n
 async function member(id, viewport = { width: 1280, height: 900 }) {
   const ctx = await browser.newContext({ viewport });
   const page = await ctx.newPage();
-  const errors = collectErrors(page);
+  const errors = collectErrors(page, { keepLevelUp: true });
   await loginDev(page, id, "남자 주민");
   return { ctx, page, errors };
 }
