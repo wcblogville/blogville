@@ -76,7 +76,7 @@ const capture = async (doIt) => {
   await doIt();
   const r = await requestP;
   await page.waitForLoadState("networkidle");
-  return { actionId: r.headers()["next-action"], contentType: r.headers()["content-type"], args: JSON.parse(r.postData()) };
+  return { actionId: r.headers()["next-action"], contentType: r.headers()["content-type"], args: r.headers()["content-type"]?.startsWith("multipart/") ? null : JSON.parse(r.postData()) }; // 폼 요청(multipart)은 인자를 읽지 않는다
 };
 const replay = (c, args) =>
   page.evaluate(
@@ -139,6 +139,8 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
   await row.locator("li", { hasText: "소1" }).getByRole("button", { name: "이름 바꾸기" }).click();
   const renameSub = await capture(() => row.locator("li", { has: page.getByLabel("소분류 이름", { exact: true }) }).getByRole("button", { name: "저장" }).click());
   const delSub = await capture(() => row.locator("li", { hasText: "소2" }).getByRole("button", { name: "삭제" }).click());
+  // networkidle은 이미 지난 상태면 바로 끝나므로, 진짜 삭제가 화면에 반영될 때까지 기다린 뒤 센다
+  await row.getByRole("button", { name: "소2 위로", exact: true }).waitFor({ state: "detached" });
   const subsBefore = (await one("SELECT count(*)::int AS n FROM subcategories")).n;
   for (const v of [HUGE, "abc", 1.5]) {
     check(`소분류 순서: ${JSON.stringify(v)} → 오류 없음`, (await replay(moveSub, [v, -1])) === 200);
@@ -157,7 +159,8 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
     check(`소분류 추가: 대분류 ${JSON.stringify(v)} → 오류 없음`, status === 200);
   }
   check("소분류 순서: 이상한 방향 값 → 오류 없음", (await replay(moveSub, [moveSub.args[0], "x"])) === 200);
-  check("소분류 조작 요청 뒤 소분류 수 그대로", (await one("SELECT count(*)::int AS n FROM subcategories")).n === subsBefore);
+  const subsAfter = (await one("SELECT count(*)::int AS n FROM subcategories")).n;
+  check("소분류 조작 요청 뒤 소분류 수 그대로", subsAfter === subsBefore, `${subsBefore} → ${subsAfter}`);
   // 정리
   await row.getByRole("button", { name: "삭제" }).first().click();
   await page.waitForLoadState("networkidle");
