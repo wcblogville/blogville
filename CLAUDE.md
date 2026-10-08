@@ -14,12 +14,15 @@ AI응용프로젝트 개인 프로젝트. 게임형 블로그(Next.js 16 + Postg
 ## 규칙
 
 - **스키마 변경**: `src/db/schema.ts` 수정 → `npm run db:generate` → `npm run db:migrate`. `docs/02-erd.md`도 함께 고친다.
-- **인증**: 페이지와 Server Action마다 `requireMember()` / `requireUser()` (`src/server/dal.ts`). 레이아웃에서 권한 검사를 하지 않는다.
+- **인증**: 페이지와 Server Action마다 `requireMember()`(비로그인 → `/`) / `requireAdmin()`(비로그인·일반 회원 모두 404) (`src/server/dal.ts`). `requireUser()`는 없다 (온보딩이 없어져 로그인한 회원은 늘 프로필·블로그가 있다). 레이아웃에서 권한 검사를 하지 않는다.
 - **보상·코인**: 잔액 컬럼을 만들지 않는다. `point_ledger`에 기록하고 `getWallet()`으로 계산한다. 지급·차감은 `lockUser(tx, userId)`를 건 트랜잭션 안에서 `grantReward()` 사용. 규칙 숫자는 `src/lib/game.ts`.
 - **헤더 갱신**: 코인·캐릭터가 바뀌는 Server Action은 `revalidatePath("/", "layout")`을 호출한다 (루트 레이아웃은 이동만으로 다시 그려지지 않는다).
 - **글 HTML**: 저장 전에 `sanitizePostHtml()`로 정화한다. 허용 태그를 늘리면 에디터와 `src/server/sanitize.ts`를 같이 고친다.
 - **그림**: DB에는 `asset_key`만. 실제 모양은 `src/lib/art/`에서 코드로 그린 SVG (`characters.ts` 캐릭터, `backgrounds.ts` 배경, `town.ts` 광장 건물). 외부 그림 파일을 쓰지 않는다. 아이소메트릭(TOWN-05) 전까지 2D.
 - **광장이 메인**: 헤더에 다른 화면으로 가는 메뉴를 두지 않는다. 광장 밖 화면은 헤더의 `← 광장으로 나가기`(`src/components/exit-button.tsx`)로 돌아온다. 새 장소는 광장 건물 입구(`scene.ts`의 `entrances`)로 연결한다.
 - **기본 캐릭터**: 가입할 때 남자/여자 주민(`is_starter`) 중 하나만 받는다. 아이템을 바꾸면 `npm run db:seed`.
-- **로그인**: 아이디 로그인은 Better Auth `username` 플러그인 (가입은 `src/app/(auth)/actions.ts`, 대체 이메일 `아이디@users.blogville.invalid`). 관리자는 `users.role = 'admin'`, `requireAdmin()`. 관리자 계정은 `npm run admin:create` (비밀번호는 `.env.local`에만, 코드·문서에 쓰지 않는다).
-- **검증**: `npx tsc --noEmit`, `npx eslint`, `npm test`, 개발 서버를 띄운 상태에서 `npm run db:seed && npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>`, `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. 화면 변경은 스크린샷으로 확인한다.
+- **로그인**: 아이디 로그인은 Better Auth `username` 플러그인. 가입은 온보딩 없이 한 트랜잭션(`src/server/signup.ts` `createMember`, 폼은 `src/app/(auth)/actions.ts`)으로 회원·프로필·블로그를 함께 만든다 (대체 이메일 `아이디@users.blogville.invalid`). 소셜은 가입 없이 내 정보(`/settings/account`)에서 연동만 한다. 관리자는 `users.role = 'admin'`, `requireAdmin()`. 관리자 계정은 `npm run admin:create` (비밀번호 12~64자, `.env.local`에만, 코드·문서에 쓰지 않는다).
+- **라이브러리 HTTP 경로**: `src/app/api/auth/[...all]/route.ts`는 **허용 목록**만 Better Auth로 넘기고 나머지는 404다 (`get-session`, 소셜 `callback/*`, `error`). 가입·로그인·로그아웃·연동·해제·탈퇴는 Server Action이 서버에서 `auth.api.*`를 부른다. 새 경로가 필요하면 허용 목록에 이유와 함께 한 줄 더한다.
+- **이름 규칙**: 아이디·블로그 주소·닉네임의 형식·예약어는 `src/lib/names.ts`(순수 함수, `RESERVED_NAMES`·`normalizeName`·`USERNAME_RE`), 서로 겹치는지는 `src/server/names.ts`(`lockName` → `findNameConflict`, 트랜잭션 안에서). 이름을 바꾸는 코드는 이 순서를 따른다.
+- **탈퇴**: `src/server/account.ts` `deleteMember` 한 트랜잭션 (`users` 삭제 + CASCADE). 회원을 가리키는 새 표는 FK를 `ON DELETE CASCADE` 또는 `SET NULL`로 둔다 (아니면 탈퇴가 막힌다). FK 없는 표(`login_attempts`)는 `deleteMember`와 `scripts/reset-dev.ts`에서 직접 지운다.
+- **검증**: `npx tsc --noEmit`, `npx eslint`, `npm test`, 개발 서버를 띄운 상태에서 `npm run db:seed && npm run db:reset && npm run admin:create` 후 `node e2e/auth.mjs <폴더>` (회원/인증은 `signup`·`session`·`login-limit`·`account`도), `node e2e/blog.mjs <폴더>`, `node e2e/game.mjs <폴더>`. `e2e/flow.mjs`는 예전 온보딩 흐름이라 낡았다. 화면 변경은 스크린샷으로 확인한다.

@@ -14,10 +14,10 @@ await page.goto(BASE);
 await page.getByLabel("아이디").fill("normal01");
 await page.getByLabel("비밀번호", { exact: true }).fill("test-password-1234");
 await page.getByRole("button", { name: "로그인", exact: true }).click();
-await page.waitForURL(/town|onboarding/, { timeout: 20000 });
+await page.waitForURL(/town/, { timeout: 20000 });
 
 const slug = "normal01";
-const pages = ["/town", "/feed", `/@${slug}`, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm"];
+const pages = ["/town", "/feed", `/@${slug}`, "/write", "/shop", "/closet", "/attendance", "/settings/blog", "/wallet", "/farm", "/settings/account"];
 
 console.log("== NF-06 모바일(375px) 가로 스크롤");
 for (const path of pages) {
@@ -32,6 +32,20 @@ for (const path of pages) {
   if (!ok || path === "/town" || path === `/@${slug}`) {
     await page.screenshot({ path: `${outDir}/m-${path.replace(/[^a-z0-9]/gi, "_")}.png`, fullPage: true });
   }
+}
+
+// 비로그인 컨텍스트의 첫 화면(로그인·회원가입) (AUTH FR-054, SC-011, quickstart 4.7)
+{
+  const guest = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true });
+  const gp = await guest.newPage();
+  await gp.goto(BASE);
+  await gp.waitForLoadState("networkidle");
+  const { scrollW, clientW } = await gp.evaluate(() => ({
+    scrollW: document.documentElement.scrollWidth,
+    clientW: document.documentElement.clientWidth,
+  }));
+  console.log(`${scrollW <= clientW ? "✅" : "❌"} ${"/ (비로그인)".padEnd(16)} 문서 너비 ${scrollW}px / 화면 ${clientW}px`);
+  await guest.close();
 }
 
 console.log("== NF-07 서버 응답 시간 (HTML 첫 바이트, 5회 중앙값)");

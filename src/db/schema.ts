@@ -46,19 +46,24 @@ export const eggSource = pgEnum("egg_source", ["starter", "level", "shop"]);
 export const careAction = pgEnum("care_action", ["feed", "water", "pet"]);
 
 // ===== 인증 (Better Auth가 요구하는 구조) =====
-export const users = pgTable("users", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
-  image: text("image"),
-  // 사이트 자체 아이디 로그인 (소셜 로그인 회원은 NULL)
-  username: text("username").unique(),
-  displayUsername: text("display_username"),
-  role: userRole("role").notNull().default("user"),
-  createdAt: createdAt(),
-  updatedAt: updatedAt(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    // 라이브러리 필수 칸. 가입 때 `{아이디}@users.blogville.invalid` (메일을 보내지 않고 화면에 나오지 않는다)
+    email: text("email").notNull().unique(),
+    emailVerified: boolean("email_verified").notNull().default(false),
+    image: text("image"),
+    // 사이트 아이디: 모든 회원이 가진다. 소문자만 저장하므로 UNIQUE가 곧 대소문자 무시 유일 (AUTH-07 / FR-002, FR-003)
+    username: text("username").notNull().unique(),
+    displayUsername: text("display_username"),
+    role: userRole("role").notNull().default("user"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [check("users_username_check", sql`${t.username} ~ '^[a-z0-9_]{4,20}$'`)],
+);
 
 export const sessions = pgTable(
   "sessions",
@@ -72,9 +77,28 @@ export const sessions = pgTable(
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
     createdAt: createdAt(),
+    // 마지막 사용(근사). 유지 안 함 세션은 이 값이 2시간보다 오래되면 expires_at과 상관없이 끝난다 (AUTH-09 / FR-020, src/server/dal.ts)
     updatedAt: updatedAt(),
+    // [로그인 상태 유지] 여부. 서버는 쿠키가 아니라 이 칸으로 2시간/7일을 정한다 (AUTH-09 / FR-019~FR-021, research R6)
+    rememberMe: boolean("remember_me").notNull().default(false),
   },
   (t) => [index("sessions_user_id_idx").on(t.userId)],
+);
+
+// 로그인 실패 기록: 아이디별 연속 실패 수와 잠금 해제 시각 (AUTH-09 / FR-025~FR-027, research R8)
+// 없는 아이디도 기록하므로 users와 FK가 없다 (FK가 있으면 아이디 존재 여부가 드러난다). 규칙 숫자는 src/lib/login-limit.ts
+export const loginAttempts = pgTable(
+  "login_attempts",
+  {
+    username: text("username").primaryKey(), // 정규화한 입력 그대로
+    failedCount: integer("failed_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("login_attempts_username_check", sql`char_length(${t.username}) BETWEEN 1 AND 64`),
+    check("login_attempts_failed_count_check", sql`${t.failedCount} >= 0`),
+  ],
 );
 
 export const accounts = pgTable(
@@ -98,8 +122,11 @@ export const accounts = pgTable(
   },
   (t) => [
     index("accounts_user_id_idx").on(t.userId),
-    // 같은 소셜 계정이 두 회원에 연결될 수 없다
+    // 같은 소셜 계정이 두 회원에 연결될 수 없다 (FR-038)
     unique("accounts_provider_account_uq").on(t.providerId, t.accountId),
+    // 한 회원은 서비스마다 로그인 수단 1개 (아이디 로그인 1개 + 카카오·네이버·구글 각 1개, FR-039).
+    // 두 탭에서 동시에 연동해도 DB가 막는다
+    unique("accounts_user_provider_uq").on(t.userId, t.providerId),
   ],
 );
 
@@ -149,7 +176,7 @@ export const userItems = pgTable(
 );
 
 // ===== 회원 프로필 · 블로그 =====
-// profiles 행이 있다 = 온보딩을 마친 회원
+// 프로필: 가입 때 회원·블로그와 함께 생긴다 (AUTH-01, 한 트랜잭션 — src/server/signup.ts)
 export const profiles = pgTable(
   "profiles",
   {
@@ -158,10 +185,17 @@ export const profiles = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     nickname: text("nickname").notNull().unique(),
     characterItemId: integer("character_item_id").notNull(),
+    // 프로필 사진 (ERD 3.9). 올리는 화면은 아직 없다. 첨부 행이 지워지면 사진만 비운다 (ON DELETE SET NULL)
+    photoKey: text("photo_key"),
     createdAt: createdAt(),
   },
   (t) => [
-    check("profiles_nickname_check", sql`char_length(${t.nickname}) BETWEEN 2 AND 12`),
+    foreignKey({
+      name: "profiles_photo_key_fk",
+      columns: [t.photoKey],
+      foreignColumns: [attachments.key],
+    }).onDelete("set null"),
+    check("profiles_nickname_check", sql`char_length(${t.nickname}) BETWEEN 2 AND 20`),
     // 보유한 아이템만 장착할 수 있다 (복합 외래 키)
     foreignKey({
       name: "profiles_character_owned_fk",

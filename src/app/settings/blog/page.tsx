@@ -22,6 +22,14 @@ export default async function BlogSettingsPage() {
         <h1 className="font-display text-3xl">⚙️ 블로그 관리</h1>
         <Link href={`/@${blog.slug}`} className="text-sm text-ink-soft hover:text-ink">내 블로그로 →</Link>
       </div>
+      {/* 로그인 수단(소셜 연동)·닉네임은 내 정보에서 (AUTH-05 / FR-036) */}
+      <p className="mt-2 text-sm text-ink-soft">
+        로그인 수단과 소셜 연동은{" "}
+        <Link href="/settings/account" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline-offset-2 hover:underline">
+          내 정보
+        </Link>
+        에서 바꿀 수 있어요.
+      </p>
 
       {/* 최근 7일 방문자 (BLOG-06): 방문이 없는 날도 0으로 7칸, 마지막 칸은 오늘 */}
       <section className="card mt-6 p-6" aria-labelledby="visits-title">

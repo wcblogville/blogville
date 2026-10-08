@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { ExitButton, HomeLogo } from "@/components/exit-button";
+import { SessionKeeper } from "@/components/session-keeper";
 import { SignOutButton } from "@/components/sign-out-button";
 import { getViewer } from "@/server/dal";
 import { getWallet } from "@/server/points";
@@ -33,7 +34,12 @@ export async function SiteHeader() {
                 👑 관리자
               </Link>
             )}
-            <CharacterBadge asset={member.profile.characterAsset} size={32} />
+            {/* 캐릭터 배지 → 내 정보 (AUTH-05 / FR-036). 상태창(TOWN-10)이 생기면 입구를 town과 다시 정한다 */}
+            <Link href="/settings/account" title="내 정보" aria-label="내 정보" className="-m-1.5 grid min-h-11 min-w-11 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-sky">
+              <CharacterBadge asset={member.profile.characterAsset} size={32} />
+            </Link>
+            {/* 로그인 유지 세션만 7일 연장 (AUTH-09 / FR-021) */}
+            {member.rememberMe && <SessionKeeper />}
             <SignOutButton />
           </div>
         ) : viewer ? (

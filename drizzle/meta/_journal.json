@@ -50,6 +50,48 @@
       "when": 1791251144280,
       "tag": "0006_blog_visits",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791418260499,
+      "tag": "0007_auth_drop_incomplete_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791418294510,
+      "tag": "0008_auth_username_required",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791418302862,
+      "tag": "0009_auth_profile_photo",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791419337497,
+      "tag": "0010_auth_remember_login_attempts",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791421203451,
+      "tag": "0011_auth_clear_social_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791421213662,
+      "tag": "0012_auth_account_per_provider",
+      "breakpoints": true
     }
   ]
 }
