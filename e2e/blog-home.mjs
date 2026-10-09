@@ -162,6 +162,10 @@ async function viewOf(page) {
     daily: (await main.getByRole("navigation", { name: "카테고리" }).getByRole("link", { name: /일상/ }).innerText()).replace(/\s+/g, " "),
     total: (await main.getByRole("navigation", { name: "카테고리" }).getByRole("link", { name: /전체 글/ }).innerText()).replace(/\s+/g, " "),
     title: await page.title(),
+    // 프로필 카드: 레벨은 모두에게, 코인은 주인에게만 (사용자 요청 2026-10-09)
+    level: (await main.locator("[data-profile-level]").innerText()).includes("Lv."),
+    cardCoins: await main.locator("[data-profile-card-coins]").count(),
+    collection: await main.locator("[data-collection-open]").isVisible(),
   };
 }
 const vOwner = await viewOf(own.page);
@@ -174,6 +178,15 @@ check("US2-3 비공개 글은 주인에게만 + `🔒 비공개` 배지", vOwner
 check("US2-3 카테고리 글 수: 주인은 비공개 포함 (11), 남은 (10)", vOwner.daily.includes("(11)") && vOther.daily.includes("(10)") && vGuest.daily.includes("(10)"), `${vOwner.daily} / ${vGuest.daily}`);
 check("US2-3 `전체 글 (N)`은 공개 글 수", [vOwner, vOther, vGuest].every((v) => v.total.includes("(10)")), vOwner.total);
 check("US2-4 탭 제목 `{블로그 이름} | Blogville`", [vOwner, vOther, vGuest].every((v) => v.title === `${OWNER}의 블로그 | Blogville`), vGuest.title);
+check("프로필 카드: 레벨·[🏅 도감]은 모두에게, 코인은 주인에게만", [vOwner, vOther, vGuest].every((v) => v.level && v.collection) && vOwner.cardCoins === 1 && vOther.cardCoins === 0 && vGuest.cardCoins === 0);
+{
+  // 위쪽 두 칸(방 + 프로필 카드): 1280px에서 나란히 같은 높이, 첫 글이 첫 화면(900px) 안에
+  const room = await guest.page.locator("[data-house-room]").boundingBox();
+  const card = await guest.page.locator("[data-profile-card]").boundingBox();
+  const first = await guest.page.locator("main article").first().boundingBox();
+  check("1280px 방은 왼쪽 넓게·카드는 오른쪽 좁게, 높이 같음", room.x < card.x && room.width > card.width && Math.abs(room.y - card.y) < 1 && Math.abs(room.height - card.height) < 1, `방 ${Math.round(room.width)}×${Math.round(room.height)}, 카드 ${Math.round(card.width)}×${Math.round(card.height)}`);
+  check("1280px 첫 글이 첫 화면 안 (y < 900)", first.y < 900, `y=${Math.round(first.y)}`);
+}
 await guest.page.screenshot({ path: `${outDir}/bh-01-guest.png`, fullPage: true });
 await own.page.goto(`${BASE}/@${OWNER}`);
 await own.page.screenshot({ path: `${outDir}/bh-02-owner.png`, fullPage: true });
@@ -245,6 +258,9 @@ await own.page.screenshot({ path: `${outDir}/bh-02-owner.png`, fullPage: true })
     const b = await size(main.getByRole("link", { name }));
     check(`US2-8 375px 주인 버튼 ${name} 한 줄·44×44px 이상`, big(b) && b.h < 60, `${b.w}×${b.h}`);
   }
+  const cardBox = await main.locator("[data-profile-card]").boundingBox();
+  const roomBox = await main.locator("[data-house-room]").boundingBox();
+  check("US2-8 375px 프로필 카드가 위, 방이 아래 (한 줄씩)", cardBox.y + cardBox.height <= roomBox.y && Math.abs(cardBox.width - roomBox.width) < 1, `카드 y=${Math.round(cardBox.y)}, 방 y=${Math.round(roomBox.y)}`);
   const titleLink = await size(main.getByRole("link", { name: `${OWNER}의 블로그` }));
   check("US2-8 블로그 이름 링크 44×44px 이상", big(titleLink), `${titleLink.w}×${titleLink.h}`);
   const catLinks = main.getByRole("navigation", { name: "카테고리" }).getByRole("link");

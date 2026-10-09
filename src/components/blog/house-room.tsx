@@ -22,6 +22,7 @@ export function HouseRoom({
   roof,
   doorHref,
   highlightDoor = false,
+  className = "",
 }: {
   house: { stage: HouseStage; name: string; slots: number; nextLevel: number | null };
   placed: { slot: number; itemId: number; name: string; assetKey: string }[];
@@ -32,6 +33,7 @@ export function HouseRoom({
   doorHref: string;
   /** 처음 가입한 회원에게 문을 반짝여 알려 준다 */
   highlightDoor?: boolean;
+  className?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState<number | null>(null);
@@ -57,7 +59,7 @@ export function HouseRoom({
     });
 
   return (
-    <section className="card mt-4 overflow-hidden" aria-labelledby="house-title" data-house-room>
+    <section className={`card flex flex-col overflow-hidden ${className}`} aria-labelledby="house-title" data-house-room>
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
         <h2 id="house-title" className="font-display text-xl">
           🏠 우리 집 <span className="text-base text-ink-soft">· {house.stage}단계 {house.name}</span>
@@ -105,7 +107,8 @@ export function HouseRoom({
         </p>
       )}
 
-      <div className="relative mt-3 h-56 border-t-2 border-line sm:h-64">
+      {/* 방은 옆 프로필 카드와 높이를 맞추려고 남는 높이를 채운다 (넓은 화면). 좁으면 최소 높이 */}
+      <div className="relative mt-3 min-h-56 flex-1 border-t-2 border-line sm:min-h-64">
         {/* 벽: 도트 줄무늬 벽지와 창문 (src/lib/art/room.ts, 모두 4배 도트) */}
         <div
           className="pixelated absolute inset-x-0 top-0 h-[62%]"
