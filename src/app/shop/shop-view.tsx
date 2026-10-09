@@ -34,7 +34,11 @@ export function ShopView({ items, level, coins, blogSlug }: { items: ShopItem[];
         <p role="status" className={`card sticky top-16 z-30 mt-4 p-3 text-center font-bold ${message.ok ? "text-leaf-dark" : "text-berry"}`}>
           {message.text}
           {message.link && (
-            <Link href={message.link.href} className="ml-2 inline-flex min-h-11 items-center whitespace-nowrap text-ink underline">
+            <Link
+              href={message.link.href}
+              // 휴대폰에는 광장이 없다 (/town은 내 블로그로 옮긴다). 광장으로 가는 링크는 PC에서만 보인다
+              className={`ml-2 inline-flex min-h-11 items-center whitespace-nowrap text-ink underline ${message.link.pcOnly ? "phone:hidden" : ""}`}
+            >
               {message.link.label}
             </Link>
           )}

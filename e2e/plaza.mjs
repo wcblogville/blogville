@@ -121,7 +121,10 @@ const game = p.page.locator("[data-decorations]");
   const windmillId = (await one("SELECT id FROM items WHERE code = 'deco_windmill'")).id;
   const statuses = [];
   for (const args of [[4, benchId], [8, benchId], [-1, benchId], [3, windmillId], [3, "abc"], ["1", benchId]]) {
-    const r = await page.request.post(captured.url, { headers: captured.headers, data: JSON.stringify(args) });
+    // 요청 번호(x-nextjs-request-id)는 빼고 보낸다: 같은 번호로 여러 번 보내면 개발 서버가 이미 닫힌 브라우저 디버그 채널에
+    // 그 응답의 디버그 조각을 또 보내 "Cannot write to a CLOSED writable stream" 콘솔 오류가 난다 (시험이 만든 오류, 앱과 무관)
+    const headers = Object.fromEntries(Object.entries(captured.headers).filter(([k]) => k !== "x-nextjs-request-id"));
+    const r = await page.request.post(captured.url, { headers, data: JSON.stringify(args) });
     statuses.push(r.status());
   }
   check("잠긴 자리·없는 자리·안 가진 장식·이상한 값 → DB 그대로, 500 없음", captured && (await placed()) === "0:deco_flowerbed,2:deco_bench" && statuses.every((s) => s < 500), `${statuses} / ${captured?.body}`);

@@ -99,7 +99,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
             🎉
           </span>
           <p className="flex-1 text-sm sm:text-base">
-            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물 🪙 {REWARD_RULES.signup.coins}에 첫 출석 보상까지 받았어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.
+            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물 🪙 {REWARD_RULES.signup.coins}에 첫 출석 보상까지 받았어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.{" "}
             <span className="phone:hidden">
               아래 <b>우리 집</b>의 <b>🚪 문</b>을 눌러 밖으로 나가 마을을 구경해 보세요.
             </span>
