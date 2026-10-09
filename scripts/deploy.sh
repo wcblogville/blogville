@@ -117,3 +117,30 @@ else
   docker logs --tail 50 "$NAME"
   exit 1
 fi
+
+# nginx 확인 (안내만, 배포 결과와 상관없다): ~/nginx 설정에 사이트 주소와 앱 포트가 있는지,
+# 사이트 주소가 DNS에 있는지, 이 서버의 nginx가 사이트 주소 요청을 앱으로 넘기는지 찍는다
+check_nginx() {
+  local host ip out status title scheme port
+  host="$(sed -n 's|^BETTER_AUTH_URL=[a-z]*://\([^/:]*\).*|\1|p' .env)"
+  echo "▶ nginx 확인 ($host)"
+  if ls "$HOME"/nginx/*.conf >/dev/null 2>&1; then
+    grep -HE '^[[:space:]]*(listen|server_name|proxy_pass)[[:space:]]' "$HOME"/nginx/*.conf | sed "s|^$HOME/|  ~/|"
+    grep -qE "server_name[^;]*[[:space:]]$host[[:space:];]" "$HOME"/nginx/*.conf || echo "  ⚠ server_name에 $host 이(가) 없어요"
+    grep -qE "proxy_pass[^;]*:$APP_PORT[/;]" "$HOME"/nginx/*.conf || echo "  ⚠ proxy_pass에 $APP_PORT 포트가 없어요"
+  else
+    echo "  ⚠ ~/nginx/*.conf 파일이 없어요"
+  fi
+  ip="$(getent ahostsv4 "$host" 2>/dev/null | awk 'NR == 1 { print $1 }' || true)"
+  echo "  DNS: ${ip:-등록 안 됨}"
+  command -v curl >/dev/null || return 0
+  for scheme in http https; do
+    port=80
+    if [ "$scheme" = https ]; then port=443; fi
+    out="$(curl -sk --noproxy '*' --max-time 5 --resolve "$host:$port:127.0.0.1" -w '\n%{http_code}' "$scheme://$host/" 2>/dev/null || true)"
+    status="${out##*$'\n'}"
+    title="$(printf '%s' "$out" | grep -o '<title>[^<]*</title>' | head -n 1 || true)"
+    echo "  이 서버 nginx로 $scheme 요청: ${status:-000} $title"
+  done
+}
+check_nginx || true
