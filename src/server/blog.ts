@@ -17,6 +17,7 @@ import {
   subcategories,
   tags,
   userAnimals,
+  users,
 } from "@/db/schema";
 import { buildCategoryTree, toLikePattern } from "@/lib/blog";
 import { favoriteWindowStart } from "@/lib/social";
@@ -49,6 +50,8 @@ export async function getBlogBySlug(slug: string) {
       roofColor: blogs.roofColor,
       followerCount: sql<number>`(SELECT COUNT(*)::int FROM ${follows} WHERE ${follows.followeeId} = ${blogs.ownerId})`,
       postCount: sql<number>`(SELECT COUNT(*)::int FROM ${posts} WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public')`,
+      // 공지 블로그(관리자). 마을이 없어 [🏘 마을 구경]을 보여 주지 않는다
+      isNotice: sql<boolean>`EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${blogs.ownerId} AND ${users.role} = 'admin')`,
     })
     .from(blogs)
     .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))

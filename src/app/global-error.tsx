@@ -25,7 +25,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
           <button type="button" onClick={() => retry()} className="btn bg-leaf text-white">
             다시 시도
           </button>
-          {/* 레이아웃이 망가진 상태라 Link 대신 페이지를 새로 연다 */}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- 레이아웃이 망가진 상태라 Link 대신 페이지를 새로 연다 */}
           <a href="/town" className="btn bg-white text-ink">
             광장으로 돌아가기
           </a>

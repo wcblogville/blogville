@@ -14,7 +14,7 @@ function expect(name: string, got: unknown, want: unknown) {
 }
 
 // FR-003 구역 순서, 캐릭터 없음
-expect("구역 4개 순서", SHOP_SECTIONS.map((s) => s.type), ["avatar", "furniture", "background", "growth"]);
+expect("구역 5개 순서 (광장 장식은 가구 다음)", SHOP_SECTIONS.map((s) => s.type), ["avatar", "furniture", "deco", "background", "growth"]);
 
 // FR-006 버튼 상태: 보유 → 잠금 → 코인 부족 → 사기
 const item = (o: Partial<ShopItem>): ShopItem => ({

@@ -24,6 +24,26 @@ export const START_POS = { x: CENTER.x + 50, y: CENTER.y + PLAZA_RADIUS + 100 };
 export const FISHING_POS = { x: CENTER.x - 410, y: CENTER.y + 90 };
 export const POND_POS = { x: CENTER.x - 250, y: CENTER.y + 400 };
 
+/**
+ * 광장 꾸미기 자리 (장식의 아랫변 가운데, 사용자 요청 2026-10-09). 앞 번호부터 집 단계만큼 열린다 (4/6/8, lib/house.ts decorationSlots).
+ * 분수 양옆, 광장 아래, 그리고 집으로 가는 길 사이사이 잔디. 건물·길·연못과 겹치지 않는 곳이다
+ */
+export const DECO_SLOTS = [
+  { x: CENTER.x - 165, y: CENTER.y + 45 },
+  { x: CENTER.x + 165, y: CENTER.y + 45 },
+  { x: CENTER.x + 120, y: CENTER.y + 400 },
+  { x: CENTER.x - 350, y: CENTER.y + 300 },
+  { x: CENTER.x - 227, y: CENTER.y - 354 },
+  { x: CENTER.x + 227, y: CENTER.y - 354 },
+  { x: CENTER.x - 382, y: CENTER.y - 174 },
+  { x: CENTER.x + 317, y: CENTER.y + 275 },
+] as const;
+
+/** 광장 화면 주소: 내 마을(/town)과 다른 회원의 마을(/town/블로그 주소). 헤더·푸터가 광장 모양으로 바뀐다 */
+export function isTownPath(pathname: string) {
+  return pathname === "/town" || pathname.startsWith("/town/");
+}
+
 /** i번 집 자리 (아랫변 가운데). 0번이 맨 아래, 시계 방향 */
 export function houseSlot(i: number) {
   const angle = Math.PI / 2 + (i * 2 * Math.PI) / HOUSE_SLOTS;
@@ -37,8 +57,8 @@ export function houseAt(data: TownData, i: number): TownHouse | null {
 
 export type TownSpot = { key: string; label: string; emoji: string; x: number; y: number; href: string | null; empty?: boolean };
 
-/** 텔레포트할 수 있는 곳. 좌표는 캐릭터가 설 자리(문 앞) */
-export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpot[] } {
+/** 텔레포트할 수 있는 곳. 좌표는 캐릭터가 설 자리(문 앞). decos는 광장 꾸미기 창이 자리를 고를 때만 쓴다 (텔레포트 목록에는 없다) */
+export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpot[]; decos: TownSpot[] } {
   const places: TownSpot[] = [
     { key: "plaza", label: "광장 분수", emoji: "⛲", x: CENTER.x, y: CENTER.y + 140, href: "/town" },
     { key: "board", label: "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: "/feed" },
@@ -50,8 +70,11 @@ export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpo
   for (let i = 0; i < HOUSE_SLOTS; i++) {
     const h = houseAt(data, i);
     const p = houseSlot(i);
-    const label = i === 0 ? (h ? "내 집" : "내 집 자리") : h ? `${h.nickname}의 집` : "빈 집터";
+    // 다른 회원의 마을(host)에서는 0번 집도 그 주인의 집이다
+    const label = i === 0 && !data.host ? (h ? "내 집" : "내 집 자리") : h ? `${h.nickname}의 집` : "빈 집터";
     houses.push({ key: `house:${i}`, label, emoji: h ? "🏠" : "🪧", x: p.x, y: p.y + 46, href: h ? `/@${h.slug}` : null, empty: !h });
   }
-  return { places, houses };
+  // 장식 앞(아래쪽)에 선다
+  const decos: TownSpot[] = DECO_SLOTS.map((p, i) => ({ key: `deco:${i}`, label: `꾸미기 ${i + 1}번 자리`, emoji: "🌷", x: p.x, y: p.y + 40, href: null }));
+  return { places, houses, decos };
 }

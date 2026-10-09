@@ -4,4 +4,5 @@ export { characterDataUri, characterSvg, lookKey, VISITOR_CHARACTER } from "./ar
 export { AVATAR_PARTS, MANNEQUIN, orderOutfit } from "./art/avatar";
 export { furnitureDataUri, furnitureSvg } from "./art/furniture";
 export { growthDataUri, growthSvg } from "./art/growth";
+export { decoDataUri, decoSvg } from "./art/deco";
 export { backgroundAccent, backgroundDataUri, backgroundSvg } from "./art/backgrounds";

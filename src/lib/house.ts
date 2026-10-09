@@ -10,6 +10,21 @@ export function furnitureSlots(stage: HouseStage): number {
   return Math.min(MAX_FURNITURE_SLOTS, 2 + 2 * stage);
 }
 
+/** 광장 꾸미기 자리 (src/components/town/layout.ts DECO_SLOTS, town_decorations_slot_check) */
+export const MAX_DECO_SLOTS = 8;
+
+/** 광장 꾸미기 자리 수: 집이 클수록 많다. 가구 칸과 같이 1단계 4자리, 2단계 6자리, 3단계부터 8자리 (사용자 요청 2026-10-09) */
+export function decorationSlots(level: number): number {
+  return Math.min(MAX_DECO_SLOTS, furnitureSlots(houseStage(level)));
+}
+
+/** 이 꾸미기 자리(0부터)가 열리는 레벨 */
+export function decoSlotLevel(slot: number): number {
+  let stage = 1;
+  while (stage < MAX_HOUSE_STAGE && furnitureSlots(stage as HouseStage) <= slot) stage++;
+  return stage === 1 ? 1 : (stage - 1) * HOUSE_STAGE_LEVELS;
+}
+
 /** 집 단계·이름·가구 칸 수·다음 단계가 되는 레벨 (마지막 단계면 null). 10레벨마다 한 단계 (사용자 결정 2026-10-09) */
 export function houseInfo(level: number) {
   const stage = houseStage(level);

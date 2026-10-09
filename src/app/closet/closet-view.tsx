@@ -105,6 +105,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
   const avatars = of("avatar");
   const characters = of("character");
   const furniture = of("furniture");
+  const decos = of("deco");
 
   return (
     <>
@@ -145,6 +146,16 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
             가구는 <Link href={`/@${slug}`} className="font-bold underline">내 블로그의 우리 집</Link>에서 [가구 놓기]로 놓아요.
           </p>
           {grid(furniture, false)}
+        </section>
+      )}
+
+      {decos.length > 0 && (
+        <section className="mt-8" data-closet-section="deco">
+          <h2 className="mb-3 font-display text-2xl">🌷 광장 장식</h2>
+          <p className="-mt-2 mb-3 text-sm text-ink-soft">
+            장식은 PC의 <Link href="/town?deco=1" className="font-bold underline">광장</Link>에서 ☰ 메뉴 → 🌷 광장 꾸미기로 놓아요. 친구가 내 마을에 놀러 오면 볼 수 있어요.
+          </p>
+          {grid(decos, false)}
         </section>
       )}
 

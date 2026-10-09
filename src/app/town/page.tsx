@@ -1,30 +1,26 @@
 import Link from "next/link";
 import { DropSearchParam } from "@/components/drop-search-param";
-import { TownGame } from "@/components/town/town-game";
-import { TownHud, type TownHudMember } from "@/components/town/town-hud";
 import { PhoneHome } from "@/components/town/phone-home";
 import { TownMenu } from "@/components/town/town-menu";
+import { TownScreen } from "@/components/town/town-screen";
 import type { TownData } from "@/components/town/types";
+import { decorationSlots } from "@/lib/house";
 import { getViewer } from "@/server/dal";
-import { getHeaderNotifications, listNotifications } from "@/server/notifications";
-import { getWallet } from "@/server/points";
-import { getFavoriteHouses, getFriends, getGuestHouses, getMyHouse } from "@/server/town";
-
-/** 메뉴 알림 창에 보여 줄 최근 알림 수 */
-const MENU_NOTIFICATIONS = 5;
+import { getDecorations, getFavoriteHouses, getGuestHouses, getHudMember, getMyHouse } from "@/server/town";
 
 export const metadata = { title: "중앙 광장" };
 
 export default async function TownPage(props: PageProps<"/town">) {
   const viewer = await getViewer();
   const member = viewer?.profile ? viewer : null;
-  const { welcome, at, menu } = await props.searchParams;
+  const { welcome, at, menu, deco } = await props.searchParams;
 
   // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳
-  const [neighbors, myHouse, hud] = await Promise.all([
+  const [neighbors, myHouse, hud, decorations] = await Promise.all([
     member ? getFavoriteHouses(member.userId) : getGuestHouses(),
     member ? getMyHouse(member.userId) : null,
     member ? getHudMember(member.userId, member.user.role === "admin", member.profile) : null,
+    member ? getDecorations(member.userId) : [],
   ]);
 
   const data: TownData = {
@@ -34,21 +30,28 @@ export default async function TownPage(props: PageProps<"/town">) {
     myHouse,
     neighbors,
     attendanceDay: member?.attendance?.cycleDay ?? null,
+    host: null,
+    decorations,
+    decoSlots: myHouse ? decorationSlots(myHouse.level) : 0,
   };
 
-  // 광장은 화면 전체를 쓴다 (헤더 막대 없이 Blogville 글자만 위에 뜬다). 안내·환영·이웃집은 게임 위에 띄운다.
+  // 안내·환영·이웃집은 게임 위에 띄운다.
   // 휴대폰(`phone:`)에는 광장이 없다 (사용자 결정 2026-10-09): 회원은 내 블로그로 옮기고, 아래 탭의 ☰ 메뉴(?menu=1)와 방문자는 간단 메뉴
   return (
-    <div className="relative h-dvh min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible phone:pt-14">
-      <h1 className="sr-only">중앙 광장</h1>
-      {/* 집의 🚪 문으로 나오면(?at=블로그 주소) 그 집 앞에서, 처음 온 회원은 내 집 앞에서 시작한다 */}
-      <TownGame data={data} startAt={startAt(data, welcome && member ? myHouse?.slug : at)} className="h-full w-full phone:hidden" />
-      <TownHud data={data} member={hud} className="phone:hidden" />
-      {member && !menu ? (
-        <PhoneHome href={`/@${member.profile.blogSlug}`} className="hidden phone:block" />
-      ) : (
-        <TownMenu data={data} member={hud} className="hidden phone:block" />
-      )}
+    <TownScreen
+      data={data}
+      hud={hud}
+      // 집의 🚪 문으로 나오면(?at=블로그 주소) 그 집 앞에서, 처음 온 회원은 내 집 앞에서 시작한다
+      startAt={startAt(data, welcome && member ? myHouse?.slug : at)}
+      openDeco={Boolean(deco)}
+      phone={
+        member && !menu ? (
+          <PhoneHome href={`/@${member.profile.blogSlug}`} className="hidden phone:block" />
+        ) : (
+          <TownMenu data={data} member={hud} className="hidden phone:block" />
+        )
+      }
+    >
       {/* 환영은 한 번만: 보여 준 뒤 주소에서 ?welcome을 지워 새로고침하면 다시 뜨지 않게 (TOWN-01 / SC-002) */}
       {welcome && <DropSearchParam name="welcome" />}
 
@@ -63,35 +66,8 @@ export default async function TownPage(props: PageProps<"/town">) {
           </Link>
         </div>
       )}
-
-      {/* 기기에 맞는 조작 안내: 마우스·키보드 / 터치 (TOWN-02) */}
-      <p className="pointer-events-none absolute bottom-3 right-3 z-[5] rounded-full bg-white/85 px-3 py-1.5 text-xs text-ink-soft shadow-sm pointer-coarse:hidden phone:hidden">
-        방향키·WASD 또는 클릭으로 이동 · 건물 앞에서 <kbd className="rounded bg-cream px-1.5">Space</kbd>로 들어가기
-      </p>
-      <p className="pointer-events-none absolute bottom-3 right-3 z-[5] hidden max-w-[55%] rounded-2xl bg-white/85 px-3 py-1.5 text-xs text-ink-soft shadow-sm pointer-coarse:block phone:hidden">
-        조이스틱이나 탭으로 이동 · 건물을 탭해서 들어가기
-      </p>
-    </div>
+    </TownScreen>
   );
-}
-
-async function getHudMember(userId: string, isAdmin: boolean, profile: { photoKey: string | null; blogTitle: string }): Promise<TownHudMember> {
-  const [wallet, header, list, friends] = await Promise.all([
-    getWallet(userId),
-    getHeaderNotifications(userId),
-    listNotifications(userId, 1),
-    getFriends(userId),
-  ]);
-  return {
-    userId,
-    isAdmin,
-    photoKey: profile.photoKey,
-    blogTitle: profile.blogTitle,
-    wallet: { coins: wallet.coins, level: wallet.level, current: wallet.current, needed: wallet.needed, isMax: wallet.isMax },
-    unread: header.unread,
-    notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
-    friends,
-  };
 }
 
 /** 블로그 주소 → 그 집의 텔레포트 key (마을 둘레에 없는 집이면 null = 광장 아래쪽) */
