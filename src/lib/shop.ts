@@ -1,4 +1,5 @@
 // 상점·꾸미기 규칙 (SHOP). DB를 쓰지 않는 순수 함수만 둔다 (화면과 서버 어디서나 import 가능)
+import { withJosa } from "@/lib/josa";
 
 export type ItemType = "character" | "background" | "furniture" | "avatar" | "growth";
 
@@ -46,7 +47,7 @@ export function shortage(price: number, coins: number): number {
 
 /** 산 뒤 안내 (FR-008, FR-043) */
 export function purchaseMessage(kind: "decor" | "growth", name: string): string {
-  return kind === "growth" ? `🎉 ${name}을(를) 샀어요! 동물 농장에서 써 보세요.` : `🎉 ${name}을(를) 샀어요! 꾸미기에서 장착해 보세요.`;
+  return kind === "growth" ? `🎉 ${withJosa(name, "을/를")} 샀어요! 동물 농장에서 써 보세요.` : `🎉 ${withJosa(name, "을/를")} 샀어요! 꾸미기에서 장착해 보세요.`;
 }
 
 export const SHOP_ERRORS = {

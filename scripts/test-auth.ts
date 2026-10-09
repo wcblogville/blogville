@@ -27,8 +27,8 @@ expect("21자 거부", username("a".repeat(21)), null);
 expect("빈 값 거부", username("   "), null);
 expect("USERNAME_RE는 DB CHECK와 같은 식", USERNAME_RE.source, "^[a-z0-9_]{4,20}$");
 
-// FR-010 예약어 16개 (blog FR-009)
-expect("예약어 16개", RESERVED_NAMES.size, 16);
+// FR-010 예약어 16개 (blog FR-009) + 나중에 생긴 화면 3개
+expect("예약어 19개", RESERVED_NAMES.size, 19);
 for (const name of ["admin", "Admin", " ADMIN ", "settings", "notice", "onboarding", "api", "town", "wallet", "files", "tags", "attendance"]) {
   expect(`${JSON.stringify(name)}는 예약어`, isReservedName(name), true);
 }

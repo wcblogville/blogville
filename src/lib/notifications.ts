@@ -1,5 +1,6 @@
 // 알림 문구·표시 규칙 (GAME-06·GAME-08 / FR-038·042·043·045). DB를 쓰지 않는 순수 함수만 둔다
 import { MAX_LEVEL } from "@/lib/game";
+import { withJosa } from "@/lib/josa";
 
 export type NotificationKind = "level_up" | "like" | "comment" | "reply";
 
@@ -15,7 +16,7 @@ export type NotificationRow = {
 
 /** 레벨업 팝업 제목 */
 export function levelUpTitle(level: number): string {
-  return level >= MAX_LEVEL ? `최고 레벨 Lv.${MAX_LEVEL}가 되었어요!` : `Lv.${level}이 되었어요!`;
+  return level >= MAX_LEVEL ? `최고 레벨 Lv.${withJosa(String(MAX_LEVEL), "이/가")} 되었어요!` : `Lv.${withJosa(String(level), "이/가")} 되었어요!`;
 }
 
 /** 🔔 옆 숫자: 0이면 없음, 10개 이상은 9+ */
@@ -39,7 +40,7 @@ export function notificationTime(createdAt: Date, now: Date = new Date()): strin
 export function notificationText(row: NotificationRow): string {
   switch (row.kind) {
     case "level_up":
-      return `🎉 Lv.${row.level}이 되었어요!`;
+      return `🎉 Lv.${withJosa(String(row.level), "이/가")} 되었어요!`;
     case "like":
       return `❤️ ${row.actorNickname}님이 「${row.postTitle}」에 공감했어요`;
     case "comment":

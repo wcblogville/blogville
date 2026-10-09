@@ -25,7 +25,7 @@ export default async function ShopPage() {
           </span>
         </div>
       </div>
-      <ShopView items={items} level={wallet.level} coins={wallet.coins} />
+      <ShopView items={items} level={wallet.level} coins={wallet.coins} blogSlug={viewer.profile.blogSlug} />
     </div>
   );
 }

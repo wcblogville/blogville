@@ -214,7 +214,7 @@ export function RichEditor({
         <div className="border-b-2 border-line bg-cream/40 px-4 py-2 text-sm" role="status" aria-live="polite">
           {progress && (
             <p className="font-bold text-ink-soft">
-              올리는 중... ({progress.done + 1}/{progress.total})
+              {progress.total ? `올리는 중... (${progress.done + 1}/${progress.total})` : "붙여 넣는 중..."}
             </p>
           )}
           {errors.length > 0 && (

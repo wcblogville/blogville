@@ -2,19 +2,25 @@
 
 import { useTransition } from "react";
 import { ItemArt } from "@/components/item-art";
+import { withJosa } from "@/lib/josa";
 import { buttonState, purchaseMessage, type ShopItem } from "@/lib/shop";
 import { buyItem } from "./actions";
+
+/** 산 뒤 안내. link: 산 것을 쓰러 가는 곳 (꾸미기·우리 집·동물 농장) */
+export type ShopMessage = { ok: boolean; text: string; link?: { href: string; label: string } };
 
 export function ShopGrid({
   items,
   level,
   coins,
+  blogSlug,
   onMessage,
 }: {
   items: ShopItem[];
   level: number;
   coins: number;
-  onMessage: (m: { ok: boolean; text: string }) => void;
+  blogSlug: string;
+  onMessage: (m: ShopMessage) => void;
 }) {
   const [pending, start] = useTransition();
 
@@ -45,10 +51,15 @@ export function ShopGrid({
               onClick={() =>
                 start(async () => {
                   const r = await buyItem(item.id);
+                  if (!r.ok) return onMessage({ ok: false, text: r.error });
                   onMessage(
-                    r.ok
-                      ? { ok: true, text: item.type === "furniture" ? `🎉 ${r.name}을(를) 샀어요! 내 블로그의 우리 집에 놓아 보세요.` : purchaseMessage(r.kind, r.name) }
-                      : { ok: false, text: r.error },
+                    item.type === "furniture"
+                      ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! 내 블로그의 우리 집에 놓아 보세요.`, link: { href: `/@${blogSlug}`, label: "🏠 우리 집으로" } }
+                      : {
+                          ok: true,
+                          text: purchaseMessage(r.kind, r.name),
+                          link: r.kind === "growth" ? { href: "/farm", label: "🐮 동물 농장으로" } : { href: "/closet", label: "🎨 꾸미기로" },
+                        },
                   );
                 })
               }

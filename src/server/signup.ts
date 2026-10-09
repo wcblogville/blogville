@@ -4,11 +4,12 @@
 // Better Auth의 가입 API(signUpEmail)는 쓰지 않는다 (라이브러리 가입 경로는 auth.ts·route.ts에서 닫았다).
 import "server-only";
 import { hashPassword } from "better-auth/crypto";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { accounts, blogs, categories, items, loginAttempts, profiles, userItems, users } from "@/db/schema";
+import { accounts, blogs, categories, houseFurniture, items, loginAttempts, profiles, userItems, users } from "@/db/schema";
 import { newAuthId } from "@/lib/auth-id";
 import { defaultBlogFor } from "@/lib/blog";
+import { FURNITURE_SLOTS } from "@/lib/house";
 import { isReservedName } from "@/lib/names";
 import { uniqueViolation } from "@/server/db-errors";
 import { findNameConflict, hasNameConflict, lockName } from "@/server/names";
@@ -79,12 +80,16 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       const starterFurniture = await tx
         .select({ id: items.id })
         .from(items)
-        .where(and(eq(items.type, "furniture"), eq(items.isStarter, true)));
+        .where(and(eq(items.type, "furniture"), eq(items.isStarter, true)))
+        .orderBy(asc(items.id));
       await tx.insert(userItems).values([
         { userId, itemId: character.id },
         { userId, itemId: background.id },
         ...starterFurniture.map((f) => ({ userId, itemId: f.id })),
       ]);
+      // 기본 가구는 우리 집 앞 칸부터 놓아 둔다. 안 놓으면 첫 집이 빈 방(0/4칸)이었다
+      const firstSlots = starterFurniture.slice(0, FURNITURE_SLOTS[1]).map((f, slot) => ({ userId, slot, itemId: f.id }));
+      if (firstSlots.length) await tx.insert(houseFurniture).values(firstSlots);
       // 5) 프로필: 닉네임 = 아이디 (나중에 blog의 내 정보에서 바꾼다)
       await tx.insert(profiles).values({ userId, nickname: username, characterItemId: character.id });
       // 6) 블로그: 주소 = 아이디, 이름 `{아이디}의 블로그`, 빈 소개, 초원 배경

@@ -28,21 +28,25 @@ export async function SiteHeader() {
         </div>
 
         {member && wallet && alerts ? (
-          <div className="flex shrink-0 items-center gap-1.5 group-data-[town]:contents sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1 group-data-[town]:contents sm:gap-2">
             {/* 마을에서는 숨긴다: 같은 기능이 ☰ 메뉴에 있다 (사용자 요청 2026-10-08) */}
             <div className="contents group-data-[town]:hidden">
             {/* 좁은 화면에서도 레벨이 보이게 글씨와 여백만 줄인다 (GAME-02, 이슈 #5) */}
             <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm" title="레벨">
               Lv.{wallet.level}
             </span>
-            <Link href="/wallet" className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm hover:text-leaf-dark sm:px-2.5 sm:text-sm" title="코인">
-              🪙 {wallet.coins.toLocaleString()}
+            {/* 누르는 영역은 44px, 보이는 알약은 그대로 (NF-06) */}
+            <Link href="/wallet" title="코인" className="grid min-h-11 shrink-0 place-items-center rounded-full hover:text-leaf-dark focus-visible:outline-2 focus-visible:outline-sky">
+              <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm">🪙 {wallet.coins.toLocaleString()}</span>
             </Link>
             {/* 알림함 🔔 (GAME-08 / FR-042) */}
             <NotificationBell unread={alerts.unread} />
             {member.user.role === "admin" && (
-              <Link href="/admin" className="rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-cream">
-                👑 관리자
+              // 휴대폰에서는 👑만: 글자까지 두면 [← 나가기]가 레벨 배지에 가렸다
+              <Link href="/admin" aria-label="관리자" title="관리자" className="grid min-h-11 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-sky">
+                <span className="whitespace-nowrap rounded-full bg-ink px-2 py-1 text-xs font-bold text-cream sm:px-2.5">
+                  👑<span className="max-sm:hidden"> 관리자</span>
+                </span>
               </Link>
             )}
             {/* 캐릭터 배지 → 내 정보 (AUTH-05 / FR-036). 상태창(TOWN-10)이 생기면 입구를 town과 다시 정한다 */}
@@ -67,7 +71,8 @@ export async function SiteHeader() {
             <SignOutButton />
           </div>
         ) : (
-          <Link href="/" className="btn shrink-0 bg-leaf text-sm text-white group-data-[town]:hidden">
+          // 첫 화면의 로그인 칸으로 (휴대폰에서는 로그인 칸이 화면 아래에 있다)
+          <Link href="/#login" className="btn shrink-0 bg-leaf text-sm text-white group-data-[town]:hidden">
             시작하기
           </Link>
         )}

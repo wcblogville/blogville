@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { catchByKey } from "@/lib/fishing";
+import { withJosa } from "@/lib/josa";
 import { castLine } from "./actions";
 
 export function FishingView({ todayKey }: { todayKey: string | null }) {
@@ -19,7 +20,7 @@ export function FishingView({ todayKey }: { todayKey: string | null }) {
       {caught ? (
         <>
           <p role="status" className="font-display text-xl" data-fishing-result={caught.key}>
-            {justCaught ? caught.line : `오늘은 ${caught.name}을(를) 낚았어요.`}
+            {justCaught ? caught.line : `오늘은 ${withJosa(caught.name, "을/를")} 낚았어요.`}
           </p>
           <p className="text-sm text-ink-soft">
             {caught.itemCode ? "동물 먹이 1개를 받았어요." : `🪙 ${caught.coins}를 받았어요.`} 내일 다시 낚시할 수 있어요.

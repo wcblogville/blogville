@@ -35,6 +35,8 @@ export type TownFriend = {
   nickname: string;
   characterAsset: string;
   isFavorite: boolean;
+  /** 공지 블로그(관리자). 마을 둘레에 집이 없어 즐겨찾기(⭐)를 쓰지 않는다 */
+  isNotice: boolean;
   /** 상대도 나를 이웃으로 추가했는지 (서로 이웃) */
   followsBack: boolean;
 };

@@ -9,6 +9,7 @@ import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
 import { parseSearchQuery } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
+import { REWARD_RULES } from "@/lib/game";
 import { houseInfo } from "@/lib/house";
 import { parseId } from "@/lib/ids";
 import {
@@ -97,7 +98,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
             🎉
           </span>
           <p className="flex-1 text-sm sm:text-base">
-            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물로 🪙 100 코인을 드렸어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.
+            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물 🪙 {REWARD_RULES.signup.coins}에 첫 출석 보상까지 받았어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.
             아래 <b>우리 집</b>의 <b>🚪 문</b>을 눌러 밖으로 나가 마을을 구경해 보세요.
           </p>
         </div>

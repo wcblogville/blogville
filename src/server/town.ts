@@ -104,6 +104,8 @@ export async function getFriends(userId: string): Promise<TownFriend[]> {
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
       isFavorite: follows.isFavorite,
+      // 공지 블로그(관리자)는 마을에 집이 없어 ⭐로 자리를 차지하지 않게 한다
+      isNotice: sql<boolean>`NOT ${notAdminBlog}`,
       followsBack: sql<boolean>`EXISTS (
         SELECT 1 FROM ${follows} f2 WHERE f2.follower_id = ${blogs.ownerId} AND f2.followee_id = ${userId}
       )`,

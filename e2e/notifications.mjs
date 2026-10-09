@@ -165,7 +165,7 @@ await setExp(uid.A, 595);
 await A.page.goto(url(BP, ids.B));
 await writeComment(A.page, "A가 B 글에 단 댓글");
 await dialog(A.page).waitFor({ timeout: 5000 }).catch(() => {});
-check("US5-1 내 댓글 보상으로 Lv.4 → 그 화면에서 팝업", (await dialog(A.page).count()) === 1 && (await dialog(A.page).innerText()).includes("Lv.4이 되었어요!"));
+check("US5-1 내 댓글 보상으로 Lv.4 → 그 화면에서 팝업", (await dialog(A.page).count()) === 1 && (await dialog(A.page).innerText()).includes("Lv.4가 되었어요!"));
 await dialog(A.page).getByRole("button", { name: "상점 가기" }).click();
 await A.page.waitForURL(/\/shop$/, { timeout: 10000 }).catch(() => {});
 check("US5-4 [상점 가기] → /shop, 레벨업 읽음", new URL(A.page.url()).pathname === "/shop" && (await unreadLevelUps(uid.A)) === 0);
@@ -183,7 +183,7 @@ await db.query("INSERT INTO notifications (user_id, kind, level) VALUES ($1, 'le
 await D.page.goto(`${BASE}/feed`);
 await dialog(D.page).waitFor({ timeout: 5000 }).catch(() => {});
 const dText = (await dialog(D.page).count()) ? await dialog(D.page).innerText() : "";
-check("FR-041 안 읽은 Lv.3·Lv.4 → `Lv.4이 되었어요!` 하나", (await dialog(D.page).count()) === 1 && dText.includes("Lv.4이 되었어요!") && !dText.includes("Lv.3"));
+check("FR-041 안 읽은 Lv.3·Lv.4 → `Lv.4가 되었어요!` 하나", (await dialog(D.page).count()) === 1 && dText.includes("Lv.4가 되었어요!") && !dText.includes("Lv.3"));
 
 // 조작: dismissLevelUp에 level = 100·0·문자 → 변화 없음 (진짜 [확인] 요청을 잡아 값만 바꿔 다시 보낸다)
 {
