@@ -138,19 +138,24 @@ function fillAttr(color: string) {
   return `fill="${color}"`;
 }
 
-/** <rect> 목록 (1픽셀 = 1단위). 한 줄에서 같은 글자가 이어지면 rect 하나. 모르는 글자는 그리지 않는다 */
+/**
+ * 그림 조각 SVG (1픽셀 = 1단위). 같은 색 칸을 <path> 하나로 모으고, 한 줄에서 이어진 칸은 사각형 하나(M x y h 길이 v1 h-길이 z)로 그린다.
+ * <rect>를 칸마다 쓰는 것보다 훨씬 짧아 헤더·목록처럼 캐릭터가 많이 나오는 화면도 가볍다. 모르는 글자는 그리지 않는다
+ */
 export function spriteRects(rows: Sprite, colors: Colors = {}, dx = 0, dy = 0): string {
-  let out = "";
+  const paths = new Map<string, string>();
   rows.forEach((row, y) => {
     for (let x = 0; x < row.length; ) {
       const ch = row[x];
       let end = x + 1;
       while (end < row.length && row[end] === ch) end++;
       const color = ch === "." ? undefined : (colors[ch] ?? PALETTE[ch]);
-      if (color) out += `<rect x="${x + dx}" y="${y + dy}" width="${end - x}" height="1" ${fillAttr(color)}/>`;
+      if (color) paths.set(color, `${paths.get(color) ?? ""}M${x + dx} ${y + dy}h${end - x}v1h-${end - x}z`);
       x = end;
     }
   });
+  let out = "";
+  for (const [color, d] of paths) out += `<path ${fillAttr(color)} d="${d}"/>`;
   return out;
 }
 
@@ -171,8 +176,9 @@ export function spriteSvg(
   );
 }
 
+/** SVG → data URI. 꼭 필요한 글자(%, #, <, > 등)만 바꿔 encodeURIComponent보다 짧게 만든다 (따옴표는 작은따옴표로) */
 export function svgDataUri(svg: string) {
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  return `data:image/svg+xml;charset=utf-8,${svg.replace(/"/g, "'").replace(/[%#<>?&\n]/g, encodeURIComponent)}`;
 }
 
 /** 위 그림의 "."이 아닌 칸으로 아래 그림을 덮는다 (크기는 아래 그림). x, y = 위 그림을 놓을 칸 */

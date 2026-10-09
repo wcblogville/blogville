@@ -45,8 +45,15 @@ function toSegment(px: number, py: number, ax: number, ay: number, bx: number, b
 /** 바닥 도트 크기 (칸) */
 export const GROUND_SIZE = { w: Math.ceil(WORLD.width / PIXEL), h: Math.ceil(WORLD.height / PIXEL) };
 
-/** 바닥을 RGBA로 굽는다 (GROUND_SIZE.w × GROUND_SIZE.h) */
+let baked: Uint8ClampedArray | null = null;
+
+/** 바닥을 RGBA로 굽는다 (GROUND_SIZE.w × GROUND_SIZE.h). 늘 같은 그림이라 한 번 구운 것을 다시 쓴다 */
 export function bakeGround(): Uint8ClampedArray {
+  baked ??= bake();
+  return baked;
+}
+
+function bake(): Uint8ClampedArray {
   // 가져온 값은 지역 변수로 옮겨 둔다 (번들러가 import를 getter로 바꾸면 칸마다 부르는 비용이 크다)
   const [CX, CY, PLAZA, RING, TOWN, PONDX, PONDY, PX] = [CENTER.x, CENTER.y, PLAZA_RADIUS, RING_RADIUS, TOWN_RADIUS, POND_POS.x, POND_POS.y, PIXEL];
   const [SLOTS, T] = [HOUSE_SLOTS, TILE];
