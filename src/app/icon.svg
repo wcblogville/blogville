@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Blogville 탭 아이콘: 잔디 위 내 블로그 집 (코드로 그린 그림, NF-25) -->
+  <rect width="64" height="64" rx="14" fill="#8fd18a"/>
+  <rect x="14" y="29" width="36" height="25" rx="3" fill="#fff8ec" stroke="#2b2118" stroke-width="3"/>
+  <path d="M7 32 L32 10 L57 32" fill="#ffb93b" stroke="#2b2118" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <rect x="27" y="38" width="10" height="16" rx="2" fill="#a0673a" stroke="#2b2118" stroke-width="2.5"/>
+</svg>

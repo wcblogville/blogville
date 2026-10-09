@@ -79,12 +79,12 @@ export function TownHud({ data, member, className = "" }: { data: TownData; memb
           >
             <div className="mb-2 flex items-center gap-2">
               {panel.kind !== "menu" && (
-                <button type="button" onClick={() => setPanel({ kind: "menu" })} className="rounded-lg px-2 py-1 text-ink-soft hover:bg-cream" aria-label="메뉴로">
+                <button type="button" onClick={() => setPanel({ kind: "menu" })} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg text-ink-soft hover:bg-cream" aria-label="메뉴로">
                   ‹
                 </button>
               )}
               <h2 className="flex-1 font-display text-lg">{panel.kind === "mailbox" ? mailboxTitle(data, panel.slot) : PANEL_TITLE[panel.kind]}</h2>
-              <button type="button" onClick={() => setPanel(null)} className="rounded-lg px-2 py-1 text-ink-soft hover:bg-cream" aria-label="닫기">
+              <button type="button" onClick={() => setPanel(null)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-cream" aria-label="닫기">
                 ✕
               </button>
             </div>
@@ -205,11 +205,13 @@ function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember 
           </span>
         </dd>
       </dl>
-      <div className="flex gap-2 text-sm">
+      {/* 꾸미기(옷·배경·가구)로 가는 길이 블로그 🎨 하나뿐이라 여기에도 둔다 */}
+      <div className="flex flex-wrap gap-2 text-sm">
         {data.myHouse && (
-          <Link href={`/@${data.myHouse.slug}`} className="btn flex-1 text-center">🏠 내 블로그</Link>
+          <Link href={`/@${data.myHouse.slug}`} className="btn flex-1 whitespace-nowrap text-center">🏠 내 블로그</Link>
         )}
-        <Link href="/wallet" className="btn flex-1 text-center">📒 지갑</Link>
+        <Link href="/closet" className="btn flex-1 whitespace-nowrap text-center">🎨 꾸미기</Link>
+        <Link href="/wallet" className="btn flex-1 whitespace-nowrap text-center">📒 지갑</Link>
       </div>
     </div>
   );
@@ -290,10 +292,10 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
   const [error, setError] = useState<string | null>(null);
   const { houses } = townSpots(data);
   const houseSpot = (slug: string) => houses.find((_, i) => i > 0 && houseAt(data, i)?.slug === slug);
-  const favorites = member.friends.filter((f) => f.isFavorite).length;
+  const favorites = member.friends.filter((f) => f.isFavorite && !f.isNotice).length;
 
   if (member.friends.length === 0) {
-    return <p className="px-2 py-4 text-center text-sm text-ink-soft">아직 이웃이 없어요. 블로그에서 [+ 이웃]을 눌러 보세요.</p>;
+    return <p className="px-2 py-4 text-center text-sm text-ink-soft">아직 이웃이 없어요. 블로그에서 [+ 이웃 추가]를 눌러 보세요.</p>;
   }
   return (
     <div>
@@ -317,25 +319,32 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
                 <span className="block truncate text-xs text-ink-soft">{f.title}</span>
               </Link>
               {spot && onPick && (
-                <button type="button" onClick={() => onPick(spot)} className="rounded-lg px-2 py-1 text-lg hover:bg-cream" aria-label={`${f.nickname}의 집 앞으로 텔레포트`}>
+                <button type="button" onClick={() => onPick(spot)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg hover:bg-cream" aria-label={`${f.nickname}의 집 앞으로 텔레포트`}>
                   ✨
                 </button>
               )}
-              <button
-                type="button"
-                disabled={pending}
-                aria-pressed={f.isFavorite}
-                aria-label={f.isFavorite ? `${f.nickname} 즐겨찾기 끄기` : `${f.nickname} 즐겨찾기`}
-                onClick={() =>
-                  start(async () => {
-                    const r = await toggleFavorite(f.userId);
-                    setError(r.ok ? null : r.error);
-                  })
-                }
-                className="rounded-lg px-2 py-1 text-lg hover:bg-cream disabled:opacity-50"
-              >
-                {f.isFavorite ? "⭐" : "☆"}
-              </button>
+              {f.isNotice && !f.isFavorite ? (
+                // 공지 블로그는 마을에 집이 없어 ⭐ 대신 표시만 (이미 켜 둔 ⭐는 끌 수 있게 버튼을 남긴다)
+                <span className="inline-flex min-h-11 min-w-11 items-center justify-center text-lg" title="공지사항 블로그는 마을에 집이 없어요" aria-label="공지사항 블로그">
+                  📢
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={pending}
+                  aria-pressed={f.isFavorite}
+                  aria-label={f.isFavorite ? `${f.nickname} 즐겨찾기 끄기` : `${f.nickname} 즐겨찾기`}
+                  onClick={() =>
+                    start(async () => {
+                      const r = await toggleFavorite(f.userId);
+                      setError(r.ok ? null : r.error);
+                    })
+                  }
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg hover:bg-cream disabled:opacity-50"
+                >
+                  {f.isFavorite ? "⭐" : "☆"}
+                </button>
+              )}
             </li>
           );
         })}

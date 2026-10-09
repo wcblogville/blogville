@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DropSearchParam } from "@/components/drop-search-param";
 import { TownGame } from "@/components/town/town-game";
 import { TownHud, type TownHudMember } from "@/components/town/town-hud";
 import { TownMenu } from "@/components/town/town-menu";
@@ -43,6 +44,8 @@ export default async function TownPage(props: PageProps<"/town">) {
       <TownGame data={data} startAt={startAt(data, welcome && member ? myHouse?.slug : at)} className="h-full w-full phone:hidden" />
       <TownHud data={data} member={hud} className="phone:hidden" />
       <TownMenu data={data} member={hud} welcome={Boolean(welcome)} className="hidden phone:block" />
+      {/* 환영은 한 번만: 보여 준 뒤 주소에서 ?welcome을 지워 새로고침하면 다시 뜨지 않게 (TOWN-01 / SC-002) */}
+      {welcome && <DropSearchParam name="welcome" />}
 
       {welcome && member?.profile && (
         <div className="card absolute inset-x-3 bottom-14 z-10 mx-auto flex max-w-2xl items-start gap-3 border-sun bg-[#fff3d6] p-4 phone:hidden">

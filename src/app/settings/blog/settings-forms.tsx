@@ -148,14 +148,15 @@ function Row({
         <button type="button" disabled={last || pending} onClick={() => start(() => onMove(1))} className={`${small} disabled:opacity-30`} aria-label={`${current} 아래로`}>▼</button>
       </div>
       {editing ? (
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} className={`${input} w-auto min-w-0 flex-1 py-1`} aria-label={label} autoFocus />
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} className={`${input} w-auto min-w-24 flex-1 py-1`} aria-label={label} autoFocus />
       ) : (
-        <span className="min-w-0 flex-1 break-words">
+        // 이름 칸은 6rem보다 좁아지지 않는다. 좁은 휴대폰에서 이름이 "일/상"처럼 한 글자씩 쪼개지던 것을 막고 버튼 묶음이 다음 줄로 간다
+        <span className="min-w-24 flex-1 break-words">
           {current} {postCount !== null && <span className="text-sm text-ink-soft">({postCount})</span>}
         </span>
       )}
       {editing ? (
-        <>
+        <div className="ml-auto flex shrink-0 items-center">
           <button
             type="button"
             disabled={pending}
@@ -176,9 +177,9 @@ function Row({
           <button type="button" className={`${small} text-ink-soft`} onClick={() => { setEditing(false); setName(current); setError(""); }}>
             취소
           </button>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="ml-auto flex shrink-0 items-center">
           {children}
           <button type="button" className={`${small} text-ink-soft hover:text-ink`} onClick={() => setEditing(true)}>이름 바꾸기</button>
           <button
@@ -189,7 +190,7 @@ function Row({
           >
             삭제
           </button>
-        </>
+        </div>
       )}
       {error && <p role="alert" className="w-full text-sm text-berry">{error}</p>}
     </div>

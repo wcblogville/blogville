@@ -11,7 +11,8 @@
   --color-leaf-dark: #2f7d32;
   --color-sun: #ffb93b;
   --color-sun-dark: #e08a00;
-  --color-berry: #ff6b6b;
+  /* 오류 글자·알림 배지. 흰 바탕·연분홍(#ffe4e4) 오류 칸에서도 글자 대비 4.5:1 이상 (NF-06, 예전 #ff6b6b는 2.8:1) */
+  --color-berry: #c62828;
   --color-sky: #5aa9e6;
 
   --font-sans: var(--font-noto), "Apple SD Gothic Neo", sans-serif;

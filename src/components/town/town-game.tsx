@@ -45,6 +45,21 @@ export function TownGame({
       if (open) keyboard.disableGlobalCapture();
       else keyboard.enableGlobalCapture();
     });
+    // Phaser는 window에서 키를 받아 Enter·Space·방향키를 막는다(preventDefault). 그러면 Tab으로 고른 [☰ 메뉴]가
+    // Enter·Space로 열리지 않는다 (NF-18). 버튼·링크를 Enter·Space로 누를 때와 글자 칸에서는 그 키를 게임에 주지 않는다.
+    // capture 단계라 Phaser(bubble)보다 먼저 정한다
+    const yieldKeys = (e: KeyboardEvent) => {
+      const keyboard = game?.input.keyboard;
+      if (!keyboard) return;
+      const el = e.target instanceof Element ? e.target : null;
+      const typing = !!el?.closest("input, textarea, select, [contenteditable]");
+      const pressing = (e.key === "Enter" || e.key === " ") && !!el?.closest("button, a[href], summary, [role='button']");
+      keyboard.enabled = !typing && !pressing;
+      // 글자 칸으로 옮겨 가는 사이 놓은 방향키가 눌린 채로 남지 않게
+      if (typing) game?.scene.getScene("town")?.input.keyboard?.resetKeys();
+    };
+    window.addEventListener("keydown", yieldKeys, true);
+    window.addEventListener("keyup", yieldKeys, true);
 
     // Phaser는 window가 필요해서 브라우저에서만 불러온다
     const start = async () => {
@@ -89,6 +104,8 @@ export function TownGame({
       cancelled = true;
       offTeleport();
       offPanel();
+      window.removeEventListener("keydown", yieldKeys, true);
+      window.removeEventListener("keyup", yieldKeys, true);
       phone.removeEventListener("change", sync);
       stop();
     };

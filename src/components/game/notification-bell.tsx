@@ -8,7 +8,7 @@ export function NotificationBell({ unread }: { unread: number }) {
     <Link
       href="/notifications"
       aria-label={badge ? `알림 ${badge}개 안 읽음` : "알림"}
-      className="relative grid min-h-11 min-w-9 shrink-0 place-items-center rounded-full text-lg hover:bg-white focus-visible:outline-2 focus-visible:outline-sky"
+      className="relative -mx-1 grid min-h-11 min-w-11 shrink-0 place-items-center rounded-full text-lg hover:bg-white focus-visible:outline-2 focus-visible:outline-sky"
     >
       <span aria-hidden>🔔</span>
       {badge && (

@@ -95,7 +95,8 @@ export function useAttachmentUpload(editor: Editor | null, postId?: number) {
   /**
    * 이 사이트 첨부(/files/키)가 든 HTML 붙여 넣기 (FR-047, research R8, contracts/write-actions.md §4·§5).
    * keep은 그대로, reupload(내 다른 글·프로필 사진)는 새 첨부로 복사해 주소를 바꾸고, drop(남의 것·없는 키)은 뺀다.
-   * 다시 올리는 동안은 파일 올리기와 같이 `올리는 중... (i/n)`을 보이고 버튼을 막는다
+   * 서버가 첨부를 확인하는 동안은 `붙여 넣는 중...`(total 0), 다시 올리는 동안은 파일 올리기와 같이
+   * `올리는 중... (i/n)`을 보이고 버튼을 막는다. 표시가 없으면 [발행하기]가 눌려 사진 없이 저장된다
    */
   const pasteHtml = useCallback(
     async (html: string) => {
@@ -121,6 +122,7 @@ export function useAttachmentUpload(editor: Editor | null, postId?: number) {
       };
       editor.on("transaction", track);
       const problems: string[] = [];
+      if (keys.length) setProgress({ done: 0, total: 0 });
       try {
         const res = keys.length ? await classifyPastedAttachments(keys.slice(0, 50), postId) : { items: [] };
         const items = "items" in res ? res.items : [];

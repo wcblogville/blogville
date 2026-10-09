@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { DEFAULT_SORT, SHOP_SECTIONS, SHOP_SORTS, sortShopItems, type ShopItem, type ShopSort } from "@/lib/shop";
-import { ShopGrid } from "./shop-grid";
+import { ShopGrid, type ShopMessage } from "./shop-grid";
 
 /** 상점 구역 4개와 정렬 (FR-003, FR-014~015). 정렬은 모든 구역에 같이 적용된다 */
-export function ShopView({ items, level, coins }: { items: ShopItem[]; level: number; coins: number }) {
+export function ShopView({ items, level, coins, blogSlug }: { items: ShopItem[]; level: number; coins: number; blogSlug: string }) {
   const [sort, setSort] = useState<ShopSort>(DEFAULT_SORT);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [message, setMessage] = useState<ShopMessage | null>(null);
 
   return (
     <>
@@ -29,8 +30,14 @@ export function ShopView({ items, level, coins }: { items: ShopItem[]; level: nu
         </select>
       </div>
       {message && (
-        <p role="status" className={`card sticky top-2 z-10 mt-4 p-3 text-center font-bold ${message.ok ? "text-leaf-dark" : "text-berry"}`}>
+        // 헤더(58px, z-20) 아래에 붙는다. 예전 top-2 z-10은 페이지를 내리면 헤더 밑에 숨었다
+        <p role="status" className={`card sticky top-16 z-30 mt-4 p-3 text-center font-bold ${message.ok ? "text-leaf-dark" : "text-berry"}`}>
           {message.text}
+          {message.link && (
+            <Link href={message.link.href} className="ml-2 inline-flex min-h-11 items-center whitespace-nowrap text-ink underline">
+              {message.link.label}
+            </Link>
+          )}
         </p>
       )}
       {SHOP_SECTIONS.map((s) => {
@@ -46,7 +53,7 @@ export function ShopView({ items, level, coins }: { items: ShopItem[]; level: nu
             {list.length === 0 ? (
               <p className="card p-4 text-center text-sm text-ink-soft">지금은 파는 아이템이 없어요.</p>
             ) : (
-              <ShopGrid items={list} level={level} coins={coins} onMessage={setMessage} />
+              <ShopGrid items={list} level={level} coins={coins} blogSlug={blogSlug} onMessage={setMessage} />
             )}
           </section>
         );

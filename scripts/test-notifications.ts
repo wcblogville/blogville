@@ -1,5 +1,6 @@
 // 알림 순수 규칙 테스트 (GAME-06·GAME-08 / FR-038, FR-042, FR-043, FR-045, quickstart 2장)
 // 실행: npm run test:notifications
+import { withJosa } from "../src/lib/josa";
 import { levelUpTitle, notificationHref, notificationText, notificationTime, unreadBadge, type NotificationRow } from "../src/lib/notifications";
 
 let failed = 0;
@@ -12,6 +13,14 @@ function expect(name: string, got: unknown, want: unknown) {
 // 레벨업 팝업 제목
 expect("Lv.3 제목", levelUpTitle(3), "Lv.3이 되었어요!");
 expect("Lv.99 제목", levelUpTitle(99), "최고 레벨 Lv.99가 되었어요!");
+// 조사는 숫자를 한국어로 읽은 소리로: 이(2)·사(4)·오(5)·구(9)는 '가', 십(10)·삼(3)은 '이'
+expect("Lv.2 제목", levelUpTitle(2), "Lv.2가 되었어요!");
+expect("Lv.4 제목", levelUpTitle(4), "Lv.4가 되었어요!");
+expect("Lv.10 제목", levelUpTitle(10), "Lv.10이 되었어요!");
+expect("받침 있는 이름 + 을", withJosa("왕관", "을/를"), "왕관을");
+expect("받침 없는 이름 + 를", withJosa("먹이", "을/를"), "먹이를");
+expect("괄호 앞 글자로 판단", withJosa("모자(빨강)", "을/를"), "모자(빨강)을");
+expect("영어는 둘 다 적음", withJosa("Hat", "을/를"), "Hat을(를)");
 
 // 🔔 배지
 expect("0 → 없음", unreadBadge(0), null);

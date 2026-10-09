@@ -81,6 +81,9 @@ const isSocialCallback = (path: string | undefined) => !!path?.startsWith("/call
 
 export const auth = betterAuth({
   appName: "Blogville",
+  // 소셜 로그인 오류(state 없음·만료 등)는 라이브러리의 영어 오류 화면 대신 첫 화면 /?error=코드로 보낸다 (NF-19).
+  // 배포(production)에서는 라이브러리도 그렇게 하지만, 개발 서버에서도 같게 한다
+  onAPIError: { errorURL: "/" },
   database: drizzleAdapter(db, { provider: "pg", schema, usePlural: true }),
   socialProviders: {
     ...(google && { google }),

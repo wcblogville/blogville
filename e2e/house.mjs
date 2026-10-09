@@ -31,9 +31,10 @@ check("가입하면 기본 가구 화분·나무 의자", starters.join(",") ===
 await page.goto(`${BASE}/@${H}`);
 const room = page.locator("[data-house-room]");
 const head = await room.innerText();
-check("우리 집: 1단계 작은 오두막, 가구 0/4칸, Lv.10에 커짐", head.includes("1단계 작은 오두막") && head.includes("가구 0/4칸") && head.includes("Lv.10에 집이 커져요"), head.split("\n").slice(0, 3).join(" "));
+check("우리 집: 1단계 작은 오두막, 기본 가구 2/4칸, Lv.10에 커짐", head.includes("1단계 작은 오두막") && head.includes("가구 2/4칸") && head.includes("Lv.10에 집이 커져요"), head.split("\n").slice(0, 3).join(" "));
+check("가입하면 기본 가구가 0·1번 칸에 놓여 있음 (빈 방 아님)", (await placed()) === "0:fur_plant,1:fur_chair", await placed());
 
-// 가구 놓기: 1번 칸 화분, 2번 칸 의자
+// 가구 놓기: 기본 가구(0번 칸 화분, 1번 칸 의자)를 옮기고 비워 본다
 const pick = async (slot, name) => {
   await room.locator(`[data-slot="${slot}"]`).click();
   await room.getByRole("dialog").getByRole("button", { name }).click();
@@ -42,14 +43,13 @@ const pick = async (slot, name) => {
 };
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
 check("주인 편집: 칸 4개", (await room.locator("[data-slot]").count()) === 4);
-await pick(0, /초록 화분/);
-await pick(1, /나무 의자/);
-check("칸에 가구 저장", (await placed()) === "0:fur_plant,1:fur_chair", await placed());
-// 같은 가구를 다른 칸에 놓으면 옮겨진다
+// 같은 가구를 다른 칸에 놓으면 옮겨진다 (가구 하나는 한 칸에만)
+await pick(2, /나무 의자/);
+check("칸에 가구 저장 (의자 2번 → 3번 칸)", (await placed()) === "0:fur_plant,2:fur_chair", await placed());
 await pick(3, /초록 화분/);
-check("같은 가구는 옮겨짐 (한 칸에만)", (await placed()) === "1:fur_chair,3:fur_plant", await placed());
+check("같은 가구는 옮겨짐 (한 칸에만)", (await placed()) === "2:fur_chair,3:fur_plant", await placed());
 // 비우기
-await room.locator('[data-slot="1"]').click();
+await room.locator('[data-slot="2"]').click();
 await room.getByRole("dialog").getByRole("button", { name: /비우기/ }).click();
 await room.getByRole("dialog").waitFor({ state: "detached", timeout: 10000 });
 await page.waitForLoadState("networkidle");

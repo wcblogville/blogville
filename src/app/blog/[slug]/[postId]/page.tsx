@@ -54,7 +54,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
     getPostTags(post.id),
     getLikeState(post.id, viewerId),
     getCommentThread(post.id, viewerId && viewer ? { userId: viewerId, isAdmin: viewer.user.role === "admin" } : null),
-    getAdjacentPosts(blog.id, post, isOwner),
+    getAdjacentPosts(blog.id, post.id, isOwner),
     isOwner ? true : readVisitorId().then((v) => hasViewedToday(post.id, v)),
     // 발행 안내는 ?new가 있을 때만, 주인에게만 (FR-013, R13)
     sp.new !== undefined ? getPublishNotice(viewerId, { id: post.id, ownerId: blog.ownerId, createdAt: post.createdAt }) : null,
@@ -133,17 +133,18 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
         <CommentSection postId={post.id} thread={thread} isMember={Boolean(viewerId)} />
       </article>
 
-      <nav className="mt-6 grid gap-3 sm:grid-cols-2" aria-label="이전 글, 다음 글">
+      {/* grid-cols-1: 긴 제목(truncate)이 휴대폰 화면 폭을 넘지 않게 칸 최소 폭을 0으로 둔다 */}
+      <nav className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="이전 글, 다음 글">
         {adjacent.prev ? (
-          <Link href={`/@${blog.slug}/${adjacent.prev.id}`} className="card p-4 hover:-translate-y-0.5">
+          <Link href={`/@${blog.slug}/${adjacent.prev.id}`} className="card min-w-0 p-4 hover:-translate-y-0.5">
             <span className="text-xs text-ink-soft">← 이전 글</span>
             <span className="block truncate font-bold">{adjacent.prev.title}</span>
           </Link>
         ) : (
-          <span />
+          <span className="hidden sm:block" />
         )}
         {adjacent.next && (
-          <Link href={`/@${blog.slug}/${adjacent.next.id}`} className="card p-4 text-right hover:-translate-y-0.5">
+          <Link href={`/@${blog.slug}/${adjacent.next.id}`} className="card min-w-0 p-4 text-right hover:-translate-y-0.5">
             <span className="text-xs text-ink-soft">다음 글 →</span>
             <span className="block truncate font-bold">{adjacent.next.title}</span>
           </Link>

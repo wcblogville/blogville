@@ -5,6 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { MiniRoom } from "@/components/character";
 import { ItemArt } from "@/components/item-art";
 import { orderOutfit } from "@/lib/assets";
+import { withJosa } from "@/lib/josa";
 import { CLOSET_ERRORS, equipMessage } from "@/lib/shop";
 import { equipItem, unequipAvatar } from "./actions";
 
@@ -52,7 +53,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
       try {
         const r = off ? await unequipAvatar(item.id) : await equipItem(item.id);
         if (r.ok) {
-          setMessage({ ok: true, text: off ? `${item.name}을(를) 벗었어요 ✓` : equipMessage(item.name) });
+          setMessage({ ok: true, text: off ? `${withJosa(item.name, "을/를")} 벗었어요 ✓` : equipMessage(item.name) });
           return;
         }
         setCurrent(before);

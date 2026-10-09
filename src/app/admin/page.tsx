@@ -130,7 +130,7 @@ export default async function AdminPage() {
               <tbody className="divide-y-2 divide-line/60">
                 {recentPosts.map((p) => (
                   <tr key={p.id}>
-                    <td className="py-1"><Link href={`/@${p.slug}/${p.id}`} className={`${linkTap} hover:underline`}>{p.title}</Link></td>
+                    <td className="py-1"><PostTitle post={p} className={`${linkTap} hover:underline`} /></td>
                     <td>{p.nickname}</td>
                     <td>{p.visibility === "public" ? "공개" : "🔒"}</td>
                     <td className="whitespace-nowrap text-ink-soft">{formatDateTime(p.createdAt)}</td>
@@ -143,7 +143,7 @@ export default async function AdminPage() {
               {recentPosts.map((p) => (
                 <li key={p.id} className="flex items-start gap-2 py-2 text-sm">
                   <div className="min-w-0 flex-1">
-                    <Link href={`/@${p.slug}/${p.id}`} className={`${linkTap} break-all font-bold hover:underline`}>{p.title}</Link>
+                    <PostTitle post={p} className={`${linkTap} break-all font-bold hover:underline`} />
                     <p className="text-ink-soft">
                       <span className="break-all">{p.nickname}</span> · {p.visibility === "public" ? "공개" : "🔒"} ·{" "}
                       <span className="whitespace-nowrap">{formatDateTime(p.createdAt)}</span>
@@ -159,5 +159,15 @@ export default async function AdminPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/** 글 제목. 비공개 글은 주인만 열 수 있어(관리자도 404) 링크 없이 글자만 둔다 */
+function PostTitle({ post, className }: { post: { id: number; slug: string; title: string; visibility: string }; className: string }) {
+  if (post.visibility !== "public") return <span title="비공개 글은 주인만 볼 수 있어요" className="break-all">{post.title}</span>;
+  return (
+    <Link href={`/@${post.slug}/${post.id}`} className={className}>
+      {post.title}
+    </Link>
   );
 }

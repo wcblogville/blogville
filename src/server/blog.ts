@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, lt, gt, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
@@ -223,6 +223,8 @@ function baseList(where: SQL | undefined, orderFirst?: SQL) {
       blogTitle: blogs.title,
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
+      // 앞 정렬(즐겨찾는 이웃의 최근 글)로 위에 올라온 글. 카드에 ⭐로 이유를 보여 준다
+      pinned: orderFirst ? sql<boolean>`(${orderFirst}) = 0` : sql<boolean>`false`,
     })
     .from(posts)
     .innerJoin(blogs, eq(blogs.id, posts.blogId))
@@ -327,11 +329,15 @@ export async function getLikeState(postId: number, viewerId: string | null) {
   return { count: row.count, liked: Boolean(row.liked) };
 }
 
-/** 같은 블로그 안에서 바로 이전 / 다음 글 */
-export async function getAdjacentPosts(blogId: number, post: { id: number; createdAt: Date }, isOwner: boolean) {
+/**
+ * 같은 블로그 안에서 바로 이전 / 다음 글.
+ * 기준 글의 시각은 DB 값(마이크로초)과 그대로 비교한다. JS Date(밀리초)로 넘기면 같은 글이 "더 새 글"이 된다
+ */
+export async function getAdjacentPosts(blogId: number, postId: number, isOwner: boolean) {
   const visible = isOwner ? undefined : eq(posts.visibility, "public");
-  const older = or(lt(posts.createdAt, post.createdAt), and(eq(posts.createdAt, post.createdAt), lt(posts.id, post.id)));
-  const newer = or(gt(posts.createdAt, post.createdAt), and(eq(posts.createdAt, post.createdAt), gt(posts.id, post.id)));
+  const self = sql`(SELECT ${posts.createdAt}, ${posts.id} FROM ${posts} WHERE ${posts.id} = ${postId})`;
+  const older = sql`(${posts.createdAt}, ${posts.id}) < ${self}`;
+  const newer = sql`(${posts.createdAt}, ${posts.id}) > ${self}`;
   const [prev] = await db
     .select({ id: posts.id, title: posts.title })
     .from(posts)

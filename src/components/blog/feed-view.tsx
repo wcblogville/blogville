@@ -50,7 +50,7 @@ export function FeedView({
             <ul className="flex flex-wrap gap-1.5">
               {tags.map((t) => (
                 <li key={t.name}>
-                  <Link href={`/tags/${encodeURIComponent(t.name)}`} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-cream px-2.5 text-sm hover:text-leaf-dark">
+                  <Link href={`/tags/${encodeURIComponent(t.name)}`} className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-full bg-cream px-2.5 text-sm hover:text-leaf-dark">
                     #{t.name} <span className="text-ink-soft">{t.count}</span>
                   </Link>
                 </li>

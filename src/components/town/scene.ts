@@ -234,7 +234,8 @@ export function createTownScene(
     private nameTag!: PhaserNS.GameObjects.Text;
     private cursors!: PhaserNS.Types.Input.Keyboard.CursorKeys;
     private wasd!: Record<"W" | "A" | "S" | "D", PhaserNS.Input.Keyboard.Key>;
-    private actionKeys: PhaserNS.Input.Keyboard.Key[] = [];
+    /** 이번 프레임에 Space·Enter를 눌렀는지 (keydown 이벤트로 받는다) */
+    private actionQueued = false;
     private moveTarget: PhaserNS.Math.Vector2 | null = null;
     private entrances: Entrance[] = [];
     private prompt!: PhaserNS.GameObjects.Text;
@@ -304,7 +305,15 @@ export function createTownScene(
       const keyboard = this.input.keyboard!;
       this.cursors = keyboard.createCursorKeys();
       this.wasd = keyboard.addKeys("W,A,S,D") as typeof this.wasd;
-      this.actionKeys = [keyboard.addKey("SPACE"), keyboard.addKey("ENTER")];
+      // Space·Enter: 키를 등록해 브라우저 기본 동작(스크롤)을 막고, 누른 순간은 keydown 이벤트로 받는다.
+      // 화면이 느릴 때(낮은 FPS) 한 프레임 안에 눌렀다 떼면 JustDown이 놓쳤다
+      keyboard.addKey("SPACE");
+      keyboard.addKey("ENTER");
+      const queueAction = () => {
+        this.actionQueued = true;
+      };
+      keyboard.on("keydown-SPACE", queueAction);
+      keyboard.on("keydown-ENTER", queueAction);
       // 페이지 스크롤과 겹치지 않게 게임 안에서만 키를 쓴다
       keyboard.addCapture("UP,DOWN,LEFT,RIGHT,SPACE");
 
@@ -450,10 +459,12 @@ export function createTownScene(
         const verb = closest.target.kind === "login" ? "로그인하고 이용하기" : (closest.verb ?? "들어가기");
         this.prompt.setText(`${closest.emoji} ${closest.label} · Space ${verb}`);
         this.prompt.setPosition(closest.x, closest.promptY).setVisible(true);
-        if (this.actionKeys.some((k) => Phaser.Input.Keyboard.JustDown(k))) onEnter(closest.target);
+        if (this.actionQueued) onEnter(closest.target);
       } else {
         this.prompt.setVisible(false);
       }
+      // 입구에서 멀 때 누른 것은 버린다 (나중에 입구 앞에 갔을 때 저절로 들어가지 않게)
+      this.actionQueued = false;
     }
 
     /** 입구(문 앞)까지의 거리 */

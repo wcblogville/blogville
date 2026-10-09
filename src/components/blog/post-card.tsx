@@ -17,6 +17,8 @@ export type PostCardData = {
   blogTitle: string;
   nickname: string;
   characterAsset: string;
+  /** 이웃 새 글에서 즐겨찾는 이웃의 최근 글이라 위에 올라왔는지 (SOC-04) */
+  pinned?: boolean;
 };
 
 /** 글 목록 한 칸. showAuthor: 마을 소식처럼 여러 블로그 글이 섞일 때 작성자 표시 */
@@ -41,6 +43,7 @@ export function PostCard({ post, showAuthor = false }: { post: PostCardData; sho
             </span>
           )}
           {post.visibility === "private" && <span className="rounded-full bg-ink/10 px-2 py-0.5 text-ink-soft">🔒 비공개</span>}
+          {post.pinned && <span className="rounded-full bg-[#fff3d6] px-2 py-0.5 text-sun-dark">⭐ 즐겨찾는 이웃</span>}
         </div>
         <h3 className="font-display text-xl leading-snug">{post.title}</h3>
         <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink-soft">{post.excerpt}</p>

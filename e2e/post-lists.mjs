@@ -48,6 +48,11 @@ check("US3 비공개 글은 방문자 목록에서 빠짐", guestTitles.length =
 await guest.goto(`${BASE}/@${idA}/${ids[5]}`);
 const adjacent = await guest.locator('nav[aria-label="이전 글, 다음 글"]').innerText();
 check("US3 이전/다음 글에서 비공개 글 빠짐", adjacent.includes("목록 글 4") && !adjacent.includes("목록 글 5"), adjacent.replace(/\n/g, " "));
+// 다음 글은 바로 다음 글이어야 한다 (DB 시각은 마이크로초라 JS Date로 비교하면 자기 자신이 나왔다)
+check("US3 다음 글은 바로 다음 글(자기 자신 아님)", adjacent.includes("목록 글 7") && !adjacent.includes("목록 글 6"), adjacent.replace(/\n/g, " "));
+await guest.goto(`${BASE}/@${idA}/${ids[8]}`);
+const newest = await guest.locator('nav[aria-label="이전 글, 다음 글"]').innerText();
+check("US3 가장 최신 글에는 다음 글 없음", newest.includes("목록 글 8") && !newest.includes("다음 글"), newest.replace(/\n/g, " "));
 for (const bad of ["0", "-1", "abc", "2.5", "012", "1e1", "99999999999999999999"]) {
   const res = await a.goto(`${BASE}/@${idA}?page=${bad}`);
   const t = await titles(a);

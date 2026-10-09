@@ -31,6 +31,8 @@ export function HouseRoom({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const bySlot = new Map(placed.map((p) => [p.slot, p]));
+  // 2·3단계(6·8칸)는 휴대폰에서 두 줄(뒷줄·앞줄)로 놓는다. 한 줄이면 7·8번 칸이 카드 밖으로 넘쳐 누를 수 없었다
+  const twoRows = house.slots > 4;
 
   const choose = (slot: number, itemId: number | null) =>
     start(async () => {
@@ -103,8 +105,11 @@ export function HouseRoom({
           <span className="whitespace-nowrap rounded-full bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-ink shadow-sm">🚪 밖으로</span>
         </Link>
 
-        {/* 가구 칸: 바닥 위에 한 줄 */}
-        <ul className="absolute bottom-[6%] left-[3%] right-[24%] flex items-end justify-around gap-1" aria-label="집 안 가구">
+        {/* 가구 칸: 바닥 위에 한 줄 (휴대폰에서 6·8칸은 두 줄) */}
+        <ul
+          className={`absolute bottom-[6%] left-[3%] right-[24%] items-end justify-around gap-1 ${twoRows ? "grid grid-cols-4 justify-items-center sm:flex" : "flex"}`}
+          aria-label="집 안 가구"
+        >
           {Array.from({ length: house.slots }, (_, slot) => {
             const item = bySlot.get(slot);
             if (!editing) {
@@ -142,7 +147,12 @@ export function HouseRoom({
         </ul>
 
         {editing && picking !== null && owned && (
-          <div role="dialog" aria-label={`${picking + 1}번 칸에 놓을 가구`} className="absolute inset-x-3 top-3 z-10 rounded-2xl bg-white p-3 shadow-lg">
+          <div
+            role="dialog"
+            aria-label={`${picking + 1}번 칸에 놓을 가구`}
+            // 가구가 많으면 방 높이를 넘어 잘리므로 창 안에서 스크롤한다
+            className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white p-3 shadow-lg"
+          >
             <p className="mb-2 text-sm font-bold">{picking + 1}번 칸에 놓을 가구를 골라 주세요</p>
             <ul className="flex flex-wrap gap-2">
               {owned.map((f) => {

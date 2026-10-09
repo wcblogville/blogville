@@ -20,6 +20,10 @@ export const RESERVED_NAMES: ReadonlySet<string> = new Set([
   "wallet",
   "files",
   "notice",
+  // 나중에 생긴 화면 (GAME T071 알림함, 마을 낚시터·집 안)
+  "notifications",
+  "fishing",
+  "house",
 ]);
 
 /** 아이디 형식: 영문 소문자·숫자·_ 4~20자 (DB CHECK users_username_check와 같다) */

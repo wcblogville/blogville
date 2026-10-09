@@ -42,7 +42,7 @@ export function LevelUpDialog({ level, title, items, moreCount }: { level: numbe
             {items.map((item) => (
               <li key={item.id} className="flex w-20 flex-col items-center gap-1 text-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-                <img src={item.image} alt="" width={64} height={64} className="rounded-xl border-2 border-line bg-white" />
+                <img src={item.image} alt="" width={64} height={64} className="h-16 w-16 rounded-xl border-2 border-line bg-white object-contain" />
                 <span className="break-keep">{item.name}</span>
               </li>
             ))}
@@ -50,7 +50,8 @@ export function LevelUpDialog({ level, title, items, moreCount }: { level: numbe
           {moreCount > 0 && <p className="mt-1 text-sm text-ink-soft">외 {moreCount}개</p>}
         </div>
       )}
-      <form action={dismissLevelUp} className="mt-6 flex justify-center gap-2">
+      {/* 서버 응답을 기다리지 않고 바로 닫는다. 광장처럼 무거운 화면은 다시 그리는 데 몇 초 걸려 팝업이 남아 있었다 */}
+      <form action={dismissLevelUp} onSubmit={() => ref.current?.close()} className="mt-6 flex justify-center gap-2">
         <input type="hidden" name="level" value={level} />
         <button name="go" value="shop" className="btn min-h-11 bg-leaf px-5 text-white">
           상점 가기
