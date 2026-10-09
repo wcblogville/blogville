@@ -34,6 +34,17 @@ const head = await room.innerText();
 check("우리 집: 1단계 작은 오두막, 기본 가구 2/4칸, Lv.10에 커짐", head.includes("1단계 작은 오두막") && head.includes("가구 2/4칸") && head.includes("Lv.10에 집이 커져요"), head.split("\n").slice(0, 3).join(" "));
 check("가입하면 기본 가구가 0·1번 칸에 놓여 있음 (빈 방 아님)", (await placed()) === "0:fur_plant,1:fur_chair", await placed());
 
+// 지붕 색 (TOWN-07): 1단계는 처음 받은 무작위 색 1개만 열려 있고 9개는 잠김
+const roofButton = room.getByRole("button", { name: "🏠 지붕 색" });
+const roofPicker = room.locator("[data-roof-picker]");
+await roofButton.click();
+const openRoofs = async () => roofPicker.locator("[data-roof]").evaluateAll((els) => els.map((e) => e.getAttribute("data-roof")));
+const firstRoofs = await openRoofs();
+check("1단계 지붕 색: 1개 열림, 9개 잠김", firstRoofs.length === 1 && (await roofPicker.getByText("🔒").count()) === 9, firstRoofs.join(","));
+check("안 고른 지붕은 처음 색이 선택됨", (await roofPicker.locator('[data-roof][aria-pressed="true"]').count()) === 1);
+await page.screenshot({ path: `${outDir}/house-roof-1.png` });
+await room.getByRole("button", { name: /다 골랐어요/ }).click();
+
 // 가구 놓기: 기본 가구(0번 칸 화분, 1번 칸 의자)를 옮기고 비워 본다
 const pick = async (slot, name) => {
   await room.locator(`[data-slot="${slot}"]`).click();
@@ -74,10 +85,27 @@ await table.getByRole("button", { name: "사기" }).click();
 await page.getByRole("status").waitFor();
 check("가구 산 안내", (await page.getByRole("status").innerText()).includes("우리 집"));
 
-// 레벨 10 → 2단계 6칸: 6번 칸에 탁자
-await db.query("INSERT INTO point_ledger (user_id, reason, exp_delta, coin_delta) VALUES ($1, 'signup', 4500, 0)", [uid]);
+// 레벨 10 → 2단계 6칸: 6번 칸에 탁자 (레벨 n까지 10 × n × (n − 1), src/lib/game.ts)
+const expFor = (lv) => 10 * lv * (lv - 1);
+const setExp = async (target) => {
+  const { exp } = await one("SELECT COALESCE(SUM(exp_delta), 0)::int AS exp FROM point_ledger WHERE user_id = $1", [uid]);
+  if (target > exp) await db.query("INSERT INTO point_ledger (user_id, reason, exp_delta, coin_delta) VALUES ($1, 'signup', $2, 0)", [uid, target - exp]);
+};
+await setExp(expFor(10));
 await page.goto(`${BASE}/@${H}`);
 check("Lv.10 → 2단계 창문 많은 집, 6칸", (await room.innerText()).includes("2단계 창문 많은 집") && (await room.innerText()).includes("/6칸"));
+check("2단계: Lv.20에 다음 단계", (await room.innerText()).includes("Lv.20에 집이 커져요"));
+
+// 2단계 → 지붕 색 하나 더 열림. 새 색을 고르면 저장된다
+await room.getByRole("button", { name: "🏠 지붕 색" }).click();
+const secondRoofs = await openRoofs();
+check("2단계 지붕 색: 2개 열림 (처음 색 + 1)", secondRoofs.length === 2 && secondRoofs[0] === firstRoofs[0], secondRoofs.join(","));
+await roofPicker.locator(`[data-roof="${secondRoofs[1]}"]`).click();
+await roofPicker.locator(`[data-roof="${secondRoofs[1]}"][aria-pressed="true"]`).waitFor({ timeout: 10000 }).catch(() => {});
+const savedRoof = (await one("SELECT roof_color FROM blogs WHERE owner_id = $1", [uid])).roof_color;
+check("새 지붕 색 저장", savedRoof === secondRoofs[1], String(savedRoof));
+await page.screenshot({ path: `${outDir}/house-roof-2.png` });
+await room.getByRole("button", { name: /다 골랐어요/ }).click();
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
 await pick(5, /둥근 탁자/);
 check("2단계: 6번 칸에 놓기", (await placed()).includes("5:fur_table"), await placed());

@@ -66,6 +66,7 @@ export const getViewer = cache(async () => {
     .select({
       cycleDay: attendances.cycleDay,
       nickname: profiles.nickname,
+      photoKey: profiles.photoKey,
       characterAsset: items.assetKey,
       blogId: blogs.id,
       blogSlug: blogs.slug,

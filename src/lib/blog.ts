@@ -88,6 +88,13 @@ export function swapPosition(ids: number[], id: number, direction: unknown): { i
   return list.map((x, position) => ({ id: x, position }));
 }
 
-/** 집 지붕 색 코드값 8개 (TOWN-07 요청, research R-22). 실제 색(hex)·고르는 화면은 town이 만든다 */
-export const ROOF_COLORS = ["red", "orange", "yellow", "green", "sky", "blue", "purple", "brown"] as const;
+/**
+ * 집 지붕 색 코드값 10개 (TOWN-07). 집 단계(10단계)마다 하나씩 열린다 (src/lib/house.ts, 사용자 결정 2026-10-09).
+ * 실제 색(hex)은 src/lib/art/town.ts ROOF_HEX. DB CHECK blogs_roof_color_check와 같게 둔다
+ */
+export const ROOF_COLORS = ["red", "orange", "yellow", "green", "sky", "blue", "purple", "brown", "pink", "mint"] as const;
 export type RoofColor = (typeof ROOF_COLORS)[number];
+
+export function isRoofColor(value: unknown): value is RoofColor {
+  return typeof value === "string" && (ROOF_COLORS as readonly string[]).includes(value);
+}

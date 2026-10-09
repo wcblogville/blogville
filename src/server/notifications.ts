@@ -100,6 +100,8 @@ export type ActivityKind = "like" | "comment" | "reply";
 /**
  * 공감·댓글·답글 알림 (GAME-08 2단계, social이 부른다). 그 활동과 같은 트랜잭션 안에서 부른다.
  * 자기 활동이면 아무것도 넣지 않는다 (FR-045, DB CHECK로도 막힘). 넣었으면 true.
+ * 공감은 같은 사람·같은 글이면 한 번만 알린다 (껐다 켜도 다시 안 감, 사용자 결정 2026-10-09).
+ * 공감 행 INSERT가 UNIQUE(post_id, user_id)로 줄을 서므로, 다시 켠 요청은 앞 알림이 커밋된 뒤에 이 확인을 한다
  */
 export async function notifyActivity(
   tx: Tx,
@@ -107,6 +109,21 @@ export async function notifyActivity(
 ): Promise<boolean> {
   if (!input.recipientId || input.recipientId === input.actorId) return false;
   if (!["like", "comment", "reply"].includes(input.kind)) return false;
+  if (input.kind === "like") {
+    const [sent] = await tx
+      .select({ id: notifications.id })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, input.recipientId),
+          eq(notifications.kind, "like"),
+          eq(notifications.actorId, input.actorId),
+          eq(notifications.postId, input.postId),
+        ),
+      )
+      .limit(1);
+    if (sent) return false;
+  }
   await tx.insert(notifications).values({ userId: input.recipientId, kind: input.kind, actorId: input.actorId, postId: input.postId });
   return true;
 }

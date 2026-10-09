@@ -124,7 +124,7 @@ erDiagram
         varchar description
         int background_item_id FK
         int showcase_animal_id FK "전시 동물, NULL 허용"
-        varchar roof_color "집 지붕 색 8색, NULL = 배경 색"
+        varchar roof_color "집 지붕 색 10색, NULL = 처음 받은 무작위 색"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -384,8 +384,9 @@ erDiagram
 
 ### 3.20 집 지붕 색 (`blogs.roof_color`, TOWN-07)
 
-- 광장 내 집의 지붕 색. `blogs.roof_color`(NULL 허용) + CHECK `blogs_roof_color_check`: NULL 또는 `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` 8개 코드값 (`0013_blog_roof_description`).
-- NULL이면 장착한 배경 색을 따라간다. 값과 실제 색(hex)의 대응·고르는 화면은 town 그림 코드가 맡는다 (DB에는 코드값만, 그림 규칙과 같다). 값 목록은 `src/lib/blog.ts` `ROOF_COLORS`.
+- 광장 내 집의 지붕 색. `blogs.roof_color`(NULL 허용) + CHECK `blogs_roof_color_check`: NULL 또는 `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` `pink` `mint` 10개 코드값 (`0013_blog_roof_description`, 10색은 `0029_roof_colors`).
+- 집 단계(10레벨마다, 10단계)마다 색이 하나씩 열린다 (2026-10-09 결정). 블로그마다 색 순서가 정해져 있고(블로그 번호로 섞음, `src/lib/house.ts` `roofOrder`), 첫 색이 가입 때 받은 무작위 색이다. 순서는 계산으로 늘 같아서 저장하지 않는다.
+- NULL이면 그 첫 색을 쓴다. 고르면 열린 색인지 서버가 집 단계로 다시 확인하고 저장한다 (`chooseRoofColor`). 실제 색(hex)은 그림 코드(`src/lib/art/town.ts` `ROOF_HEX`)가 맡는다 (DB에는 코드값만, 그림 규칙과 같다).
 
 ### 3.4 장착은 "보유한 아이템"만: 복합 외래 키
 
@@ -411,12 +412,12 @@ FROM point_ledger WHERE user_id = $1;
 ```
 
 - 잔액 컬럼과 기록이 어긋날 일이 없다. 은행 통장의 거래 내역과 같은 방식이다.
-- **레벨도 저장하지 않는다.** 레벨 n이 되려면 누적 경험치 `50 × n × (n − 1)` 이상 (최고 99).
+- **레벨도 저장하지 않는다.** 레벨 n이 되려면 누적 경험치 `10 × n × (n − 1)` 이상 (최고 99). 처음 곡선(`50 ×`)의 1/5로 낮췄다 (2026-10-09, 레벨이 빨리 오르게).
 - `ref_id`는 사유마다 가리키는 표가 달라서(글, 아이템, 동물, 출석) FK가 아니라 글자로 둔다.
 
-| 레벨 | 1 | 2 | 3 | 4 | 5 | 10 |
-|---|---|---|---|---|---|---|
-| 필요 경험치 | 0 | 100 | 300 | 600 | 1,000 | 4,500 |
+| 레벨 | 1 | 2 | 3 | 4 | 5 | 10 | 30 | 90 | 99 |
+|---|---|---|---|---|---|---|---|---|---|
+| 필요 경험치 | 0 | 20 | 60 | 120 | 200 | 900 | 8,700 | 80,100 | 97,020 |
 
 ### 3.6 동시에 눌러도 한 번만, 코인은 음수가 되지 않는다
 
@@ -774,7 +775,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
 | `blogs.description` | `VARCHAR(160)` | 0~160자 (CHECK `blogs_description_check`) |
-| `blogs.roof_color` | `VARCHAR(10)` | `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` 중 하나 (CHECK `blogs_roof_color_check`, TOWN-07) |
+| `blogs.roof_color` | `VARCHAR(10)` | `red` `orange` `yellow` `green` `sky` `blue` `purple` `brown` `pink` `mint` 중 하나 (CHECK `blogs_roof_color_check`, TOWN-07) |
 | `categories.name`, `subcategories.name`, `tags.name` | `VARCHAR(20)` | 1~20자 |
 | `posts.title` | `VARCHAR(100)` | 1~100자 |
 | `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자, 삭제하면 빈 글자 |

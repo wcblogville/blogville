@@ -74,11 +74,13 @@ const header = await page.getByRole("banner").innerText();
 check("GAME-02 경험치 60만이어도 Lv.99", header.includes("Lv.99"));
 check("GAME-02 진행 막대 MAX", await page.getByText("MAX", { exact: true }).isVisible());
 
-// ── TOWN-04: 공개 글이 없는 블로그는 광장에 안 보임 ──
-// 회원의 둘레 집은 즐겨찾기 이웃이라(마을 개편), 최근 글 순 집은 방문자 광장의 ☰ 메뉴 → 텔레포트 목록에서 확인한다
+// ── TOWN-04: 방문자 광장 = 공개 글이 있는 인기 블로그 100곳(누적 방문자 수 순) 중 무작위 10곳 (2026-10-09 결정) ──
+// 회원의 둘레 집은 즐겨찾기 이웃이라(마을 개편), 방문자 광장의 ☰ 메뉴 → 텔레포트 목록에서 확인한다
 const other = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const op = await other.newPage();
-await loginDev(op, "quiet01", "남자 주민");
+// 실행마다 새 회원 (같은 DB로 다시 돌려도 "글 없는 블로그"가 되게)
+const QUIET = `qt${Date.now() % 100_000_000}`;
+await loginDev(op, QUIET, "남자 주민");
 const guestCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const gp = await guestCtx.newPage();
 const visitorHouses = async () => {
@@ -86,20 +88,38 @@ const visitorHouses = async () => {
   await gp.locator("canvas").waitFor();
   await gp.getByRole("button", { name: /메뉴/ }).click();
   await gp.locator("[data-town-panel]").getByRole("button", { name: /텔레포트/ }).click();
-  return gp.locator("[data-town-panel]").innerText();
+  const text = await gp.locator("[data-town-panel]").innerText();
+  return text.split("\n").map((l) => l.trim()).filter((l) => l.endsWith("의 집")).map((l) => l.replace(/^🏠\s*/, "").replace(/의 집$/, ""));
 };
-const neighborsBefore = await visitorHouses();
-check("TOWN-04 글 없는 블로그(quiet01)는 이웃집에 없음", !neighborsBefore.includes("quiet01"));
+const popular = async () =>
+  (
+    await db.query(
+      `SELECT pr.nickname FROM blogs b JOIN profiles pr ON pr.user_id = b.owner_id JOIN users u ON u.id = b.owner_id
+       WHERE u.role <> 'admin' AND EXISTS (SELECT 1 FROM posts p WHERE p.blog_id = b.id AND p.visibility = 'public')
+       ORDER BY (SELECT COUNT(*) FROM blog_visits v WHERE v.blog_id = b.id) DESC,
+                (SELECT MAX(p.created_at) FROM posts p WHERE p.blog_id = b.id AND p.visibility = 'public') DESC, b.id DESC
+       LIMIT 100`,
+    )
+  ).rows.map((r) => r.nickname);
+const pool = new Set(await popular());
+const shown = [await visitorHouses(), await visitorHouses(), await visitorHouses()];
+check("TOWN-04 방문자 집은 10곳 이하", shown.every((h) => h.length <= 10 && h.length === Math.min(10, pool.size)), shown.map((h) => h.length).join(","));
+check("TOWN-04 방문자 집은 모두 인기 100곳 안", shown.flat().every((n) => pool.has(n)), shown.flat().filter((n) => !pool.has(n)).join(","));
+check("TOWN-04 글 없는 블로그는 집이 없음", !shown.flat().includes(QUIET) && !pool.has(QUIET));
+if (pool.size > 12) {
+  check("TOWN-04 다시 열면 다른 조합 (무작위)", new Set(shown.map((h) => [...h].sort().join("|"))).size > 1);
+}
 await op.goto(`${BASE}/write`);
 await op.locator(".ProseMirror").waitFor();
 await op.getByPlaceholder("제목").fill("첫 글");
 await op.locator(".ProseMirror").click();
 await op.keyboard.type("광장에 집이 생기는지 확인하는 글이에요.");
 await op.getByRole("button", { name: "발행하기" }).click();
-await op.waitForURL(/\/@quiet01\/\d+/);
-const neighborsAfter = await visitorHouses();
+await op.waitForURL(new RegExp(`/@${QUIET}/\\d+`));
+// 공개 글이 생기면 인기 순위 후보가 된다 (방문자 수가 많으면 100곳 안에 든다)
+const poolAfter = new Set(await popular());
 await guestCtx.close();
-check("TOWN-04 공개 글을 쓰면 이웃집에 나타남", neighborsAfter.includes("quiet01"));
+check("TOWN-04 공개 글을 쓰면 인기 후보에 들어감 (100곳이 다 찼으면 방문자 순위 밖일 수 있음)", poolAfter.has(QUIET) || poolAfter.size === 100);
 
 // ── TOWN-02: 가상 조이스틱 (터치 화면에만) ──
 // 휴대폰은 광장 대신 간단 메뉴를 보여주므로(e2e/mobile.mjs), 조이스틱은 터치 태블릿에서 확인한다

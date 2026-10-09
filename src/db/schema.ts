@@ -255,7 +255,7 @@ export const blogs = pgTable(
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     backgroundItemId: integer("background_item_id").notNull(),
-    // 집 지붕 색 (TOWN-07 요청, BLOG data-model 2.1). NULL = 배경 색 따라가기. 값 목록은 src/lib/blog.ts ROOF_COLORS
+    // 집 지붕 색 (TOWN-07). NULL = 가입 때 받은 무작위 색(블로그 번호로 정한 순서의 첫 색, src/lib/house.ts roofOrder). 값 목록은 src/lib/blog.ts ROOF_COLORS
     roofColor: text("roof_color"),
     // 전시 동물 한 마리 (BLOG-04 / FR-030·031, data-model 2.1). NULL = 전시 없음. 다 키운 동물만인지는 앱이 확인 (research R-19)
     showcaseAnimalId: integer("showcase_animal_id"),
@@ -267,10 +267,10 @@ export const blogs = pgTable(
     check("blogs_title_check", sql`char_length(${t.title}) BETWEEN 1 AND 40`),
     // 소개 0~160자 (BLOG-03 / FR-016, research R-23)
     check("blogs_description_check", sql`char_length(${t.description}) <= 160`),
-    // 지붕 색은 8색 코드값만 (ROOF_COLORS와 같게, research R-22)
+    // 지붕 색은 10색 코드값만 (ROOF_COLORS와 같게, 집 10단계마다 하나씩 열림)
     check(
       "blogs_roof_color_check",
-      sql`${t.roofColor} IS NULL OR ${t.roofColor} IN ('red', 'orange', 'yellow', 'green', 'sky', 'blue', 'purple', 'brown')`,
+      sql`${t.roofColor} IS NULL OR ${t.roofColor} IN ('red', 'orange', 'yellow', 'green', 'sky', 'blue', 'purple', 'brown', 'pink', 'mint')`,
     ),
     foreignKey({
       name: "blogs_background_owned_fk",

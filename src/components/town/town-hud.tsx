@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toggleFavorite } from "@/app/town/actions";
 import { openNotification } from "@/app/notifications/actions";
+import { OwnerAvatar } from "@/components/blog/blog-header";
 import { CharacterBadge } from "@/components/character";
 import { SignOutButton } from "@/components/sign-out-button";
 import { notificationText, notificationTime, unreadBadge, type NotificationRow } from "@/lib/notifications";
@@ -15,6 +16,9 @@ import type { TownData, TownFriend } from "./types";
 export type TownHudMember = {
   userId: string;
   isAdmin: boolean;
+  /** ☰ 내 프로필에 보일 사진·블로그 제목 (헤더 상태창 TOWN-10 대신, 사용자 결정 2026-10-09) */
+  photoKey: string | null;
+  blogTitle: string;
   wallet: { coins: number; level: number; current: number; needed: number; isMax: boolean };
   unread: number;
   notifications: (NotificationRow & { id: number; createdAt: Date; readAt: Date | null })[];
@@ -188,9 +192,16 @@ function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember 
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <CharacterBadge asset={data.player!.characterAsset} outfit={data.player!.outfit} size={64} />
+        {member.photoKey ? (
+          <OwnerAvatar photoKey={member.photoKey} characterAsset={data.player!.characterAsset} nickname={data.player!.nickname} size={64} />
+        ) : (
+          <CharacterBadge asset={data.player!.characterAsset} outfit={data.player!.outfit} size={64} />
+        )}
         <div className="min-w-0">
           <p className="truncate font-display text-xl">{data.player!.nickname}</p>
+          <p className="truncate text-sm text-ink-soft" data-profile-blog>
+            📖 {member.blogTitle}
+          </p>
           <p className="text-sm text-ink-soft">Lv.{wallet.level}</p>
         </div>
       </div>

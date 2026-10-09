@@ -1,17 +1,20 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import { blogs, follows, items, pointLedger, posts, profiles, users } from "@/db/schema";
+import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, users } from "@/db/schema";
+import { ROOF_HEX } from "@/lib/art/town";
 import { levelFromExp } from "@/lib/game";
+import { currentRoof } from "@/lib/house";
 import type { TownFriend, TownHouse } from "@/components/town/types";
 
 const characterItem = alias(items, "character_item");
-const backgroundItem = alias(items, "background_item");
 
 /** 마을 둘레 이웃집 자리 수 (내 집 1 + 즐겨찾기 10, 사용자 요청 2026-10-08) */
 export const FAVORITE_LIMIT = 10;
+/** 방문자 광장은 인기 블로그 이만큼 중에서 고른다 (TOWN-04) */
+const POPULAR_POOL = 100;
 /** 우체통에서 보여 줄 최근 공개 글 수 */
 const RECENT_POSTS = 3;
 
@@ -36,13 +39,12 @@ function houseQuery() {
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
       outfit: outfitOf(blogs.ownerId),
-      backgroundAsset: backgroundItem.assetKey,
+      roofColor: blogs.roofColor,
       exp: ownerExp,
     })
     .from(blogs)
     .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))
     .innerJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
-    .innerJoin(backgroundItem, eq(backgroundItem.id, blogs.backgroundItemId))
     .$dynamic();
 }
 
@@ -63,19 +65,29 @@ async function toHouses(rows: HouseRow[]): Promise<TownHouse[]> {
     .as("ranked");
   const recent = await db.select().from(ranked).where(sql`${ranked.rank} <= ${RECENT_POSTS}`).orderBy(asc(ranked.rank));
 
-  return rows.map(({ blogId, exp, ...h }) => ({
+  return rows.map(({ blogId, exp, roofColor, ...h }) => ({
     ...h,
+    roof: ROOF_HEX[currentRoof(blogId, roofColor)],
     level: levelFromExp(exp),
     recentPosts: recent.filter((p) => p.blogId === blogId).map((p) => ({ id: p.id, title: p.title })),
   }));
 }
 
-/** 방문자에게 보여 줄 둘레 집: 공개 글이 있는 블로그만, 최근 공개 글 순 (TOWN-04) */
-export async function getTownHouses(excludeUserId: string | null, limit = FAVORITE_LIMIT): Promise<TownHouse[]> {
-  const rows = await houseQuery()
-    .where(and(excludeUserId ? ne(blogs.ownerId, excludeUserId) : undefined, isNotNull(lastPublicPostAt), notAdminBlog))
-    .orderBy(sql`${lastPublicPostAt} DESC`, desc(blogs.createdAt))
-    .limit(limit);
+/** 블로그 누적 방문자 수 (BLOG-06: 같은 사람은 하루 1번) */
+const totalVisits = sql`(SELECT COUNT(*) FROM ${blogVisits} WHERE ${blogVisits.blogId} = ${blogs.id})`;
+
+/**
+ * 로그인하지 않은 방문자의 둘레 집 (TOWN-04): 공개 글이 있는 블로그 중 인기 100곳에서 광장을 열 때마다 무작위 10곳.
+ * 인기 = 누적 방문자 수, 같으면 최근 공개 글 순 (문서의 열린 질문이라 2026-10-09에 정함). 공지 블로그는 빠진다
+ */
+export async function getGuestHouses(): Promise<TownHouse[]> {
+  const popular = db
+    .select({ id: blogs.id })
+    .from(blogs)
+    .where(and(isNotNull(lastPublicPostAt), notAdminBlog))
+    .orderBy(sql`${totalVisits} DESC`, sql`${lastPublicPostAt} DESC`, desc(blogs.id))
+    .limit(POPULAR_POOL);
+  const rows = await houseQuery().where(inArray(blogs.id, popular)).orderBy(sql`random()`).limit(FAVORITE_LIMIT);
   return toHouses(rows);
 }
 

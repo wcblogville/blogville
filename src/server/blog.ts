@@ -46,6 +46,7 @@ export async function getBlogBySlug(slug: string) {
       characterAsset: characterItem.assetKey,
       outfit: outfitOf(blogs.ownerId),
       backgroundAsset: backgroundItem.assetKey,
+      roofColor: blogs.roofColor,
       followerCount: sql<number>`(SELECT COUNT(*)::int FROM ${follows} WHERE ${follows.followeeId} = ${blogs.ownerId})`,
       postCount: sql<number>`(SELECT COUNT(*)::int FROM ${posts} WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public')`,
     })
