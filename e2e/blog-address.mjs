@@ -124,8 +124,8 @@ const post = await one(
   check("US3-1 글 카드의 블로그 이름", (await card.innerText()).includes("· 새 이름"));
   const ph = await browser.newContext({ ...phone, storageState: await a.ctx.storageState() });
   const pp = await ph.newPage();
-  await pp.goto(`${BASE}/town`);
-  check("US3-1 광장 내 집 아랫줄", (await pp.locator("[data-town-menu]").getByRole("link", { name: /내 블로그/ }).innerText()).includes("새 이름"));
+  await pp.goto(`${BASE}/town?menu=1`);
+  check("US3-1 휴대폰 ☰ 메뉴 내 프로필의 블로그 이름", (await pp.locator("[data-town-menu] [data-profile-blog]").innerText()).includes("새 이름"));
   await ph.close();
 }
 
@@ -188,11 +188,11 @@ const NEW = `my_${n}`;
   }
   const ph = await browser.newContext({ ...phone, storageState: await a.ctx.storageState() });
   const pp = await ph.newPage();
-  await pp.goto(`${BASE}/town`);
+  await pp.goto(`${BASE}/town?menu=1`);
   found.push(...(await hrefs(pp)).filter(old));
-  const myHouse = await pp.locator("[data-town-menu]").getByRole("link", { name: /내 블로그/ }).getAttribute("href");
+  const myHouse = await pp.locator("[data-mobile-tabs]").getByRole("link", { name: /내 블로그/ }).getAttribute("href");
   await ph.close();
-  check("US3-4 사이트가 그린 링크에 예전 주소 0개, 광장 내 집은 새 주소", found.length === 0 && myHouse === `/@${NEW}`, `${found.join(",")} / ${myHouse}`);
+  check("US3-4 사이트가 그린 링크에 예전 주소 0개, 휴대폰 아래 탭 내 블로그는 새 주소", found.length === 0 && myHouse === `/@${NEW}`, `${found.join(",")} / ${myHouse}`);
 
   await a.page.goto(`${BASE}/write`);
   await a.page.locator(".ProseMirror").waitFor();
@@ -271,7 +271,7 @@ const A_SLUG = `c5_${n}`;
   const card = await a.page.locator("main article").filter({ hasText: `주소 확인 글 ${n}` }).innerText();
   const ph = await browser.newContext({ ...phone, storageState: await a.ctx.storageState() });
   const pp = await ph.newPage();
-  await pp.goto(`${BASE}/town`);
+  await pp.goto(`${BASE}/town?menu=1`);
   const townText = await pp.locator("[data-town-menu]").innerText().catch(() => "");
   await ph.close();
   check("US3-6 미니룸 배지·글 상세·글 카드에 새 닉네임", badge.includes(NICK) && detail.includes(`· ${NICK}`) && card.includes(NICK), JSON.stringify({ badge, card: card.slice(0, 40) }));

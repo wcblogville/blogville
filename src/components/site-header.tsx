@@ -21,10 +21,10 @@ export async function SiteHeader() {
   return (
     <HeaderFrame>
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 group-data-[town]:justify-center sm:gap-3 sm:px-4">
-        <HomeLogo href={member ? "/town" : "/"} />
+        <HomeLogo href={member ? "/town" : "/"} member={Boolean(member)} />
 
         <div className="flex min-w-0 flex-1 group-data-[town]:hidden">
-          <ExitButton />
+          <ExitButton member={Boolean(member)} />
         </div>
 
         {member && wallet && alerts ? (

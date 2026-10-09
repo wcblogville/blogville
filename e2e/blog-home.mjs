@@ -50,13 +50,13 @@ check("US1-1 배경 초원", blog?.bg === "bg_meadow", blog?.bg);
 const cats = (await db.query("SELECT name, position FROM categories WHERE blog_id = $1", [blog.id])).rows;
 check("US1-1 대분류 \"일상\" 1개", cats.length === 1 && cats[0].name === "일상" && cats[0].position === 0, JSON.stringify(cats));
 
-// US1-2 광장 내 집(휴대폰 메뉴의 내 블로그)과 블로그 관리 `내 블로그로 →`
+// US1-2 휴대폰 아래 탭의 내 블로그와 블로그 관리 `내 블로그로 →`
 {
   const ctx = await browser.newContext({ ...phone, storageState: await own.ctx.storageState() });
   const p = await ctx.newPage();
-  await p.goto(`${BASE}/town`);
-  const href = await p.locator("[data-town-menu]").getByRole("link", { name: /내 블로그/ }).getAttribute("href");
-  check("US1-2 광장 내 집 → /@{아이디}", href === `/@${OWNER}`, href);
+  await p.goto(`${BASE}/feed`);
+  const href = await p.locator("[data-mobile-tabs]").getByRole("link", { name: /내 블로그/ }).getAttribute("href");
+  check("US1-2 휴대폰 아래 탭 내 블로그 → /@{아이디}", href === `/@${OWNER}`, href);
   await ctx.close();
 }
 await own.page.goto(`${BASE}/settings/blog`);

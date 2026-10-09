@@ -31,12 +31,14 @@ export async function loginDev(page, devId, character = "남자 주민", passwor
   await page.getByLabel("아이디").fill(devId);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "로그인", exact: true }).click();
-  // 로그인 성공(광장 / 휴대폰 메뉴) 또는 실패 메시지 중 먼저 나오는 것
+  // 로그인 성공(광장 / 휴대폰은 아래 탭) 또는 실패 메시지 중 먼저 나오는 것
   await page
-    .locator("canvas, [data-town-menu]:visible")
+    .locator("canvas, [data-town-menu]:visible, [data-mobile-tabs]:visible")
     .or(page.getByText("아이디 또는 비밀번호가"))
     .first()
     .waitFor({ timeout: 20000 });
+  // 휴대폰 회원은 광장 대신 내 블로그로 옮겨진다 (src/components/town/phone-home.tsx). 옮겨진 뒤에 이어 간다
+  if (await page.locator("[data-mobile-tabs]:visible").count()) await page.waitForURL(/\/@/, { timeout: 15000 }).catch(() => {});
 
   if (await page.getByText("아이디 또는 비밀번호가").isVisible()) {
     await page.getByRole("tab", { name: "회원가입" }).click();
@@ -45,9 +47,10 @@ export async function loginDev(page, devId, character = "남자 주민", passwor
     await page.getByLabel("비밀번호 확인").fill(password);
     await page.locator("label", { hasText: character }).click();
     await page.getByRole("button", { name: "회원가입", exact: true }).click();
-    // 첫 가입은 내 블로그(집 안)에서 시작한다 (마을 개편 2차). 시험은 광장에서 이어 간다
+    // 첫 가입은 내 블로그(집 안)에서 시작한다 (마을 개편 2차). 시험은 광장(휴대폰은 내 블로그)에서 이어 간다
     await page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 });
     await page.goto(`${BASE}/town`);
+    if (await page.locator("[data-mobile-tabs]:visible").count()) await page.waitForURL(/\/@/, { timeout: 15000 }).catch(() => {});
   }
 }
 

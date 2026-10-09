@@ -122,12 +122,12 @@ export function HouseRoom({
           aria-hidden
         />
 
-        {/* 문: 누르면 마을로 나간다 */}
+        {/* 문: 누르면 마을로 나간다. 휴대폰에는 광장이 없어 숨긴다 (아래 탭으로 다닌다, 2026-10-09) */}
         <Link
           href={doorHref}
           data-house-door
           aria-label="문 열고 마을로 나가기"
-          className={`group absolute bottom-[34%] right-[5%] flex h-[56%] w-16 flex-col items-center justify-end rounded-t-full border-[3px] border-[#4a3426] bg-[#9b6a43] pb-2 shadow-md transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-sky sm:w-20 ${
+          className={`group absolute bottom-[34%] right-[5%] flex h-[56%] w-16 flex-col phone:hidden items-center justify-end rounded-t-full border-[3px] border-[#4a3426] bg-[#9b6a43] pb-2 shadow-md transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-sky sm:w-20 ${
             highlightDoor ? "ring-4 ring-sun ring-offset-2 motion-safe:animate-pulse" : ""
           }`}
         >
@@ -137,7 +137,7 @@ export function HouseRoom({
 
         {/* 가구 칸: 바닥 위에 한 줄 (휴대폰에서 6·8칸은 두 줄) */}
         <ul
-          className={`absolute bottom-[6%] left-[3%] right-[24%] items-end justify-around gap-1 ${twoRows ? "grid grid-cols-4 justify-items-center sm:flex" : "flex"}`}
+          className={`absolute bottom-[6%] left-[3%] right-[24%] items-end phone:right-[3%] justify-around gap-1 ${twoRows ? "grid grid-cols-4 justify-items-center sm:flex" : "flex"}`}
           aria-label="집 안 가구"
         >
           {Array.from({ length: house.slots }, (_, slot) => {

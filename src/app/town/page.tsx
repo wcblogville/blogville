@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DropSearchParam } from "@/components/drop-search-param";
 import { TownGame } from "@/components/town/town-game";
 import { TownHud, type TownHudMember } from "@/components/town/town-hud";
+import { PhoneHome } from "@/components/town/phone-home";
 import { TownMenu } from "@/components/town/town-menu";
 import type { TownData } from "@/components/town/types";
 import { getViewer } from "@/server/dal";
@@ -17,7 +18,7 @@ export const metadata = { title: "중앙 광장" };
 export default async function TownPage(props: PageProps<"/town">) {
   const viewer = await getViewer();
   const member = viewer?.profile ? viewer : null;
-  const { welcome, at } = await props.searchParams;
+  const { welcome, at, menu } = await props.searchParams;
 
   // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳
   const [neighbors, myHouse, hud] = await Promise.all([
@@ -36,14 +37,18 @@ export default async function TownPage(props: PageProps<"/town">) {
   };
 
   // 광장은 화면 전체를 쓴다 (헤더 막대 없이 Blogville 글자만 위에 뜬다). 안내·환영·이웃집은 게임 위에 띄운다.
-  // 휴대폰에서는 광장 대신 간단 메뉴만 보여준다 (10/6 회의 결정, `phone:` = 휴대폰 화면)
+  // 휴대폰(`phone:`)에는 광장이 없다 (사용자 결정 2026-10-09): 회원은 내 블로그로 옮기고, 아래 탭의 ☰ 메뉴(?menu=1)와 방문자는 간단 메뉴
   return (
     <div className="relative h-dvh min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible phone:pt-14">
       <h1 className="sr-only">중앙 광장</h1>
       {/* 집의 🚪 문으로 나오면(?at=블로그 주소) 그 집 앞에서, 처음 온 회원은 내 집 앞에서 시작한다 */}
       <TownGame data={data} startAt={startAt(data, welcome && member ? myHouse?.slug : at)} className="h-full w-full phone:hidden" />
       <TownHud data={data} member={hud} className="phone:hidden" />
-      <TownMenu data={data} member={hud} welcome={Boolean(welcome)} className="hidden phone:block" />
+      {member && !menu ? (
+        <PhoneHome href={`/@${member.profile.blogSlug}`} className="hidden phone:block" />
+      ) : (
+        <TownMenu data={data} member={hud} className="hidden phone:block" />
+      )}
       {/* 환영은 한 번만: 보여 준 뒤 주소에서 ?welcome을 지워 새로고침하면 다시 뜨지 않게 (TOWN-01 / SC-002) */}
       {welcome && <DropSearchParam name="welcome" />}
 
