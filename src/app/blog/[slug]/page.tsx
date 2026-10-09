@@ -107,27 +107,36 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
           </p>
         </div>
       )}
-      <BlogHeader
-        blog={blog}
-        viewerId={viewerId}
-        following={following}
-        visits={visits}
-        showcase={shown && { assetKey: shown.assetKey, name: shown.name }}
-      />
-      {/* 도감: 블로그 정보 아래 작은 카드 줄 (FR-029, research R-20). 전시 버튼은 주인에게만 */}
-      <AnimalCollection
-        animals={grown.map((a) => ({ id: a.id, name: a.name, assetKey: a.assetKey, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
-        showcaseId={shown?.id ?? null}
-        isOwner={isOwner}
-      />
-      <HouseRoom
-        house={house}
-        placed={placed}
-        owned={owned}
-        roof={isOwner ? { current: currentRoof(blog.id, blog.roofColor), order: roofOrder(blog.id), unlocked: house.stage } : null}
-        doorHref={doorHref}
-        highlightDoor={welcome}
-      />
+      {/* 위쪽 한 줄 두 칸 (사용자 요청 2026-10-09): 넓은 화면은 왼쪽 큰 "우리 집" 방 + 오른쪽 같은 높이의 좁은 프로필 카드.
+          좁은 화면은 카드가 위, 방이 아래. 휴대폰 순서가 카드 먼저라 DOM도 카드를 먼저 두고 넓은 화면에서 칸을 바꾼다 */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <BlogHeader
+          blog={blog}
+          viewerId={viewerId}
+          following={following}
+          visits={visits}
+          showcase={shown && { assetKey: shown.assetKey, name: shown.name }}
+          wallet={ownerWallet}
+          className="lg:col-start-2 lg:row-start-1"
+          collection={
+            // 도감: [🏅 도감] 버튼 → 다 키운 동물 창 (FR-029, research R-20). 전시 버튼은 주인에게만
+            <AnimalCollection
+              animals={grown.map((a) => ({ id: a.id, name: a.name, assetKey: a.assetKey, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
+              showcaseId={shown?.id ?? null}
+              isOwner={isOwner}
+            />
+          }
+        />
+        <HouseRoom
+          house={house}
+          placed={placed}
+          owned={owned}
+          roof={isOwner ? { current: currentRoof(blog.id, blog.roofColor), order: roofOrder(blog.id), unlocked: house.stage } : null}
+          doorHref={doorHref}
+          highlightDoor={welcome}
+          className="lg:col-start-1 lg:row-start-1"
+        />
+      </div>
 
       <div className="mt-6 grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="min-w-0 md:sticky md:top-20 md:self-start">

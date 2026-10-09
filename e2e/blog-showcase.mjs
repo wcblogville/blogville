@@ -52,9 +52,16 @@ const egg = await one("INSERT INTO user_animals (user_id, status, source) VALUES
 const growing = await addAnimal(owner.id, "calf", "growing", 0);
 const showcaseNow = async () => (await one("SELECT showcase_animal_id AS id FROM blogs WHERE id = $1", [owner.blog_id])).id;
 
-/** 블로그 홈 미니룸·프로필·도감 모습 (보는 사람마다 비교) */
+/** 프로필 카드의 [🏅 도감] 버튼으로 도감 창을 연다 (사용자 요청 2026-10-09: 도감은 버튼 → 창) */
+async function openCollection(page) {
+  await page.locator("[data-collection-open]").click();
+  await page.locator("dialog[data-collection]").waitFor();
+}
+
+/** 블로그 홈 미니룸·프로필·도감 모습 (보는 사람마다 비교). 도감 창을 열어 둔 채로 돌려준다 */
 async function viewOf(page, slug = OWNER) {
   await page.goto(`${BASE}/@${slug}`);
+  await openCollection(page);
   const main = page.locator("main");
   const room = main.locator("section.card").first().locator("> div").first();
   return {
@@ -94,7 +101,7 @@ async function viewOf(page, slug = OWNER) {
   check("US4-2 꾸미기에서 배경 변경 → 미니룸 배경 바뀜", before !== after && code === "bg_snow", code);
 }
 
-// US4-4 미니룸 높이: 375px 224px, 1280px 256px, 아래쪽 테두리 2px·나머지 0
+// US4-4 미니룸(프로필 카드 머리) 높이: 375px·1280px 모두 176px, 아래쪽 테두리 2px·나머지 0
 {
   const box = async (page) =>
     page.locator("main section.card").first().locator("> div").first().evaluate((el) => {
@@ -105,8 +112,8 @@ async function viewOf(page, slug = OWNER) {
   const p = await fresh(phone);
   await p.page.goto(`${BASE}/@${OWNER}`);
   const m = await box(p.page);
-  check("US4-4 1280px 미니룸 높이 256px", d.h === 256, `${d.h}px`);
-  check("US4-4 375px 미니룸 높이 224px", m.h === 224, `${m.h}px`);
+  check("US4-4 1280px 미니룸 높이 176px", d.h === 176, `${d.h}px`);
+  check("US4-4 375px 미니룸 높이 176px", m.h === 176, `${m.h}px`);
   check("US4-4 아래쪽 테두리 2px만", d.b === "2px" && d.t === "0px" && d.l === "0px" && d.r === "0px", JSON.stringify(d));
   await p.ctx.close();
 }
@@ -118,6 +125,7 @@ async function viewOf(page, slug = OWNER) {
   check("US4-6 도감 카드 3장 (알·자라는 중 없음)", v.cards.length === 3, `${v.cards.length}장`);
   check("US4-6 다 키운 시각 최신순", JSON.stringify(names) === JSON.stringify(["아기 돼지", "토끼", "병아리"]), names.join(","));
   await guest.page.goto(`${BASE}/@${OTHER}`);
+  await openCollection(guest.page);
   check("US4-6 다 키운 동물이 없으면 `아직 다 키운 동물이 없어요`", await guest.page.getByText("아직 다 키운 동물이 없어요").isVisible());
 }
 
@@ -134,12 +142,14 @@ async function viewOf(page, slug = OWNER) {
   const v1 = await viewOf(guest.page);
   check("US4-7 [전시하기] → 미니룸에 토끼", v1.showcase === 1 && v1.showcaseName === "토끼" && (await showcaseNow()) === bunny, v1.showcaseName);
   await own.page.goto(`${BASE}/@${OWNER}`);
+  await openCollection(own.page);
   await card("병아리").getByRole("button", { name: "전시하기" }).click();
   await card("병아리").getByText("전시 중").waitFor({ timeout: 10000 });
   const v2 = await viewOf(guest.page);
   check("US4-7 다른 동물 → 바뀜, 늘 1마리", v2.showcase === 1 && v2.showcaseName === "병아리" && (await showcaseNow()) === chick, v2.showcaseName);
   await own.page.screenshot({ path: `${outDir}/sc-01-owner.png`, fullPage: true });
   await own.page.goto(`${BASE}/@${OWNER}`);
+  await openCollection(own.page);
   await card("병아리").getByRole("button", { name: "전시 빼기" }).click();
   await own.page.locator("[data-showcase]").waitFor({ state: "detached", timeout: 10000 });
   check("US4-7 [전시 빼기] → 빈 자리", (await showcaseNow()) === null && (await viewOf(guest.page)).showcase === 0);
@@ -149,6 +159,7 @@ async function viewOf(page, slug = OWNER) {
 {
   const othersAnimal = await addAnimal(other.id, "calf", "grown", 5);
   await own.page.goto(`${BASE}/@${OWNER}`);
+  await openCollection(own.page);
   const reqP = own.page.waitForRequest((r) => r.method() === "POST" && !!r.headers()["next-action"]);
   await own.page.locator("[data-animal-card]", { hasText: "아기 돼지" }).getByRole("button", { name: "전시하기" }).click();
   const req = await reqP;
