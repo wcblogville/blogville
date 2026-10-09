@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { lookKey } from "@/lib/art/characters";
 import { PHONE_MEDIA } from "@/lib/device";
 import { townBus } from "./bus";
-import type { TownData, TownTarget } from "./types";
+import type { TownLive } from "./scene";
+import type { TownData, TownDecoration, TownTarget } from "./types";
 
 export function TownGame({
   data: fresh,
@@ -23,6 +24,11 @@ export function TownGame({
   const key = JSON.stringify(fresh);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const data = useMemo(() => fresh, [key]);
+  // 꾸미기 창에서 바꾼 장식과 꾸미기 창이 열렸는지. 게임이 만들어지기 전에 바뀌어도 장면이 시작할 때 읽는다
+  const live = useRef<TownLive>({ decorations: data.decorations, decoMode: false });
+  // 화면에 보이는 장식 (data-decorations, e2e가 읽는다). 광장 데이터가 새로 오면 그 값을 쓴다
+  const [placed, setPlaced] = useState<{ base: TownData; list: TownDecoration[] } | null>(null);
+  const decorations = placed?.base === data ? placed.list : data.decorations;
 
   useEffect(() => {
     let game: import("phaser").Game | null = null;
@@ -38,6 +44,17 @@ export function TownGame({
     };
     // 메뉴에서 고른 곳으로 순간 이동, 메뉴 창이 열려 있으면 키보드를 메뉴에 양보
     const offTeleport = townBus.on("teleport", (spot) => game?.events.emit("teleport", spot));
+    // 광장 꾸미기: 놓은 장식을 바로 그리고, 꾸미기 창이 열려 있으면 자리 번호를 보여 준다
+    live.current.decorations = data.decorations;
+    const offDecorations = townBus.on("decorations", (list) => {
+      live.current.decorations = list;
+      setPlaced({ base: data, list });
+      game?.events.emit("decorations", list);
+    });
+    const offDecoMode = townBus.on("deco-mode", (on) => {
+      live.current.decoMode = on;
+      game?.events.emit("deco-mode", on);
+    });
     const offPanel = townBus.on("panel", (open) => {
       const keyboard = game?.scene.getScene("town")?.input.keyboard;
       if (!keyboard) return;
@@ -87,7 +104,7 @@ export function TownGame({
         backgroundColor: "#8fd18a",
         physics: { default: "arcade", arcade: { debug: false } },
         scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
-        scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily, startAt),
+        scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily, startAt, live.current),
       });
     };
     const stop = () => {
@@ -103,6 +120,8 @@ export function TownGame({
     return () => {
       cancelled = true;
       offTeleport();
+      offDecorations();
+      offDecoMode();
       offPanel();
       window.removeEventListener("keydown", yieldKeys, true);
       window.removeEventListener("keyup", yieldKeys, true);
@@ -116,8 +135,10 @@ export function TownGame({
     <div
       ref={containerRef}
       data-player-look={data.player ? lookKey(data.player.characterAsset, data.player.outfit) : undefined}
+      data-decorations={decorations.map((d) => `${d.slot}:${d.assetKey}`).join(",")}
+      data-town-host={data.host?.slug}
       className={`overflow-hidden bg-[#8fd18a] ${className}`}
-      aria-label="중앙 광장. 방향키나 WASD로 움직이고 Space로 건물에 들어갑니다."
+      aria-label={`${data.host ? `${data.host.nickname}님의 마을` : "중앙 광장"}. 방향키나 WASD로 움직이고 Space로 건물에 들어갑니다.`}
     />
   );
 }

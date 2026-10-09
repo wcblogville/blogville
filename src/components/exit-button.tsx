@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { isTownPath } from "@/components/town/layout";
 
 // 광장이 메인이라 다른 곳으로 가는 메뉴는 두지 않는다. 광장 밖에서는 "나가기"로 광장에 돌아온다.
 // 휴대폰의 회원은 광장이 없고 아래 탭으로 다니므로 나가기를 숨긴다 (사용자 결정 2026-10-09)
-const HIDDEN_ON = new Set(["/", "/town"]);
+const HIDDEN_ON = new Set(["/"]);
 
 export function ExitButton({ member = false }: { member?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  if (HIDDEN_ON.has(pathname)) return null;
+  if (HIDDEN_ON.has(pathname) || isTownPath(pathname)) return null;
   // 가입 직후 블로그(?welcome=1)에서 나가면 문으로 나간 것과 같게 첫 마을 환영으로 간다
   const exit = (e: React.MouseEvent) => {
     if (!new URLSearchParams(window.location.search).has("welcome")) return;
@@ -31,7 +32,7 @@ export function ExitButton({ member = false }: { member?: boolean }) {
  */
 export function HomeLogo({ href, member = false }: { href: string; member?: boolean }) {
   const pathname = usePathname();
-  const exitShown = !HIDDEN_ON.has(pathname) && !member;
+  const exitShown = !HIDDEN_ON.has(pathname) && !isTownPath(pathname) && !member;
   return (
     <Link href={href} className={`shrink-0 font-display text-xl text-leaf-dark sm:text-2xl ${exitShown ? "max-sm:hidden" : ""} group-data-[town]:pointer-events-auto group-data-[town]:text-3xl group-data-[town]:text-white group-data-[town]:[text-shadow:0_2px_0_#2f6b2a,0_0_10px_rgba(0,0,0,.25)] group-data-[town]:phone:text-leaf-dark group-data-[town]:phone:[text-shadow:none]`}>
       Blogville

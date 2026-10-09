@@ -1,10 +1,12 @@
-// 게임 규칙 계산 테스트: 레벨(GAME-02), 출석 일차(GAME-04), 레벨업(GAME-06), 동물 농장(TOWN-09), 집 단계·지붕 색(TOWN-07·11)
+// 게임 규칙 계산 테스트: 레벨(GAME-02), 출석 일차(GAME-04), 레벨업(GAME-06), 동물 농장(TOWN-09), 집 단계·지붕 색(TOWN-07·11), 광장 꾸미기 자리
 // 실행: npm run test:game
-import { houseStage } from "../src/lib/art/town";
+import { DECO_ASSETS, decoSize } from "../src/lib/art/deco";
+import { BOARD_POS, CENTER, DECO_SLOTS, FARM_POS, FISHING_POS, HOUSE_SLOTS, houseSlot, PLAZA_RADIUS, POND_POS, SHOP_POS, TOWN_RADIUS } from "../src/components/town/layout";
+import { BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, houseStage, LAMP_SIZE, SHOP_SIZE } from "../src/lib/art/town";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
-import { currentRoof, furnitureSlots, houseInfo, roofOrder, unlockedRoofs } from "../src/lib/house";
+import { currentRoof, decorationSlots, decoSlotLevel, furnitureSlots, houseInfo, MAX_DECO_SLOTS, roofOrder, unlockedRoofs } from "../src/lib/house";
 
 let failed = 0;
 function expect(name: string, got: unknown, want: unknown) {
@@ -37,6 +39,45 @@ expect("1단계 1색, 3단계 3색", [unlockedRoofs(7, 1).length, unlockedRoofs(
 expect("안 골랐으면 첫 색", currentRoof(7, null), roofOrder(7)[0]);
 expect("고른 색", currentRoof(7, "mint"), "mint");
 expect("이상한 값은 첫 색", currentRoof(7, "gold"), roofOrder(7)[0]);
+
+// 광장 꾸미기 (사용자 요청 2026-10-09): 자리는 집 단계만큼 열리고, 장식이 건물·길·연못과 겹치지 않는 곳에 있다
+expect("꾸미기 자리 수: Lv.1·9 4, Lv.10 6, Lv.20·99 8", [1, 9, 10, 20, 99].map(decorationSlots), [4, 4, 6, 8, 8]);
+expect("꾸미기 자리가 열리는 레벨", Array.from({ length: MAX_DECO_SLOTS }, (_, i) => decoSlotLevel(i)), [1, 1, 1, 1, 10, 10, 20, 20]);
+expect("꾸미기 자리 8개", DECO_SLOTS.length, MAX_DECO_SLOTS);
+expect("꾸미기 자리는 타운 잔디 원 안", DECO_SLOTS.every((p) => Math.hypot(p.x - CENTER.x, p.y - CENTER.y) < TOWN_RADIUS - 60), true);
+{
+  // 가장 큰 장식이 차지하는 칸 (아랫변 가운데 기준)
+  const big = { w: Math.max(...DECO_ASSETS.map((k) => decoSize(k).width)), h: Math.max(...DECO_ASSETS.map((k) => decoSize(k).height)) };
+  type Box = { x1: number; y1: number; x2: number; y2: number };
+  const box = (x: number, y: number, w: number, h: number): Box => ({ x1: x - w / 2, y1: y - h, x2: x + w / 2, y2: y });
+  const overlap = (a: Box, b: Box) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
+  const decoBoxes = DECO_SLOTS.map((p) => box(p.x, p.y, big.w, big.h));
+  const buildings: [string, Box][] = [
+    ["게시판", box(BOARD_POS.x, BOARD_POS.y, BOARD_SIZE.width, BOARD_SIZE.height)],
+    ["상점", box(SHOP_POS.x, SHOP_POS.y, SHOP_SIZE.width, SHOP_SIZE.height)],
+    ["낚시터", box(FISHING_POS.x, FISHING_POS.y, FISHING_SIZE.width, FISHING_SIZE.height)],
+    ["농장", box(FARM_POS.x, FARM_POS.y, FARM_SIZE.width, FARM_SIZE.height)],
+    ["분수", box(CENTER.x, CENTER.y + FOUNTAIN_SIZE.height / 2, FOUNTAIN_SIZE.width, FOUNTAIN_SIZE.height)],
+    ["연못", { x1: POND_POS.x - 125, y1: POND_POS.y - 75, x2: POND_POS.x + 125, y2: POND_POS.y + 75 }],
+    ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy]): [string, Box] => ["가로등", box(CENTER.x + dx * 185, CENTER.y + dy * 185 + 40, LAMP_SIZE.width, LAMP_SIZE.height)]),
+  ];
+  const hits = decoBoxes.flatMap((d, i) => buildings.filter(([, b]) => overlap(d, b)).map(([name]) => `${i + 1}번-${name}`));
+  expect("꾸미기 자리가 건물·연못·가로등과 겹치지 않음", hits, []);
+  const pairs = decoBoxes.flatMap((a, i) => decoBoxes.slice(i + 1).flatMap((b, j) => (overlap(a, b) ? [`${i + 1}-${i + j + 2}`] : [])));
+  expect("꾸미기 자리끼리 겹치지 않음", pairs, []);
+  // 광장에서 집으로 가는 길(폭 54)과 떨어져 있다 (광장 안 자리는 길이 없다)
+  const toSegment = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => {
+    const t = Math.max(0, Math.min(1, ((px - ax) * (bx - ax) + (py - ay) * (by - ay)) / ((bx - ax) ** 2 + (by - ay) ** 2)));
+    return Math.hypot(px - (ax + t * (bx - ax)), py - (ay + t * (by - ay)));
+  };
+  const onPath = DECO_SLOTS.flatMap((p, i) =>
+    Array.from({ length: HOUSE_SLOTS }, (_, h) => houseSlot(h))
+      .filter(() => Math.hypot(p.x - CENTER.x, p.y - CENTER.y) > PLAZA_RADIUS)
+      .filter((h) => toSegment(p.x, p.y, CENTER.x + Math.cos(h.angle) * PLAZA_RADIUS, CENTER.y + Math.sin(h.angle) * PLAZA_RADIUS, h.x, h.y) < 27 + big.w / 2)
+      .map(() => `${i + 1}번`),
+  );
+  expect("꾸미기 자리가 집으로 가는 길과 겹치지 않음", onPath, []);
+}
 
 // 한국 날짜 0시 경계 (FR-008)
 expect("UTC 14:59 → 그날", todayKST(new Date("2026-10-01T14:59:00Z")), "2026-10-01");

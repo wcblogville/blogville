@@ -3,11 +3,14 @@ import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, users } from "@/db/schema";
+import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, townDecorations, userItems, users } from "@/db/schema";
 import { ROOF_HEX } from "@/lib/art/town";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
-import type { TownFriend, TownHouse } from "@/components/town/types";
+import { getHeaderNotifications, listNotifications } from "@/server/notifications";
+import { getWallet, type Tx } from "@/server/points";
+import type { TownHudMember } from "@/components/town/town-hud";
+import type { TownDecoration, TownFriend, TownHouse } from "@/components/town/types";
 
 const characterItem = alias(items, "character_item");
 
@@ -17,6 +20,8 @@ export const FAVORITE_LIMIT = 10;
 const POPULAR_POOL = 100;
 /** 우체통에서 보여 줄 최근 공개 글 수 */
 const RECENT_POSTS = 3;
+/** 메뉴 알림 창에 보여 줄 최근 알림 수 */
+const MENU_NOTIFICATIONS = 5;
 
 const ownerExp = sql<number>`(
   SELECT COALESCE(SUM(${pointLedger.expDelta}), 0)::int FROM ${pointLedger} WHERE ${pointLedger.userId} = ${blogs.ownerId}
@@ -129,4 +134,64 @@ export async function getFriends(userId: string): Promise<TownFriend[]> {
     .where(eq(follows.followerId, userId))
     .orderBy(desc(follows.isFavorite), asc(profiles.nickname))
     .limit(200);
+}
+
+/**
+ * 마을을 구경할 회원 (/town/블로그 주소, 사용자 요청 2026-10-09). 없는 주소와 공지 블로그(관리자)는 null.
+ * 관리자 블로그는 남의 마을 둘레에도 나오지 않는다 (notAdminBlog)
+ */
+export async function getTownHost(slug: string) {
+  const [row] = await db
+    .select({ userId: blogs.ownerId, slug: blogs.slug, nickname: profiles.nickname })
+    .from(blogs)
+    .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))
+    .where(and(eq(blogs.slug, slug), notAdminBlog));
+  return row ?? null;
+}
+
+/** 광장에 놓인 장식 (광장 꾸미기). 자리 번호 순 */
+export async function getDecorations(userId: string, executor: typeof db | Tx = db): Promise<TownDecoration[]> {
+  return executor
+    .select({ slot: townDecorations.slot, assetKey: items.assetKey })
+    .from(townDecorations)
+    .innerJoin(items, eq(items.id, townDecorations.itemId))
+    .where(eq(townDecorations.userId, userId))
+    .orderBy(asc(townDecorations.slot));
+}
+
+/** 내가 가진 광장 장식 (광장 꾸미기 창의 고르기 목록). 싼 것부터 */
+async function getOwnedDecos(userId: string) {
+  return db
+    .select({ itemId: items.id, name: items.name, assetKey: items.assetKey })
+    .from(userItems)
+    .innerJoin(items, eq(items.id, userItems.itemId))
+    .where(and(eq(userItems.userId, userId), eq(items.type, "deco")))
+    .orderBy(asc(items.requiredLevel), asc(items.price), asc(items.id));
+}
+
+/** ☰ 메뉴에 필요한 내 정보: 지갑·알림·친구·가진 장식 (내 마을과 남의 마을 구경에서 같이 쓴다) */
+export async function getHudMember(
+  userId: string,
+  isAdmin: boolean,
+  profile: { photoKey: string | null; blogTitle: string; blogSlug: string },
+): Promise<TownHudMember> {
+  const [wallet, header, list, friends, decos] = await Promise.all([
+    getWallet(userId),
+    getHeaderNotifications(userId),
+    listNotifications(userId, 1),
+    getFriends(userId),
+    getOwnedDecos(userId),
+  ]);
+  return {
+    userId,
+    isAdmin,
+    slug: profile.blogSlug,
+    photoKey: profile.photoKey,
+    blogTitle: profile.blogTitle,
+    wallet: { coins: wallet.coins, level: wallet.level, current: wallet.current, needed: wallet.needed, isMax: wallet.isMax },
+    unread: header.unread,
+    notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
+    friends,
+    decos,
+  };
 }

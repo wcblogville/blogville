@@ -3,6 +3,7 @@
 // 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
 import type * as PhaserNS from "phaser";
 import { characterDataUri, lookKey, VISITOR_CHARACTER } from "@/lib/art/characters";
+import { DECO_ASSETS, decoDataUri, decoSize } from "@/lib/art/deco";
 import {
   BOARD_SIZE,
   boardSvg,
@@ -31,6 +32,7 @@ import {
 import {
   BOARD_POS,
   CENTER,
+  DECO_SLOTS,
   FARM_POS,
   FISHING_POS,
   HOUSE_SLOTS,
@@ -45,7 +47,7 @@ import {
   townSpots,
   WORLD,
 } from "./layout";
-import type { TownData, TownHouse, TownTarget } from "./types";
+import type { TownData, TownDecoration, TownHouse, TownTarget } from "./types";
 
 type PhaserLib = typeof PhaserNS;
 
@@ -87,6 +89,7 @@ type Entrance = {
 /** 캐릭터 + 입은 아바타 아이템마다 그림 하나 (SHOP-06) */
 const charKey = (asset: string, outfit: string[] = []) => `char:${lookKey(asset, outfit)}`;
 const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
+const decoKey = (asset: string) => `deco:${asset}`;
 const stageOf = (h: TownHouse) => houseStage(h.level);
 
 /** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 */
@@ -112,6 +115,11 @@ export function townTextures(data: TownData) {
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
   for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
+  // 광장 장식: 꾸미기 창에서 고르자마자 놓을 수 있게 전부 불러 둔다 (8개, 작다). 선명하게 두 배 크기로
+  for (const key of DECO_ASSETS) {
+    const { width, height } = decoSize(key);
+    list.set(decoKey(key), decoDataUri(key, Math.max(width, height) * 2));
+  }
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
 
@@ -170,10 +178,11 @@ function layout(data: TownData) {
     const pos = houseSlot(i);
     const h = houseAt(data, i);
     if (!h) {
-      structures.push({ texture: "lot", x: pos.x, y: pos.y, w: LOT_SIZE.width, h: LOT_SIZE.height, label: i === 0 ? "내 집 자리" : "빈 집터" });
+      structures.push({ texture: "lot", x: pos.x, y: pos.y, w: LOT_SIZE.width, h: LOT_SIZE.height, label: i === 0 && !data.host ? "내 집 자리" : "빈 집터" });
       continue;
     }
-    const mine = i === 0;
+    // 다른 회원의 마을(host)을 구경할 때 0번 집은 그 주인의 집이다
+    const mine = i === 0 && !data.host;
     const stage = stageOf(h);
     const { width: w, height: hh } = HOUSE_STAGES[stage];
     const roof = h.roof;
@@ -211,6 +220,9 @@ function layout(data: TownData) {
   return { structures, entrances };
 }
 
+/** 게임 밖(꾸미기 창)에서 바뀌는 것. 게임이 만들어지기 전에 바뀐 것도 create()에서 읽는다 (TownGame이 들고 있다) */
+export type TownLive = { decorations: TownDecoration[]; decoMode: boolean };
+
 export function createTownScene(
   Phaser: PhaserLib,
   data: TownData,
@@ -219,10 +231,11 @@ export function createTownScene(
   fontFamily = "sans-serif",
   /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 광장 아래쪽 */
   startAt: string | null = null,
+  live: TownLive = { decorations: data.decorations, decoMode: false },
 ) {
   const allSpots = (() => {
-    const { places, houses } = townSpots(data);
-    return [...places, ...houses];
+    const { places, houses, decos } = townSpots(data);
+    return [...places, ...houses, ...decos];
   })();
   const font = (style: PhaserNS.Types.GameObjects.Text.TextStyle = {}) => ({ fontFamily, ...style });
 
@@ -244,6 +257,10 @@ export function createTownScene(
       pointerId: number | null;
       vector: PhaserNS.Math.Vector2;
     } | null = null;
+    /** 광장 장식 그림 (자리 번호 → 그림) */
+    private decoImages = new Map<number, { assetKey: string; image: PhaserNS.GameObjects.Image }>();
+    /** 꾸미기 창이 열려 있는 동안 보이는 자리 표시 */
+    private decoMarkers: PhaserNS.GameObjects.GameObject[] = [];
 
     constructor() {
       super("town");
@@ -260,6 +277,19 @@ export function createTownScene(
       this.entrances = entrances;
       for (const s of structures) this.placeStructure(s, walls);
       this.plantTrees(walls);
+
+      // 광장 장식 (광장 꾸미기). 부딪히지 않는 장식이라 벽에 넣지 않는다.
+      // 꾸미기 창에서 바꾸면 게임을 다시 만들지 않고 장식만 다시 그린다 (TownGame이 game.events로 전한다)
+      this.drawDecorations(live.decorations, false);
+      this.showDecoSlots(live.decoMode);
+      const redraw = (list: TownDecoration[]) => this.drawDecorations(list, true);
+      const decoMode = (on: boolean) => this.showDecoSlots(on);
+      this.game.events.on("decorations", redraw);
+      this.game.events.on("deco-mode", decoMode);
+      this.events.once("shutdown", () => {
+        this.game.events.off("decorations", redraw);
+        this.game.events.off("deco-mode", decoMode);
+      });
 
       // 플레이어: 발 상자(물리) + 그림
       const start = allSpots.find((p) => p.key === startAt) ?? START;
@@ -475,6 +505,54 @@ export function createTownScene(
       return this.entrances.find((e) => x >= e.area.x && x <= e.area.x + e.area.w && y >= e.area.y && y <= e.area.y + e.area.h + 20);
     }
 
+    /** 장식을 자리마다 그린다. pop이면 새로 놓인 장식이 톡 튀어나온다 */
+    private drawDecorations(list: TownDecoration[], pop: boolean) {
+      const next = new Map(list.map((d) => [d.slot, d.assetKey]));
+      for (const [slot, shown] of this.decoImages) {
+        if (next.get(slot) === shown.assetKey) continue;
+        shown.image.destroy();
+        this.decoImages.delete(slot);
+      }
+      for (const [slot, assetKey] of next) {
+        const pos = DECO_SLOTS[slot];
+        if (!pos || this.decoImages.has(slot) || !this.textures.exists(decoKey(assetKey))) continue;
+        const { width, height } = decoSize(assetKey);
+        const image = this.add.image(pos.x, pos.y, decoKey(assetKey)).setOrigin(0.5, 1).setDisplaySize(width, height).setDepth(pos.y);
+        this.decoImages.set(slot, { assetKey, image });
+        if (pop) {
+          const { scaleX, scaleY } = image;
+          image.setScale(scaleX * 0.6, scaleY * 0.6);
+          this.tweens.add({ targets: image, scaleX, scaleY, duration: 260, ease: "Back.easeOut" });
+        }
+      }
+    }
+
+    /** 꾸미기 자리 표시: 열린 자리는 노란 동그라미와 번호, 아직 닫힌 자리는 🔒 */
+    private showDecoSlots(on: boolean) {
+      for (const m of this.decoMarkers) m.destroy();
+      this.decoMarkers = [];
+      if (!on) return;
+      DECO_SLOTS.forEach((p, i) => {
+        const open = i < data.decoSlots;
+        const ring = this.add
+          .ellipse(p.x, p.y - 4, 124, 46, open ? 0xffd36e : 0x2b2118, open ? 0.35 : 0.12)
+          .setStrokeStyle(3, open ? 0xffffff : 0x8a7a6a, open ? 0.95 : 0.6)
+          .setDepth(-5);
+        // 번호는 동그라미 왼쪽에 둔다 (자리 앞에 선 캐릭터를 가리지 않게)
+        const tag = this.add
+          .text(p.x - 64, p.y - 4, open ? `${i + 1}번` : `🔒 ${i + 1}번`, font({
+            fontSize: "14px",
+            fontStyle: "bold",
+            color: open ? "#2b2118" : "#5b4a3c",
+            backgroundColor: open ? "#ffd36ef0" : "#ffffffd0",
+            padding: { x: 7, y: 2 },
+          }))
+          .setOrigin(1, 0.5)
+          .setDepth(99999);
+        this.decoMarkers.push(ring, tag);
+      });
+    }
+
     private placeStructure(s: Structure, walls: PhaserNS.Physics.Arcade.StaticGroup) {
       // 깊이 = 아랫변의 y. 캐릭터가 뒤(위쪽)에 있으면 가려지고, 앞(아래쪽)에 있으면 앞에 보인다
       this.add.image(s.x, s.y, s.texture).setOrigin(0.5, 1).setDisplaySize(s.w, s.h).setDepth(s.y);
@@ -599,6 +677,8 @@ export function createTownScene(
       const blocked = [
         { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...FISHING_POS, r: 180 }, { ...POND_POS, r: 150 },
         ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
+        // 광장 꾸미기 자리 (장식이 나무에 가리지 않게)
+        ...DECO_SLOTS.map((p) => ({ ...p, r: 110 })),
       ];
       const onRoad = (x: number, y: number) => {
         const d = Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y);

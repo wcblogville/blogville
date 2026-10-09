@@ -1,5 +1,5 @@
 // 광장 게임(TownGame)과 화면 위 메뉴(TownHud)가 주고받는 신호. 둘은 같은 페이지의 형제 컴포넌트라 모듈 하나로 잇는다
-import type { TownTarget } from "./types";
+import type { TownDecoration, TownTarget } from "./types";
 
 type TownEvents = {
   /** 메뉴에서 고른 곳(townSpots의 key)으로 순간 이동 */
@@ -8,6 +8,10 @@ type TownEvents = {
   open: Extract<TownTarget, { kind: "mailbox" }>;
   /** 메뉴 창이 열렸는지. 열려 있는 동안 게임은 키보드를 쓰지 않는다 (Space로 버튼을 누를 수 있게) */
   panel: boolean;
+  /** 광장 꾸미기로 장식이 바뀜 → 게임이 그 자리에 바로 다시 그린다 (게임을 새로 만들지 않게 페이지는 다시 그리지 않는다) */
+  decorations: TownDecoration[];
+  /** 광장 꾸미기 창이 열렸는지 → 게임이 꾸미기 자리 번호를 보여 준다 */
+  "deco-mode": boolean;
 };
 
 const target = typeof window === "undefined" ? null : new EventTarget();

@@ -42,6 +42,15 @@ const ITEMS: NewItem[] = [
   { code: "fur_lamp", type: "furniture", name: "스탠드 조명", description: "밤에 글 쓸 때 켜는 조명", price: 60, requiredLevel: 2, isStarter: false, assetKey: "furniture.lamp" },
   { code: "fur_bed", type: "furniture", name: "포근한 침대", description: "푹 자고 일어나면 글이 술술", price: 120, requiredLevel: 3, isStarter: false, assetKey: "furniture.bed" },
   { code: "fur_sofa", type: "furniture", name: "푹신한 소파", description: "이웃이 놀러 오면 앉는 소파", price: 200, requiredLevel: 4, isStarter: false, assetKey: "furniture.sofa" },
+  // 광장 장식 (광장 꾸미기, 사용자 요청 2026-10-09): 내 광장의 꾸미기 자리에 놓는다. 자리는 집 단계만큼 4/6/8자리. 그림은 src/lib/art/deco.ts
+  { code: "deco_bench", type: "deco", name: "나무 벤치", description: "이웃과 나란히 앉아 쉬어 가는 벤치", price: 30, requiredLevel: 1, isStarter: false, assetKey: "deco.bench" },
+  { code: "deco_flowerbed", type: "deco", name: "꽃밭", description: "알록달록 꽃이 핀 나무 화단", price: 40, requiredLevel: 1, isStarter: false, assetKey: "deco.flowerbed" },
+  { code: "deco_signpost", type: "deco", name: "이정표", description: "마을 곳곳을 가리키는 나무 이정표", price: 50, requiredLevel: 2, isStarter: false, assetKey: "deco.signpost" },
+  { code: "deco_snowman", type: "deco", name: "눈사람", description: "한여름에도 녹지 않는 신기한 눈사람", price: 80, requiredLevel: 3, isStarter: false, assetKey: "deco.snowman" },
+  { code: "deco_tent", type: "deco", name: "캠핑 텐트", description: "광장에서 별 보며 하룻밤", price: 120, requiredLevel: 5, isStarter: false, assetKey: "deco.tent" },
+  { code: "deco_swing", type: "deco", name: "그네", description: "바람을 가르는 나무 그네", price: 150, requiredLevel: 7, isStarter: false, assetKey: "deco.swing" },
+  { code: "deco_statue", type: "deco", name: "곰 동상", description: "하트를 안은 마을의 수호곰", price: 220, requiredLevel: 10, isStarter: false, assetKey: "deco.statue" },
+  { code: "deco_windmill", type: "deco", name: "풍차", description: "광장 바람에 빙글빙글 도는 풍차", price: 350, requiredLevel: 15, isStarter: false, assetKey: "deco.windmill" },
   // 아바타 꾸미기 (SHOP-06): 캐릭터 위에 겹쳐 입는 모자·옷·소품. 부위마다 하나
   { code: "hat_straw", type: "avatar", avatarSlot: "hat", name: "밀짚모자", description: "햇살 좋은 날 산책할 때 쓰는 모자", price: 50, requiredLevel: 1, isStarter: false, assetKey: "hat.straw" },
   { code: "hat_ribbon", type: "avatar", avatarSlot: "hat", name: "리본", description: "머리에 다는 커다란 빨간 리본", price: 60, requiredLevel: 1, isStarter: false, assetKey: "hat.ribbon" },

@@ -1,12 +1,13 @@
 // 상점·꾸미기 규칙 (SHOP). DB를 쓰지 않는 순수 함수만 둔다 (화면과 서버 어디서나 import 가능)
 import { withJosa } from "@/lib/josa";
 
-export type ItemType = "character" | "background" | "furniture" | "avatar" | "growth";
+export type ItemType = "character" | "background" | "furniture" | "avatar" | "growth" | "deco";
 
 /** 상점 구역 순서와 제목 (FR-003). 캐릭터는 상점에 없다 */
 export const SHOP_SECTIONS: { type: Exclude<ItemType, "character">; title: string }[] = [
   { type: "avatar", title: "👕 아바타 꾸미기" },
   { type: "furniture", title: "🪑 가구" },
+  { type: "deco", title: "🌷 광장 장식" },
   { type: "background", title: "🖼 배경" },
   { type: "growth", title: "🌱 성장 아이템" },
 ];

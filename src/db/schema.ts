@@ -26,7 +26,7 @@ const updatedAt = () =>
 
 // ===== 열거형 =====
 // avatar(모자·옷·소품)·growth(동물 성장 아이템)는 SHOP-01·SHOP-06에서 뒤에 더했다
-export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth"]);
+export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth", "deco"]);
 // 아바타 꾸미기 부위 (SHOP-06)
 export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory"]);
 export const visibility = pgEnum("visibility", ["public", "private"]);
@@ -306,6 +306,31 @@ export const houseFurniture = pgTable(
     check("house_furniture_slot_check", sql`${t.slot} BETWEEN 0 AND 7`),
     foreignKey({
       name: "house_furniture_owned_fk",
+      columns: [t.userId, t.itemId],
+      foreignColumns: [userItems.userId, userItems.itemId],
+    }).onDelete("cascade"),
+  ],
+);
+
+// 광장 장식 (광장 꾸미기 모드, 사용자 요청 2026-10-09). 내 광장의 꾸미기 자리(slot)마다 장식 하나.
+// 자리 수는 가구 칸처럼 집 단계(주인 레벨)로 정한다: 1단계 4자리, 2단계 6자리, 3단계부터 8자리 (src/lib/house.ts).
+// 가진 장식만(복합 FK), 같은 장식은 한 자리에만. 자리 좌표는 src/components/town/layout.ts DECO_SLOTS
+export const townDecorations = pgTable(
+  "town_decorations",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(),
+    itemId: integer("item_id").notNull(),
+    placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.slot] }),
+    unique("town_decorations_item_uq").on(t.userId, t.itemId),
+    check("town_decorations_slot_check", sql`${t.slot} BETWEEN 0 AND 7`),
+    foreignKey({
+      name: "town_decorations_owned_fk",
       columns: [t.userId, t.itemId],
       foreignColumns: [userItems.userId, userItems.itemId],
     }).onDelete("cascade"),

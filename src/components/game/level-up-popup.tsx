@@ -1,4 +1,4 @@
-import { backgroundDataUri, characterDataUri, furnitureDataUri, growthDataUri, MANNEQUIN } from "@/lib/assets";
+import { backgroundDataUri, characterDataUri, decoDataUri, furnitureDataUri, growthDataUri, MANNEQUIN } from "@/lib/assets";
 import { levelUpTitle } from "@/lib/notifications";
 import { getPendingLevelUp } from "@/server/notifications";
 import { LevelUpDialog } from "./level-up-dialog";
@@ -20,6 +20,7 @@ function itemImage(type: string, assetKey: string) {
   if (type === "background") return backgroundDataUri(assetKey, 128);
   if (type === "furniture") return furnitureDataUri(assetKey, 128);
   if (type === "growth") return growthDataUri(assetKey, 128);
+  if (type === "deco") return decoDataUri(assetKey, 128);
   if (type === "avatar") return characterDataUri(MANNEQUIN, 128, [assetKey]);
   return characterDataUri(assetKey, 128);
 }

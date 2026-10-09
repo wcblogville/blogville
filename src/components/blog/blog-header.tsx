@@ -17,6 +17,8 @@ type Blog = {
   backgroundAsset: string;
   followerCount: number;
   postCount: number;
+  /** 공지 블로그(관리자): 마을이 없다 */
+  isNotice?: boolean;
 };
 
 /**
@@ -95,11 +97,19 @@ export function BlogHeader({
               <Link href="/settings/blog" className="btn min-h-11 min-w-11 whitespace-nowrap bg-white text-ink max-sm:gap-1 max-sm:px-2 max-sm:text-sm">⚙️ 관리</Link>
             </>
           ) : viewerId ? (
-            <form action={toggleFollow.bind(null, blog.ownerId)}>
-              <button className={`btn min-h-11 whitespace-nowrap ${following ? "bg-white text-ink" : "bg-sky text-white"}`}>
-                {following ? "✓ 이웃" : "+ 이웃 추가"}
-              </button>
-            </form>
+            <>
+              {/* 이 회원의 마을 구경 (사용자 요청 2026-10-09). 휴대폰에는 광장이 없어 숨긴다 */}
+              {!blog.isNotice && (
+                <Link href={`/town/${blog.slug}`} className="btn min-h-11 whitespace-nowrap bg-white text-ink phone:hidden" data-visit-town>
+                  🏘 마을 구경
+                </Link>
+              )}
+              <form action={toggleFollow.bind(null, blog.ownerId)}>
+                <button className={`btn min-h-11 whitespace-nowrap ${following ? "bg-white text-ink" : "bg-sky text-white"}`}>
+                  {following ? "✓ 이웃" : "+ 이웃 추가"}
+                </button>
+              </form>
+            </>
           ) : null}
         </div>
       </div>
