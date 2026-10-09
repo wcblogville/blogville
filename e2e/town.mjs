@@ -166,17 +166,21 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
   await g.close();
 }
 
-// 휴대폰: 간단 메뉴에 알림·프로필 숫자·친구 목록
+// 휴대폰: ☰ 메뉴(아래 탭)에 내 프로필 숫자·친구 목록 (알림은 아래 탭)
 {
   const m = await browser.newContext({ viewport: { width: 375, height: 800 }, hasTouch: true, isMobile: true });
   const mp = await m.newPage();
   errors.push(...collectErrors(mp));
   await loginDev(mp, A);
-  await mp.goto(`${BASE}/town`);
+  await mp.goto(`${BASE}/town?menu=1`);
   const menuBox = mp.locator("[data-town-menu]");
   await menuBox.waitFor();
   const text = await menuBox.innerText();
-  check("휴대폰: Lv·코인·경험치, 알림, 친구 목록", /Lv\.\d+ · 🪙/.test(text) && text.includes("알림") && text.includes("친구 목록") && (await menuBox.locator("[data-friend]").count()) === 11);
+  const profile = menuBox.locator("[data-menu-profile]");
+  check(
+    "휴대폰: 내 프로필 Lv·코인·경험치, 친구 목록",
+    /Lv\.\d+/.test(await profile.innerText()) && (await profile.locator("[data-profile-coins]").count()) === 1 && (await profile.locator("[data-profile-exp]").count()) === 1 && text.includes("친구 목록") && (await menuBox.locator("[data-friend]").count()) === 11,
+  );
   const overflow = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check("휴대폰: 가로 스크롤 없음", overflow <= 0, String(overflow));
   await mp.screenshot({ path: `${outDir}/town-phone.png`, fullPage: true });

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Jua, Noto_Sans_KR } from "next/font/google";
+import { MobileTabs } from "@/components/mobile-tabs";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
@@ -20,6 +21,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
+        {/* 휴대폰 아래 탭: 휴대폰에는 광장 대신 탭으로 다닌다 (사용자 결정 2026-10-09) */}
+        <MobileTabs />
       </body>
     </html>
   );

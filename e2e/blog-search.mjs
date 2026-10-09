@@ -146,7 +146,7 @@ const titles = () => page.locator("main article h3").allInnerTexts();
   check("US6-5 /town 데스크톱 검색창 없음", await noSearch(page, "/town"));
   check("US6-5 /feed 검색창 없음", await noSearch(page, "/feed"));
   const m = await fresh(phone, await own.ctx.storageState());
-  check("US6-5 /town 휴대폰 검색창 없음", await noSearch(m.page, "/town"));
+  check("US6-5 휴대폰 ☰ 메뉴(/town?menu=1) 검색창 없음", await noSearch(m.page, "/town?menu=1"));
   await m.ctx.close();
 }
 

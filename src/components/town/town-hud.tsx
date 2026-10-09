@@ -186,7 +186,8 @@ export function AccountLinks({ member }: { member: TownHudMember }) {
   );
 }
 
-function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember }) {
+/** 내 프로필: 사진(없으면 캐릭터)·닉네임·블로그 제목·레벨·코인·경험치. 휴대폰 ☰ 메뉴(town-menu.tsx)도 쓴다 (links=false면 아래 버튼 줄 없이) */
+export function ProfilePanel({ data, member, links = true }: { data: TownData; member: TownHudMember; links?: boolean }) {
   const { wallet } = member;
   const ratio = wallet.isMax ? 1 : wallet.current / wallet.needed;
   return (
@@ -217,6 +218,7 @@ function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember 
         </dd>
       </dl>
       {/* 꾸미기(옷·배경·가구)로 가는 길이 블로그 🎨 하나뿐이라 여기에도 둔다 */}
+      {links && (
       <div className="flex flex-wrap gap-2 text-sm">
         {data.myHouse && (
           <Link href={`/@${data.myHouse.slug}`} className="btn flex-1 whitespace-nowrap text-center">🏠 내 블로그</Link>
@@ -224,6 +226,7 @@ function ProfilePanel({ data, member }: { data: TownData; member: TownHudMember 
         <Link href="/closet" className="btn flex-1 whitespace-nowrap text-center">🎨 꾸미기</Link>
         <Link href="/wallet" className="btn flex-1 whitespace-nowrap text-center">📒 지갑</Link>
       </div>
+      )}
     </div>
   );
 }
