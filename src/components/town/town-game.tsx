@@ -102,6 +102,9 @@ export function TownGame({
         type: Phaser.AUTO,
         parent: containerRef.current,
         backgroundColor: "#8fd18a",
+        // 도트 그림: 키울 때 가까운 픽셀을 써서 흐려지지 않게, 위치는 정수 픽셀로 맞춘다
+        pixelArt: true,
+        roundPixels: true,
         physics: { default: "arcade", arcade: { debug: false } },
         scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
         scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily, startAt, live.current),

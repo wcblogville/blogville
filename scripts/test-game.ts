@@ -2,7 +2,10 @@
 // 실행: npm run test:game
 import { DECO_ASSETS, decoSize } from "../src/lib/art/deco";
 import { BOARD_POS, CENTER, DECO_SLOTS, FARM_POS, FISHING_POS, HOUSE_SLOTS, houseSlot, PLAZA_RADIUS, POND_POS, SHOP_POS, TOWN_RADIUS } from "../src/components/town/layout";
-import { BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, houseStage, LAMP_SIZE, SHOP_SIZE } from "../src/lib/art/town";
+import { BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, HOUSE_STAGES, houseStage, LAMP_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
+import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
+import { AVATAR_PARTS } from "../src/lib/art/avatar";
+import { PIXEL } from "../src/lib/art/pixel";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
@@ -30,6 +33,20 @@ expect("Lv.1·9·10·19·20·89·90·99 → 집 단계", [1, 9, 10, 19, 20, 89, 
 expect("가구 칸: 1단계 4, 2단계 6, 3단계부터 8", ([1, 2, 3, 10] as const).map(furnitureSlots), [4, 6, 8, 8]);
 expect("Lv.15 집: 2단계, 다음은 Lv.20", [houseInfo(15).stage, houseInfo(15).nextLevel], [2, 20]);
 expect("Lv.95 집: 10단계, 다음 없음", [houseInfo(95).stage, houseInfo(95).nextLevel], [10, null]);
+
+// 도트 그림 (2026-10-09 "도트로 바꾸기"): 글자 줄 길이가 고르고, 광장 크기는 PIXEL의 정수배
+{
+  const even = (rows: readonly string[]) => rows.every((r) => r.length === rows[0].length);
+  expect("캐릭터는 모두 16×24", CHARACTER_KEYS().filter((k) => { const r = characterRows(k)!; return r.length !== 24 || r.some((x) => x.length !== 16); }), []);
+  expect("아바타 부품은 16칸 폭, 24줄 이하", Object.entries(AVATAR_PARTS).filter(([, p]) => p.rows.length > 24 || p.rows.some((x) => x.length !== 16)).map(([k]) => k), []);
+  const { houses, ...others } = TOWN_ROWS;
+  const sprites: [string, readonly string[]][] = [...Object.entries(houses).map(([k, v]): [string, string[]] => [`house${k}`, v]), ...Object.entries(others)];
+  expect("건물 그림 줄 길이가 고름", sprites.filter(([, rows]) => !even(rows)).map(([k]) => k), []);
+  const sizes = [BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, LAMP_SIZE, SHOP_SIZE, ...Object.values(HOUSE_STAGES), ...DECO_ASSETS.map(decoSize)];
+  expect("광장 그림 크기는 PIXEL의 정수배", sizes.filter((z) => z.width % PIXEL || z.height % PIXEL).length, 0);
+  const st = Object.values(HOUSE_STAGES);
+  expect("집은 단계마다 같거나 커지고 10단계가 1단계의 2배 이상 넓다", st.every((z, i) => i === 0 || (z.width >= st[i - 1].width && z.height >= st[i - 1].height)) && st[9].width >= st[0].width * 2, true);
+}
 
 // TOWN-07 지붕 색: 블로그마다 정해진 순서(10색 모두 한 번씩), 단계 수만큼 열림, 안 골랐으면 첫 색
 expect("지붕 색 순서는 10색을 한 번씩", [...roofOrder(7)].sort(), [...ROOF_COLORS].sort());
