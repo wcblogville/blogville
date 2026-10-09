@@ -23,7 +23,7 @@ export function FishingView({ todayKey }: { todayKey: string | null }) {
             {justCaught ? caught.line : `오늘은 ${withJosa(caught.name, "을/를")} 낚았어요.`}
           </p>
           <p className="text-sm text-ink-soft">
-            {caught.itemCode ? "동물 먹이 1개를 받았어요." : `🪙 ${caught.coins}를 받았어요.`} 내일 다시 낚시할 수 있어요.
+            {caught.itemCode ? "동물 먹이 1개를 받았어요." : `${withJosa(`🪙 ${caught.coins}`, "을/를")} 받았어요.`} 내일 다시 낚시할 수 있어요.
           </p>
         </>
       ) : (

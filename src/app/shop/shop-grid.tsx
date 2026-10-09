@@ -6,8 +6,8 @@ import { withJosa } from "@/lib/josa";
 import { buttonState, purchaseMessage, type ShopItem } from "@/lib/shop";
 import { buyItem } from "./actions";
 
-/** 산 뒤 안내. link: 산 것을 쓰러 가는 곳 (꾸미기·우리 집·동물 농장) */
-export type ShopMessage = { ok: boolean; text: string; link?: { href: string; label: string } };
+/** 산 뒤 안내. link: 산 것을 쓰러 가는 곳 (꾸미기·우리 집·동물 농장). pcOnly: 휴대폰에는 광장이 없어 숨기는 링크 */
+export type ShopMessage = { ok: boolean; text: string; link?: { href: string; label: string; pcOnly?: boolean } };
 
 export function ShopGrid({
   items,
@@ -56,7 +56,7 @@ export function ShopGrid({
                     item.type === "furniture"
                       ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! 내 블로그의 우리 집에 놓아 보세요.`, link: { href: `/@${blogSlug}`, label: "🏠 우리 집으로" } }
                       : item.type === "deco"
-                      ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! 광장의 ☰ 메뉴 → 광장 꾸미기에서 놓아 보세요.`, link: { href: "/town?deco=1", label: "🌷 광장으로" } }
+                      ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! PC 광장의 ☰ 메뉴 → 광장 꾸미기에서 놓아 보세요.`, link: { href: "/town?deco=1", label: "🌷 광장으로", pcOnly: true } }
                       : {
                           ok: true,
                           text: purchaseMessage(r.kind, r.name),
