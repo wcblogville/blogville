@@ -1,6 +1,6 @@
 // 광장 장식 그림 (도트, 사용자 결정 2026-10-09 "도트로 바꾸기"). 광장 꾸미기와 상점·꾸미기 미리보기가 같이 쓴다.
 // 장식마다 크기가 다르고, 바닥(아랫변 가운데)이 광장의 꾸미기 자리에 닿게 그린다. 광장에서는 PIXEL(3)배.
-import { Pix, PIXEL, spriteSize, spriteSvg, svgDataUri, type Sprite } from "./pixel";
+import { fitSvg, Pix, PIXEL, spriteSize, spriteSvg, svgDataUri, type Sprite } from "./pixel";
 
 const DECO: Record<string, Sprite> = {
   // 나무 벤치
@@ -184,15 +184,12 @@ export function decoSize(assetKey: string): { width: number; height: number } {
 
 /**
  * 장식 SVG. size가 없으면 광장 크기(PIXEL배), 있으면 미리보기용 정사각형(한 변 size px).
- * 미리보기는 도트가 고르게 나오도록 정수 배율로 그리고 남는 칸은 투명하게 둔다
+ * 미리보기는 도트가 고르게 나오도록 정수 배율로 그리고(fitSvg) 남는 칸은 투명하게 둔다
  */
 export function decoSvg(assetKey: string, size?: number): string {
   const rows = DECO[assetKey] ?? FALLBACK;
   if (!size) return spriteSvg(rows, { scale: PIXEL });
-  const { w, h } = spriteSize(rows);
-  const side = Math.max(w, h);
-  const svg = spriteSvg(rows, { scale: 1, pad: { x: (side - w) / 2, y: (side - h) / 2 } });
-  return svg.replace(/width="[\d.]+" height="[\d.]+"/, `width="${size}" height="${size}"`);
+  return fitSvg(rows, size, { align: "center" });
 }
 
 export function decoDataUri(assetKey: string, size?: number): string {

@@ -176,6 +176,23 @@ export function spriteSvg(
   );
 }
 
+/**
+ * 그림을 한 변 size px 정사각형 틀에 정수 배율로 담는다 (상점 카드·집 방·팝업 미리보기).
+ * 배율 k = size ÷ 그림 큰 변 (내림). 틀은 size ÷ k 칸이라 화면에 size px로 보이면 도트 한 칸이 정확히 k px다.
+ * 남는 칸은 투명. align: 바닥에 붙이기(가구·동물) 또는 가운데. size가 그림보다 작으면 그냥 맞춰 줄인다
+ */
+export function fitSvg(rows: Sprite, size: number, { colors = {}, align = "bottom" }: { colors?: Colors; align?: "bottom" | "center" } = {}) {
+  const { w, h } = spriteSize(rows);
+  const big = Math.max(w, h);
+  const side = size >= big ? size / Math.floor(size / big) : big;
+  const x = Math.floor((side - w) / 2);
+  const y = align === "bottom" ? Math.floor(side - h) : Math.floor((side - h) / 2);
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${-x} ${-y} ${+side.toFixed(3)} ${+side.toFixed(3)}" width="${size}" height="${size}" shape-rendering="crispEdges">` +
+    `${spriteRects(rows, colors)}</svg>`
+  );
+}
+
 /** SVG → data URI. 꼭 필요한 글자(%, #, <, > 등)만 바꿔 encodeURIComponent보다 짧게 만든다 (따옴표는 작은따옴표로) */
 export function svgDataUri(svg: string) {
   return `data:image/svg+xml;charset=utf-8,${svg.replace(/"/g, "'").replace(/[%#<>?&\n]/g, encodeURIComponent)}`;

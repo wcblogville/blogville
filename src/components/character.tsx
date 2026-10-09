@@ -1,4 +1,4 @@
-import { backgroundDataUri, characterDataUri, lookKey } from "@/lib/assets";
+import { backgroundDataUri, backgroundSky, characterDataUri, lookKey } from "@/lib/assets";
 import { animalSvg, hasAnimalArt, toAnimalDataUri } from "@/lib/art/animals";
 
 /** 동그란 캐릭터 얼굴 (헤더, 댓글, 글 목록) */
@@ -16,6 +16,7 @@ export function CharacterBadge({ asset, size = 36, outfit = [] }: { asset: strin
         data-look={lookKey(asset, outfit)}
         width={size * 1.15}
         height={size * 1.15}
+        className="pixelated"
         style={{ marginTop: size * 0.2 }}
       />
     </span>
@@ -37,14 +38,14 @@ export function CharacterArt({
 }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
-    <img src={characterDataUri(asset, size * 2, outfit)} alt="" data-look={lookKey(asset, outfit)} width={size} height={size} className={className} aria-hidden />
+    <img src={characterDataUri(asset, size * 2, outfit)} alt="" data-look={lookKey(asset, outfit)} width={size} height={size} className={`pixelated ${className}`} aria-hidden />
   );
 }
 
-/** 다 키운 동물 그림 (도감 카드, 미니룸 전시). 어른 단계로 그린다 */
+/** 다 키운 동물 그림 (도감 카드, 미니룸 전시). 어른 단계로 그린다. size는 32의 배수(64 등)여야 도트가 고르다 */
 export function AnimalArt({ assetKey, size = 64, className = "" }: { assetKey: string; size?: number; className?: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
-  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size * 2))} alt="" width={size} height={size} className={className} aria-hidden />;
+  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size))} alt="" width={size} height={size} className={`pixelated ${className}`} aria-hidden />;
 }
 
 /** 미니룸: 장착한 배경 장면 위에 캐릭터가 서 있는 작은 방.
@@ -69,13 +70,13 @@ export function MiniRoom({
   const animal = showcase && hasAnimalArt(showcase.assetKey) ? showcase : null;
   return (
     <div
-      className={`relative overflow-hidden bg-cover bg-bottom ${className}`}
-      // 미니룸은 넓은 배너로 쓰이므로 넓게 그린 장면을 쓴다 (확대돼서 흐려지지 않게)
-      style={{ backgroundImage: `url("${backgroundDataUri(bgKey, 760)}")` }}
+      className={`pixelated relative overflow-hidden bg-bottom bg-repeat-x ${className}`}
+      // 배경은 캐릭터(120px = 24칸 × 5)와 같은 5배 도트로, 늘이지 않고 아래 가운데에 붙인다. 위로 남는 칸은 하늘 맨 위 색
+      style={{ backgroundImage: `url("${backgroundDataUri(bgKey, 1280, 5)}")`, backgroundColor: backgroundSky(bgKey) }}
     >
       <div className="absolute inset-x-0 bottom-[6%] flex flex-col items-center">
         <div className="relative">
-          <CharacterArt asset={characterAsset} outfit={outfit} size={112} className="animate-bounce drop-shadow-md [animation-duration:2s]" />
+          <CharacterArt asset={characterAsset} outfit={outfit} size={120} className="animate-bounce drop-shadow-md [animation-duration:2s]" />
           {animal && (
             <span data-showcase className="absolute bottom-0 left-full -ml-3 flex w-16 flex-col items-center" title={animal.name}>
               {/* 절대 위치라 쓸 수 있는 너비가 0이 되므로 max-width를 풀어 64px 그대로 그린다 */}

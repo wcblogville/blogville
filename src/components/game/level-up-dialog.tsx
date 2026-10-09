@@ -40,9 +40,9 @@ export function LevelUpDialog({ level, title, items, moreCount }: { level: numbe
           <p className="font-bold text-ink-soft">이제 이런 친구를 데려올 수 있어요</p>
           <ul className="mt-2 flex flex-wrap justify-center gap-3">
             {items.map((item) => (
-              <li key={item.id} className="flex w-20 flex-col items-center gap-1 text-sm">
+              <li key={item.id} className="flex w-24 flex-col items-center gap-1 text-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-                <img src={item.image} alt="" width={64} height={64} className="h-16 w-16 rounded-xl border-2 border-line bg-white object-contain" />
+                <img src={item.image} alt="" width={72} height={72} className="pixelated box-content h-[72px] w-[72px] rounded-xl border-2 border-line bg-white object-contain" />
                 <span className="break-keep">{item.name}</span>
               </li>
             ))}

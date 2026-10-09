@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { chooseRoofColor, placeFurniture } from "@/app/house/actions";
 import { furnitureDataUri } from "@/lib/art/furniture";
+import { ROOM_ART } from "@/lib/art/room";
 import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
 import type { RoofColor } from "@/lib/blog";
 import { ROOF_LABELS } from "@/lib/house";
@@ -40,6 +41,8 @@ export function HouseRoom({
   const bySlot = new Map(placed.map((p) => [p.slot, p]));
   // 2·3단계(6·8칸)는 휴대폰에서 두 줄(뒷줄·앞줄)로 놓는다. 한 줄이면 7·8번 칸이 카드 밖으로 넘쳐 누를 수 없었다
   const twoRows = house.slots > 4;
+  // 가구 그림 크기: 32칸 그림의 2배(64px), 넓은 화면에서 4칸 집은 3배(96px). 정수배라 도트가 고르다
+  const furnitureBox = twoRows ? "h-16 w-16" : "h-16 w-16 sm:h-24 sm:w-24";
 
   const choose = (slot: number, itemId: number | null) =>
     start(async () => {
@@ -103,22 +106,20 @@ export function HouseRoom({
       )}
 
       <div className="relative mt-3 h-56 border-t-2 border-line sm:h-64">
-        {/* 벽: 줄무늬 벽지와 창문 */}
+        {/* 벽: 도트 줄무늬 벽지와 창문 (src/lib/art/room.ts, 모두 4배 도트) */}
         <div
-          className="absolute inset-x-0 top-0 h-[62%]"
-          style={{ background: "repeating-linear-gradient(90deg, #fff4dc 0 22px, #fbe9c6 22px 44px)" }}
+          className="pixelated absolute inset-x-0 top-0 h-[62%]"
+          style={{ backgroundImage: `url("${ROOM_ART.wall}")`, backgroundSize: `${ROOM_ART.tile}px ${ROOM_ART.tile}px` }}
           aria-hidden
         >
-          <div className="absolute left-[12%] top-[18%] h-16 w-20 rounded-lg border-[3px] border-[#4a3426] bg-[#bfe8ff] sm:h-20 sm:w-24">
-            <div className="absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 bg-[#4a3426]" />
-            <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 bg-[#4a3426]" />
-          </div>
-          <div className="absolute inset-x-0 bottom-0 h-3 bg-[#d9b98a]" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
+          <img src={ROOM_ART.window} alt="" width={ROOM_ART.windowSize.width} height={ROOM_ART.windowSize.height} className="pixelated absolute left-[12%] top-[14%] max-w-none" />
+          <div className="absolute inset-x-0 bottom-0 h-3 border-y-4 border-[#4a3426] bg-[#d9b98a]" />
         </div>
-        {/* 바닥: 나무 마루 */}
+        {/* 바닥: 도트 나무 마루 */}
         <div
-          className="absolute inset-x-0 bottom-0 h-[38%]"
-          style={{ background: "repeating-linear-gradient(0deg, #d89a63 0 18px, #c98a55 18px 20px)" }}
+          className="pixelated absolute inset-x-0 bottom-0 h-[38%]"
+          style={{ backgroundImage: `url("${ROOM_ART.floor}")`, backgroundSize: `${ROOM_ART.tile}px ${ROOM_ART.tile}px` }}
           aria-hidden
         />
 
@@ -127,11 +128,11 @@ export function HouseRoom({
           href={doorHref}
           data-house-door
           aria-label="문 열고 마을로 나가기"
-          className={`group absolute bottom-[34%] right-[5%] flex h-[56%] w-16 flex-col phone:hidden items-center justify-end rounded-t-full border-[3px] border-[#4a3426] bg-[#9b6a43] pb-2 shadow-md transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-sky sm:w-20 ${
+          style={{ backgroundImage: `url("${ROOM_ART.door}")`, width: ROOM_ART.doorSize.width, height: ROOM_ART.doorSize.height }}
+          className={`pixelated group absolute bottom-[34%] right-[5%] flex flex-col phone:hidden items-center justify-end rounded-t-full pb-2 transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-sky ${
             highlightDoor ? "ring-4 ring-sun ring-offset-2 motion-safe:animate-pulse" : ""
           }`}
         >
-          <span className="absolute right-2 top-1/2 h-2.5 w-2.5 rounded-full border border-[#4a3426] bg-sun" aria-hidden />
           <span className="whitespace-nowrap rounded-full bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-ink shadow-sm">🚪 밖으로</span>
         </Link>
 
@@ -146,10 +147,10 @@ export function HouseRoom({
               return item ? (
                 <li key={slot} title={item.name} data-furniture={item.assetKey}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-                  <img src={furnitureDataUri(item.assetKey, 160)} alt={item.name} className="h-14 w-14 drop-shadow sm:h-20 sm:w-20" />
+                  <img src={furnitureDataUri(item.assetKey, 96)} alt={item.name} className={`pixelated ${furnitureBox}`} />
                 </li>
               ) : (
-                <li key={slot} className="h-14 w-14 sm:h-20 sm:w-20" aria-hidden />
+                <li key={slot} className={furnitureBox} aria-hidden />
               );
             }
             return (
@@ -160,11 +161,11 @@ export function HouseRoom({
                   onClick={() => setPicking(picking === slot ? null : slot)}
                   aria-label={item ? `${slot + 1}번 칸: ${item.name} 바꾸기` : `${slot + 1}번 칸에 가구 놓기`}
                   data-slot={slot}
-                  className="grid h-14 w-14 place-items-center rounded-xl border-2 border-dashed border-white/90 bg-white/30 hover:bg-white/60 sm:h-20 sm:w-20"
+                  className={`box-content grid place-items-center rounded-xl border-2 border-dashed border-white/90 bg-white/30 hover:bg-white/60 ${furnitureBox}`}
                 >
                   {item ? (
                     // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
-                    <img src={furnitureDataUri(item.assetKey, 160)} alt="" className="h-full w-full" />
+                    <img src={furnitureDataUri(item.assetKey, 96)} alt="" className={`pixelated ${furnitureBox}`} />
                   ) : (
                     <span className="text-2xl text-white drop-shadow" aria-hidden>
                       ＋
@@ -247,7 +248,7 @@ export function HouseRoom({
                       className={`flex w-20 flex-col items-center rounded-xl border-2 p-1 text-xs hover:bg-cream ${here ? "border-sun bg-[#fff3d6]" : "border-line"}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-                      <img src={furnitureDataUri(f.assetKey, 120)} alt="" className="h-12 w-12" />
+                      <img src={furnitureDataUri(f.assetKey, 64)} alt="" className="pixelated h-16 w-16" />
                       <span className="line-clamp-1">{f.name}</span>
                     </button>
                   </li>

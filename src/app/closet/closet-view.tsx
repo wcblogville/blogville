@@ -72,7 +72,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         const on = clickable && isOn(item);
         const art = (
           <>
-            <ItemArt type={item.type} assetKey={item.assetKey} className="h-20" characterSize={70} />
+            <ItemArt type={item.type} assetKey={item.assetKey} className="h-20" characterSize={72} />
             <span className="mt-1 block text-sm font-bold">
               {on && "✓ "}
               {item.name}

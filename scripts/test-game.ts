@@ -5,7 +5,10 @@ import { BOARD_POS, CENTER, DECO_SLOTS, FARM_POS, FISHING_POS, HOUSE_SLOTS, hous
 import { BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, HOUSE_STAGES, houseStage, LAMP_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
 import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
 import { AVATAR_PARTS } from "../src/lib/art/avatar";
-import { PIXEL } from "../src/lib/art/pixel";
+import { fitSvg, PIXEL } from "../src/lib/art/pixel";
+import { FURNITURE_KEYS, furnitureRows } from "../src/lib/art/furniture";
+import { animalSvg } from "../src/lib/art/animals";
+import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
@@ -143,5 +146,13 @@ expect("비중 고르기: 0.999 → 둘째", pickWeighted(sp, 0.999).code, "b");
 expect("조사: 토끼가", subject("토끼"), "토끼가");
 expect("조사: 아기 돼지가", subject("아기 돼지"), "아기 돼지가");
 expect("조사: 곰이", subject("곰"), "곰이");
+
+// 남은 그림 도트 (2026-10-09 2차): 가구는 32×32, 미리보기는 정수 배율, 배경은 칸 × 배율 크기
+expect("가구는 모두 32×32", FURNITURE_KEYS().filter((k) => { const r = furnitureRows(k)!; return r.length !== 32 || r.some((x) => x.length !== 32); }), []);
+const view = (svg: string) => svg.match(/viewBox="([-\d. ]+)" width="(\d+)"/)!.slice(1);
+expect("fitSvg 96px에 32칸 → 틀 32칸 (3배)", view(fitSvg(furnitureRows("furniture.bed")!, 96)), ["0 0 32 32", "96"]);
+expect("fitSvg 72px에 32칸 → 틀 36칸 (2배)", view(fitSvg(furnitureRows("furniture.bed")!, 72)), ["-2 -4 36 36", "72"]);
+expect("동물은 단계마다 다른 그림", new Set((["baby", "teen", "adult"] as const).map((st) => animalSvg("animal.chick", st))).size, 3);
+expect("배경 1280px × 5배 → 256칸, 높이 60칸 × 5", backgroundSvg("bg.meadow", 1280, 5).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [256, BG_ROWS, 1280, BG_ROWS * 5]);
 
 if (failed) process.exit(1);
