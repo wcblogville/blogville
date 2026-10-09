@@ -107,6 +107,10 @@ const post = await one(
   "INSERT INTO posts (blog_id, title, content_html, content_text) VALUES ($1, $2, '<p>주소 확인 글</p>', '주소 확인 글') RETURNING id",
   [a.blogId, `주소 확인 글 ${n}`],
 );
+// 글 카드는 이 시험만의 태그 화면에서 본다. 마을 소식 첫 장은 다른 시험(social)이 미래 시각으로 넣은 글이 차지할 수 있다
+const TAG = `주소확인${n}`;
+const tag = await one("INSERT INTO tags (name) VALUES ($1) RETURNING id", [TAG]);
+await db.query("INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2)", [post.id, tag.id]);
 
 // ── US3-1 이름 저장 → 같은 화면 `저장했어요 ✓`, 사이트 전체 반영, 60초 안 ──
 {
@@ -119,7 +123,7 @@ const post = await one(
   check("SC-006 설정 화면을 열고 저장까지 60초 안", elapsed < 60_000, `${elapsed}ms`);
   await a.page.goto(`${BASE}/@${A}`);
   check("US3-1 블로그 홈 제목·탭 제목", (await a.page.locator("main h1").innerText()) === "새 이름" && (await a.page.title()) === "새 이름 | Blogville", await a.page.title());
-  await a.page.goto(`${BASE}/feed`);
+  await a.page.goto(`${BASE}/tags/${encodeURIComponent(TAG)}`);
   const card = a.page.locator("main article").filter({ hasText: `주소 확인 글 ${n}` });
   check("US3-1 글 카드의 블로그 이름", (await card.innerText()).includes("· 새 이름"));
   const ph = await browser.newContext({ ...phone, storageState: await a.ctx.storageState() });
@@ -182,7 +186,7 @@ const NEW = `my_${n}`;
   const hrefs = async (page) => page.locator("a[href]").evaluateAll((as) => as.map((x) => x.getAttribute("href")));
   const old = (h) => h === `/@${A}` || h.startsWith(`/@${A}/`) || h.startsWith(`/@${A}?`);
   const found = [];
-  for (const path of [`/@${NEW}`, `/@${NEW}/${post.id}`, "/settings/blog", "/feed"]) {
+  for (const path of [`/@${NEW}`, `/@${NEW}/${post.id}`, "/settings/blog", "/feed", `/tags/${encodeURIComponent(TAG)}`]) {
     await a.page.goto(`${BASE}${path}`);
     found.push(...(await hrefs(a.page)).filter(old));
   }
@@ -267,7 +271,7 @@ const A_SLUG = `c5_${n}`;
   const badge = await a.page.locator("div.bg-bottom").first().innerText();
   await a.page.goto(`${BASE}/@${A_SLUG}/${post.id}`);
   const detail = await a.page.locator("main").innerText();
-  await a.page.goto(`${BASE}/feed`);
+  await a.page.goto(`${BASE}/tags/${encodeURIComponent(TAG)}`);
   const card = await a.page.locator("main article").filter({ hasText: `주소 확인 글 ${n}` }).innerText();
   const ph = await browser.newContext({ ...phone, storageState: await a.ctx.storageState() });
   const pp = await ph.newPage();
