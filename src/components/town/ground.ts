@@ -78,10 +78,16 @@ function bake(): Uint8ClampedArray {
       const slot = (Math.round((Math.atan2(wy - CY, wx - CX) - Math.PI / 2) / STEP) + SLOTS * 2) % SLOTS;
       const s = paths[slot];
       // 집으로 가는 길은 꽃 울타리를 지나 광장 돌바닥까지 이어진다
-      const onPath = d >= PLAZA + 15 && d < RING + 220 && toSegment(wx, wy, s.ax, s.ay, s.bx, s.by) < 27;
+      const toPath = toSegment(wx, wy, s.ax, s.ay, s.bx, s.by);
+      const onPath = d >= PLAZA + 15 && d < RING + 220 && toPath < 27;
       if (d < PLAZA) k = Kind.Stone;
       else if (d < PLAZA + 15) k = Kind.StoneRim;
-      else if (d < PLAZA + 42) k = onPath ? Kind.Path : Kind.Hedge;
+      else if (d < PLAZA + 42) {
+        // 꽃 울타리는 길 앞에서 둥글게 끝난다: 울타리 띠 가운데서 멀수록 더 일찍 끝나 반원 모양, 길과 사이에 풀 한 줄
+        const t = (d - (PLAZA + 28.5)) / 13.5;
+        const cap = 13.5 * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
+        k = onPath ? Kind.Path : toPath < 27 + PX + cap ? Kind.Grass : Kind.Hedge;
+      }
       else {
         const pdx = (wx - PONDX) / 125;
         const pdy = (wy - PONDY) / 75;
