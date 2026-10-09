@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -56,6 +56,7 @@ erDiagram
     users |o..o{ notifications : "행동한 회원"
     posts |o..o{ notifications : "관련 글"
     user_items ||..o{ house_furniture : "집 안에 놓은 가진 가구"
+    user_items ||..o{ town_decorations : "광장에 놓은 가진 장식"
     user_items ||..o{ avatar_equips : "입은 가진 아바타 아이템"
 
     users ||..o{ user_animals : "알·동물"
@@ -191,7 +192,7 @@ erDiagram
     items {
         int id PK
         varchar code UK
-        item_type type "character / background / furniture / avatar / growth"
+        item_type type "character / background / furniture / avatar / growth / deco"
         avatar_slot avatar_slot "아바타만: hat / outfit / accessory"
         varchar name
         varchar description
@@ -562,7 +563,7 @@ COMMIT
 | 타입 | 값 |
 |---|---|
 | `user_role` | `user`, `admin` |
-| `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제) |
+| `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제), `deco`(광장 장식) |
 | `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품) |
 | `visibility` | `public`, `private` |
 | `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시) |
@@ -680,7 +681,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 블로그의 "우리 집" 구역에 칸(`slot`)마다 가구 하나: **`house_furniture (user_id, slot, item_id, placed_at)`** (`0026_house_furniture`). 관계 표라 PK는 `(user_id, slot)`.
 - 가진 가구만: 복합 FK `house_furniture_owned_fk (user_id, item_id) → user_items` (`ON DELETE CASCADE`). 가구 종류인지는 앱이 확인한다.
 - 같은 가구는 한 칸에만: `house_furniture_item_uq (user_id, item_id)`. 다른 칸에 놓으면 앱이 옮긴다.
-- 칸 번호 0~7: `house_furniture_slot_check`. 쓸 수 있는 칸 수는 집 단계(주인 레벨)로 앱이 정한다: Lv.1~9 4칸, Lv.10~29 6칸, Lv.30~ 8칸 (`src/lib/house.ts`). 레벨은 원장 합계라 내려가지 않는다.
+- 칸 번호 0~7: `house_furniture_slot_check`. 쓸 수 있는 칸 수는 집 단계(주인 레벨)로 앱이 정한다: Lv.1~9 4칸, Lv.10~19 6칸, Lv.20~ 8칸 (집은 10레벨마다 한 단계, 2026-10-09. `src/lib/house.ts`). 레벨은 원장 합계라 내려가지 않는다.
 - 가구 아이템은 `items.type = 'furniture'` 8종. 화분·나무 의자는 `is_starter`라 가입할 때 받고(마이그레이션이 기존 회원에게도 지급), 나머지는 상점에서 산다.
 
 ### 3.23 상점·아바타 꾸미기 (SHOP, `0027_shop_items`)
@@ -696,6 +697,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 
 - 회원마다 하루(한국 날짜) 한 번: **`fishing_catches (user_id, date, catch_key, coins, created_at)`**, PK `(user_id, date)`라 같은 날 두 번 넣으면 막힌다.
 - 무엇을 낚았는지(`catch_key`)와 확률은 `src/lib/fishing.ts`. 코인은 원장 `fishing`(`ref_id` = 날짜), 먹이 꾸러미는 `user_items`의 동물 먹이 수량 +1.
+
+### 3.25 광장 꾸미기 (사용자 요청 2026-10-09, `0030_town_decorations`)
+
+- 내 광장의 꾸미기 자리(`slot`)마다 장식 하나: **`town_decorations (user_id, slot, item_id, placed_at)`**. 관계 표라 PK는 `(user_id, slot)`. 다른 회원도 내 마을(`/town/블로그 주소`)에 놀러 와서 본다.
+- 가진 장식만: 복합 FK `town_decorations_owned_fk (user_id, item_id) → user_items` (`ON DELETE CASCADE`). 장식 종류(`items.type = 'deco'`)인지는 앱이 확인한다.
+- 같은 장식은 한 자리에만: `town_decorations_item_uq (user_id, item_id)`. 다른 자리에 놓으면 앱이 옮긴다.
+- 자리 번호 0~7: `town_decorations_slot_check`. 쓸 수 있는 자리 수는 가구 칸과 같이 집 단계로 앱이 정한다: Lv.1~9 4자리, Lv.10~19 6자리, Lv.20~ 8자리 (`src/lib/house.ts` `decorationSlots`). 자리 좌표는 `src/components/town/layout.ts` `DECO_SLOTS`.
+- 장식 아이템은 `items.type = 'deco'` 8종(벤치·꽃밭·이정표·눈사람·텐트·그네·곰 동상·풍차)이고 상점에서 산다. PostgreSQL은 새 enum 값을 더한 트랜잭션 안에서 그 값을 쓸 수 없어서, 마이그레이션은 `deco` 값과 표만 만들고 아이템 행은 `db:seed`가 넣는다.
 
 ## 4. 데이터 마이그레이션
 

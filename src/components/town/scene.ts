@@ -538,15 +538,16 @@ export function createTownScene(
           .ellipse(p.x, p.y - 4, 124, 46, open ? 0xffd36e : 0x2b2118, open ? 0.35 : 0.12)
           .setStrokeStyle(3, open ? 0xffffff : 0x8a7a6a, open ? 0.95 : 0.6)
           .setDepth(-5);
+        // 번호는 동그라미 왼쪽에 둔다 (자리 앞에 선 캐릭터를 가리지 않게)
         const tag = this.add
-          .text(p.x, p.y + 6, open ? `${i + 1}번` : `🔒 ${i + 1}번`, font({
+          .text(p.x - 64, p.y - 4, open ? `${i + 1}번` : `🔒 ${i + 1}번`, font({
             fontSize: "14px",
             fontStyle: "bold",
             color: open ? "#2b2118" : "#5b4a3c",
             backgroundColor: open ? "#ffd36ef0" : "#ffffffd0",
             padding: { x: 7, y: 2 },
           }))
-          .setOrigin(0.5, 0)
+          .setOrigin(1, 0.5)
           .setDepth(99999);
         this.decoMarkers.push(ring, tag);
       });
