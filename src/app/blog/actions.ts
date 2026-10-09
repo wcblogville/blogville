@@ -51,7 +51,7 @@ export async function toggleLike(postId: unknown) {
     const inserted = await tx.insert(postLikes).values({ postId: id, userId: viewer.userId }).onConflictDoNothing().returning({ postId: postLikes.postId });
     if (!inserted.length || post.ownerId === viewer.userId) return true;
 
-    // 글 주인에게 공감 알림 (보상 여부·하루 상한과 상관없이 새로 저장될 때마다, GAME-08 / SOC FR-033)
+    // 글 주인에게 공감 알림 (보상 여부·하루 상한과 상관없이, 같은 사람·같은 글은 한 번만. GAME-08 / SOC FR-033, 2026-10-09 결정)
     await notifyActivity(tx, { recipientId: post.ownerId, actorId: viewer.userId, kind: "like", postId: id });
 
     // 글 주인에게 보상. 이 사람에게서 이 글로 받은 적이 없을 때만 (취소 후 재공감 방지, FR-029)

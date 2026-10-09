@@ -10,7 +10,7 @@ import { Pagination, parsePage } from "@/components/pagination";
 import { parseSearchQuery } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
 import { REWARD_RULES } from "@/lib/game";
-import { houseInfo } from "@/lib/house";
+import { currentRoof, houseInfo, roofOrder } from "@/lib/house";
 import { parseId } from "@/lib/ids";
 import {
   getBlogBySlug,
@@ -73,6 +73,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
 
   // 전시 동물은 주인의 다 키운 동물 목록에서 찾는다. 없으면(지워짐·다 자라지 않음) 빈 자리 (spec Edge Cases)
   const shown = grown.find((a) => a.id === blog.showcaseAnimalId) ?? null;
+  const house = houseInfo(ownerWallet.level);
   const currentCat = categoryId ? cats.find((c) => c.id === categoryId) : undefined;
   const currentSub = subcategoryId ? cats.flatMap((c) => c.subcategories).find((s) => s.id === subcategoryId) : undefined;
   const selected = search
@@ -116,7 +117,14 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         showcaseId={shown?.id ?? null}
         isOwner={isOwner}
       />
-      <HouseRoom house={houseInfo(ownerWallet.level)} placed={placed} owned={owned} doorHref={doorHref} highlightDoor={welcome} />
+      <HouseRoom
+        house={house}
+        placed={placed}
+        owned={owned}
+        roof={isOwner ? { current: currentRoof(blog.id, blog.roofColor), order: roofOrder(blog.id), unlocked: house.stage } : null}
+        doorHref={doorHref}
+        highlightDoor={welcome}
+      />
 
       <div className="mt-6 grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="min-w-0 md:sticky md:top-20 md:self-start">

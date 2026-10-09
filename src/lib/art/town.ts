@@ -16,38 +16,118 @@ function darken(hex: string, amount = 0.25) {
 }
 
 // ===== 집 (단계별 성장, TOWN-11) =====
-// 같은 150 × 140 그림에 단계마다 창문·다락을 더하고, 광장에는 단계가 높을수록 크게 놓는다.
-export const HOUSE_STAGES = {
-  1: { name: "작은 오두막", width: 150, height: 140 },
-  2: { name: "창문 많은 집", width: 172, height: 160 },
-  3: { name: "다락 있는 집", width: 194, height: 181 },
-} as const;
-export type HouseStage = keyof typeof HOUSE_STAGES;
+// 레벨 10마다 한 단계씩 커진다: Lv.1~9 → 1단계 … Lv.90 이상 → 10단계 (사용자 결정 2026-10-09).
+// 같은 150 × 140 집 그림에 단계마다 하나씩 더하고(창문 → 다락 → 꽃밭 → 울타리 → 2층 → 발코니 → 탑 → 정원 → 금장식),
+// 광장에는 단계가 높을수록 조금씩 크게 놓는다.
+const HOUSE_STAGE_NAMES = [
+  "작은 오두막",
+  "창문 많은 집",
+  "다락 있는 집",
+  "꽃밭 있는 집",
+  "울타리 있는 집",
+  "2층 집",
+  "발코니 있는 집",
+  "탑 있는 집",
+  "정원 있는 저택",
+  "마을 최고 저택",
+] as const;
+export type HouseStage = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export const MAX_HOUSE_STAGE: HouseStage = 10;
+/** 한 단계가 오르는 레벨 간격 */
+export const HOUSE_STAGE_LEVELS = 10;
 
-/** 집 주인의 레벨로 정하는 집 단계 (TOWN FR-059): Lv.1~9 → 1, Lv.10~29 → 2, Lv.30 이상 → 3 */
-export function houseStage(level: number): HouseStage {
-  return level >= 30 ? 3 : level >= 10 ? 2 : 1;
+/** 그림 틀(viewBox): 울타리(5단계)부터 옆으로, 2층(6단계)·탑(8단계)부터 위로 넓어진다 */
+function houseFrame(stage: HouseStage) {
+  const x = stage >= 5 ? -16 : 0;
+  const y = stage >= 8 ? -48 : stage >= 6 ? -38 : 0;
+  return { x, y, w: 150 - 2 * x, h: 140 - y };
 }
+
+/** 단계별 이름과 광장에 놓을 크기 (단계마다 6%씩 커진다) */
+export const HOUSE_STAGES = Object.fromEntries(
+  HOUSE_STAGE_NAMES.map((name, i) => {
+    const stage = (i + 1) as HouseStage;
+    const f = houseFrame(stage);
+    const scale = 1 + 0.06 * i;
+    return [stage, { name, width: Math.round(f.w * scale), height: Math.round(f.h * scale) }];
+  }),
+) as Record<HouseStage, { name: string; width: number; height: number }>;
+
+/** 집 주인의 레벨로 정하는 집 단계: 10레벨마다 1단계 (Lv.1~9 → 1, Lv.10~19 → 2, …, Lv.90 이상 → 10) */
+export function houseStage(level: number): HouseStage {
+  return Math.min(MAX_HOUSE_STAGE, Math.max(1, Math.floor(level / HOUSE_STAGE_LEVELS) + 1)) as HouseStage;
+}
+
+/** 지붕 색 코드값(blogs.roof_color, src/lib/blog.ts ROOF_COLORS) → 실제 색 */
+export const ROOF_HEX = {
+  red: "#e0584f",
+  orange: "#f08a3c",
+  yellow: "#f2c14e",
+  green: "#5fb36a",
+  sky: "#6cc3e8",
+  blue: "#4a7fd6",
+  purple: "#9a76d6",
+  brown: "#a0704e",
+  pink: "#f08fb3",
+  mint: "#4fc3a8",
+} as const;
+
+const sparkle = (x: number, y: number, r: number) =>
+  `<path d="M${x} ${y - r}L${x + r * 0.25} ${y - r * 0.25}L${x + r} ${y}L${x + r * 0.25} ${y + r * 0.25}L${x} ${y + r}L${x - r * 0.25} ${y + r * 0.25}L${x - r} ${y}L${x - r * 0.25} ${y - r * 0.25}Z" fill="#ffe08a" stroke="${O}" stroke-width="1"/>`;
 
 export function houseSvg(stage: HouseStage, roof: string): string {
   const { width: w, height: h } = HOUSE_STAGES[stage];
+  const f = houseFrame(stage);
   const roofDark = darken(roof, 0.28);
-  // 1단계: 나무 벽, 세모 지붕, 굴뚝, 둥근 문, 창문 하나와 꽃 상자
+  // 2층(6단계)부터는 지붕·굴뚝·다락을 위로 올리고 그 사이에 2층 벽을 넣는다
+  const up = stage >= 6 ? 38 : 0;
+  const lift = (svg: string) => (up ? `<g transform="translate(0 -${up})">${svg}</g>` : svg);
   let body =
-    `<ellipse cx="75" cy="133" rx="62" ry="6" fill="#000" opacity=".15"/>` +
-    // 굴뚝
-    `<rect x="98" y="22" width="16" height="30" fill="#b9a28a" ${S}/><rect x="95" y="18" width="22" height="8" rx="2" fill="#9c8670" ${S}/>` +
-    // 벽 + 나무 판자
-    `<rect x="24" y="62" width="102" height="68" rx="4" fill="#f4dcb5" ${S}/>` +
-    `<path d="M26 80H124M26 98H124M26 116H124" stroke="#d9b98a" stroke-width="2"/>` +
-    // 지붕 + 기와 줄
+    stage >= 9
+      ? // 9단계: 집 둘레 잔디 정원
+        `<ellipse cx="75" cy="133" rx="90" ry="8" fill="#8fd16f" stroke="#5f9e4a" stroke-width="2"/>`
+      : `<ellipse cx="75" cy="133" rx="${stage >= 5 ? 84 : 62}" ry="6" fill="#000" opacity=".15"/>`;
+  // 8단계: 왼쪽 둥근 탑 (집보다 먼저 그려 뒤에 선다)
+  if (stage >= 8) {
+    body +=
+      `<rect x="-4" y="8" width="28" height="122" rx="3" fill="#efd3a6" ${S}/>` +
+      `<path d="M-2 44H22M-2 84H22" stroke="#d9b98a" stroke-width="2"/>` +
+      `<path d="M4 36V26Q4 20 10 20Q16 20 16 26V36Z" fill="#bfe8ff" ${S}/>` +
+      `<path d="M4 74V64Q4 58 10 58Q16 58 16 64V74Z" fill="#bfe8ff" ${S}/>` +
+      `<path d="M-9 12L10 -44L29 12Z" fill="${roof}" ${S}/>` +
+      `<path d="M-5 4H25M1 -14H19" stroke="${roofDark}" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  // 굴뚝
+  body += lift(`<rect x="98" y="22" width="16" height="30" fill="#b9a28a" ${S}/><rect x="95" y="18" width="22" height="8" rx="2" fill="#9c8670" ${S}/>`);
+  // 1층 벽 + 나무 판자
+  body += `<rect x="24" y="62" width="102" height="68" rx="4" fill="#f4dcb5" ${S}/>` + `<path d="M26 80H124M26 98H124M26 116H124" stroke="#d9b98a" stroke-width="2"/>`;
+  // 6단계: 2층 벽과 창문 셋 (7단계는 가운데가 발코니 문)
+  if (stage >= 6) {
+    const win = (x: number) => `<rect x="${x}" y="40" width="18" height="16" rx="3" fill="#bfe8ff" ${S}/><path d="M${x + 9} 40V56" stroke="${O}" stroke-width="2"/>`;
+    body += `<rect x="30" y="28" width="90" height="36" rx="3" fill="#f9e6c4" ${S}/>` + win(38) + win(94);
+    body += stage >= 7 ? `<path d="M66 62V46Q66 40 75 40Q84 40 84 46V62Z" fill="#9b6a43" ${S}/>` : win(66);
+  }
+  // 지붕 + 기와 줄 (10단계는 금빛 테두리)
+  body += lift(
     `<path d="M12 68L75 18L138 68Q140 74 133 74H17Q10 74 12 68Z" fill="${roof}" ${S}/>` +
-    `<path d="M40 52H110M28 63H122M56 39H94" stroke="${roofDark}" stroke-width="3" stroke-linecap="round"/>` +
-    // 문
+      `<path d="M40 52H110M28 63H122M56 39H94" stroke="${roofDark}" stroke-width="3" stroke-linecap="round"/>` +
+      (stage >= 10 ? `<path d="M21 66L75 23L129 66" fill="none" stroke="#ffd36e" stroke-width="3" stroke-linecap="round"/>` : ""),
+  );
+  // 7단계: 2층 발코니 난간
+  if (stage >= 7) {
+    body +=
+      `<rect x="54" y="62" width="42" height="5" rx="1" fill="#c9b8a6" ${S}/>` +
+      `<path d="M60 52V62M67 52V62M75 52V62M83 52V62M90 52V62" stroke="${O}" stroke-width="2"/>` +
+      `<rect x="56" y="50" width="38" height="4" rx="1" fill="#fff4dc" ${S}/>`;
+  }
+  // 문 (10단계는 금빛 아치)
+  body +=
     `<path d="M62 130V100Q62 88 75 88Q88 88 88 100V130Z" fill="#9b6a43" ${S}/>` +
+    (stage >= 10 ? `<path d="M59 102Q59 84 75 84Q91 84 91 102" fill="none" stroke="#ffd36e" stroke-width="3" stroke-linecap="round"/>` : "") +
     `<path d="M75 90V130" stroke="#7d5232" stroke-width="2"/><circle cx="82" cy="111" r="2.2" fill="#ffd36e" stroke="${O}" stroke-width="1"/>` +
-    `<rect x="56" y="128" width="38" height="6" rx="2" fill="#c9b8a6" ${S}/>` +
-    // 창문 + 꽃 상자
+    `<rect x="56" y="128" width="38" height="6" rx="2" fill="#c9b8a6" ${S}/>`;
+  // 창문 + 꽃 상자
+  body +=
     `<rect x="33" y="84" width="20" height="18" rx="3" fill="#bfe8ff" ${S}/><path d="M43 84V102M33 93H53" stroke="${O}" stroke-width="2"/>` +
     `<rect x="31" y="102" width="24" height="6" rx="2" fill="#8d6e63" ${S}/>` +
     `<circle cx="36" cy="100" r="3" fill="#ff7aa2"/><circle cx="43" cy="99" r="3" fill="#ffd36e"/><circle cx="50" cy="100" r="3" fill="#ff7aa2"/>`;
@@ -61,13 +141,39 @@ export function houseSvg(stage: HouseStage, roof: string): string {
     // 1단계: 문 옆 작은 등
     body += `<rect x="98" y="96" width="8" height="10" rx="2" fill="#ffe08a" ${S}/>`;
   }
-  // 3단계: 지붕 쪽 둥근 다락 창과 깃발
+  // 3단계: 지붕 쪽 둥근 다락 창과 깃발 (10단계는 깃발 대신 왕관)
   if (stage >= 3) {
-    body +=
+    body += lift(
       `<circle cx="75" cy="46" r="10" fill="#bfe8ff" ${S}/><path d="M75 36V56M65 46H85" stroke="${O}" stroke-width="2"/>` +
-      `<path d="M75 18V4" stroke="${O}" stroke-width="2.5"/><path d="M75 4L92 9L75 14Z" fill="#ffd36e" stroke="${O}" stroke-width="1.5"/>`;
+        (stage >= 10
+          ? `<path d="M63 16L65 2L70 9L75 -1L80 9L85 2L87 16Z" fill="#ffd36e" ${S}/>`
+          : `<path d="M75 18V4" stroke="${O}" stroke-width="2.5"/><path d="M75 4L92 9L75 14Z" fill="#ffd36e" stroke="${O}" stroke-width="1.5"/>`),
+    );
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 140" width="${w * 2}" height="${h * 2}">${body}</svg>`;
+  // 9단계: 앞마당 산울타리
+  if (stage >= 9) {
+    body +=
+      `<rect x="25" y="117" width="31" height="15" rx="7" fill="#5fae5a" ${S}/>` +
+      `<rect x="94" y="117" width="31" height="15" rx="7" fill="#5fae5a" ${S}/>` +
+      `<circle cx="34" cy="122" r="2.5" fill="#fff"/><circle cx="46" cy="125" r="2.5" fill="#ffd36e"/><circle cx="104" cy="125" r="2.5" fill="#ffd36e"/><circle cx="116" cy="122" r="2.5" fill="#fff"/>`;
+  }
+  // 4단계: 양쪽 꽃덤불
+  if (stage >= 4) {
+    const bush = (cx: number) =>
+      `<ellipse cx="${cx}" cy="124" rx="11" ry="10" fill="#6fbf73" ${S}/>` +
+      `<circle cx="${cx - 4}" cy="120" r="2.5" fill="#ff7aa2"/><circle cx="${cx + 4}" cy="123" r="2.5" fill="#ffd36e"/><circle cx="${cx - 1}" cy="128" r="2.5" fill="#ff7aa2"/>`;
+    body += bush(14) + bush(136);
+  }
+  // 5단계: 양옆 나무 울타리
+  if (stage >= 5) {
+    const fence = (xs: number[], x1: number, x2: number) =>
+      `<path d="M${x1} 119H${x2}M${x1} 128H${x2}" stroke="${O}" stroke-width="5" stroke-linecap="round"/><path d="M${x1} 119H${x2}M${x1} 128H${x2}" stroke="#fff4dc" stroke-width="2.5" stroke-linecap="round"/>` +
+      xs.map((x) => `<path d="M${x} 134V115L${x + 2.5} 111L${x + 5} 115V134Z" fill="#fff4dc" stroke="${O}" stroke-width="1.8" stroke-linejoin="round"/>`).join("");
+    body += fence([-13, -4, 5], -14, 9) + fence([140, 149, 158], 141, 164);
+  }
+  // 10단계: 반짝이
+  if (stage >= 10) body += sparkle(150, -20, 7) + sparkle(-12, -8, 5) + sparkle(40, -36, 5) + sparkle(160, 60, 5);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${f.x} ${f.y} ${f.w} ${f.h}" width="${w * 2}" height="${h * 2}">${body}</svg>`;
 }
 
 // ===== 빈 집터: 즐겨찾기한 이웃이 없는 자리 =====

@@ -142,9 +142,11 @@ const uid3 = await userId(ids.R3);
   check("SC-006 동시 12개 댓글 → 보상 정확히 10번", (await ledgerCount(uid3, "comment")) === 10, `댓글 ${commentsMade}, 보상 ${await ledgerCount(uid3, "comment")}`);
 }
 
-// ══ US2-8·10·11 레벨 ══
-await setExp(uid2, 95);
-// 경험치 95 → 남의 글 댓글(✨5) → 100 → Lv.2
+// ══ US2-8·10·11 레벨 (레벨 n까지 10 × n × (n − 1), src/lib/game.ts) ══
+// R2는 위에서 글 보상 4번 + 출석으로 이미 Lv.4(120~199)라, 다음 경계 Lv.5(200) 바로 아래로 맞춘다
+const expFor = (lv) => 10 * lv * (lv - 1);
+await setExp(uid2, expFor(5) - 5);
+// 경험치 195 → 남의 글 댓글(✨5) → 200 → Lv.5
 await R2.page.goto(`${BASE}/@${ids.R1}/${(await one("SELECT id FROM posts WHERE blog_id = (SELECT id FROM blogs WHERE owner_id = $1) AND visibility = 'public' ORDER BY id LIMIT 1", [uid1])).id}`);
 {
   const form = R2.page.getByRole("region", { name: "댓글" }).locator("form").last();
@@ -153,17 +155,17 @@ await R2.page.goto(`${BASE}/@${ids.R1}/${(await one("SELECT id FROM posts WHERE 
   await R2.page.getByRole("region", { name: "댓글" }).getByText("레벨업 댓글").waitFor();
 }
 await R2.page.waitForLoadState("networkidle");
-check("US2-8 경험치 95 + 5 = 100 → 헤더 Lv.2 (같은 화면)", (await R2.page.getByRole("banner").innerText()).includes("Lv.2"), (await totals(uid2)).exp);
+check("US2-8 경험치 195 + 5 = 200 → 헤더 Lv.5 (같은 화면)", (await R2.page.getByRole("banner").innerText()).includes("Lv.5"), (await totals(uid2)).exp);
 await R2.page.keyboard.press("Escape").catch(() => {});
 await db.query("UPDATE notifications SET read_at = now() WHERE user_id = $1", [uid2]);
-await setExp(uid2, 150);
+await setExp(uid2, 250);
 await R2.page.goto(`${BASE}/closet`);
 const closetText = await R2.page.locator("main").innerText();
-check("US2-10 경험치 150 → 꾸미기 Lv.2·`50 / 200 EXP`", closetText.includes("Lv.2") && closetText.includes("50 / 200 EXP"));
-await setExp(uid2, 485_100);
+check("US2-10 경험치 250 → 꾸미기 Lv.5·`50 / 100 EXP`", closetText.includes("Lv.5") && closetText.includes("50 / 100 EXP"));
+await setExp(uid2, expFor(99));
 await db.query("UPDATE notifications SET read_at = now() WHERE user_id = $1", [uid2]);
 await R2.page.reload();
-check("US2-11 485,100 → Lv.99·MAX", (await R2.page.getByRole("banner").innerText()).includes("Lv.99") && (await R2.page.getByText("MAX", { exact: true }).isVisible()));
+check("US2-11 97,020 → Lv.99·MAX", (await R2.page.getByRole("banner").innerText()).includes("Lv.99") && (await R2.page.getByText("MAX", { exact: true }).isVisible()));
 
 // ══ US2-13 375px 헤더 ══
 {

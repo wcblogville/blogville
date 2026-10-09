@@ -89,8 +89,8 @@ expect("없는 ID 그대로", () => pos(swapPosition([5, 6, 7], 9, 1)), "5:0 6:1
 expect('방향 "x" 그대로', () => pos(swapPosition([5, 6, 7], 6, "x")), "5:0 6:1 7:2");
 expect("방향 2 그대로", () => pos(swapPosition([5, 6, 7], 6, 2)), "5:0 6:1 7:2");
 
-// TOWN-07 지붕 색 8개 (research R-22)
-expect("ROOF_COLORS 8색", () => ROOF_COLORS, ["red", "orange", "yellow", "green", "sky", "blue", "purple", "brown"]);
+// TOWN-07 지붕 색 10개 (집 10단계마다 하나씩 열림, 2026-10-09)
+expect("ROOF_COLORS 10색", () => ROOF_COLORS, ["red", "orange", "yellow", "green", "sky", "blue", "purple", "brown", "pink", "mint"]);
 
 if (failed) {
   console.log(`\n❌ ${failed}개 실패`);

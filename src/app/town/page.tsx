@@ -7,7 +7,7 @@ import type { TownData } from "@/components/town/types";
 import { getViewer } from "@/server/dal";
 import { getHeaderNotifications, listNotifications } from "@/server/notifications";
 import { getWallet } from "@/server/points";
-import { getFavoriteHouses, getFriends, getMyHouse, getTownHouses } from "@/server/town";
+import { getFavoriteHouses, getFriends, getGuestHouses, getMyHouse } from "@/server/town";
 
 /** 메뉴 알림 창에 보여 줄 최근 알림 수 */
 const MENU_NOTIFICATIONS = 5;
@@ -19,11 +19,11 @@ export default async function TownPage(props: PageProps<"/town">) {
   const member = viewer?.profile ? viewer : null;
   const { welcome, at } = await props.searchParams;
 
-  // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 최근 글이 있는 블로그
+  // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳
   const [neighbors, myHouse, hud] = await Promise.all([
-    member ? getFavoriteHouses(member.userId) : getTownHouses(null),
+    member ? getFavoriteHouses(member.userId) : getGuestHouses(),
     member ? getMyHouse(member.userId) : null,
-    member ? getHudMember(member.userId, member.user.role === "admin") : null,
+    member ? getHudMember(member.userId, member.user.role === "admin", member.profile) : null,
   ]);
 
   const data: TownData = {
@@ -70,7 +70,7 @@ export default async function TownPage(props: PageProps<"/town">) {
   );
 }
 
-async function getHudMember(userId: string, isAdmin: boolean): Promise<TownHudMember> {
+async function getHudMember(userId: string, isAdmin: boolean, profile: { photoKey: string | null; blogTitle: string }): Promise<TownHudMember> {
   const [wallet, header, list, friends] = await Promise.all([
     getWallet(userId),
     getHeaderNotifications(userId),
@@ -80,6 +80,8 @@ async function getHudMember(userId: string, isAdmin: boolean): Promise<TownHudMe
   return {
     userId,
     isAdmin,
+    photoKey: profile.photoKey,
+    blogTitle: profile.blogTitle,
     wallet: { coins: wallet.coins, level: wallet.level, current: wallet.current, needed: wallet.needed, isMax: wallet.isMax },
     unread: header.unread,
     notifications: list.rows.slice(0, MENU_NOTIFICATIONS),

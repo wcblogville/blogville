@@ -204,6 +204,13 @@
       "when": 1791443533439,
       "tag": "0028_fishing",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791524021555,
+      "tag": "0029_roof_colors",
+      "breakpoints": true
     }
   ]
 }

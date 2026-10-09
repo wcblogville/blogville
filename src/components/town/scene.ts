@@ -2,7 +2,6 @@
 // 그림은 src/lib/art/ 의 SVG를 이미지로 바꿔 쓴다 (townTextures → TownGame이 미리 불러온다).
 // 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
 import type * as PhaserNS from "phaser";
-import { backgroundAccent } from "@/lib/art/backgrounds";
 import { characterDataUri, lookKey, VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
   BOARD_SIZE,
@@ -100,7 +99,7 @@ export function townTextures(data: TownData) {
   );
   for (const h of houses) {
     list.set(charKey(h.characterAsset, h.outfit), characterDataUri(h.characterAsset, PLAYER_SIZE * 2, h.outfit));
-    const roof = backgroundAccent(h.backgroundAsset);
+    const roof = h.roof;
     list.set(houseKey(stageOf(h), roof), toDataUri(houseSvg(stageOf(h), roof)));
   }
   list.set("board", toDataUri(boardSvg()));
@@ -177,7 +176,7 @@ function layout(data: TownData) {
     const mine = i === 0;
     const stage = stageOf(h);
     const { width: w, height: hh } = HOUSE_STAGES[stage];
-    const roof = backgroundAccent(h.backgroundAsset);
+    const roof = h.roof;
     structures.push({
       texture: houseKey(stage, roof), ...pos, w, h: hh, solid: { w: w * 0.72, h: 46 },
       label: mine ? "내 집" : `${h.nickname}의 집`, sub: h.title,

@@ -1,9 +1,12 @@
 // 게임 규칙: docs/01-requirements.md 4.5, docs/02-erd.md 3.4
 // DB를 쓰지 않는 순수 계산만 둔다 (화면과 서버 어디서나 import 가능)
 
-/** 레벨 n이 되기 위한 누적 경험치: 50 × n × (n − 1) */
+/**
+ * 레벨 n이 되기 위한 누적 경험치: 10 × n × (n − 1).
+ * 처음 곡선(50 ×)의 1/5로 낮춰 레벨이 빨리 오른다: 매일 최대로 하면 Lv.10 약 4일, Lv.90 약 1년 (사용자 결정 2026-10-09)
+ */
 export function expForLevel(level: number): number {
-  return 50 * level * (level - 1);
+  return 10 * level * (level - 1);
 }
 
 /** 최고 레벨 (GAME-02 결정). 경험치는 계속 쌓이지만 레벨은 여기서 멈춘다 */

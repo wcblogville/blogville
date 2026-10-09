@@ -2,32 +2,39 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { placeFurniture } from "@/app/house/actions";
+import { chooseRoofColor, placeFurniture } from "@/app/house/actions";
 import { furnitureDataUri } from "@/lib/art/furniture";
+import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
+import type { RoofColor } from "@/lib/blog";
+import { ROOF_LABELS } from "@/lib/house";
 
 type Furniture = { id: number; name: string; assetKey: string };
 
 /**
  * 블로그의 "우리 집" 구역 (마을 개편 2차, 사용자 요청 2026-10-08): 집 안 벽·바닥에 가구를 놓고, 🚪 문으로 마을에 나간다.
- * 칸 수는 집 단계(주인 레벨)로 정한다. 주인은 [가구 놓기]로 칸마다 가진 가구를 고른다
+ * 칸 수는 집 단계(주인 레벨)로 정한다. 주인은 [가구 놓기]로 칸마다 가진 가구를 고르고, [지붕 색]으로 광장에 보일 지붕 색을 고른다
  */
 export function HouseRoom({
   house,
   placed,
   owned,
+  roof,
   doorHref,
   highlightDoor = false,
 }: {
-  house: { stage: number; name: string; slots: number; nextLevel: number | null };
+  house: { stage: HouseStage; name: string; slots: number; nextLevel: number | null };
   placed: { slot: number; itemId: number; name: string; assetKey: string }[];
   /** 주인에게만: 가진 가구. null이면 보는 사람 (가구 놓기 없음) */
   owned: Furniture[] | null;
+  /** 주인에게만: 지붕 색 (TOWN-07). order = 이 집의 색 순서, 앞에서 unlocked개가 열렸다 */
+  roof: { current: RoofColor; order: RoofColor[]; unlocked: number } | null;
   doorHref: string;
   /** 처음 가입한 회원에게 문을 반짝여 알려 준다 */
   highlightDoor?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [picking, setPicking] = useState<number | null>(null);
+  const [roofOpen, setRoofOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const bySlot = new Map(placed.map((p) => [p.slot, p]));
@@ -39,6 +46,11 @@ export function HouseRoom({
       const r = await placeFurniture(slot, itemId);
       setError(r.ok ? null : r.error);
       setPicking(null);
+    });
+  const chooseRoof = (color: RoofColor) =>
+    start(async () => {
+      const r = await chooseRoofColor(color);
+      setError(r.ok ? null : r.error);
     });
 
   return (
@@ -52,18 +64,36 @@ export function HouseRoom({
           {house.nextLevel && ` · Lv.${house.nextLevel}에 집이 커져요`}
         </p>
         {owned && (
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(!editing);
-              setPicking(null);
-              setError(null);
-            }}
-            aria-pressed={editing}
-            className={`btn min-h-11 text-sm ${editing ? "bg-leaf text-white" : "bg-white text-ink"}`}
-          >
-            {editing ? "✓ 다 놓았어요" : "🛋 가구 놓기"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {roof && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRoofOpen(!roofOpen);
+                  setEditing(false);
+                  setPicking(null);
+                  setError(null);
+                }}
+                aria-pressed={roofOpen}
+                className={`btn min-h-11 text-sm ${roofOpen ? "bg-leaf text-white" : "bg-white text-ink"}`}
+              >
+                {roofOpen ? "✓ 다 골랐어요" : "🏠 지붕 색"}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(!editing);
+                setRoofOpen(false);
+                setPicking(null);
+                setError(null);
+              }}
+              aria-pressed={editing}
+              className={`btn min-h-11 text-sm ${editing ? "bg-leaf text-white" : "bg-white text-ink"}`}
+            >
+              {editing ? "✓ 다 놓았어요" : "🛋 가구 놓기"}
+            </button>
+          </div>
         )}
       </div>
       {error && (
@@ -145,6 +175,57 @@ export function HouseRoom({
             );
           })}
         </ul>
+
+        {roofOpen && roof && (
+          <div
+            role="dialog"
+            aria-label="지붕 색 고르기"
+            data-roof-picker
+            className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white p-3 shadow-lg"
+          >
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
+              <img src={toDataUri(houseSvg(house.stage, ROOF_HEX[roof.current]))} alt="" className="h-20 w-20 shrink-0 object-contain" />
+              <div className="min-w-0 text-sm">
+                <p className="font-bold">광장에 보일 지붕 색을 골라 주세요</p>
+                <p className="text-ink-soft">
+                  처음 색은 무작위로 받았어요. 집이 한 단계 클 때마다 색이 하나씩 늘어요 ({roof.unlocked}/{roof.order.length}색).
+                </p>
+              </div>
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2" aria-label="지붕 색">
+              {roof.order.map((color, i) =>
+                i < roof.unlocked ? (
+                  <li key={color}>
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => chooseRoof(color)}
+                      aria-pressed={color === roof.current}
+                      aria-label={`${ROOF_LABELS[color]} 지붕`}
+                      title={ROOF_LABELS[color]}
+                      data-roof={color}
+                      className={`grid h-11 w-11 place-items-center rounded-full border-[3px] text-sm font-bold text-white ${color === roof.current ? "border-ink" : "border-white shadow"}`}
+                      style={{ background: ROOF_HEX[color] }}
+                    >
+                      {color === roof.current ? "✓" : ""}
+                    </button>
+                  </li>
+                ) : (
+                  <li
+                    key={color}
+                    title={`Lv.${i * HOUSE_STAGE_LEVELS}에 열려요`}
+                    className="grid h-11 w-11 place-items-center rounded-full border-2 border-dashed border-line bg-cream text-[10px] leading-tight text-ink-soft"
+                  >
+                    🔒
+                    <br />
+                    Lv.{i * HOUSE_STAGE_LEVELS}
+                  </li>
+                ),
+              )}
+            </ul>
+          </div>
+        )}
 
         {editing && picking !== null && owned && (
           <div
