@@ -43,7 +43,7 @@ const firstRoofs = await openRoofs();
 check("1단계 지붕 색: 1개 열림, 9개 잠김", firstRoofs.length === 1 && (await roofPicker.getByText("🔒").count()) === 9, firstRoofs.join(","));
 check("안 고른 지붕은 처음 색이 선택됨", (await roofPicker.locator('[data-roof][aria-pressed="true"]').count()) === 1);
 await page.screenshot({ path: `${outDir}/house-roof-1.png` });
-await roofButton.click();
+await room.getByRole("button", { name: /다 골랐어요/ }).click();
 
 // 가구 놓기: 기본 가구(0번 칸 화분, 1번 칸 의자)를 옮기고 비워 본다
 const pick = async (slot, name) => {

@@ -117,7 +117,8 @@ check("SOC T051 B가 C의 댓글(A의 글)에 답글 → C에게 reply 1행·pos
 check("SOC T051 답글 → 글 주인 A에게는 reply 없음", (await notes(uid.A, "AND kind = 'reply'")).length === 0);
 await C.page.reload();
 await writeReply(C.page, "C가 남긴 댓글", "C가 자기 댓글에 단 답글");
-check("US6-10 자기 댓글에 답글 → 알림 없음", (await notes(uid.C)).length === 1);
+// C는 댓글·답글 보상으로 Lv.2(경험치 20)가 될 수 있어 레벨업 알림은 빼고 센다
+check("US6-10 자기 댓글에 답글 → 알림 없음", (await notes(uid.C, "AND kind <> 'level_up'")).length === 1);
 
 // ══ US6 알림함 ══
 await A.page.goto(`${BASE}/notifications`);
@@ -129,7 +130,8 @@ check("US6 레벨업 문구", listText.includes("🎉 Lv.3이 되었어요!"));
 check("FR-043 시간 `방금`", listText.includes("방금"));
 const firstLine = (await A.page.locator("main li").first().innerText()).trim();
 check("FR-043 최신순 (맨 위 = C의 댓글)", firstLine.startsWith(`💬 ${nick.C}님이`), firstLine.slice(0, 40));
-check("FR-043 안 읽은 줄 노란 배경", (await A.page.locator('main [data-unread="true"]').count()) >= 4);
+// 안 읽은 줄 = 공감 1(같은 사람·같은 글은 한 번만, 2026-10-09) + 댓글 2 (레벨업은 [확인]으로 읽음)
+check("FR-043 안 읽은 줄 노란 배경", (await A.page.locator('main [data-unread="true"]').count()) === 3);
 check("US6-1 🔔 숫자 = 안 읽은 수", (await badge(A.page)) === String(await count("SELECT count(*)::int AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL", [uid.A])));
 await A.page.screenshot({ path: `${outDir}/notifications-list.png`, fullPage: true });
 
