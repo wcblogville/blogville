@@ -82,7 +82,7 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
             <label key={c.id} className="cursor-pointer">
               <input type="radio" name="characterId" value={c.id} defaultChecked={c.id === chosen} className="peer sr-only" />
               <span className="flex min-h-11 flex-col items-center rounded-2xl border-2 border-line bg-white p-2 text-center transition peer-checked:border-sun peer-checked:bg-[#fff3d6] peer-checked:shadow-[0_3px_0_0_var(--color-sun-dark)] peer-focus-visible:ring-2 peer-focus-visible:ring-sky peer-focus-visible:ring-offset-2">
-                <CharacterArt asset={c.assetKey} size={56} />
+                <CharacterArt asset={c.assetKey} size={72} />
                 <span className="mt-1 whitespace-nowrap text-sm font-bold">{c.name}</span>
               </span>
             </label>

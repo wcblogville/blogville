@@ -12,9 +12,9 @@ type FreeEgg = { kind: "starter"; label: string } | { kind: "level"; level: numb
 function AnimalImage({ animal, size }: { animal: FarmAnimal; size: number }) {
   const svg =
     animal.status === "egg" || !animal.assetKey || !animal.growExp
-      ? eggSvg(size * 2)
-      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size * 2);
-  return <img src={toAnimalDataUri(svg)} alt="" width={size} height={size} aria-hidden />;
+      ? eggSvg(size)
+      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size);
+  return <img src={toAnimalDataUri(svg)} alt="" width={size} height={size} className="pixelated" aria-hidden />;
 }
 /* eslint-enable @next/next/no-img-element */
 
@@ -84,7 +84,7 @@ export function FarmView({
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {active.map((a) => (
               <li key={a.id} className="card flex flex-col items-center p-4 text-center">
-                <AnimalImage animal={a} size={112} />
+                <AnimalImage animal={a} size={96} />
                 {a.status === "egg" ? (
                   <>
                     <h3 className="font-display text-lg">알</h3>
@@ -154,7 +154,7 @@ export function FarmView({
           <ul className="flex flex-wrap gap-3">
             {grown.map((a) => (
               <li key={a.id} className="card flex w-28 flex-col items-center border-sun bg-[#fff3d6] p-2 text-center">
-                <AnimalImage animal={a} size={72} />
+                <AnimalImage animal={a} size={64} />
                 <span className="font-display">{a.name}</span>
                 <span className="text-[11px] text-ink-soft">{a.grownAt ? new Date(a.grownAt).toLocaleDateString("ko-KR") : ""}</span>
               </li>

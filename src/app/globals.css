@@ -40,6 +40,12 @@ body {
   color: var(--color-ink);
 }
 
+/* 도트 그림 (캐릭터·가구·동물·배경): 확대할 때 흐리게 섞지 않는다.
+   SVG는 crispEdges로 그리지만, 브라우저가 비트맵으로 구워 늘이는 경우(배경·축소 미리보기)에도 칸이 또렷하게 */
+@utility pixelated {
+  image-rendering: pixelated;
+}
+
 /* 게임 버튼: 눌렀을 때 아래로 쏙 들어가는 느낌 */
 @utility btn {
   display: inline-flex;

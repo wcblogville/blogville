@@ -15,12 +15,12 @@ export async function LevelUpPopup({ userId, minLevel, maxLevel }: { userId: str
   return <LevelUpDialog key={pending.level} level={pending.level} title={levelUpTitle(pending.level)} items={items} moreCount={pending.moreCount} />;
 }
 
-/** 새로 열린 아이템 미리보기 그림 (상점 카드와 같은 그림) */
+/** 새로 열린 아이템 미리보기 그림 (상점 카드와 같은 그림). 팝업은 72px (캐릭터 24칸 × 3) */
 function itemImage(type: string, assetKey: string) {
-  if (type === "background") return backgroundDataUri(assetKey, 128);
-  if (type === "furniture") return furnitureDataUri(assetKey, 128);
-  if (type === "growth") return growthDataUri(assetKey, 128);
-  if (type === "deco") return decoDataUri(assetKey, 128);
-  if (type === "avatar") return characterDataUri(MANNEQUIN, 128, [assetKey]);
-  return characterDataUri(assetKey, 128);
+  if (type === "background") return backgroundDataUri(assetKey, 72, 1);
+  if (type === "furniture") return furnitureDataUri(assetKey, 72);
+  if (type === "growth") return growthDataUri(assetKey, 72);
+  if (type === "deco") return decoDataUri(assetKey, 72);
+  if (type === "avatar") return characterDataUri(MANNEQUIN, 72, [assetKey]);
+  return characterDataUri(assetKey, 72);
 }

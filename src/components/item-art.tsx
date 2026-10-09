@@ -1,16 +1,17 @@
 import { CharacterArt } from "@/components/character";
-import { backgroundDataUri, decoDataUri, furnitureDataUri, growthDataUri, MANNEQUIN } from "@/lib/assets";
+import { backgroundDataUri, backgroundSky, decoDataUri, furnitureDataUri, growthDataUri, MANNEQUIN } from "@/lib/assets";
 
 /** 아이템 미리보기 그림 (상점, 꾸미기) */
 export function ItemArt({
   type,
   assetKey,
   className = "h-28",
-  characterSize = 92,
+  characterSize = 96,
 }: {
   type: string;
   assetKey: string;
   className?: string;
+  /** 그림 한 변 px. 캐릭터는 24, 가구·성장 아이템은 32의 배수여야 도트가 고르다 (96은 둘 다) */
   characterSize?: number;
 }) {
   if (type === "character") {
@@ -29,18 +30,19 @@ export function ItemArt({
     );
   }
   if (type === "furniture" || type === "growth" || type === "deco") {
-    const uri = type === "furniture" ? furnitureDataUri(assetKey, 160) : type === "deco" ? decoDataUri(assetKey, 160) : growthDataUri(assetKey, 160);
+    const uri = type === "furniture" ? furnitureDataUri(assetKey, characterSize) : type === "deco" ? decoDataUri(assetKey, characterSize) : growthDataUri(assetKey, characterSize);
     return (
       <div className={`grid place-items-center rounded-xl ${type === "furniture" ? "bg-[#f6ead7]" : type === "deco" ? "bg-[#e3f3dd]" : "bg-[#e9f6e4]"} ${className}`} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-        <img src={uri} alt="" width={characterSize} height={characterSize} />
+        <img src={uri} alt="" width={characterSize} height={characterSize} className="pixelated" />
       </div>
     );
   }
   return (
     <div
-      className={`rounded-xl border-2 border-line bg-cover bg-bottom ${className}`}
-      style={{ backgroundImage: `url("${backgroundDataUri(assetKey)}")` }}
+      className={`pixelated rounded-xl border-2 border-line bg-bottom ${className}`}
+      // 2배 도트 그대로 아래 가운데에 (늘이지 않는다)
+      style={{ backgroundImage: `url("${backgroundDataUri(assetKey)}")`, backgroundColor: backgroundSky(assetKey) }}
       aria-hidden
     />
   );
