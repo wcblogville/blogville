@@ -10,10 +10,25 @@ export type AvatarSlot = "hat" | "outfit" | "accessory" | "hair" | "hair_color";
 export const AVATAR_SLOTS: readonly AvatarSlot[] = ["hair", "hair_color", "hat", "outfit", "accessory"];
 
 /**
- * 아바타 아이템만 쓰는 색. 주황 후드티 O·r·s, 보라 로브 C·W·J.
+ * 아바타 아이템만 쓰는 색. 주황 후드티 O·r·s, 보라 로브 C·W·J (아래에 옷가게 더하기 색).
  * 캐릭터 글자(f 피부, 7·8·9 털)는 쓰지 않는다: 손·얼굴처럼 캐릭터마다 다른 칸은 "."로 비워 아래가 보이게 한다
  */
-export const AVATAR_COLORS = { O: "#ffc0a0", r: "#ff8a65", s: "#d0584e", C: "#c3aefc", W: "#8f6fe0", J: "#5f45a8" };
+export const AVATAR_COLORS = {
+  O: "#ffc0a0",
+  r: "#ff8a65",
+  s: "#d0584e",
+  C: "#c3aefc",
+  W: "#8f6fe0",
+  J: "#5f45a8",
+  // 옷가게 더하기 (2026-10-11): 까만 천 D·S, 분홍 드레스 +·=·%, 우주복 @·~
+  D: "#3b3550",
+  S: "#5c5476",
+  "+": "#ffe3ef",
+  "=": "#ffb3d1",
+  "%": "#e57fae",
+  "@": "#f4f7fb",
+  "~": "#b9c4d6",
+};
 
 type Part = { slot: AvatarSlot; rows: Sprite; /** 얼굴 위에 쓰는 것 (안경): 뒷모습에서는 그리지 않는다 */ face?: boolean };
 
@@ -261,6 +276,380 @@ const PARTS: Record<string, Part> = {
       "...#wwwwwwwy#...",
       "..#ywwwwwwwyy#..",
       "..############..",
+    ],
+  },
+  // ===== 옷가게 더하기 (사용자 요청 2026-10-11 "돈 사용할 사용처 많아지게") =====
+  // 빨간 줄무늬 티셔츠 (반팔)
+  "outfit.tshirt": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#NNNNggNNNQ#..",
+      ".#N#wwwwwwwy#Q#.",
+      ".#f#NNNNNNNQ#f#.",
+      ".#f#wwwwwwwy#f#.",
+    ],
+  },
+  // 노란 비옷과 장화
+  "outfit.raincoat": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#ZZzwggwzzu#..",
+      ".#Z#zzzuuzzu#u#.",
+      ".#z#zzzzzzzu#u#.",
+      ".#z#zzzuzzzu#u#.",
+      "..#zzzzzzzzzu#..",
+      "..#zZzzuzzzzu#..",
+      "..############..",
+      "................",
+      "..#zzzu##zzzu#..",
+    ],
+  },
+  // 초록 니트 스웨터 (분홍 하트)
+  "outfit.sweater": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#mlLLggLLlm#..",
+      ".#l#lllllllm#m#.",
+      ".#l#lVlllVlm#m#.",
+      ".#l#mlmlmlmm#m#.",
+      "..##lmlmlmlm##..",
+    ],
+  },
+  // 파란 체육복 (흰 줄, 흰 운동화)
+  "outfit.tracksuit": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#ivvwggwvvt#..",
+      ".#w#ivvzzvvt#w#.",
+      ".#w#vvvzzvvt#w#.",
+      ".#v#vvvzzvvt#t#.",
+      "..##tttttttt##..",
+      "...#wvvvvvvw#...",
+      "...#wvv##vvw#...",
+      "...#wvv##vvw#...",
+      "..#wwww##wwww#..",
+    ],
+  },
+  // 세일러복 (남색 깃, 빨간 스카프, 주름치마)
+  "outfit.sailor": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#tttwggwttt#..",
+      ".#w#ttwNNwtt#w#.",
+      ".#f#wwwNNwwy#f#.",
+      ".#f#wwwwwwwy#f#.",
+      "..#tTtTtTtTtq#..",
+      ".#tTtTtTtTtTtq#.",
+      ".##############.",
+      "....#ff##ff#....",
+      "...#qqq##qqq#...",
+    ],
+  },
+  // 의사 가운 (청진기, 하늘색 셔츠)
+  "outfit.doctor": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#wwiiggiiwy#..",
+      ".#w#wwiiiiwy#y#.",
+      ".#w#wxiiiixy#y#.",
+      ".#f#wwxxxxwy#f#.",
+      "..##wwwiiwwy##..",
+      "...#wwtttwwy#...",
+      "...#wwt##twy#...",
+      "...#wyt##tyy#...",
+    ],
+  },
+  // 해적 옷 (검은 조끼, 빨간 허리띠, 줄무늬 바지, 장화)
+  "outfit.pirate": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#DDwwggwwDD#..",
+      ".#w#DwwwwwwD#w#.",
+      ".#w#DwwzwwwD#w#.",
+      ".#f#DwwwwwwD#f#.",
+      "..##NNNNNNKN##..",
+      "...#wtwtwtwt#...",
+      "...#wtw##twt#...",
+      "...#wtw##twt#...",
+      "..#bbbn##bbbn#..",
+    ],
+  },
+  // 닌자 옷 (까만 옷, 빨간 띠)
+  "outfit.ninja": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#SDDDggDDDD#..",
+      ".#S#SDDDDDDD#D#.",
+      ".#D#SDDSDDDD#D#.",
+      ".#D#DDDDDDDD#D#.",
+      "..##NNNNNNNQ##..",
+      "...#SDDDDDDD#...",
+      "...#SDD##DDD#...",
+      "...#DDD##DDD#...",
+      "..#DDDD##DDDD#..",
+    ],
+  },
+  // 우주복 (하얀 옷, 가슴 조작판)
+  "outfit.astronaut": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#@@@@gg@@@~#..",
+      ".#@#@@@@@@@~#~#.",
+      ".#@#@vvKz@@~#~#.",
+      ".#~#@vvNi@@~#~#.",
+      "..##xxxxxxxx##..",
+      "...#@@@@@@@~#...",
+      "...#@@@##@@~#...",
+      "...#@@@##@@~#...",
+      "..#xxxx##xxxx#..",
+    ],
+  },
+  // 왕자 옷 (파란 재킷, 금빛 견장과 단추, 흰 바지)
+  "outfit.prince": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#zzTTggTTzz#..",
+      ".#z#TTwzzwTt#z#.",
+      ".#T#TTzTTzTt#t#.",
+      ".#f#TTzTTzTt#f#.",
+      "..##uuuzzuuu##..",
+      "...#wwwwwwwy#...",
+      "...#wwy##wwy#...",
+      "...#wwy##wwy#...",
+      "..#DDDD##DDDD#..",
+    ],
+  },
+  // 공주 드레스 (분홍 드레스, 금빛 장식)
+  "outfit.princess": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#%=+=gg=+=%#..",
+      ".#+#==+zz+=%#%#.",
+      ".#f#==+==+=%#f#.",
+      ".#f#%=====%%#f#.",
+      "..#==+===+==%#..",
+      ".#=+==+==+==+%#.",
+      "#=+==+==+==+=%%#",
+      "#=+==+==+==+=%%#",
+      "################",
+    ],
+  },
+  // 황금 예복 (금빛 옷, 털 깃, 빨간 망토)
+  "outfit.royal": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#wDwwggwwDw#..",
+      ".#N#zZzuuzZu#Q#.",
+      ".#N#zZziizZu#Q#.",
+      ".#f#zzzuuzzu#f#.",
+      ".N#zZzzzzzzzu#Q.",
+      ".N#zZzzizzzzu#Q.",
+      "NN#zZzzzzzzzu#QQ",
+      "NN#zzzzzzzzzu#QQ",
+      "################",
+    ],
+  },
+  // 모자: 파란 야구 모자
+  "hat.cap": {
+    slot: "hat",
+    rows: [
+      ".....######.....",
+      "...##iiivvv##...",
+      "..#iivvvvvvvt#..",
+      ".#ivvvvzzvvvtt#.",
+      ".#vvvvvzzvvvtt#.",
+      "#iiivvvvvvvvvvt#",
+      ".##############.",
+    ],
+  },
+  // 꽃 화관
+  "hat.flower": {
+    slot: "hat",
+    rows: [
+      "................",
+      "................",
+      "..#V#..#z#..#U#.",
+      ".#VwV##zwz##UwU#",
+      ".#lVlmmlzlmmlUl#",
+      "..#l#..#l#..#l#.",
+    ],
+  },
+  // 빨간 베레모
+  "hat.beret": {
+    slot: "hat",
+    rows: [
+      ".......#........",
+      ".....######.....",
+      "...##KKNNNNN##..",
+      "..#KNNNNNNNNNQ#.",
+      ".#NNNNNNNNNNNQQ#",
+      ".#QQQQQQQQQQQQ#.",
+      "..############..",
+    ],
+  },
+  // 고양이 귀 머리띠
+  "hat.catears": {
+    slot: "hat",
+    rows: [
+      "..##........##..",
+      "..#D#......#D#..",
+      ".#DVD#....#DVD#.",
+      ".#DDDDDDDDDDDD#.",
+      "..############..",
+    ],
+  },
+  // 산타 모자 (흰 방울)
+  "hat.santa": {
+    slot: "hat",
+    rows: [
+      "......#####.....",
+      "....##KNNNN##ww.",
+      "...#KNNNNNNNN#ww",
+      "..#KNNNNNNNNNQ#.",
+      ".#wwwwwwwwwwwy#.",
+      "#Ywwwwwwwwwwwwy#",
+      ".##############.",
+    ],
+  },
+  // 실크햇 (빨간 띠)
+  "hat.tophat": {
+    slot: "hat",
+    rows: [
+      "...##########...",
+      "...#SDDDDDDD#...",
+      "...#SDDDDDDD#...",
+      "...#NNNNNNNQ#...",
+      ".##############.",
+      "#SDDDDDDDDDDDDD#",
+      ".##############.",
+    ],
+  },
+  // 해적 모자 (해골 무늬, 금빛 테)
+  "hat.pirate": {
+    slot: "hat",
+    rows: [
+      "................",
+      "...##########...",
+      "..#DDDDDDDDDD#..",
+      ".#DDDDDwwDDDDD#.",
+      "#DDDDDwDwDDDDDD#",
+      "#zzzzzzzzzzzzzz#",
+      ".##############.",
+    ],
+  },
+  // 보석 티아라
+  "hat.tiara": {
+    slot: "hat",
+    rows: [
+      "................",
+      ".......##.......",
+      "...#..#ZZ#..#...",
+      "..#Z##zVVz##Z#..",
+      "..#zZziziziZz#..",
+      "..############..",
+    ],
+  },
+  // 소품: 까만 선글라스
+  "acc.sunglasses": {
+    slot: "accessory",
+    face: true,
+    rows: [
+      ...Array<string>(6).fill("................"),
+      "..#####..#####..",
+      "..#DDD####DDD#..",
+      "..#SDD#..#SDD#..",
+      "...###....###...",
+    ],
+  },
+  // 빨간 나비넥타이
+  "acc.bowtie": {
+    slot: "accessory",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "....##.##.##....",
+      "....#NNQQNN#....",
+      "....##.##.##....",
+    ],
+  },
+  // 헤드폰
+  "acc.headphones": {
+    slot: "accessory",
+    rows: [
+      "....########....",
+      "..##xxxxxxxx##..",
+      ".#x##......##x#.",
+      ".#x#........#x#.",
+      ".#x#........#x#.",
+      ".#x#........#x#.",
+      "###..........###",
+      "#N#..........#N#",
+      "#K#..........#K#",
+      "#N#..........#N#",
+      "###..........###",
+    ],
+  },
+  // 진주 목걸이
+  "acc.necklace": {
+    slot: "accessory",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "....w......w....",
+      ".....wwiiww.....",
+      ".......ii.......",
+    ],
+  },
+  // 외눈 안경 (금빛 줄)
+  "acc.monocle": {
+    slot: "accessory",
+    face: true,
+    rows: [
+      ...Array<string>(6).fill("................"),
+      ".........####...",
+      ".........#..#...",
+      ".........#..#...",
+      ".........####z..",
+      "............z...",
+      "...........z....",
+    ],
+  },
+  // 무도회 가면
+  "acc.mask": {
+    slot: "accessory",
+    face: true,
+    rows: [
+      "................",
+      "................",
+      "................",
+      "................",
+      "............#V#.",
+      "............#U#.",
+      "..##UUUUUUUU##..",
+      ".#UU..UUUU..UU#.",
+      ".#WU..UzzU..UW#.",
+      "..#WWWW##WWWW#..",
+    ],
+  },
+  // 금메달 (빨간 끈)
+  "acc.medal": {
+    slot: "accessory",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "....N......N....",
+      ".....N....N.....",
+      "......#zz#......",
+      "......#Zu#......",
     ],
   },
 };

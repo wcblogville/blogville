@@ -28,7 +28,9 @@ const sections = await page.locator("[data-shop-section]").evaluateAll((els) => 
 check("상점 구역 4개 순서 (광장 장식은 2026-10-11에 뺐다)", sections.join(",") === "avatar,furniture,background,growth", sections.join(","));
 const main = await page.locator("main").innerText();
 check("상점 제목·안내", main.includes("🏪 마을 상점") && main.includes("내 캐릭터와 우리 집을 꾸며 보세요"));
-check("상점에 캐릭터·기본 아이템 없음", !main.includes("고양이") && !main.includes("나무 의자") && !main.includes("남자 주민"));
+// 카드 제목으로 확인 (아이템 이름에 "고양이 귀 머리띠"처럼 같은 낱말이 들어갈 수 있다)
+const titles = await page.locator("article h3").allInnerTexts();
+check("상점에 캐릭터·기본 아이템 없음", !["고양이", "나무 의자", "남자 주민"].some((n) => titles.includes(n)));
 
 // ── 버튼 상태 (FR-006): 가입 110코인, Lv.1 ──
 const btn = async (name) => (await card(name).getByRole("button").innerText()).trim();
@@ -61,12 +63,12 @@ check("성장 아이템 카드에 보유 2개, 버튼은 사기", (await card("�
 // ── 서버가 막는다: 이미 가진 것, 판매 안 하는 것, 잠긴 것 ──
 // (화면 버튼이 꺼져 있어도 요청을 직접 보낼 수 있으니 DB 규칙으로도 확인)
 const owned = await db.query("SELECT 1 FROM user_items ui JOIN items i ON i.id = ui.item_id WHERE ui.user_id = $1 AND i.code = 'char_cat'", [uid]);
-check("판매 안 하는 캐릭터는 상점에 없음", owned.rowCount === 0 && (await page.locator("article", { hasText: "고양이" }).count()) === 0);
+check("판매 안 하는 캐릭터는 상점에 없음", owned.rowCount === 0 && (await card("고양이").count()) === 0);
 
-// ── 정렬 (FR-014): 비싼 순 → 아바타 구역 첫 카드는 금관(500, 옷가게 아이템도 상점에 나온다) ──
+// ── 정렬 (FR-014): 비싼 순 → 아바타 구역 첫 카드는 황금 예복(2,500, 옷가게 아이템도 상점에 나온다) ──
 await page.getByLabel("정렬").selectOption("priceDesc");
 const firstAvatar = await page.locator('[data-shop-section="avatar"] article h3').first().innerText();
-check("비싼 순: 금관이 먼저", firstAvatar === "금관", firstAvatar);
+check("비싼 순: 황금 예복(2,500)이 먼저", firstAvatar === "황금 예복", firstAvatar);
 await page.getByLabel("정렬").selectOption("priceAsc");
 check("싼 순: 밀짚모자가 먼저", (await page.locator('[data-shop-section="avatar"] article h3').first().innerText()) === "밀짚모자");
 await page.screenshot({ path: `${outDir}/shop.png`, fullPage: true });

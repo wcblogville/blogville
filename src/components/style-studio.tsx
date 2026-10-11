@@ -124,7 +124,7 @@ export function StyleStudio({
         : state === "short"
           ? `코인이 ${bill.short}개 부족해요`
           : state === "buy"
-            ? `🪙 ${bill.cost} 내고 적용하기`
+            ? `🪙 ${bill.cost.toLocaleString()} 내고 적용하기`
             : "✨ 적용하기";
 
   const list = items.filter((i) => i.slot === tab);
@@ -198,7 +198,7 @@ export function StyleStudio({
                   <span className="truncate">
                     {SLOT_LABELS[i.slot]} · {i.name}
                   </span>
-                  <span className="shrink-0 font-bold">{i.price ? `🪙 ${i.price}` : "무료"}</span>
+                  <span className="shrink-0 font-bold">{i.price ? `🪙 ${i.price.toLocaleString()}` : "무료"}</span>
                 </li>
               ))}
             </ul>
@@ -266,7 +266,7 @@ export function StyleStudio({
               <OptionCard
                 key={item.id}
                 label={item.name}
-                sub={item.owned ? (worn[tab] === item.id ? "입는 중 ✓" : "보유 ✓") : locked ? `🔒 Lv.${item.requiredLevel}` : item.price ? `🪙 ${item.price}` : "무료"}
+                sub={item.owned ? (worn[tab] === item.id ? "입는 중 ✓" : "보유 ✓") : locked ? `🔒 Lv.${item.requiredLevel}` : item.price ? `🪙 ${item.price.toLocaleString()}` : "무료"}
                 title={item.description ?? undefined}
                 selected={picked[tab] === item.id}
                 onClick={() => choose(tab, item.id)}
