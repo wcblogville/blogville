@@ -12,6 +12,7 @@ export function FeedView({
   showFollowingTab,
   hrefFor,
   empty,
+  top,
 }: {
   title: React.ReactNode;
   tab?: "all" | "following";
@@ -20,11 +21,14 @@ export function FeedView({
   showFollowingTab: boolean;
   hrefFor: (n: number) => string;
   empty: React.ReactNode;
+  /** 제목 아래 띠 (마을 게시판의 출석 체크, GAME-04) */
+  top?: React.ReactNode;
 }) {
   return (
     <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 md:grid-cols-[minmax(0,1fr)_260px]">
       <section>
         <h1 className="font-display text-3xl">{title}</h1>
+        {top}
         {tab && (
           <div className="mt-4 flex gap-2">
             <Link href="/feed" className={`btn min-h-11 whitespace-nowrap py-1.5 text-sm ${tab === "all" ? "bg-ink text-cream" : "bg-white text-ink"}`}>
