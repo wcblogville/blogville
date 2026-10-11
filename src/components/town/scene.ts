@@ -3,7 +3,6 @@
 // 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
 import type * as PhaserNS from "phaser";
 import { characterDataUri, lookKey, VISITOR_CHARACTER } from "@/lib/art/characters";
-import { DECO_ASSETS, decoDataUri, decoSize } from "@/lib/art/deco";
 import {
   BOARD_SIZE,
   boardSvg,
@@ -15,8 +14,10 @@ import {
   FISHING_SIZE,
   fishingSvg,
   farmSvg,
+  FOUNTAIN_FPS,
+  FOUNTAIN_FRAMES,
   FOUNTAIN_SIZE,
-  fountainSvg,
+  fountainSheetSvg,
   HOUSE_STAGES,
   houseStage,
   houseSvg,
@@ -53,7 +54,7 @@ import {
   WORLD,
 } from "./layout";
 import { bakeGround, GROUND_SIZE } from "./ground";
-import type { TownData, TownDecoration, TownHouse, TownTarget } from "./types";
+import type { TownData, TownHouse, TownTarget } from "./types";
 import { PIXEL } from "@/lib/art/pixel";
 import { WALK_DIRS, WALK_FPS, walkDirOf, walkFrameIndex, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 
@@ -78,6 +79,8 @@ type Structure = {
   solid?: { w: number; h: number }; // 부딪히는 영역 (아랫변 기준)
   label?: string;
   sub?: string;
+  /** 칸을 돌리는 그림판이면 그 애니메이션 키 (분수) */
+  anim?: string;
 };
 
 /** 들어갈 수 있는 곳: 문 앞 좌표에서 Space / 클릭 */
@@ -97,7 +100,6 @@ type Entrance = {
 /** 캐릭터 + 입은 아바타 아이템마다 그림 하나 (SHOP-06) */
 const charKey = (asset: string, outfit: string[] = []) => `char:${lookKey(asset, outfit)}`;
 const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
-const decoKey = (asset: string) => `deco:${asset}`;
 /** 걷기 그림판 (TOWN-17): 방향 4줄 × 5칸. 플레이어만 걷는다 */
 const walkKey = (asset: string, outfit: string[] = []) => `walk:${lookKey(asset, outfit)}`;
 const stageOf = (h: TownHouse) => houseStage(h.level);
@@ -119,7 +121,7 @@ export function townTextures(data: TownData) {
   list.set("shop", toDataUri(shopSvg()));
   list.set("salon", toDataUri(salonSvg()));
   list.set("clothes", toDataUri(clothesSvg()));
-  list.set("fountain", toDataUri(fountainSvg()));
+  list.set("fountain", toDataUri(fountainSheetSvg()));
   list.set("lamp", toDataUri(lampSvg()));
   list.set("farm", toDataUri(farmSvg()));
   list.set("fishing", toDataUri(fishingSvg()));
@@ -127,8 +129,6 @@ export function townTextures(data: TownData) {
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
   for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
-  // 광장 장식: 꾸미기 창에서 고르자마자 놓을 수 있게 전부 불러 둔다 (8개, 작다). 광장 크기 그대로
-  for (const key of DECO_ASSETS) list.set(decoKey(key), decoDataUri(key));
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
 
@@ -228,7 +228,7 @@ function layout(data: TownData) {
   }
 
   // 분수, 가로등
-  structures.push({ texture: "fountain", x: CENTER.x, y: CENTER.y + FOUNTAIN_SIZE.height / 2, w: FOUNTAIN_SIZE.width, h: FOUNTAIN_SIZE.height, solid: { w: 150, h: 70 } });
+  structures.push({ texture: "fountain", x: CENTER.x, y: CENTER.y + FOUNTAIN_SIZE.height / 2, w: FOUNTAIN_SIZE.width, h: FOUNTAIN_SIZE.height, solid: { w: 150, h: 70 }, anim: "fountain:flow" });
   for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
     structures.push({ texture: "lamp", x: CENTER.x + dx * 185, y: CENTER.y + dy * 185 + 40, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
   }
@@ -242,9 +242,6 @@ function layout(data: TownData) {
   return { structures, entrances };
 }
 
-/** 게임 밖(꾸미기 창)에서 바뀌는 것. 게임이 만들어지기 전에 바뀐 것도 create()에서 읽는다 (TownGame이 들고 있다) */
-export type TownLive = { decorations: TownDecoration[]; decoMode: boolean };
-
 export function createTownScene(
   Phaser: PhaserLib,
   data: TownData,
@@ -253,11 +250,10 @@ export function createTownScene(
   fontFamily = "sans-serif",
   /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 광장 아래쪽 */
   startAt: string | null = null,
-  live: TownLive = { decorations: data.decorations, decoMode: false },
 ) {
   const allSpots = (() => {
-    const { places, houses, decos } = townSpots(data);
-    return [...places, ...houses, ...decos];
+    const { places, houses } = townSpots(data);
+    return [...places, ...houses];
   })();
   const font = (style: PhaserNS.Types.GameObjects.Text.TextStyle = {}) => ({ fontFamily, ...style });
 
@@ -281,10 +277,6 @@ export function createTownScene(
       pointerId: number | null;
       vector: PhaserNS.Math.Vector2;
     } | null = null;
-    /** 광장 장식 그림 (자리 번호 → 그림) */
-    private decoImages = new Map<number, { assetKey: string; image: PhaserNS.GameObjects.Image }>();
-    /** 꾸미기 창이 열려 있는 동안 보이는 자리 표시 */
-    private decoMarkers: PhaserNS.GameObjects.GameObject[] = [];
 
     constructor() {
       super("town");
@@ -295,6 +287,8 @@ export function createTownScene(
         if (this.textures.exists(key)) continue;
         // 걷기 그림판은 칸(24칸 틀 × PIXEL)마다 잘라 쓴다
         if (key.startsWith("walk:")) this.textures.addSpriteSheet(key, img, { frameWidth: PLAYER_SIZE, frameHeight: PLAYER_SIZE });
+        // 분수 그림판: 3칸을 가로로 이었다 (물만 조금씩 다르다)
+        else if (key === "fountain") this.textures.addSpriteSheet(key, img, { frameWidth: FOUNTAIN_SIZE.width, frameHeight: FOUNTAIN_SIZE.height });
         else this.textures.addImage(key, img);
       }
       // 걷기: 방향마다 1~4칸을 돌린다. 멈추면 그 방향의 0칸(서 있기)
@@ -309,6 +303,10 @@ export function createTownScene(
         });
       }
 
+      if (!this.anims.exists("fountain:flow")) {
+        this.anims.create({ key: "fountain:flow", frames: this.anims.generateFrameNumbers("fountain", { start: 0, end: FOUNTAIN_FRAMES - 1 }), frameRate: FOUNTAIN_FPS, repeat: -1 });
+      }
+
       this.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
       this.drawGround();
 
@@ -317,19 +315,6 @@ export function createTownScene(
       this.entrances = entrances;
       for (const s of structures) this.placeStructure(s, walls);
       this.plantTrees(walls);
-
-      // 광장 장식 (광장 꾸미기). 부딪히지 않는 장식이라 벽에 넣지 않는다.
-      // 꾸미기 창에서 바꾸면 게임을 다시 만들지 않고 장식만 다시 그린다 (TownGame이 game.events로 전한다)
-      this.drawDecorations(live.decorations, false);
-      this.showDecoSlots(live.decoMode);
-      const redraw = (list: TownDecoration[]) => this.drawDecorations(list, true);
-      const decoMode = (on: boolean) => this.showDecoSlots(on);
-      this.game.events.on("decorations", redraw);
-      this.game.events.on("deco-mode", decoMode);
-      this.events.once("shutdown", () => {
-        this.game.events.off("decorations", redraw);
-        this.game.events.off("deco-mode", decoMode);
-      });
 
       // 플레이어: 발 상자(물리) + 그림
       const start = allSpots.find((p) => p.key === startAt) ?? START;
@@ -550,57 +535,10 @@ export function createTownScene(
       return this.entrances.find((e) => x >= e.area.x && x <= e.area.x + e.area.w && y >= e.area.y && y <= e.area.y + e.area.h + 20);
     }
 
-    /** 장식을 자리마다 그린다. pop이면 새로 놓인 장식이 톡 튀어나온다 */
-    private drawDecorations(list: TownDecoration[], pop: boolean) {
-      const next = new Map(list.map((d) => [d.slot, d.assetKey]));
-      for (const [slot, shown] of this.decoImages) {
-        if (next.get(slot) === shown.assetKey) continue;
-        shown.image.destroy();
-        this.decoImages.delete(slot);
-      }
-      for (const [slot, assetKey] of next) {
-        const pos = DECO_SLOTS[slot];
-        if (!pos || this.decoImages.has(slot) || !this.textures.exists(decoKey(assetKey))) continue;
-        const { width, height } = decoSize(assetKey);
-        const image = this.add.image(pos.x, pos.y, decoKey(assetKey)).setOrigin(0.5, 1).setDisplaySize(width, height).setDepth(pos.y);
-        this.decoImages.set(slot, { assetKey, image });
-        if (pop) {
-          const { scaleX, scaleY } = image;
-          image.setScale(scaleX * 0.6, scaleY * 0.6);
-          this.tweens.add({ targets: image, scaleX, scaleY, duration: 260, ease: "Back.easeOut" });
-        }
-      }
-    }
-
-    /** 꾸미기 자리 표시: 열린 자리는 노란 동그라미와 번호, 아직 닫힌 자리는 🔒 */
-    private showDecoSlots(on: boolean) {
-      for (const m of this.decoMarkers) m.destroy();
-      this.decoMarkers = [];
-      if (!on) return;
-      DECO_SLOTS.forEach((p, i) => {
-        const open = i < data.decoSlots;
-        const ring = this.add
-          .ellipse(p.x, p.y - 4, 124, 46, open ? 0xffd36e : 0x2b2118, open ? 0.35 : 0.12)
-          .setStrokeStyle(3, open ? 0xffffff : 0x8a7a6a, open ? 0.95 : 0.6)
-          .setDepth(-5);
-        // 번호는 동그라미 왼쪽에 둔다 (자리 앞에 선 캐릭터를 가리지 않게)
-        const tag = this.add
-          .text(p.x - 64, p.y - 4, open ? `${i + 1}번` : `🔒 ${i + 1}번`, font({
-            fontSize: "14px",
-            fontStyle: "bold",
-            color: open ? "#2b2118" : "#5b4a3c",
-            backgroundColor: open ? "#ffd36ef0" : "#ffffffd0",
-            padding: { x: 7, y: 2 },
-          }))
-          .setOrigin(1, 0.5)
-          .setDepth(99999);
-        this.decoMarkers.push(ring, tag);
-      });
-    }
-
     private placeStructure(s: Structure, walls: PhaserNS.Physics.Arcade.StaticGroup) {
       // 깊이 = 아랫변의 y. 캐릭터가 뒤(위쪽)에 있으면 가려지고, 앞(아래쪽)에 있으면 앞에 보인다
-      this.add.image(s.x, s.y, s.texture).setOrigin(0.5, 1).setDisplaySize(s.w, s.h).setDepth(s.y);
+      if (s.anim) this.add.sprite(s.x, s.y, s.texture, 0).setOrigin(0.5, 1).setDepth(s.y).play(s.anim);
+      else this.add.image(s.x, s.y, s.texture).setOrigin(0.5, 1).setDisplaySize(s.w, s.h).setDepth(s.y);
       if (s.solid) walls.add(this.add.zone(s.x, s.y - s.solid.h / 2, s.solid.w, s.solid.h));
       if (s.label) {
         this.add

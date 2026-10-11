@@ -2,7 +2,7 @@
 // 실행: npm run test:game
 import { DECO_ASSETS, decoSize } from "../src/lib/art/deco";
 import { BOARD_POS, CENTER, CLOTHES_POS, DECO_SLOTS, FARM_POS, FISHING_POS, HOUSE_SLOTS, houseSlot, PLAZA_RADIUS, POND_POS, RING_RADIUS, SALON_POS, SHOP_POS, TOWN_RADIUS, townSpots } from "../src/components/town/layout";
-import { BOARD_SIZE, CLOTHES_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, HOUSE_STAGES, houseStage, LAMP_SIZE, SALON_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
+import { BOARD_SIZE, CLOTHES_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_FRAMES, FOUNTAIN_SIZE, fountainSheetSvg, HOUSE_STAGES, houseStage, LAMP_SIZE, SALON_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
 import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
 import { AVATAR_PARTS } from "../src/lib/art/avatar";
 import { fitSvg, PIXEL } from "../src/lib/art/pixel";
@@ -49,6 +49,14 @@ expect("Lv.95 집: 10단계, 다음 없음", [houseInfo(95).stage, houseInfo(95)
   expect("광장 그림 크기는 PIXEL의 정수배", sizes.filter((z) => z.width % PIXEL || z.height % PIXEL).length, 0);
   const st = Object.values(HOUSE_STAGES);
   expect("집은 단계마다 같거나 커지고 10단계가 1단계의 2배 이상 넓다", st.every((z, i) => i === 0 || (z.width >= st[i - 1].width && z.height >= st[i - 1].height)) && st[9].width >= st[0].width * 2, true);
+}
+
+// 광장 분수 (2026-10-11 "분수대 이쁘게"): 3칸 그림판, 칸 하나 = FOUNTAIN_SIZE, 칸마다 물이 달라 흐르는 것처럼 보인다
+{
+  const sheet = fountainSheetSvg();
+  const size = sheet.match(/width="(\d+)" height="(\d+)"/);
+  expect("분수 그림판은 3칸 가로", [Number(size?.[1]), Number(size?.[2])], [FOUNTAIN_SIZE.width * FOUNTAIN_FRAMES, FOUNTAIN_SIZE.height]);
+  expect("분수 칸 크기 60×52 도트 (광장 배치는 그대로, 너비도 예전과 같다)", FOUNTAIN_SIZE, { width: 180, height: 156 });
 }
 
 // TOWN-07 지붕 색: 블로그마다 정해진 순서(10색 모두 한 번씩), 단계 수만큼 열림, 안 골랐으면 첫 색
@@ -121,7 +129,7 @@ expect("꾸미기 자리는 타운 잔디 원 안", DECO_SLOTS.every((p) => Math
   });
   expect("미용실·옷가게가 길·광장에 걸치지 않음", blocked, []);
   expect("미용실·옷가게는 타운 잔디 원 안", [SALON_POS, CLOTHES_POS].every((p) => Math.hypot(p.x - CENTER.x, p.y - CENTER.y) < TOWN_RADIUS), true);
-  const spots = townSpots({ player: null, myHouse: null, neighbors: [], attendanceDay: null, host: null, decorations: [], decoSlots: 0 }).places;
+  const spots = townSpots({ player: null, myHouse: null, neighbors: [], attendanceDay: null, host: null }).places;
   expect("텔레포트 목록에 미용실·옷가게", spots.filter((p) => p.key === "salon" || p.key === "clothes").map((p) => p.href), ["/salon", "/clothes"]);
 }
 
