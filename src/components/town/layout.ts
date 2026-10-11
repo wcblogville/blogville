@@ -215,11 +215,14 @@ export function houseAt(data: TownData, i: number): TownHouse | null {
 
 export type TownSpot = { key: string; label: string; emoji: string; x: number; y: number; href: string | null; empty?: boolean };
 
+/** 마을 게시판 입구: 마을 소식 + 출석 체크 창을 먼저 연다 (?board=1, 사용자 요청 2026-10-11) */
+export const BOARD_HREF = "/feed?board=1";
+
 /** 텔레포트할 수 있는 곳. 좌표는 캐릭터가 설 자리(문 앞) */
 export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpot[] } {
   const places: TownSpot[] = [
     { key: "plaza", label: "광장 분수", emoji: "⛲", x: CENTER.x, y: CENTER.y + 140, href: "/town" },
-    { key: "board", label: "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: "/feed" },
+    { key: "board", label: "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: BOARD_HREF },
     { key: "shop", label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 40, href: "/shop" },
     { key: "farm", label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 40, href: "/farm" },
     { key: "fishing", label: "낚시터", emoji: "🎣", x: FISHING_POS.x + 40, y: FISHING_POS.y + 40, href: "/fishing" },

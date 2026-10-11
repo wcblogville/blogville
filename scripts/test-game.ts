@@ -108,6 +108,11 @@ expect("꾸미기 자리 8개", DECO_SLOTS.length, MAX_DECO_SLOTS);
   const boxes = big.map((s) => boxOf(s.label ?? s.texture, { ...s, h: s.solid?.h ?? s.h }));
   const pairs = boxes.flatMap((a, i) => boxes.slice(i + 1).filter((b) => overlap(a, b)).map((b) => `${a.name}-${b.name}`));
   expect("건물·집(10단계) 바닥이 서로 겹치지 않음", pairs, []);
+  // 이름표 아래 설명 줄 없음 (사용자 요청 2026-10-11 "옷가게나 상점 아래 적혀있는 부가 설명들은 없애줘")
+  expect("건물·집 이름표만 (설명 줄 없음)", [...townLayout(full).structures, ...townLayout(empty).structures].filter((s) => "sub" in s).map((s) => s.label), []);
+  // 마을 게시판은 판 어디서 들어가도 마을 소식 + 출석 체크 창 하나
+  const boardDoors = entrances.filter((e) => e.label.startsWith("마을 게시판"));
+  expect("마을 게시판 입구 하나 → /feed?board=1", boardDoors.map((e) => (e.target.kind === "link" ? e.target.href : e.target.kind)), ["/feed?board=1"]);
 
   /** 상자 안 도트에 그 칸이 있는가 */
   const cells = (b: B, test: (i: number) => boolean) => {

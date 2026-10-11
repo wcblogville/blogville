@@ -66,3 +66,16 @@ export function listMonthAttendances(userId: string, today = todayKST()) {
 export function listAttendanceRewards() {
   return db.select().from(attendanceRewards).orderBy(asc(attendanceRewards.day));
 }
+
+/**
+ * 출석 창(마을 게시판·/attendance)에 그리는 것 한 묶음: 오늘 일차와 받은 보상, 이번 달 출석 날짜, 1~7일차 보상표.
+ * attendance는 getViewer()가 이미 기록한 오늘 출석 (없으면 한 번 더 기록한다 — 실패하면 오류 화면)
+ */
+export async function getAttendanceBoard(viewer: { userId: string; sessionId: string | null; attendance: TodayAttendance | null }) {
+  const today = todayKST();
+  const attendance = viewer.attendance ?? (await ensureTodayAttendance(viewer.userId, viewer.sessionId));
+  const [rows, rewards] = await Promise.all([listMonthAttendances(viewer.userId, today), listAttendanceRewards()]);
+  return { today, cycleDay: attendance.cycleDay, attendedDates: rows.map((r) => r.date), rewards: rewards.map((r) => ({ day: r.day, exp: r.exp, coins: r.coins })) };
+}
+
+export type AttendanceBoardData = Awaited<ReturnType<typeof getAttendanceBoard>>;

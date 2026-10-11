@@ -30,7 +30,11 @@ export default async function BlogSettingsPage() {
         <Link href="/settings/account" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline-offset-2 hover:underline">
           내 정보
         </Link>
-        에서 바꿀 수 있어요.
+        에서 바꿀 수 있어요. 쓴 글은{" "}
+        <Link href="/settings/posts" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline-offset-2 hover:underline">
+          📝 글 관리
+        </Link>
+        에서 한눈에 고치고 지울 수 있어요.
       </p>
 
       {/* 최근 7일 방문자 (BLOG-06): 방문이 없는 날도 0으로 7칸, 마지막 칸은 오늘 */}
@@ -66,7 +70,8 @@ export default async function BlogSettingsPage() {
         <BlogSlugForm slug={blog.slug} />
       </section>
 
-      <section className="card mt-6 p-6">
+      {/* 블로그 홈 주인 도구 막대의 [🗂 카테고리 관리]가 여기(#categories)로 온다 */}
+      <section id="categories" className="card mt-6 scroll-mt-20 p-6">
         <h2 className="mb-2 font-display text-xl">카테고리</h2>
         <CategoryManager categories={cats} />
       </section>

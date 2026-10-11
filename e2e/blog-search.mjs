@@ -67,7 +67,8 @@ const titles = () => page.locator("main article h3").allInnerTexts();
 // US6-1 검색창으로 검색 → 마을 전체 공개 글 중 제목·본문 일치, 최신순 8개, 2페이지, 카드 윗줄 `{닉네임} · {블로그 이름}`
 {
   await page.goto(`${BASE}/@${OWNER}`);
-  const box = page.getByRole("search");
+  // 옆 칸에는 모두의 `블로그 내 검색`도 있어 마을 검색은 이름으로 찾는다 (2026-10-11)
+  const box = page.getByRole("search", { name: "마을 검색" });
   const input = box.getByLabel("검색어");
   check("US6-1 주인 블로그 홈에 검색창 (maxLength 50, 안내 문구)", (await input.getAttribute("maxlength")) === "50" && (await input.getAttribute("placeholder")) === "마을의 글·블로그 검색");
   const btn = await box.getByRole("button", { name: "검색" }).boundingBox();
@@ -117,8 +118,8 @@ const titles = () => page.locator("main article h3").allInnerTexts();
   await page.goto(`${BASE}/@${OWNER}?q=${encodeURIComponent(`없는말${n}`)}`);
   check("US6-4 없는 검색어 → `검색 결과가 없어요`", await page.getByText("검색 결과가 없어요").isVisible());
   await page.goto(`${BASE}/@${OWNER}`);
-  await page.getByRole("search").getByLabel("검색어").fill("   ");
-  await page.getByRole("search").getByRole("button", { name: "검색" }).click();
+  await page.getByRole("search", { name: "마을 검색" }).getByLabel("검색어").fill("   ");
+  await page.getByRole("search", { name: "마을 검색" }).getByRole("button", { name: "검색" }).click();
   await page.waitForURL(/\?q=/);
   await page.getByText("검색어를 적어 주세요").waitFor({ timeout: 10000 }).catch(() => {});
   check("US6-4 공백만 → `검색어를 적어 주세요`", await page.getByText("검색어를 적어 주세요").isVisible());
@@ -154,14 +155,14 @@ const titles = () => page.locator("main article h3").allInnerTexts();
 {
   const g = guest.page;
   await g.goto(`${BASE}/@${OWNER}`);
-  check("US6-6 방문자 블로그 홈 검색창 없음", (await g.getByRole("search").count()) === 0);
+  check("US6-6 방문자 블로그 홈 마을 검색창 없음 (블로그 내 검색만)", (await g.getByRole("search", { name: "마을 검색" }).count()) === 0 && (await g.getByRole("search", { name: "블로그 내 검색" }).count()) === 1);
   await g.goto(`${BASE}/@${OWNER}?q=${encodeURIComponent(KEY)}`);
   const heading = (await g.locator("main h2").filter({ hasText: "개" }).first().innerText()).replace(/\s+/g, " ");
   check("US6-6 방문자 /@{주소}?q= → 보통 블로그 홈, 결과 없음", (await g.getByText("검색 결과").count()) === 0 && heading === "전체 글 1개", heading);
   await oth.page.goto(`${BASE}/@${OWNER}?q=${encodeURIComponent(KEY)}`);
-  check("US6-7 회원이 남의 블로그 → 검색창·결과 없음", (await oth.page.getByRole("search").count()) === 0 && (await oth.page.getByText("검색 결과").count()) === 0);
+  check("US6-7 회원이 남의 블로그 → 마을 검색창·결과 없음", (await oth.page.getByRole("search", { name: "마을 검색" }).count()) === 0 && (await oth.page.getByText("검색 결과").count()) === 0);
   await oth.page.goto(`${BASE}/@${OTHER}`);
-  check("US6-7 회원이 자기 블로그 → 검색창 있음", (await oth.page.getByRole("search").count()) === 1);
+  check("US6-7 회원이 자기 블로그 → 마을 검색창 있음", (await oth.page.getByRole("search", { name: "마을 검색" }).count()) === 1);
 }
 
 // SC-004 375px 검색 결과 가로 스크롤 0
