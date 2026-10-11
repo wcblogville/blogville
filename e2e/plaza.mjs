@@ -1,4 +1,4 @@
-// 친구 마을 구경 (사용자 요청 2026-10-09)과 광장 꾸미기를 쉬는지 (사용자 결정 2026-10-11, TOWN-16 ❌)
+// 친구 마을 구경 (사용자 요청 2026-10-09, 집 자리는 그 회원이 고른 대로 TOWN-18)과 광장 꾸미기를 쉬는지 (사용자 결정 2026-10-11, TOWN-16 ❌)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/plaza.mjs <스크린샷 폴더>
 // 실행마다 새 회원 P(마을 주인)·Q(놀러 가는 친구)를 만든다. DB는 .env.local의 DATABASE_URL로 확인한다.
 import { chromium } from "@playwright/test";
@@ -74,6 +74,8 @@ const placed = async () =>
   check("남의 블로그에 [🏘 마을 구경]", (await visit.getAttribute("href")) === `/town/${P}`);
   await page.getByRole("button", { name: "+ 이웃 추가" }).click();
   await page.getByRole("button", { name: "✓ 이웃" }).waitFor({ timeout: 10000 });
+  // P도 Q를 이웃·즐겨찾기로 두고 Q의 집을 7번 자리에 골라 두었다 (TOWN-18): P의 마을에서는 P가 고른 자리를 쓴다
+  await db.query("INSERT INTO follows (follower_id, followee_id, is_favorite, town_lot) VALUES ($1, $2, true, 7)", [p.uid, q.uid]);
   await visit.click();
   await page.waitForURL(`${BASE}/town/${P}`, { timeout: 20000 });
   const banner = page.locator("[data-host-banner]");
@@ -87,10 +89,12 @@ const placed = async () =>
 
   await menuButton(page).click();
   const menu = page.locator('[data-town-panel="menu"]');
-  check("남의 마을 ☰ 메뉴에는 광장 꾸미기 없음", !(await menu.innerText()).includes("광장 꾸미기"));
+  check("남의 마을 ☰ 메뉴에는 광장 꾸미기·이웃 집 자리 없음", !(await menu.innerText()).includes("광장 꾸미기") && !(await menu.innerText()).includes("이웃 집 자리"));
   await menu.getByRole("button", { name: /텔레포트/ }).click();
   const tp = page.locator('[data-town-panel="teleport"]');
   check("텔레포트 0번 집은 `P의 집`", (await tp.locator('[data-spot="house:0"]').innerText()).includes(`${P}의 집`));
+  check("P가 고른 자리: 7번 집은 `Q의 집`", (await tp.locator('[data-spot="house:7"]').innerText()).includes(`${Q}의 집`));
+  check("P의 즐겨찾기 Q가 P의 마을을 걷는다 (data-npcs 1)", (await page.locator("canvas").getAttribute("data-npcs")) === "1");
 
   // 친구 목록의 🏘
   await page.goto(`${BASE}/town`);
