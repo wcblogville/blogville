@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -193,7 +193,7 @@ erDiagram
         int id PK
         varchar code UK
         item_type type "character / background / furniture / avatar / growth / deco"
-        avatar_slot avatar_slot "아바타만: hat / outfit / accessory"
+        avatar_slot avatar_slot "아바타만: hat / outfit / accessory / hair / hair_color"
         varchar name
         varchar description
         int price
@@ -564,7 +564,7 @@ COMMIT
 |---|---|
 | `user_role` | `user`, `admin` |
 | `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제), `deco`(광장 장식) |
-| `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품) |
+| `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품), `hair`(머리 모양), `hair_color`(머리 색) |
 | `visibility` | `public`, `private` |
 | `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시) |
 | `animal_status` | `egg`, `growing`, `grown` |
@@ -687,8 +687,9 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 ### 3.23 상점·아바타 꾸미기 (SHOP, `0027_shop_items`)
 
 - 상점 구역은 아바타 꾸미기·가구·배경·성장 아이템 4개. 캐릭터는 팔지 않는다: **`items.is_on_sale`**(기본 true)로 정하고, 마이그레이션이 캐릭터와 기본 아이템을 false로 바꿨다. 예전에 산 캐릭터는 그대로 가지고 장착할 수 있다.
-- 아바타 아이템은 `items.type = 'avatar'`와 **`avatar_slot`**(모자·옷·소품). CHECK `items_avatar_slot_check`: 아바타일 때만 부위가 있다. 성장 아이템은 `growth_value`가 있어야 한다 (`items_growth_value_check`).
+- 아바타 아이템은 `items.type = 'avatar'`와 **`avatar_slot`**(모자·옷·소품, 미용실의 머리 모양·머리 색). CHECK `items_avatar_slot_check`: 아바타일 때만 부위가 있다. 성장 아이템은 `growth_value`가 있어야 한다 (`items_growth_value_check`).
 - 입은 아이템: **`avatar_equips (user_id, slot, item_id)`**, PK `(user_id, slot)`이라 부위마다 하나. 가진 것만 입게 복합 FK `avatar_equips_owned_fk (user_id, item_id) → user_items` (`ON DELETE CASCADE`).
+- 미용실·옷가게 (SHOP-07·08, 2026-10-11): 머리 모양·머리 색도 새 표나 `profiles` 칸을 만들지 않고 아바타 부위 두 개(`hair`, `hair_color`)로 둔다. 그래서 "가진 것만 입는다"(복합 FK)·"부위마다 하나"(PK)·탈퇴 CASCADE를 그대로 쓰고, 그림은 `outfitOf()`가 돌려주는 asset_key 목록에 같이 실려 어디서나 보인다. 0코인 머리(기본 머리·색)는 고르면 `user_items`에 받기만 하고 원장에는 쓰지 않는다 (`point_ledger_nonzero_check`). 아무것도 안 입으면 캐릭터 원래 머리·색. 사람 캐릭터만 머리가 보인다.
 - **`user_items.quantity`**(기본 1, 0 이상): 성장 아이템은 살 때마다 +1, 농장에서 쓰면 −1. 꾸미기 아이템은 늘 1. "가졌다" = `quantity > 0`.
 - 새 열거형 값은 같은 마이그레이션 트랜잭션에서 글자로 쓸 수 없어서, 아바타·성장 아이템 행은 `scripts/seed.ts`가 넣는다 (CHECK는 `::text`로 비교).
 - 구매는 `lockUser` 잠금 안에서 판매 여부 → 보유(꾸미기) → 레벨 → 코인 순으로 확인하고, 지급과 원장 `purchase` 차감을 한 트랜잭션으로 한다.
