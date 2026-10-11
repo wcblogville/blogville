@@ -599,5 +599,140 @@ export function fishingSvg(): string {
   return svg(FISHING);
 }
 
+// ===== 미용실·옷가게 (SHOP-07·08, 사용자 요청 2026-10-11) =====
+// 2.5D: 지붕 윗면과 앞 벽이 보이고, 돌 기초·계단이 땅에 붙어 있다. 지붕 1·2·3 칸은 가게 색(분홍·민트)으로 칠한다.
+// 미용실: 줄무늬 차양, 거울과 의자가 보이는 창, 빙글빙글 이발소 기둥, 가위 간판
+// 옷가게: 줄무늬 차양, 원피스 두 벌이 걸린 진열창, 문 옆 마네킹, 옷걸이 간판
+function buildBoutique(kind: "salon" | "clothes"): string[] {
+  const W = 52;
+  const H = 60;
+  const p = new Pix(W, H);
+  const x0 = 5; // 벽 왼쪽
+  const wallW = 42;
+  const x1 = x0 + wallW - 1;
+  const cx = x0 + wallW / 2;
+  const wallTop = 27;
+  const ground = 51; // 기초 줄
+  p.shadow(W / 2, ground + 4, W / 2 - 1, 2.5);
+
+  // 지붕: 처마가 벽보다 넓고 위로 갈수록 좁다. 맨 앞 두 줄은 처마 끝(그늘), 그 위는 기와 줄무늬 + 밝은 윗면
+  const roofH = 17;
+  for (let r = 0; r < roofH; r++) {
+    const y = wallTop - 2 - r;
+    const half = wallW / 2 + 4 - Math.floor(r * 0.55);
+    const a = Math.round(cx - half);
+    const b = Math.round(cx + half) - 1;
+    p.hline(a, b, y, "#");
+    if (r === roofH - 1) continue;
+    for (let x = a + 1; x < b; x++) p.px(x, y, r < 2 ? "3" : r % 3 === 0 ? ((x + r) % 4 === 0 ? "3" : "2") : r > roofH - 5 ? "1" : (x + r) % 7 === 0 ? "1" : "2");
+  }
+  p.hline(Math.round(cx - wallW / 2 - 4), Math.round(cx + wallW / 2 + 4) - 1, wallTop - 1, "#");
+  // 지붕 위 굴뚝 / 둥근 간판
+  p.box(x1 - 9, wallTop - 20, 5, 6, "x");
+  p.rect(x1 - 8, wallTop - 19, 1, 4, "Y");
+  p.oval(cx, wallTop - 10, 8, 6, "c");
+  p.ellipse(cx, wallTop - 10, 6, 4, "w");
+  if (kind === "salon") {
+    // 가위
+    p.stamp(["#..#..", "##.##.", ".###..", "..#...", ".#V#..", "#V.V#.", ".#.#.."].map((r) => r.replace(/V/g, "R")), Math.round(cx) - 3, wallTop - 14);
+  } else {
+    // 옷걸이에 걸린 원피스
+    p.stamp(["...##...", "..#..#..", ".######.", ".#5555#.", "..#55#..", ".#5445#.", "#555555#", "########"], Math.round(cx) - 4, wallTop - 15);
+  }
+
+  // 벽: 크림색 판자, 양쪽 나무 기둥, 오른쪽은 그늘
+  p.box(x0, wallTop, wallW, ground - wallTop, "c");
+  p.hline(x0 + 1, x1 - 1, wallTop + 1, "d");
+  for (let y = wallTop + 4; y < ground; y += 4) p.hline(x0 + 3, x1 - 3, y, "d");
+  p.rect(x0 + 1, wallTop + 1, 2, ground - wallTop - 1, "B");
+  p.vline(x0 + 2, wallTop + 1, ground - 1, "b");
+  p.rect(x1 - 2, wallTop + 1, 2, ground - wallTop - 1, "b");
+  p.vline(x1 - 1, wallTop + 1, ground - 1, "n");
+
+  // 진열창 (왼쪽 큰 창)
+  const wx = x0 + 4;
+  const wy = wallTop + 8;
+  p.box(wx, wy, 20, 13, "i");
+  p.rect(wx + 1, wy + 1, 18, 11, "I");
+  for (let k = 0; k < 4; k++) p.px(wx + 3 + k, wy + 2 + k, "w");
+  if (kind === "salon") {
+    // 거울(타원)과 빨간 의자
+    p.oval(wx + 6, wy + 5, 3, 4, "i");
+    p.ellipse(wx + 6, wy + 5, 2, 3, "w");
+    p.stamp([".####.", "#NNNN#", "#NQQN#", "######", ".#..#.", ".#..#."], wx + 11, wy + 5);
+    p.stamp(["#z#", "#u#"], wx + 2, wy + 9);
+  } else {
+    // 마네킹 두 개에 원피스
+    p.stamp(["..##..", ".#yy#.", "..##..", ".#VV#.", "#VVVR#", "#VRVR#", "######", "..#...", "..#..."], wx + 2, wy + 2);
+    p.stamp(["..##..", ".#yy#.", "..##..", ".#zz#.", "#zZzu#", "#zzZu#", "######", "...#..", "...#.."], wx + 11, wy + 2);
+  }
+  p.hline(wx, wx + 19, wy + 13, "#").hline(wx, wx + 19, wy + 14, "B").hline(wx + 1, wx + 18, wy + 15, "b");
+  // 꽃 상자
+  p.stamp(["VzUlVzUlVzUlVzUlVzUl", "nbbbbbbbbbbbbbbbbbbn"], wx, wy + 16);
+  // 줄무늬 차양 (창 위, 앞으로 튀어나온 면 + 늘어진 끝)
+  for (let x = wx - 2; x <= wx + 21; x++) {
+    const stripe = Math.floor((x - wx + 2) / 3) % 2 === 0;
+    p.px(x, wy - 4, "#");
+    p.px(x, wy - 3, stripe ? "2" : "w");
+    p.px(x, wy - 2, stripe ? "2" : "w");
+    p.px(x, wy - 1, stripe ? "3" : "Y");
+    if ((x - wx + 2) % 3 === 1) p.px(x, wy, stripe ? "3" : "y");
+  }
+  p.vline(wx - 3, wy - 4, wy - 1, "#").vline(wx + 22, wy - 4, wy - 1, "#");
+
+  // 문 (오른쪽): 유리창 달린 두 짝 문, 위에 작은 차양
+  const dx = x1 - 17;
+  const dTop = ground - 14;
+  p.box(dx, dTop, 10, 14, "b");
+  p.rect(dx + 1, dTop + 1, 8, 13, "B");
+  p.vline(dx + 5, dTop + 1, ground - 1, "n");
+  p.box(dx + 1, dTop + 2, 4, 5, "i").box(dx + 5, dTop + 2, 4, 5, "i");
+  p.px(dx + 2, dTop + 3, "I").px(dx + 6, dTop + 3, "I");
+  p.px(dx + 4, dTop + 9, "z").px(dx + 6, dTop + 9, "z");
+  for (let x = dx - 1; x <= dx + 10; x++) {
+    p.px(x, dTop - 2, "#");
+    p.px(x, dTop - 1, (x - dx) % 2 ? "2" : "1");
+  }
+  if (kind === "salon") {
+    // 이발소 기둥: 빨강·흰·파랑 줄이 비스듬히
+    const px = x1 - 5;
+    p.box(px, wallTop + 5, 4, ground - wallTop - 6, "w");
+    for (let y = wallTop + 6; y < ground - 2; y++)
+      for (let i = 1; i <= 2; i++) {
+        const k = Math.floor((y + i) / 2) % 3;
+        p.px(px + i, y, k === 0 ? "N" : k === 1 ? "w" : "v");
+      }
+    p.box(px - 1, wallTop + 3, 6, 3, "z");
+    p.box(px - 1, ground - 2, 6, 3, "z");
+  } else {
+    // 문 옆 옷걸이 (셔츠 두 벌)
+    const px = x1 - 5;
+    p.vline(px + 2, wallTop + 5, ground - 1, "n");
+    p.hline(px - 1, px + 5, wallTop + 5, "n");
+    p.stamp(["#..#", "#55#", "#45#", "####"], px - 1, wallTop + 7);
+    p.stamp(["#..#", "#NK#", "#NN#", "####"], px + 3, wallTop + 7);
+  }
+
+  // 돌 기초와 앞 계단 (땅에 붙는다)
+  p.box(x0 - 1, ground, wallW + 2, 3, "y");
+  p.hline(x0, x1, ground + 1, "Y");
+  p.box(dx - 1, ground + 2, 12, 3, "x");
+  p.hline(dx, dx + 9, ground + 3, "y");
+  // 앞 화분 둘
+  p.stamp([".#VV#.", "#VlVl#", ".####.", ".#bb#.", ".####."], x0 - 3, ground - 3);
+  p.stamp([".#Ul#.", "#lUlV#", ".####.", ".#bb#.", ".####."], x1 - 1, ground - 3);
+  return p.rows();
+}
+const SALON = buildBoutique("salon");
+const CLOTHES = buildBoutique("clothes");
+export const SALON_SIZE = sizeOf(SALON);
+export const CLOTHES_SIZE = sizeOf(CLOTHES);
+export function salonSvg(): string {
+  return svg(SALON, roof("#f07fa8"));
+}
+export function clothesSvg(): string {
+  return svg(CLOTHES, { ...roof("#45bf9c"), 4: "#ffd0e0", 5: "#ff9ec3" });
+}
+
 /** 미리보기·시험용: 그림 글자 줄 */
-export const TOWN_ROWS = { houses: HOUSES, lot: LOT, mailbox: MAILBOX, signpost: SIGNPOST, board: BOARD_ROWS, shop: SHOP_ROWS, fountain: FOUNTAIN, lamp: LAMP, farm: FARM, fishing: FISHING };
+export const TOWN_ROWS = { houses: HOUSES, lot: LOT, mailbox: MAILBOX, signpost: SIGNPOST, board: BOARD_ROWS, shop: SHOP_ROWS, fountain: FOUNTAIN, lamp: LAMP, farm: FARM, fishing: FISHING, salon: SALON, clothes: CLOTHES };

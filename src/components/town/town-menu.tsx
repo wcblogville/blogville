@@ -21,6 +21,8 @@ export function TownMenu({ data, member: hud, className = "" }: { data: TownData
         { emoji: "📒", label: "지갑", sub: "코인·경험치 기록", href: "/wallet" },
         { emoji: "🐮", label: "동물 농장", sub: "알 부화 · 동물 키우기", href: "/farm" },
         { emoji: "🎣", label: "낚시터", sub: "하루 한 번 낚시", href: "/fishing" },
+        { emoji: "💇", label: "미용실", sub: "머리 모양·머리 색", href: "/salon" },
+        { emoji: "👗", label: "옷가게", sub: "옷·모자·소품 입어 보기", href: "/clothes" },
       ]
     : [
         { emoji: "📋", label: "마을 소식", sub: "새 글 구경하기", href: "/feed" },

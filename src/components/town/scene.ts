@@ -7,6 +7,10 @@ import { DECO_ASSETS, decoDataUri, decoSize } from "@/lib/art/deco";
 import {
   BOARD_SIZE,
   boardSvg,
+  CLOTHES_SIZE,
+  clothesSvg,
+  SALON_SIZE,
+  salonSvg,
   FARM_SIZE,
   FISHING_SIZE,
   fishingSvg,
@@ -32,6 +36,8 @@ import {
 import {
   BOARD_POS,
   CENTER,
+  CLOTHES_POS,
+  SALON_POS,
   DECO_SLOTS,
   FARM_POS,
   FISHING_POS,
@@ -111,6 +117,8 @@ export function townTextures(data: TownData) {
   }
   list.set("board", toDataUri(boardSvg()));
   list.set("shop", toDataUri(shopSvg()));
+  list.set("salon", toDataUri(salonSvg()));
+  list.set("clothes", toDataUri(clothesSvg()));
   list.set("fountain", toDataUri(fountainSvg()));
   list.set("lamp", toDataUri(lampSvg()));
   list.set("farm", toDataUri(farmSvg()));
@@ -151,6 +159,19 @@ function layout(data: TownData) {
     area: { x: SHOP_POS.x - SHOP_SIZE.width / 2, y: SHOP_POS.y - SHOP_SIZE.height, w: SHOP_SIZE.width, h: SHOP_SIZE.height },
     promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
   });
+
+  // 미용실·옷가게 (SHOP-07·08): 문은 건물 오른쪽에 있다
+  for (const b of [
+    { texture: "salon", pos: SALON_POS, size: SALON_SIZE, label: "미용실", sub: "머리 모양 · 머리 색", emoji: "💇", href: "/salon" },
+    { texture: "clothes", pos: CLOTHES_POS, size: CLOTHES_SIZE, label: "옷가게", sub: "옷 · 모자 · 소품", emoji: "👗", href: "/clothes" },
+  ]) {
+    structures.push({ texture: b.texture, ...b.pos, w: b.size.width, h: b.size.height, solid: { w: b.size.width * 0.86, h: 54 }, label: b.label, sub: b.sub });
+    entrances.push({
+      label: b.label, emoji: b.emoji, x: b.pos.x + 30, y: b.pos.y + 24, target: need(b.href),
+      area: { x: b.pos.x - b.size.width / 2, y: b.pos.y - b.size.height, w: b.size.width, h: b.size.height },
+      promptY: b.pos.y - b.size.height - 6,
+    });
+  }
 
   // 연못 낚시터: 하루 한 번 낚시 (사용자 요청 2026-10-08)
   structures.push({
@@ -621,7 +642,7 @@ export function createTownScene(
     private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
       const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
       const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...FARM_POS, r: 190 }, { ...FISHING_POS, r: 180 }, { ...POND_POS, r: 150 },
+        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...SALON_POS, r: 160 }, { ...CLOTHES_POS, r: 160 }, { ...FARM_POS, r: 190 }, { ...FISHING_POS, r: 180 }, { ...POND_POS, r: 150 },
         ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
         // 광장 꾸미기 자리 (장식이 나무에 가리지 않게)
         ...DECO_SLOTS.map((p) => ({ ...p, r: 110 })),
