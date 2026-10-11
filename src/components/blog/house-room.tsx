@@ -50,7 +50,7 @@ export function HouseRoom({
   /** 창밖 풍경: 주인이 고른 배경 장면 (blogs.background_item_id의 asset_key) */
   view: string;
   /** 전시 동물: 주인을 따라 걷는다 */
-  pet?: { assetKey: string; name: string } | null;
+  pet?: { assetKey: string; name: string; skinKey?: string | null } | null;
   /** [🏅 도감] 버튼 (다 키운 동물 창). 누구에게나 */
   collection: React.ReactNode;
   className?: string;
@@ -84,11 +84,13 @@ export function HouseRoom({
         <h2 id="house-title" className="font-display text-xl">
           🏠 우리 집 <span className="text-base text-ink-soft">· {house.stage}단계 {house.name}</span>
         </h2>
-        <p className="text-sm text-ink-soft">
+        {/* 휴대폰: 제목 → 버튼 한 줄 → 칸 안내 순서 (안내가 버튼 사이에 끼지 않게 맨 아래로) */}
+        <p className="order-last w-full text-sm text-ink-soft sm:order-none sm:w-auto">
           가구 {placed.filter((p) => p.slot < house.slots).length}/{house.slots}칸
           {house.nextLevel && ` · Lv.${house.nextLevel}에 집이 커져요`}
         </p>
-        <div className="flex flex-wrap gap-2">
+        {/* 버튼 셋은 375px 폰에서도 한 줄 (좁으면 여백·간격을 줄인다) */}
+        <div className="flex w-full flex-nowrap gap-1.5 sm:w-auto sm:gap-2 [&>button]:whitespace-nowrap max-sm:[&>button]:px-2.5">
           {collection}
           {owned && roof && (
             <button
