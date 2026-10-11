@@ -3,7 +3,7 @@ import { PhoneHome } from "@/components/town/phone-home";
 import { TownScreen } from "@/components/town/town-screen";
 import type { TownData } from "@/components/town/types";
 import { requireMember } from "@/server/dal";
-import { getFavoriteHouses, getHudMember, getMyHouse, getTownHost } from "@/server/town";
+import { getFavoriteHouses, getHudMember, getMyHouse, getTownHost, getTownPet } from "@/server/town";
 
 export async function generateMetadata(props: PageProps<"/town/[slug]">) {
   const host = await getTownHost((await props.params).slug);
@@ -21,10 +21,11 @@ export default async function FriendTownPage(props: PageProps<"/town/[slug]">) {
   if (!host) notFound();
   if (host.userId === viewer.userId) redirect("/town");
 
-  const [house, neighbors, hud] = await Promise.all([
+  const [house, neighbors, hud, pet] = await Promise.all([
     getMyHouse(host.userId),
     getFavoriteHouses(host.userId),
     getHudMember(viewer.userId, viewer.user.role === "admin", viewer.profile),
+    getTownPet(viewer.userId),
   ]);
 
   const data: TownData = {
@@ -33,6 +34,8 @@ export default async function FriendTownPage(props: PageProps<"/town/[slug]">) {
     neighbors,
     attendanceDay: viewer.attendance?.cycleDay ?? null,
     host: { nickname: host.nickname, slug: host.slug },
+    // 친구 마을에서도 따라다니는 건 구경하는 나의 동물
+    pet,
   };
 
   return (

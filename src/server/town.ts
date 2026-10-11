@@ -3,7 +3,8 @@ import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, users } from "@/db/schema";
+import { animalSpecies, blogs, blogVisits, follows, items, pointLedger, posts, profiles, userAnimals, users } from "@/db/schema";
+import { hasAnimalArt } from "@/lib/art/animals";
 import { ROOF_HEX } from "@/lib/art/town";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
@@ -11,7 +12,7 @@ import { assignLots } from "@/lib/town-lots";
 import { getHeaderNotifications, listNotifications } from "@/server/notifications";
 import { getWallet } from "@/server/points";
 import type { TownHudMember } from "@/components/town/town-hud";
-import type { TownFriend, TownHouse, TownNeighbor } from "@/components/town/types";
+import type { TownFriend, TownHouse, TownNeighbor, TownPet } from "@/components/town/types";
 
 const characterItem = alias(items, "character_item");
 
@@ -126,6 +127,20 @@ export async function getFavoriteHouses(userId: string): Promise<TownNeighbor[]>
 export async function getMyHouse(userId: string): Promise<TownHouse | null> {
   const [house] = await toHouses(await houseQuery().where(eq(blogs.ownerId, userId)));
   return house ?? null;
+}
+
+/**
+ * 마을에서 나를 따라다니는 동물 (사용자 요청 2026-10-11): 내 블로그 우리 집에 전시한 다 키운 동물 한 마리.
+ * 전시하지 않았거나, 다 자라지 않았거나, 그림이 없으면 null (블로그의 전시 자리와 같은 규칙)
+ */
+export async function getTownPet(userId: string): Promise<TownPet | null> {
+  const [row] = await db
+    .select({ assetKey: animalSpecies.assetKey, name: animalSpecies.name })
+    .from(blogs)
+    .innerJoin(userAnimals, and(eq(userAnimals.id, blogs.showcaseAnimalId), eq(userAnimals.userId, blogs.ownerId)))
+    .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
+    .where(and(eq(blogs.ownerId, userId), eq(userAnimals.status, "grown")));
+  return row && hasAnimalArt(row.assetKey) ? row : null;
 }
 
 /** 친구 목록: 내가 이웃으로 추가한 사람 (즐겨찾기 먼저, 그다음 닉네임 순). followsBack = 서로 이웃 */

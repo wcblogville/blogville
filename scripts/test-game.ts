@@ -96,7 +96,7 @@ expect("꾸미기 자리 8개", DECO_SLOTS.length, MAX_DECO_SLOTS);
     slug: `h${i}`, title: `집 ${i}`, nickname: `이웃${i}`, characterAsset: "char.boy", outfit: [], roof: "#d9574a", level, recentPosts: [], lot: i,
   });
   // 집이 가장 클 때(10단계)와 모두 빈 집터일 때
-  const full: TownData = { player: { nickname: "나", characterAsset: "char.boy", outfit: [] }, myHouse: house(0, 99), neighbors: Array.from({ length: 10 }, (_, i) => house(i + 1, 99)), attendanceDay: 1, host: null };
+  const full: TownData = { player: { nickname: "나", characterAsset: "char.boy", outfit: [] }, myHouse: house(0, 99), neighbors: Array.from({ length: 10 }, (_, i) => house(i + 1, 99)), attendanceDay: 1, host: null, pet: null };
   const empty: TownData = { ...full, myHouse: null, neighbors: [] };
   const t = terrain();
   type B = { name: string; x1: number; y1: number; x2: number; y2: number };
