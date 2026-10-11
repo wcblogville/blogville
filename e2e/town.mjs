@@ -279,6 +279,49 @@ await page.keyboard.press("Space");
 await page.waitForURL(new RegExp(`/@${B}$`), { timeout: 10000 }).catch(() => {});
 check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B}`), page.url());
 
+// 따라다니는 동물 (사용자 요청 2026-10-11): 블로그에 전시한 다 키운 동물이 광장에서 나를 따라온다 (data-pet·data-pet-at)
+{
+  await page.goto(`${BASE}/town`);
+  const canvas = page.locator("canvas");
+  await canvas.waitFor();
+  await page.waitForTimeout(500);
+  check("전시한 동물이 없으면 따라오는 동물 없음", (await canvas.getAttribute("data-pet")) === null);
+  const pet = await one(
+    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
+     VALUES ($1, (SELECT id FROM animal_species WHERE code = 'bunny'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+    [aId],
+  );
+  await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [aId, pet.id]);
+  await page.reload();
+  await canvas.waitFor();
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 15000 });
+  check("전시한 토끼가 마을에 나온다 (data-pet)", (await canvas.getAttribute("data-pet")) === "animal.bunny", await canvas.getAttribute("data-pet"));
+  await canvas.evaluate((el) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: "plaza" })));
+  await page.waitForTimeout(600);
+  const xy = async (attr) => ((await canvas.getAttribute(attr)) ?? "0,0").split(",").map(Number);
+  // 분수 앞에서 아래(남쪽 계단 길)로 걷는다
+  await page.keyboard.down("ArrowDown");
+  const midWalk = await page
+    .waitForFunction(() => document.querySelector("canvas")?.dataset.petWalk === "walk", null, { timeout: 3000 })
+    .then(() => "walk", async () => canvas.getAttribute("data-pet-walk"));
+  await page.screenshot({ path: `${outDir}/town-pet-1.png` });
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${outDir}/town-pet-2.png` });
+  await page.keyboard.up("ArrowDown");
+  await page.waitForTimeout(1500);
+  const [fx, fy] = await xy("data-feet");
+  const [px, py] = await xy("data-pet-at");
+  const gap = Math.hypot(fx - px, fy - py);
+  check("걸으면 동물도 통통 뛰며 따라온다 (data-pet-walk=walk)", midWalk === "walk", midWalk);
+  check("멈추면 동물은 내 뒤(위쪽)에 조금 떨어져 선다", py < fy && gap > 25 && gap < 80 && (await canvas.getAttribute("data-pet-walk")) === "idle", `나 ${fx},${fy} / 동물 ${px},${py}, ${Math.round(gap)}px`);
+  // 순간 이동하면 동물도 옆으로 온다
+  await canvas.evaluate((el) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: "shop" })));
+  await page.waitForTimeout(600);
+  const [sx, sy] = await xy("data-feet");
+  const [tx, ty] = await xy("data-pet-at");
+  check("순간 이동 → 동물도 내 옆", Math.hypot(sx - tx, sy - ty) < 80, `${Math.round(Math.hypot(sx - tx, sy - ty))}px`);
+}
+
 // 방문자: 메뉴에 텔레포트와 로그인만
 {
   const g = await browser.newContext({ viewport: { width: 1280, height: 900 } });

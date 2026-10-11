@@ -14,7 +14,7 @@ export default async function ShopPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl">🏪 마을 상점</h1>
-          <p className="mt-1 text-ink-soft">글을 쓰고 출석해서 모은 코인으로 내 캐릭터와 미니룸을 꾸며 보세요.</p>
+          <p className="mt-1 text-ink-soft">글을 쓰고 출석해서 모은 코인으로 내 캐릭터와 우리 집을 꾸며 보세요.</p>
         </div>
         <div className="card flex gap-4 px-4 py-2 text-sm" data-shop-wallet>
           <span>

@@ -15,7 +15,7 @@ export default async function ClosetPage() {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl">🎨 꾸미기</h1>
-          <p className="mt-1 text-ink-soft">고르면 바로 내 블로그 미니룸과 마을 캐릭터에 적용돼요.</p>
+          <p className="mt-1 text-ink-soft">고르면 바로 내 블로그 우리 집(캐릭터·창밖 풍경)과 마을 캐릭터에 적용돼요.</p>
         </div>
         <div className="card w-full p-3 sm:w-72">
           <div className="flex justify-between text-sm">

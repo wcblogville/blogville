@@ -71,13 +71,14 @@ check("헤더 코인에 보상 반영", (await coins(page)) - coinsBeforeGrown =
 check("다 키운 동물 카드가 보인다", await page.locator("section", { hasText: "다 키운 동물" }).getByText(sp.name).isVisible());
 await page.screenshot({ path: `${outDir}/92-farm-grown.png`, fullPage: true });
 
-// ── 블로그 프로필 카드의 [🏅 도감] → 도감 창, 전시하기·전시 빼기 (사용자 요청 2026-10-09) ──
+// ── 블로그 우리 집 방의 [🏅 도감] → 도감 창, 전시하기·전시 빼기 (사용자 요청 2026-10-09, 2026-10-11 프로필 카드 → 방) ──
 {
   await page.goto(`${BASE}/@${devId}`);
   const openBtn = page.locator("[data-collection-open]");
   const dialog = page.locator("dialog[data-collection]");
-  check("프로필 카드에 [🏅 도감 1] 버튼", (await openBtn.innerText()).replace(/\s+/g, " ").trim() === "🏅 도감 1", await openBtn.innerText());
-  check("프로필 카드: 처음엔 `전시한 동물이 없어요`", await page.locator("[data-showcase-line]").getByText("전시한 동물이 없어요").isVisible());
+  const room = page.locator("[data-house-room]");
+  check("우리 집 방 도구 줄에 [🏅 도감 1] 버튼", (await room.locator("[data-collection-open]").innerText()).replace(/\s+/g, " ").trim() === "🏅 도감 1", await openBtn.innerText());
+  check("처음엔 방 안에 주인 캐릭터만 (전시 동물 없음)", (await room.locator("[data-room-resident]").count()) === 1 && (await room.locator("[data-showcase]").count()) === 0);
   check("도감 창은 처음에 닫혀 있다", !(await dialog.isVisible()));
   await openBtn.click();
   await dialog.waitFor();
@@ -90,16 +91,13 @@ await page.screenshot({ path: `${outDir}/92-farm-grown.png`, fullPage: true });
   await page.screenshot({ path: `${outDir}/93-collection-dialog.png` });
   await dialog.getByRole("button", { name: "도감 닫기" }).click();
   check("✕로 창 닫기", !(await dialog.isVisible()));
-  check(
-    "프로필 카드에 `전시 중: 이름` + 미니룸에 그 동물",
-    (await page.locator("[data-showcase-line]").innerText()).includes(`전시 중: ${sp.name}`) && (await page.locator("[data-profile-card] [data-showcase]").getAttribute("title")) === sp.name,
-  );
+  check("방 안에 그 동물이 주인과 함께", (await room.locator("[data-showcase]").getAttribute("title")) === sp.name);
   await openBtn.click();
   await card.getByRole("button", { name: "전시 빼기" }).click();
   await page.locator("[data-showcase]").waitFor({ state: "detached", timeout: 10000 });
   const cleared = await one("SELECT showcase_animal_id AS id FROM blogs WHERE owner_id = $1", [uid]);
   await page.keyboard.press("Escape");
-  check("[전시 빼기] → 빈 자리, Esc로 창 닫기", cleared.id === null && !(await dialog.isVisible()) && (await page.locator("[data-showcase-line]").getByText("전시한 동물이 없어요").isVisible()));
+  check("[전시 빼기] → 방 안에 동물 없음, Esc로 창 닫기", cleared.id === null && !(await dialog.isVisible()) && (await room.locator("[data-showcase]").count()) === 0);
   await page.goto(`${BASE}/farm`);
 }
 

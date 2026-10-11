@@ -56,7 +56,7 @@ const FLOOR: Sprite = [
 ];
 
 // 창문: 나무 틀, 하늘이 비치는 유리, 십자 창살, 창턱
-const WINDOW: Sprite = (() => {
+function windowPix() {
   const p = new Pix(20, 17);
   p.box(0, 0, 20, 15, "B");
   p.rect(2, 2, 16, 11, "i");
@@ -66,8 +66,13 @@ const WINDOW: Sprite = (() => {
   p.vline(1, 1, 13, "Z").hline(1, 18, 1, "Z").vline(18, 1, 13, "b").hline(1, 18, 13, "b");
   p.box(0, 14, 20, 3, "B");
   p.hline(1, 18, 15, "b");
-  return p.rows();
-})();
+  return p;
+}
+const WINDOW: Sprite = windowPix().rows();
+// 유리를 비운 창틀 (반짝임 몇 칸만 남김): 블로그 우리 집 방에서는 창 너머로 주인이 고른 배경 장면이 보인다 (2026-10-11)
+const WINDOW_FRAME: Sprite = windowPix()
+  .map((c) => (c === "i" || c === "w" ? "." : c))
+  .rows();
 
 // 문: 둥근 위, 판자 두 칸, 손잡이
 const DOOR: Sprite = (() => {
@@ -89,9 +94,13 @@ export const ROOM_ART = {
   wall: uri(WALL),
   floor: uri(FLOOR),
   window: uri(WINDOW),
+  windowFrame: uri(WINDOW_FRAME),
   door: uri(DOOR),
   /** 타일 한 변 px */
   tile: 16 * ROOM_PIXEL,
   windowSize: { width: 20 * ROOM_PIXEL, height: 17 * ROOM_PIXEL },
+  /** 창 유리 자리 (칸 2~17 × 2~12, px). 창살은 창틀 그림에 있다 */
+  windowGlass: { x: 2 * ROOM_PIXEL, y: 2 * ROOM_PIXEL, width: 16 * ROOM_PIXEL, height: 11 * ROOM_PIXEL },
+  scale: ROOM_PIXEL,
   doorSize: { width: 16 * ROOM_PIXEL, height: 28 * ROOM_PIXEL },
 };

@@ -68,9 +68,10 @@ check("글쓰기: 아래 탭 숨김", (await tabs.count()) === 0 || !(await tabs
 // ── 이슈 #5: 블로그 홈 버튼 글자가 두 줄로 깨지지 않는다 ──
 await p.goto(`${BASE}/@${ME}`);
 const main = p.locator("main");
-for (const name of ["글쓰기", "꾸미기", "관리"]) {
-  const box = await main.getByRole("link", { name: new RegExp(name) }).first().boundingBox();
-  check(`이슈 #5 '${name}' 버튼이 한 줄`, box.height < 48, `높이 ${Math.round(box.height)}px`);
+// 주인 버튼은 주인 도구 막대 (프로필 카드는 없앰, 2026-10-11)
+for (const name of ["새 글 쓰기", "옷장 꾸미기", "글 관리"]) {
+  const box = await main.getByRole("navigation", { name: "내 블로그 관리" }).getByRole("link", { name: new RegExp(name) }).first().boundingBox();
+  check(`이슈 #5 '${name}' 버튼이 한 줄`, box.height < 60, `높이 ${Math.round(box.height)}px`); // 새 글 쓰기는 큰 버튼(48px)
 }
 const overflow = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("375px: 가로 스크롤 없음", overflow <= 0, `${overflow}px`);

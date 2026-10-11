@@ -1,19 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import type React from "react";
 import { useState, useTransition } from "react";
 import { chooseRoofColor, placeFurniture } from "@/app/house/actions";
+import { backgroundDataUri, backgroundSky } from "@/lib/art/backgrounds";
 import { furnitureDataUri } from "@/lib/art/furniture";
 import { ROOM_ART } from "@/lib/art/room";
 import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
 import type { RoofColor } from "@/lib/blog";
 import { ROOF_LABELS } from "@/lib/house";
+import { RoomResident } from "./room-resident";
 
 type Furniture = { id: number; name: string; assetKey: string };
 
+/** 창밖 장면을 그릴 너비 (px, 4배 도트로 64칸). 가운데 16칸이 창에 보인다 */
+const WINDOW_SCENE_WIDTH = 256;
+
 /**
  * 블로그의 "우리 집" 구역 (마을 개편 2차, 사용자 요청 2026-10-08): 집 안 벽·바닥에 가구를 놓고, 🚪 문으로 마을에 나간다.
- * 칸 수는 집 단계(주인 레벨)로 정한다. 주인은 [가구 놓기]로 칸마다 가진 가구를 고르고, [지붕 색]으로 광장에 보일 지붕 색을 고른다
+ * 칸 수는 집 단계(주인 레벨)로 정한다. 주인은 [가구 놓기]로 칸마다 가진 가구를 고르고, [지붕 색]으로 광장에 보일 지붕 색을 고른다.
+ * 프로필 카드를 없애고(사용자 요청 2026-10-11) 주인 캐릭터·전시 동물이 방 안 마루를 걷는다(RoomResident).
+ * [🏅 도감]은 누구에게나 방 도구 줄에 있다
  */
 export function HouseRoom({
   house,
@@ -22,6 +30,10 @@ export function HouseRoom({
   roof,
   doorHref,
   highlightDoor = false,
+  resident,
+  view,
+  pet = null,
+  collection,
   className = "",
 }: {
   house: { stage: HouseStage; name: string; slots: number; nextLevel: number | null };
@@ -33,6 +45,14 @@ export function HouseRoom({
   doorHref: string;
   /** 처음 가입한 회원에게 문을 반짝여 알려 준다 */
   highlightDoor?: boolean;
+  /** 방 안을 걷는 주인 캐릭터 (입은 아바타 아이템 포함) */
+  resident: { characterAsset: string; outfit: string[] };
+  /** 창밖 풍경: 주인이 고른 배경 장면 (blogs.background_item_id의 asset_key) */
+  view: string;
+  /** 전시 동물: 주인을 따라 걷는다 */
+  pet?: { assetKey: string; name: string } | null;
+  /** [🏅 도감] 버튼 (다 키운 동물 창). 누구에게나 */
+  collection: React.ReactNode;
   className?: string;
 }) {
   const [editing, setEditing] = useState(false);
@@ -68,23 +88,24 @@ export function HouseRoom({
           가구 {placed.filter((p) => p.slot < house.slots).length}/{house.slots}칸
           {house.nextLevel && ` · Lv.${house.nextLevel}에 집이 커져요`}
         </p>
-        {owned && (
-          <div className="flex flex-wrap gap-2">
-            {roof && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRoofOpen(!roofOpen);
-                  setEditing(false);
-                  setPicking(null);
-                  setError(null);
-                }}
-                aria-pressed={roofOpen}
-                className={`btn min-h-11 text-sm ${roofOpen ? "bg-leaf text-white" : "bg-white text-ink"}`}
-              >
-                {roofOpen ? "✓ 다 골랐어요" : "🏠 지붕 색"}
-              </button>
-            )}
+        <div className="flex flex-wrap gap-2">
+          {collection}
+          {owned && roof && (
+            <button
+              type="button"
+              onClick={() => {
+                setRoofOpen(!roofOpen);
+                setEditing(false);
+                setPicking(null);
+                setError(null);
+              }}
+              aria-pressed={roofOpen}
+              className={`btn min-h-11 text-sm ${roofOpen ? "bg-leaf text-white" : "bg-white text-ink"}`}
+            >
+              {roofOpen ? "✓ 다 골랐어요" : "🏠 지붕 색"}
+            </button>
+          )}
+          {owned && (
             <button
               type="button"
               onClick={() => {
@@ -98,8 +119,8 @@ export function HouseRoom({
             >
               {editing ? "✓ 다 놓았어요" : "🛋 가구 놓기"}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
       {error && (
         <p role="alert" className="mx-4 mt-2 rounded-xl bg-[#ffe4e4] px-3 py-2 text-sm text-berry">
@@ -107,16 +128,32 @@ export function HouseRoom({
         </p>
       )}
 
-      {/* 방은 옆 프로필 카드와 높이를 맞추려고 남는 높이를 채운다 (넓은 화면). 좁으면 최소 높이 */}
-      <div className="relative mt-3 min-h-56 flex-1 border-t-2 border-line sm:min-h-64">
+      {/* 방: 블로그 위쪽 너비를 다 쓴다 (프로필 카드를 없앰, 2026-10-11). 휴대폰은 조금 낮게 */}
+      <div className="relative mt-3 h-72 border-t-2 border-line sm:h-80">
         {/* 벽: 도트 줄무늬 벽지와 창문 (src/lib/art/room.ts, 모두 4배 도트) */}
         <div
           className="pixelated absolute inset-x-0 top-0 h-[62%]"
           style={{ backgroundImage: `url("${ROOM_ART.wall}")`, backgroundSize: `${ROOM_ART.tile}px ${ROOM_ART.tile}px` }}
           aria-hidden
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-          <img src={ROOM_ART.window} alt="" width={ROOM_ART.windowSize.width} height={ROOM_ART.windowSize.height} className="pixelated absolute left-[12%] top-[14%] max-w-none" />
+          {/* 창: 유리 자리로 주인이 고른 배경 장면(꾸미기의 배경)의 지평선 둘레가 보인다. 장면도 방과 같은 4배 도트 */}
+          <div className="absolute left-[12%] top-[14%]" style={{ width: ROOM_ART.windowSize.width, height: ROOM_ART.windowSize.height }} data-window-view={view}>
+            <div
+              className="pixelated absolute bg-no-repeat"
+              style={{
+                left: ROOM_ART.windowGlass.x,
+                top: ROOM_ART.windowGlass.y,
+                width: ROOM_ART.windowGlass.width,
+                height: ROOM_ART.windowGlass.height,
+                backgroundColor: backgroundSky(view),
+                backgroundImage: `url("${backgroundDataUri(view, WINDOW_SCENE_WIDTH, ROOM_ART.scale)}")`,
+                // 장면 가운데, 땅 줄(44줄) 바로 위까지: 35~45줄
+                backgroundPosition: `-${(WINDOW_SCENE_WIDTH - ROOM_ART.windowGlass.width) / 2}px -${35 * ROOM_ART.scale}px`,
+              }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
+            <img src={ROOM_ART.windowFrame} alt="" width={ROOM_ART.windowSize.width} height={ROOM_ART.windowSize.height} className="pixelated absolute inset-0 max-w-none" />
+          </div>
           <div className="absolute inset-x-0 bottom-0 h-3 border-y-4 border-[#4a3426] bg-[#d9b98a]" />
         </div>
         {/* 바닥: 도트 나무 마루 */}
@@ -179,6 +216,9 @@ export function HouseRoom({
             );
           })}
         </ul>
+
+        {/* 주인 캐릭터와 전시 동물: 가구 앞 마루를 걷는다. 누르는 칸을 막지 않고, 가구 놓기 중에는 숨긴다 */}
+        <RoomResident characterAsset={resident.characterAsset} outfit={resident.outfit} pet={pet} hidden={editing} />
 
         {roofOpen && roof && (
           <div

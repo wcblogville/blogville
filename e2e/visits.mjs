@@ -20,11 +20,10 @@ const dbStats = async () =>
   ).rows[0];
 
 const browser = await chromium.launch();
-/** 화면의 `오늘 방문 N · 어제 방문 N · 전체 방문 N`을 읽는다 */
+/** 옆 칸 👣 방문자 위젯의 오늘·어제·전체 숫자를 읽는다 (블로그 홈의 방문 숫자는 위젯 한 곳, 2026-10-11) */
 const shown = async (page) => {
-  const text = await page.getByText(/오늘 방문 [\d,]+ · 어제 방문 [\d,]+ · 전체 방문 [\d,]+/).innerText();
-  const [today, yesterday, total] = text.match(/[\d,]+/g).slice(-3).map((v) => Number(v.replace(/,/g, "")));
-  return { today, yesterday, total };
+  const read = async (label) => Number((await page.locator(`[data-visit="${label}"]`).innerText()).replace(/,/g, ""));
+  return { today: await read("오늘"), yesterday: await read("어제"), total: await read("전체") };
 };
 const settle = (page) => page.waitForLoadState("networkidle").then(() => page.waitForTimeout(400));
 

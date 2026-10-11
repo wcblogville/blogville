@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnimalCollection } from "@/components/blog/animal-collection";
-import { BlogHeader } from "@/components/blog/blog-header";
+import { BlogTitleBar } from "@/components/blog/blog-header";
 import { BlogSearchBox, BlogSearchResults } from "@/components/blog/blog-search";
 import {
   BlogFindBox,
@@ -139,36 +139,30 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
           </p>
         </div>
       )}
-      {/* 위쪽 한 줄 두 칸 (사용자 요청 2026-10-09): 넓은 화면은 왼쪽 큰 "우리 집" 방 + 오른쪽 같은 높이의 좁은 프로필 카드.
-          좁은 화면은 카드가 위, 방이 아래. 휴대폰 순서가 카드 먼저라 DOM도 카드를 먼저 두고 넓은 화면에서 칸을 바꾼다 */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <BlogHeader
-          blog={blog}
-          viewerId={viewerId}
-          following={following}
-          visits={visits}
-          showcase={shown && { assetKey: shown.assetKey, name: shown.name }}
-          wallet={ownerWallet}
-          className="lg:col-start-2 lg:row-start-1"
-          collection={
-            // 도감: [🏅 도감] 버튼 → 다 키운 동물 창 (FR-029, research R-20). 전시 버튼은 주인에게만
-            <AnimalCollection
-              animals={grown.map((a) => ({ id: a.id, name: a.name, assetKey: a.assetKey, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
-              showcaseId={shown?.id ?? null}
-              isOwner={isOwner}
-            />
-          }
-        />
-        <HouseRoom
-          house={house}
-          placed={placed}
-          owned={owned}
-          roof={isOwner ? { current: currentRoof(blog.id, blog.roofColor), order: roofOrder(blog.id), unlocked: house.stage } : null}
-          doorHref={doorHref}
-          highlightDoor={welcome}
-          className="lg:col-start-1 lg:row-start-1"
-        />
-      </div>
+      {/* 위쪽 (사용자 요청 2026-10-11 "프로필 카드를 아예 없애도 될 듯"): 블로그 제목 줄 → 너비를 다 쓰는 "우리 집" 방.
+          주인 캐릭터와 전시 동물은 방 안을 걷고, [🏅 도감]은 방 도구 줄에 있다. 휴대폰도 같은 순서로 쌓인다 */}
+      <BlogTitleBar blog={blog} viewerId={viewerId} following={following} wallet={ownerWallet} />
+      <HouseRoom
+        house={house}
+        placed={placed}
+        owned={owned}
+        roof={isOwner ? { current: currentRoof(blog.id, blog.roofColor), order: roofOrder(blog.id), unlocked: house.stage } : null}
+        doorHref={doorHref}
+        highlightDoor={welcome}
+        resident={{ characterAsset: blog.characterAsset, outfit: blog.outfit }}
+        // 꾸미기에서 고른 배경은 창밖 풍경으로 보인다
+        view={blog.backgroundAsset}
+        pet={shown && { assetKey: shown.assetKey, name: shown.name }}
+        collection={
+          // 도감: [🏅 도감] 버튼 → 다 키운 동물 창 (FR-029, research R-20). 누구에게나, 전시 버튼은 주인에게만
+          <AnimalCollection
+            animals={grown.map((a) => ({ id: a.id, name: a.name, assetKey: a.assetKey, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
+            showcaseId={shown?.id ?? null}
+            isOwner={isOwner}
+          />
+        }
+        className="mt-4"
+      />
 
       {isOwner && <OwnerToolbar postCount={blog.postCount} privateCount={side.privateCount} />}
 
@@ -235,7 +229,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
           <PopularPostsWidget base={base} posts={side.popular} />
           <RecentCommentsWidget base={base} comments={side.comments} />
           <TagsWidget base={base} tags={side.tags} current={tag} />
-          <VisitorsWidget blogId={blog.id} initial={visits} />
+          <VisitorsWidget blogId={blog.id} initial={visits} isOwner={isOwner} />
         </aside>
       </div>
     </div>

@@ -76,6 +76,15 @@ const placed = async () =>
   await page.getByRole("button", { name: "✓ 이웃" }).waitFor({ timeout: 10000 });
   // P도 Q를 이웃·즐겨찾기로 두고 Q의 집을 7번 자리에 골라 두었다 (TOWN-18): P의 마을에서는 P가 고른 자리를 쓴다
   await db.query("INSERT INTO follows (follower_id, followee_id, is_favorite, town_lot) VALUES ($1, $2, true, 7)", [p.uid, q.uid]);
+  // 따라다니는 동물: P는 병아리, Q(구경하는 나)는 토끼를 블로그에 전시했다 → P의 마을에서도 나를 따라오는 건 내 토끼
+  for (const [uid, code] of [[p.uid, "chick"], [q.uid, "bunny"]]) {
+    const a = await one(
+      `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
+       VALUES ($1, (SELECT id FROM animal_species WHERE code = $2), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+      [uid, code],
+    );
+    await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, a.id]);
+  }
   await visit.click();
   await page.waitForURL(`${BASE}/town/${P}`, { timeout: 20000 });
   const banner = page.locator("[data-host-banner]");
@@ -85,6 +94,7 @@ const placed = async () =>
   check("탭 제목 `P님의 마을`", (await page.title()) === `${P}님의 마을 | Blogville`, await page.title());
   await page.locator("canvas").waitFor({ timeout: 20000 });
   await page.waitForTimeout(1500);
+  check("친구 마을에서도 따라오는 동물은 구경하는 내 토끼 (data-pet)", (await page.locator("canvas").getAttribute("data-pet")) === "animal.bunny", await page.locator("canvas").getAttribute("data-pet"));
   await page.screenshot({ path: `${outDir}/plaza-visit.png` });
 
   await menuButton(page).click();

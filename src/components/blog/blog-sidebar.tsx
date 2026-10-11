@@ -137,10 +137,10 @@ export function TagsWidget({ base, tags, current }: { base: string; tags: BlogSi
   );
 }
 
-export function VisitorsWidget({ blogId, initial }: { blogId: number; initial: { today: number; yesterday: number; total: number } }) {
+export function VisitorsWidget({ blogId, initial, isOwner }: { blogId: number; initial: { today: number; yesterday: number; total: number }; isOwner: boolean }) {
   return (
     <Widget title="👣 방문자" label="방문자 수" data-widget="visitors">
-      <VisitWidget blogId={blogId} initial={initial} />
+      <VisitWidget blogId={blogId} initial={initial} isOwner={isOwner} />
     </Widget>
   );
 }

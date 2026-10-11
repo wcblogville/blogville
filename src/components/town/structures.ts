@@ -245,7 +245,7 @@ function keepOut(): Box[] {
     }),
     ...LAMPS.map((l) => ({ x: l.x, y: l.y - 20, w: 50, h: 70 })),
   ];
-  const { places, houses } = townSpots({ player: null, myHouse: null, neighbors: [], attendanceDay: null, host: null });
+  const { places, houses } = townSpots({ player: null, myHouse: null, neighbors: [], attendanceDay: null, host: null, pet: null });
   for (const s of [...places, ...houses]) boxes.push({ x: s.x, y: s.y, w: 110, h: 90 });
   return boxes;
 }

@@ -1,7 +1,8 @@
 "use client";
 
 // 동물 도감 (BLOG-04 / FR-029·030, contracts/profile-showcase.md 2절, research R-20)
-// 프로필 카드의 [🏅 도감] 버튼을 누르면 창(<dialog>)에 주인의 다 키운 동물 카드가 보인다 (사용자 요청 2026-10-09).
+// 우리 집 방 도구 줄의 [🏅 도감] 버튼을 누르면 창(<dialog>)에 주인의 다 키운 동물 카드가 보인다 (사용자 요청 2026-10-09, 2026-10-11 카드에서 방으로).
+// 전시한 동물은 방 안에서 주인을 따라 걷고, 마을에서는 주인을 따라다닌다.
 // 누구에게나 같고 (US4-10), 주인에게만 전시 버튼이 보인다 (판정은 서버, setShowcaseAnimal).
 // 버튼 [전시하기] / `전시 중` + [전시 빼기]는 plan 임시 문구.
 import { useRef, useTransition } from "react";
@@ -47,7 +48,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
             <p className="py-6 text-center text-sm text-ink-soft">아직 다 키운 동물이 없어요. 농장에서 동물을 키우면 여기에 모여요.</p>
           ) : (
             <>
-              {isOwner && <p className="mb-2 text-sm text-ink-soft">한 마리를 골라 블로그 프로필에 전시할 수 있어요.</p>}
+              {isOwner && <p className="mb-2 text-sm text-ink-soft">한 마리를 골라 우리 집에 전시하면 방 안에서, 그리고 마을을 돌아다닐 때 나를 따라다녀요.</p>}
               <ul className="flex flex-wrap gap-2">
                 {animals.map((a) => {
                   const shown = a.id === showcaseId;

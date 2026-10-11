@@ -79,12 +79,10 @@ await b.screenshot({ path: `${outDir}/12-post-by-other.png`, fullPage: true });
 
 // 블로그 홈, 마을 소식
 await b.goto(`${BASE}/@tester1`);
-// 미니룸은 아래쪽에만 2px 선 (BLOG-04, #23)
-const miniroomBorder = await b
-  .locator("div.bg-bottom")
-  .first()
-  .evaluate((el) => ["Top", "Right", "Bottom", "Left"].map((side) => getComputedStyle(el)[`border${side}Width`]).join(" "));
-if (miniroomBorder !== "0px 0px 2px 0px") throw new Error(`미니룸 테두리가 아래쪽만이 아니에요: ${miniroomBorder}`);
+// 프로필 카드(미니룸)는 없앴다 (2026-10-11): 제목 줄 + 우리 집 방 안에 주인 캐릭터 (BLOG-04)
+if ((await b.locator("[data-profile-card], div.bg-bottom").count()) !== 0) throw new Error("블로그 홈에 프로필 카드·미니룸이 남아 있어요");
+if ((await b.locator("[data-blog-title-bar]").count()) !== 1 || (await b.locator("[data-house-room] [data-room-resident]").count()) !== 1)
+  throw new Error("블로그 홈 제목 줄 또는 방 안 주인 캐릭터가 없어요");
 await b.screenshot({ path: `${outDir}/13-blog-home.png`, fullPage: true });
 await b.goto(`${BASE}/feed`);
 await b.screenshot({ path: `${outDir}/14-feed.png`, fullPage: true });

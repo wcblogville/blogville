@@ -31,7 +31,12 @@ export type TownData = {
    * 구경할 때는 myHouse(0번 집)가 주인의 집이고, neighbors가 주인이 즐겨찾기한 이웃이다
    */
   host: { nickname: string; slug: string } | null;
+  /** 나(player)를 따라다니는 동물: 내 블로그에 전시한 다 키운 동물 (친구 마을에서도 내 동물). 없으면 null */
+  pet: TownPet | null;
 };
+
+/** 따라다니는 동물 (그림 키 = animal_species.asset_key, 어른 단계로 그린다) */
+export type TownPet = { assetKey: string; name: string };
 
 /** 광장에서 들어가거나 눌렀을 때 일어날 일 */
 export type TownTarget =
