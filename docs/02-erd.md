@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -567,7 +567,7 @@ COMMIT
 | `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제), `deco`(광장 장식) |
 | `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품), `hair`(머리 모양), `hair_color`(머리 색) |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시) |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시), `admin_grant`(관리자 테스트 지급, AUTH-10) |
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
@@ -715,6 +715,12 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 한 자리에 한 이웃: 부분 고유 인덱스 `follows_town_lot_uq (follower_id, town_lot) WHERE town_lot IS NOT NULL`.
 - NULL인 즐겨찾기 이웃은 남은 자리를 작은 번호부터 즐겨찾기한 순서(`created_at`, `followee_id`)대로 받는다. 이 나누기는 `src/lib/town-lots.ts` `assignLots` 하나가 서버 화면(`getFavoriteHouses`)과 Server Action(`setTownLot`)에 같이 쓰인다. 고른 자리에 다른 이웃이 있으면 두 이웃의 자리를 맞바꾼다 (같은 트랜잭션, `lockUser`로 줄 세움, 고유 인덱스에 잠깐도 겹치지 않게 먼저 비운다).
 - 친구 마을(`/town/[slug]`)은 그 마을 주인이 고른 자리를 그대로 쓴다.
+
+### 3.27 관리자 테스트 지급 (사용자 요청 2026-10-11, AUTH-10, `0033_admin_grant`)
+
+- 기능을 시험해 보려고 관리자가 회원에게 코인·경험치를 넣는다. 잔액 칸을 만들지 않는 원칙(3.5)대로 **원장 한 줄**(`reason = 'admin_grant'`, `ref_id` = 준 관리자의 회원 ID)만 쓴다. 새 표 없이 `ledger_reason`에 값 하나만 더했다. 그래서 내역 화면(GAME-07)에 `👑 관리자 테스트 지급`으로 남고, 회원을 지우면 원장과 함께 CASCADE로 지워진다.
+- 경험치는 `addLedgerEntry`로 넣어 오른 레벨마다 `level_up` 알림이 같은 트랜잭션에 생긴다 (`lockUser`로 그 회원의 다른 보상·구매와 줄 세움). 한 번에 코인 0~1,000,000, 경험치 0~100,000(0에서 Lv.99까지 97,020). [Lv.99까지 경험치]는 잠근 뒤 모자란 만큼(`expForLevel(99) − 지금 경험치`)만 준다.
+- 마이그레이션은 `ALTER TYPE ... ADD VALUE`만 하고 새 값을 쓰지 않는다. PostgreSQL은 트랜잭션 안에서 더한 enum 값을 같은 트랜잭션에서 못 쓰게 막는데, `scripts/migrate-deploy.ts`는 마이그레이션마다 따로 트랜잭션이라 배포 DB(전용 스키마)에도 그대로 적용된다 (빈 스키마에 0000~0033을 처음부터 적용해 확인).
 
 ## 4. 데이터 마이그레이션
 
