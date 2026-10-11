@@ -12,7 +12,7 @@ import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
 import { AVATAR_PARTS } from "../src/lib/art/avatar";
 import { fitSvg, PIXEL } from "../src/lib/art/pixel";
 import { FURNITURE_KEYS, furnitureRows } from "../src/lib/art/furniture";
-import { animalSvg } from "../src/lib/art/animals";
+import { ANIMAL_SIZE, ANIMAL_SKINS, animalRadius, animalSvg, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits } from "../src/lib/art/animals";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
@@ -270,6 +270,19 @@ const view = (svg: string) => svg.match(/viewBox="([-\d. ]+)" width="(\d+)"/)!.s
 expect("fitSvg 96px에 32칸 → 틀 32칸 (3배)", view(fitSvg(furnitureRows("furniture.bed")!, 96)), ["0 0 32 32", "96"]);
 expect("fitSvg 72px에 32칸 → 틀 36칸 (2배)", view(fitSvg(furnitureRows("furniture.bed")!, 72)), ["-2 -4 36 36", "72"]);
 expect("동물은 단계마다 다른 그림", new Set((["baby", "teen", "adult"] as const).map((st) => animalSvg("animal.chick", st))).size, 3);
+// 동물 크기·스킨·움직임 (2026-10-11 "작은 동물은 작게 큰 동물은 크게", "펫 종류별로 스킨", "펫 따라다니는 모션")
+expect("모든 동물이 그림·크기가 있고 단계마다 다른 그림", Object.keys(ANIMAL_SIZE).filter((k) => !hasAnimalArt(k) || new Set((["baby", "teen", "adult"] as const).map((st) => animalSvg(k, st))).size !== 3), []);
+const tierOrder = { small: 0, medium: 1, large: 2 } as const;
+expect(
+  "크기 등급이 클수록 몸 반지름이 크다 (작은 < 중간 < 큰)",
+  Object.values(ANIMAL_SIZE).every((sa) => Object.values(ANIMAL_SIZE).every((sb) => tierOrder[sa.tier] >= tierOrder[sb.tier] || sa.r < sb.r)),
+  true,
+);
+expect("병아리 < 아기 돼지 < 송아지 (어른 반지름)", [animalRadius("animal.chick", "adult"), animalRadius("animal.piglet", "adult"), animalRadius("animal.calf", "adult")], [5, 8, 10]);
+expect("스킨은 모두 있는 동물 종류에 붙고 기본 그림과 다르다", Object.entries(ANIMAL_SKINS).filter(([k, v]) => !hasAnimalArt(v.species) || animalSvg(v.species, "adult", 96, k) === animalSvg(v.species, "adult", 96)), []);
+expect("다른 종류의 스킨은 입지 않는다 (기본 그림)", animalSvg("animal.chick", "adult", 96, "skin.pony.zebra") === animalSvg("animal.chick", "adult", 96) && !skinFits("skin.pony.zebra", "animal.chick"), true);
+expect("따라다니는 그림판: 5칸 × 2줄(오른쪽·왼쪽), 32칸 × 3배", petSheetSvg("animal.bunny", null, 3).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [32 * PET_SHEET_FRAMES, 64, 96 * PET_SHEET_FRAMES, 192]);
+expect("걷기 칸과 뛰는 높이 수가 같다", PET_WALK_FRAMES.length === PET_WALK_LIFT.length && PET_IDLE_FRAMES.length === 2, true);
 expect("배경 1280px × 5배 → 256칸, 높이 60칸 × 5", backgroundSvg("bg.meadow", 1280, 5).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [256, BG_ROWS, 1280, BG_ROWS * 5]);
 
 // AUTH-10 관리자 테스트 지급: 입력 검사와 빠른 버튼
