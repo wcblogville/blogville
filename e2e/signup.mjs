@@ -23,6 +23,8 @@ const MSG = {
   reserved: "이 아이디는 쓸 수 없어요",
   taken: "이미 있는 아이디예요",
   character: "고를 수 없는 캐릭터예요",
+  titleEmpty: "블로그 이름을 적어 주세요",
+  titleLong: "블로그 이름은 40자까지예요",
 };
 
 const one = async (q, params) => (await db.query(q, params)).rows[0];
@@ -48,13 +50,17 @@ async function openSignup(page) {
  * 가입 폼을 채워 보낸다. tamper(form)로 보내기 직전에 화면을 거치지 않은 값(긴 값, 추가 칸, 다른 아이템 번호)을 넣는다.
  * 결과: "town"(광장 도착) 또는 화면의 오류 문구
  */
-async function signUp(page, { id, pw = PW, confirm = pw, character, tamper, tamperArg, open = true }) {
+async function signUp(page, { id, pw = PW, confirm = pw, title, character, tamper, tamperArg, open = true }) {
   if (open) await openSignup(page);
   // 조작은 채우기 전에 한다 (maxLength가 남아 있으면 fill이 값을 자른다)
   if (tamper) await page.locator("form", { has: page.getByLabel("비밀번호 확인") }).evaluate(tamper, tamperArg);
   await page.getByLabel("아이디").fill(id);
   await page.getByLabel("비밀번호", { exact: true }).fill(pw);
   await page.getByLabel("비밀번호 확인").fill(confirm);
+  // 블로그 이름: 적지 않으면 아이디를 따라 `{아이디}의 블로그`로 채워진 값 그대로 보낸다
+  if (title !== undefined) await page.getByLabel("블로그 이름").fill(title);
+  // 아이디·블로그 이름을 적으면 화면이 다시 그려져(블로그 이름이 아이디를 따라간다) 조작한 radio 값이 되돌아가므로, 다 채운 뒤 한 번 더 조작한다
+  if (tamper) await page.locator("form", { has: page.getByLabel("비밀번호 확인") }).evaluate(tamper, tamperArg);
   if (character) await page.locator("label", { hasText: character }).click();
   await page.getByRole("button", { name: "회원가입", exact: true }).click();
   return outcome(page);
@@ -84,6 +90,17 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
   await page.getByRole("tab", { name: "회원가입" }).click();
   check("1 아이디 칸 아래 안내", await page.getByText("영문 소문자, 숫자, _ 로 4~20자", { exact: true }).isVisible());
   check("1 비밀번호 칸 안내", (await page.getByLabel("비밀번호", { exact: true }).getAttribute("placeholder")) === "비밀번호 (8자 이상)");
+  // 블로그 이름 칸 (2026-10-11 사용자 요청): 처음엔 비어 있고, 아이디를 적으면 `{아이디}의 블로그`로 따라 채워진다
+  const titleField = page.getByLabel("블로그 이름");
+  check("1 블로그 이름 칸 + 안내", (await titleField.inputValue()) === "" && (await titleField.getAttribute("maxlength")) === "40" && (await page.getByText("40자까지, 나중에 블로그 관리에서 바꿀 수 있어요").isVisible()));
+  await page.getByLabel("아이디").fill("Pixel_Fan");
+  check("1 아이디를 적으면 블로그 이름이 `{아이디}의 블로그`", (await titleField.inputValue()) === "pixel_fan의 블로그", await titleField.inputValue());
+  await titleField.fill("작은 정원");
+  await page.getByLabel("아이디").fill("pixel_fan2");
+  check("1 블로그 이름을 고친 뒤에는 아이디를 따라가지 않음", (await titleField.inputValue()) === "작은 정원", await titleField.inputValue());
+  await titleField.fill("");
+  check("1 블로그 이름을 지우면 다시 아이디를 따라감", (await titleField.inputValue()) === "pixel_fan2의 블로그", await titleField.inputValue());
+  await page.getByLabel("아이디").fill("");
   check("1 처음엔 남자 주민이 골라져 있음", await page.getByRole("radio", { name: "남자 주민" }).isChecked());
   // 소셜 키가 없는 환경 기준 (.env.local의 소셜 키를 비워 둔다, quickstart 0장)
   const social = page.getByRole("button", { name: /^(카카오|네이버|Google)$/ });
@@ -145,16 +162,18 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
 // ── 2) 대문자 섞은 아이디 + 여자 주민으로 가입 → 한 트랜잭션으로 생긴 것 확인 ──
 const MAIN = `Su${n}`;
 const main = MAIN.toLowerCase();
+// 적은 블로그 이름 (앞뒤 공백은 지워 저장, 이모지 포함 40자 안)
+const MAIN_TITLE = `  ${main}의 도트 정원 🌱  `;
 let mainSession;
 {
   const { ctx, page, errors } = await fresh();
   const started = Date.now();
   await openSignup(page);
-  // 14) 입력 칸 4개 (아이디, 비밀번호, 비밀번호 확인, 캐릭터)
+  // 14) 입력 칸 5개 (아이디, 비밀번호, 비밀번호 확인, 블로그 이름, 캐릭터)
   const form = page.locator("form", { has: page.getByLabel("비밀번호 확인") });
   const fields = (await form.locator('input:not([type="radio"])').count()) + (await form.locator("fieldset").count());
-  check("14 입력 칸 4개", fields === 4, String(fields));
-  const r = await signUp(page, { id: MAIN, character: "여자 주민", open: false });
+  check("14 입력 칸 5개", fields === 5, String(fields));
+  const r = await signUp(page, { id: MAIN, title: MAIN_TITLE, character: "여자 주민", open: false });
   check("2 가입 후 광장 도착", r === "town", r);
   check("14 시작부터 광장까지 1분 이내", Date.now() - started < 60_000, `${Date.now() - started}ms`);
   const coinsText = await page.getByRole("banner").getByTitle("코인").innerText().catch(() => "");
@@ -177,7 +196,8 @@ let mainSession;
   check("2 아이디는 소문자로 저장", u?.username === main);
   check("2 권한 user", u?.role === "user");
   check("2 닉네임 = 아이디", u?.nickname === main);
-  check("2 블로그 이름·주소·소개", u?.title === `${main}의 블로그` && u?.slug === main && u?.description === "");
+  check("2 블로그 이름 = 가입 때 적은 이름 (앞뒤 공백 제거)", u?.title === MAIN_TITLE.trim(), u?.title);
+  check("2 블로그 주소 = 아이디, 소개 빈 값", u?.slug === main && u?.description === "");
   check("2 대분류 일상", JSON.stringify(u?.categories) === JSON.stringify(["일상"]));
   // 마을 개편 2차부터 기본 가구(화분·나무 의자)도 함께 받는다
   check("2 보유 = 여자 주민 + 초원 + 기본 가구, 둘 다 장착", JSON.stringify(u?.owned) === JSON.stringify(["bg_meadow", "char_girl", "fur_chair", "fur_plant"]) && u?.character === "char_girl" && u?.background === "bg_meadow");
@@ -228,9 +248,10 @@ let mainSession;
 
   // 6) 오류 뒤 입력 유지 + 오류 위치
   const keepId = `Keep${n}`;
-  const r6 = await signUp(page, { id: keepId, confirm: "different-pass", character: "여자 주민" });
+  const r6 = await signUp(page, { id: keepId, confirm: "different-pass", title: "남는 이름", character: "여자 주민" });
   check("6 비밀번호 확인 불일치", r6 === MSG.mismatch, r6);
   check("6 아이디 그대로", (await page.getByLabel("아이디").inputValue()) === keepId);
+  check("6 블로그 이름 그대로", (await page.getByLabel("블로그 이름").inputValue()) === "남는 이름");
   check("6 고른 캐릭터 그대로", await page.getByRole("radio", { name: "여자 주민" }).isChecked());
   check("6 비밀번호 칸은 비움", (await page.getByLabel("비밀번호", { exact: true }).inputValue()) === "");
   const errBox = await formError(page).evaluate((el) => {
@@ -239,6 +260,16 @@ let mainSession;
   });
   check("6 오류는 [회원가입] 바로 위 빨간 굵은 글씨 한 줄", errBox.next === "회원가입" && errBox.bold && errBox.lines === 1 && /^rgb\((\d+)/.exec(errBox.color)?.[1] > 150, JSON.stringify(errBox));
   await page.screenshot({ path: `${outDir}/53-signup-error.png` });
+
+  // 블로그 이름 규칙은 블로그 관리와 같다 (checkBlogTitle): 공백뿐이면 빈 값, 41자는 화면을 우회해도 거부
+  const rt0 = await signUp(page, { id: `tt${n}`, title: "   " });
+  check("6 블로그 이름 공백뿐 거부", rt0 === MSG.titleEmpty, rt0);
+  const rt41 = await signUp(page, { id: `tt${n}`, title: "가".repeat(41), tamper: noLimits });
+  check("6 블로그 이름 41자(화면 우회) 거부", rt41 === MSG.titleLong, rt41);
+  // 검사 순서는 폼 순서: 비밀번호 확인이 틀리면 블로그 이름보다 먼저 알린다
+  const rtOrder = await signUp(page, { id: `tt${n}`, confirm: "different-pass", title: "   " });
+  check("6 비밀번호 확인 → 블로그 이름 순서", rtOrder === MSG.mismatch, rtOrder);
+  check("6 블로그 이름 오류로 회원이 생기지 않음", !(await userByName(`tt${n}`)));
 
   for (const id of ["admin", "settings", "notice", "Admin"]) {
     const r = await signUp(page, { id });
@@ -292,6 +323,7 @@ let mainSession;
   const r3 = await signUp(adm.page, {
     id,
     tamper: (form) => {
+      if (form.querySelector('input[name="role"]')) return;
       const extra = document.createElement("input");
       extra.type = "hidden";
       extra.name = "role";
@@ -301,6 +333,8 @@ let mainSession;
   });
   check("10 role=admin 칸을 더해도 가입은 됨", r3 === "town", r3);
   check("10 권한은 user", (await userByName(id))?.role === "user");
+  const titled = await one("SELECT b.title FROM blogs b JOIN users u ON u.id = b.owner_id WHERE u.username = $1", [id]);
+  check("10 블로그 이름을 고치지 않으면 `{아이디}의 블로그`", titled?.title === `${id}의 블로그`, titled?.title);
   await adm.ctx.close();
 }
 
@@ -398,6 +432,9 @@ let mainSession;
     await page.keyboard.type(PW);
     await page.keyboard.press("Tab");
     await page.keyboard.type(PW);
+    await page.keyboard.press("Tab"); // 블로그 이름 (아이디를 따라 채워져 있다)
+    const titleFocus = await focused();
+    ringSeen.push(titleFocus.label === "블로그 이름" && titleFocus.visible);
     await page.keyboard.press("Tab"); // 캐릭터 고르기 (골라진 남자 주민)
     const radioRing = await page.evaluate(() => {
       const el = document.activeElement;
@@ -413,7 +450,7 @@ let mainSession;
   }
   const r = await page.waitForURL(/\/@[a-z0-9_]+\?welcome=1/, { timeout: 20000 }).then(() => "town").catch(() => page.url());
   check("13 키보드만으로 가입", r === "town", r);
-  check("13 이동하는 동안 초점 테두리가 보임", ringSeen.length === 4 && ringSeen.every(Boolean), JSON.stringify(ringSeen));
+  check("13 이동하는 동안 초점 테두리가 보임 (블로그 이름 칸도 지남)", ringSeen.length === 5 && ringSeen.every(Boolean), JSON.stringify(ringSeen));
   await ctx.close();
 }
 

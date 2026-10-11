@@ -27,6 +27,8 @@ export type CreateMemberInput = {
   password: string;
   /** 고른 기본 캐릭터의 items.id (parseId를 통과한 값) */
   characterId: number;
+  /** 블로그 이름. checkBlogTitle(src/lib/blog.ts)을 통과한 값 (앞뒤 공백 제거, 1~40자) */
+  blogTitle: string;
 };
 
 export type CreateMemberResult = { ok: true; userId: string } | { ok: false; error: string };
@@ -38,7 +40,7 @@ class SignupRejected extends Error {}
 const NAME_CONSTRAINTS = new Set(["users_username_unique", "users_email_unique", "blogs_slug_unique", "profiles_nickname_unique"]);
 
 export async function createMember(input: CreateMemberInput): Promise<CreateMemberResult> {
-  const { username, password, characterId } = input;
+  const { username, password, characterId, blogTitle } = input;
   if (isReservedName(username)) return { ok: false, error: SIGNUP_ERRORS.reserved };
 
   // 해시는 느리므로(의도된 계산) 트랜잭션 밖에서 먼저 계산해 트랜잭션·잠금을 짧게 둔다
@@ -92,10 +94,10 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
       if (firstSlots.length) await tx.insert(houseFurniture).values(firstSlots);
       // 5) 프로필: 닉네임 = 아이디 (나중에 blog의 내 정보에서 바꾼다)
       await tx.insert(profiles).values({ userId, nickname: username, characterItemId: character.id });
-      // 6) 블로그: 주소 = 아이디, 이름 `{아이디}의 블로그`, 빈 소개, 초원 배경
+      // 6) 블로그: 주소 = 아이디, 이름 = 가입 폼에 적은 블로그 이름, 빈 소개, 초원 배경
       const [blog] = await tx
         .insert(blogs)
-        .values({ ownerId: userId, slug: defaults.slug, title: defaults.title, description: defaults.description, backgroundItemId: background.id })
+        .values({ ownerId: userId, slug: defaults.slug, title: blogTitle, description: defaults.description, backgroundItemId: background.id })
         .returning({ id: blogs.id });
       // 7) 대분류 "일상"
       await tx.insert(categories).values({ blogId: blog.id, name: defaults.categoryName, position: 0 });

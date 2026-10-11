@@ -70,12 +70,8 @@ export async function SiteHeader() {
           <div className="group-data-[town]:hidden">
             <SignOutButton />
           </div>
-        ) : (
-          // 첫 화면의 로그인 칸으로 (휴대폰에서는 로그인 칸이 화면 아래에 있다)
-          <Link href="/#login" className="btn shrink-0 bg-leaf text-sm text-white group-data-[town]:hidden">
-            시작하기
-          </Link>
-        )}
+        ) : // 로그인하지 않은 방문자: 로그인 칸이 첫 화면에 있어 [시작하기]를 두지 않는다 (2026-10-11 사용자 요청)
+        null}
       </div>
     </HeaderFrame>
   );
