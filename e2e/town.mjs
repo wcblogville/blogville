@@ -63,7 +63,7 @@ const houseButtons = panel().locator('[data-spot^="house:"]');
   check("☰ 메뉴 아래 내 정보·로그아웃", account.includes("내 정보") && account.includes("로그아웃"), account.replace(/\n/g, " "));
   await openMenu("텔레포트");
 }
-check("텔레포트 목록: 마을 5곳(분수·게시판·상점·농장·낚시터) + 집 11자리", (await panel().locator('[data-spot]:not([data-spot^="house:"])').count()) === 5 && (await houseButtons.count()) === 11);
+check("텔레포트 목록: 마을 7곳(분수·게시판·상점·농장·낚시터·미용실·옷가게) + 집 11자리", (await panel().locator('[data-spot]:not([data-spot^="house:"])').count()) === 7 && (await houseButtons.count()) === 11);
 const disabled = await houseButtons.evaluateAll((els) => els.filter((e) => e.disabled).length);
 check("이웃이 없으면 빈 집터 10자리 (누를 수 없음), 내 집은 누를 수 있음", disabled === 10 && (await panel().locator('[data-spot="house:0"]').isEnabled()));
 await page.screenshot({ path: `${outDir}/town-teleport.png` });

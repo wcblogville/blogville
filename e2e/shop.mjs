@@ -63,10 +63,10 @@ check("성장 아이템 카드에 보유 2개, 버튼은 사기", (await card("�
 const owned = await db.query("SELECT 1 FROM user_items ui JOIN items i ON i.id = ui.item_id WHERE ui.user_id = $1 AND i.code = 'char_cat'", [uid]);
 check("판매 안 하는 캐릭터는 상점에 없음", owned.rowCount === 0 && (await page.locator("article", { hasText: "고양이" }).count()) === 0);
 
-// ── 정렬 (FR-014): 비싼 순 → 아바타 구역 첫 카드는 원피스(200) ──
+// ── 정렬 (FR-014): 비싼 순 → 아바타 구역 첫 카드는 금관(500, 옷가게 아이템도 상점에 나온다) ──
 await page.getByLabel("정렬").selectOption("priceDesc");
 const firstAvatar = await page.locator('[data-shop-section="avatar"] article h3').first().innerText();
-check("비싼 순: 원피스가 먼저", firstAvatar === "원피스", firstAvatar);
+check("비싼 순: 금관이 먼저", firstAvatar === "금관", firstAvatar);
 await page.getByLabel("정렬").selectOption("priceAsc");
 check("싼 순: 밀짚모자가 먼저", (await page.locator('[data-shop-section="avatar"] article h3').first().innerText()) === "밀짚모자");
 await page.screenshot({ path: `${outDir}/shop.png`, fullPage: true });
