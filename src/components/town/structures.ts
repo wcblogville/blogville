@@ -4,7 +4,9 @@ import {
   BOARD_SIZE,
   CLOTHES_SIZE,
   FARM_SIZE,
+  FENCE_SIZE,
   FISHING_SIZE,
+  HOME_ARCH_SIZE,
   FOUNTAIN_SIZE,
   HOUSE_STAGES,
   houseStage,
@@ -25,6 +27,8 @@ import {
   FARM_POS,
   FISHING_POS,
   FOREST_EDGE,
+  HOME,
+  HOME_GATE,
   HORIZON,
   HOUSE_SLOTS,
   houseAt,
@@ -183,10 +187,34 @@ export function townLayout(data: TownData) {
     });
   }
 
+  // 내 정원: 계단 꼭대기의 장미 아치 문과 앞 가장자리 흰 울타리 (울타리 자리는 땅 가장자리라 원래 못 지나간다)
+  structures.push({ texture: "home:arch", ...HOME_GATE, w: HOME_ARCH_SIZE.width, h: HOME_ARCH_SIZE.height, shadow: HOME_ARCH_SIZE.width * 0.8 });
+  for (const f of homeFence()) structures.push({ texture: "home:fence", ...f, w: FENCE_SIZE.width, h: FENCE_SIZE.height });
+
   // 분수, 가로등
   structures.push({ texture: "fountain", x: CENTER.x, y: CENTER.y + FOUNTAIN_SIZE.height / 2, w: FOUNTAIN_SIZE.width, h: FOUNTAIN_SIZE.height, solid: { w: 150, h: 70 }, anim: "fountain:flow", shadow: FOUNTAIN_SIZE.width });
   for (const l of LAMPS) structures.push({ texture: "lamp", ...l, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
   return { structures, entrances };
+}
+
+/** 내 정원 앞 가장자리 울타리 조각 (아랫변 가운데). 가운데 계단(아치 문) 양옆은 비우고, 가파른 옆쪽은 조각을 촘촘히(층이 12px 넘게 지지 않게) */
+export function homeFence() {
+  const out: { x: number; y: number }[] = [];
+  const step = FENCE_SIZE.width;
+  const rimY = (x: number) => {
+    const dx = (x - HOME.x) / HOME.rx;
+    return Math.round(HOME.y + HOME.ry * Math.sqrt(Math.max(0, 1 - dx * dx))) - 8;
+  };
+  for (const side of [-1, 1]) {
+    let x = HOME.x + side * (HOME_ARCH_SIZE.width / 2 + step / 2 - 6);
+    while (Math.abs(x - HOME.x) / HOME.rx <= 0.82) {
+      out.push({ x: Math.round(x), y: rimY(x) });
+      let dx = step;
+      while (dx > 6 && Math.abs(rimY(x + side * dx) - rimY(x)) > 12) dx -= 3;
+      x += side * dx;
+    }
+  }
+  return out;
 }
 
 /** 같은 씨앗이면 늘 같은 수열 (mulberry32) */
@@ -212,10 +240,12 @@ function keepOut(): Box[] {
     { x: FISHING_POS.x, y: FISHING_POS.y - FISHING_SIZE.height / 2, w: FISHING_SIZE.width + 40, h: FISHING_SIZE.height + 80 },
     { x: FARM_POS.x, y: FARM_POS.y - FARM_SIZE.height / 2, w: FARM_SIZE.width + 40, h: FARM_SIZE.height + 80 },
     { x: CENTER.x, y: CENTER.y, w: 620, h: 620 },
+    // 내 정원은 정해 둔 나무만 (아무 나무나 자라지 않게), 정원 길 갈림길 둘레도
+    { x: HOME.x, y: HOME.y + 40, w: HOME.rx * 2 + 80, h: HOME.ry * 2 + 200 },
     ...Array.from({ length: HOUSE_SLOTS }, (_, i) => {
       const p = houseSlot(i);
       // 집 + 오른쪽 우체통 + 문 앞
-      return { x: p.x + 10, y: p.y - big.height / 2 + 30, w: big.width + 90, h: big.height + 120 };
+      return { x: p.x + 10, y: p.y - big.height / 2 + 70, w: big.width + 90, h: big.height + 200 };
     }),
     ...LAMPS.map((l) => ({ x: l.x, y: l.y - 20, w: 50, h: 70 })),
   ];
@@ -259,6 +289,12 @@ export function townProps(): Prop[] {
     });
   };
   const blockedBy = (x: number, y: number) => avoid.some((b) => Math.abs(x - b.x) < b.w / 2 && Math.abs(y - b.y) < b.h / 2);
+
+  // 0) 내 정원의 나무: 뒤쪽 양 귀퉁이 벚나무, 뒤 울타리 대신 덤불 줄
+  for (const [kind, dx, dy] of [
+    ["cherry", -205, -95], ["cherry", 215, -110], ["bush", -150, -150], ["bush", -60, -168], ["bush", 30, -170], ["bush", 120, -160],
+    ["blossom", -262, 10], ["bush", 262, 40],
+  ] as const) add(kind, HOME.x + dx, HOME.y + dy);
 
   // 1) 가장자리 숲: 걸을 수 없는 띠 안쪽 끝을 따라 두 줄 (위쪽은 먼 풍경 바로 아래)
   const edgeKinds: TreeKind[] = ["oak", "oak", "pine", "round", "pine", "oak", "cherry"];
@@ -337,6 +373,8 @@ export function npcGraph(avoid: { x: number; y: number; r: number }[] = []) {
     return i;
   };
   for (const p of PATHS) {
+    // 내 정원 길은 걷지 않는다 (사용자 요청 2026-10-11: 내 집과 농장만 따로)
+    if (p.private) continue;
     const pts = p.kind === "plaza" ? p.points : smoothPath(p.points);
     for (let s = 0; s < pts.length - 1; s++) {
       const a = id(pts[s]);

@@ -1,9 +1,9 @@
 // 게임 규칙 계산 테스트: 레벨(GAME-02), 출석 일차(GAME-04), 레벨업(GAME-06), 동물 농장(TOWN-09), 집 단계·지붕 색(TOWN-07·11), 광장 꾸미기 자리,
 // 2.5D 마을 배치(겹침·절벽·걸어서 갈 수 있는지·이웃이 걷는 길), 이웃 집 자리(TOWN-18)
 // 실행: npm run test:game
-import { DECO_SLOTS, HOUSE_SLOTS, houseSlot, LAMPS, LOT_AREAS, POND_POS, START_POS, townSpots } from "../src/components/town/layout";
+import { DECO_SLOTS, FARM_POS, HOUSE_SLOTS, houseSlot, inHome, LAMPS, LOT_AREAS, PATHS, POND_POS, smoothPath, START_POS, townSpots } from "../src/components/town/layout";
 import { npcGraph, segmentClear, solidBox, townLayout, townProps } from "../src/components/town/structures";
-import { reachable, terrain, walkableAt } from "../src/components/town/terrain";
+import { boxWalkable, reachable, stairCrossings, terrain, TERRAIN_FEET, walkableAt } from "../src/components/town/terrain";
 import type { TownData, TownNeighbor } from "../src/components/town/types";
 import { assignLots, isNeighborLot, NEIGHBOR_LOTS } from "../src/lib/town-lots";
 import { BOARD_SIZE, CLOTHES_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_FRAMES, FOUNTAIN_SIZE, fountainSheetSvg, HOUSE_STAGES, houseStage, LAMP_SIZE, SALON_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
@@ -103,7 +103,8 @@ expect("꾸미기 자리 8개", DECO_SLOTS.length, MAX_DECO_SLOTS);
   const boxOf = (name: string, s: { x: number; y: number; w: number; h: number }): B => ({ name, x1: s.x - s.w / 2, y1: s.y - s.h, x2: s.x + s.w / 2, y2: s.y });
   const overlap = (a: B, b: B) => a.x1 < b.x2 && b.x1 < a.x2 && a.y1 < b.y2 && b.y1 < a.y2;
   const { structures, entrances } = townLayout(full);
-  const big = structures.filter((s) => s.texture !== "lamp" && !s.texture.startsWith("mailbox"));
+  // 울타리·아치는 땅 가장자리에 서 있는 장식이라 (부딪히지 않음) 겹침에서 뺀다
+  const big = structures.filter((s) => s.texture !== "lamp" && !s.texture.startsWith("mailbox") && !s.texture.startsWith("home:"));
   const boxes = big.map((s) => boxOf(s.label ?? s.texture, { ...s, h: s.solid?.h ?? s.h }));
   const pairs = boxes.flatMap((a, i) => boxes.slice(i + 1).filter((b) => overlap(a, b)).map((b) => `${a.name}-${b.name}`));
   expect("건물·집(10단계) 바닥이 서로 겹치지 않음", pairs, []);
@@ -157,6 +158,55 @@ expect("꾸미기 자리 8개", DECO_SLOTS.length, MAX_DECO_SLOTS);
   expect("이웃이 걷는 길: 마디 100개 이상", linked.length >= 100, true);
   expect("이웃이 걷는 길: 내 집 앞(190px)에는 마디가 없음", linked.some((i) => Math.hypot(g.nodes[i].x - home.x, g.nodes[i].y - home.y - 46) < 190), false);
   expect("집 자리 11곳, 자리 설명 11개", [HOUSE_SLOTS, LOT_AREAS.length], [11, 11]);
+
+  // 계단과 길 (사용자 요청 2026-10-11 "계단이 너무 좁아서 안 가지는 길이 많다"):
+  // 그린 길 가운데선을 따라 6px마다 찍은 점이 모두 걸을 수 있고, 처음 자리에서 걸어서 닿는다
+  const can = reachable(START_POS, solids);
+  const stuck: string[] = [];
+  const cut: string[] = [];
+  PATHS.forEach((p, n) => {
+    if (p.kind === "plaza") return;
+    const pts = smoothPath(p.points);
+    for (let s = 0; s < pts.length - 1; s++) {
+      const [ax, ay] = pts[s];
+      const [bx, by] = pts[s + 1];
+      const k = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 6));
+      for (let j = 0; j <= k; j++) {
+        const x = ax + ((bx - ax) * j) / k;
+        const y = ay + ((by - ay) * j) / k;
+        const at = `길${n}(${Math.round(x)},${Math.round(y)})`;
+        if (!boxWalkable(x, y, TERRAIN_FEET.w, TERRAIN_FEET.h)) stuck.push(at);
+        // 건물·나무 상자 안의 점(길 끝이 문 앞에 닿는 곳)은 빼고 본다
+        else if (!solids.some((o) => Math.abs(x - o.x) < o.w / 2 + 14 && Math.abs(y - o.y) < o.h / 2 + 8) && !can({ x, y })) cut.push(at);
+      }
+    }
+  });
+  expect("모든 길 가운데선이 땅에서 막히지 않음", stuck.slice(0, 8), []);
+  expect("모든 길 가운데선에 처음 자리에서 걸어서 닿음", cut.slice(0, 8), []);
+  const crossings = stairCrossings();
+  expect("계단이 10곳 이상", crossings.length >= 10, true);
+  // 계단 가운데에서 길에 수직으로 잰 걸을 수 있는 너비 ≥ 그 길 너비
+  const narrow = crossings.flatMap((c, i) => {
+    const mx = (c.a.x + c.b.x) / 2;
+    const my = (c.a.y + c.b.y) / 2;
+    const len = Math.hypot(c.b.x - c.a.x, c.b.y - c.a.y);
+    const [nx, ny] = [-(c.b.y - c.a.y) / len, (c.b.x - c.a.x) / len];
+    const run = (sign: number) => {
+      let d = 0;
+      while (d < 200 && walkableAt(mx + nx * sign * (d + 1), my + ny * sign * (d + 1))) d++;
+      return d;
+    };
+    const width = run(1) + run(-1) + 1;
+    return width >= c.width ? [] : [`계단${i}(${Math.round(mx)},${Math.round(my)}) ${width}px < 길 ${c.width}px`];
+  });
+  expect("계단은 이어지는 길보다 좁지 않음", narrow, []);
+  expect("계단 양쪽 끝에 걸어서 닿음", crossings.flatMap((c, i) => (can(c.a) && can(c.b) ? [] : [`계단${i}`])), []);
+
+  // 내 정원 (사용자 요청 2026-10-11 "내 집이 가장 특별한 곳에 따로"): 내 집과 농장만, 이웃 집은 멀리, 이웃(NPC)은 들어오지 않는다
+  expect("내 집과 농장은 내 정원 안", [inHome(houseSlot(0).x, houseSlot(0).y), inHome(FARM_POS.x, FARM_POS.y)], [true, true]);
+  expect("이웃 집 자리는 내 정원에서 200px 넘게 떨어짐", Array.from({ length: 10 }, (_, i) => i + 1).filter((i) => inHome(houseSlot(i).x, houseSlot(i).y, 200)), []);
+  expect("내 정원 안의 건물은 내 집·농장·우체통·아치·울타리만", structures.filter((s) => inHome(s.x, s.y, 10) && !["내 집", "동물 농장"].includes(s.label ?? "") && !/^(mailbox:mine|home:)/.test(s.texture)).map((s) => s.label ?? s.texture), []);
+  expect("이웃이 걷는 길: 내 정원과 그 둘레 60px에는 마디가 없음", linked.filter((i) => inHome(g.nodes[i].x, g.nodes[i].y, 60)).length, 0);
 }
 
 // 한국 날짜 0시 경계 (FR-008)

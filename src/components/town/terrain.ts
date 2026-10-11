@@ -32,9 +32,21 @@ export type Terrain = {
   edge: Uint8Array;
   /** 계단 (길이 앞면·가장자리를 지나는 곳) */
   stairs: Uint8Array;
+  /** 계단 너비 안에서 가장자리까지 남은 도트 칸 + 1 (길 가운데선에서 반폭 + STAIR_PAD까지. 0 = 계단 너비 밖) */
+  stairIn: Uint8Array;
+  /** 그 계단이 이어 주는 길 종류 (PathCode) */
+  stairCode: Uint8Array;
   /** 걸을 수 없는 칸 */
   blocked: Uint8Array;
 };
+
+/**
+ * 계단은 길보다 양옆으로 이만큼(px) 넓다 (사용자 요청 2026-10-11 "계단이 너무 좁아서 안 가지는 길이 많다").
+ * 길 가장자리의 들쭉날쭉과 상관없이 길 가운데선에서 잰다. 맨 바깥 1칸은 돌 난간(못 지나감)
+ */
+export const STAIR_PAD = 15;
+/** 땅(절벽·물)에 부딪히는지 볼 때 쓰는 발 상자. 건물·나무와 부딪히는 발 상자(28×16)보다 작아 계단 입구 모서리에 덜 걸린다 */
+export const TERRAIN_FEET = { w: 18, h: 10 } as const;
 
 /** 같은 입력에 늘 같은 0~1 값 */
 export function hash(x: number, y: number) {
@@ -69,6 +81,7 @@ function lineY(points: readonly (readonly [number, number])[], x: number, seed: 
 function inMesa(m: (typeof MESAS)[number], x: number, y: number, seed: number) {
   const dx = (x - m.x) / m.rx;
   const dy = (y - m.y) / m.ry;
+  if (m.round) return dx * dx + dy * dy < 1;
   const a = Math.atan2(dy, dx);
   const r = 1 + 0.06 * wave(((a + Math.PI) / (2 * Math.PI)) * 9, seed) + 0.025 * wave(((a + Math.PI) / (2 * Math.PI)) * 31, seed + 5);
   return dx * dx + dy * dy < r * r;
@@ -113,6 +126,8 @@ function build(): Terrain {
   const pathT = new Uint8Array(N).fill(255);
   const edge = new Uint8Array(N);
   const stairs = new Uint8Array(N);
+  const stairIn = new Uint8Array(N);
+  const stairCode = new Uint8Array(N);
   const blocked = new Uint8Array(N);
 
   // 1) 윗면 높이와 물. 절벽 줄은 세로줄마다 한 번, 둥근 단·연못은 그 둘레 상자 안만 본다
@@ -176,14 +191,15 @@ function build(): Terrain {
     if (p.kind === "plaza") continue;
     const code = p.kind === "stone" ? PathCode.Stone : PathCode.Dirt;
     const half = p.width / 2;
+    const reach = half + STAIR_PAD;
     const pts = smoothPath(p.points);
     for (let s = 0; s < pts.length - 1; s++) {
       const [ax, ay] = pts[s];
       const [bx, by] = pts[s + 1];
-      const x0 = Math.max(0, Math.floor((Math.min(ax, bx) - half - 6) / PX));
-      const x1 = Math.min(W - 1, Math.ceil((Math.max(ax, bx) + half + 6) / PX));
-      const y0 = Math.max(0, Math.floor((Math.min(ay, by) - half - 6) / PX));
-      const y1 = Math.min(H - 1, Math.ceil((Math.max(ay, by) + half + 6) / PX));
+      const x0 = Math.max(0, Math.floor((Math.min(ax, bx) - reach) / PX));
+      const x1 = Math.min(W - 1, Math.ceil((Math.max(ax, bx) + reach) / PX));
+      const y0 = Math.max(0, Math.floor((Math.min(ay, by) - reach) / PX));
+      const y1 = Math.min(H - 1, Math.ceil((Math.max(ay, by) + reach) / PX));
       const L2 = (bx - ax) ** 2 + (by - ay) ** 2;
       for (let y = y0; y <= y1; y++)
         for (let x = x0; x <= x1; x++) {
@@ -193,10 +209,17 @@ function build(): Terrain {
           const ex = wx - (ax + t * (bx - ax));
           const ey = wy - (ay + t * (by - ay));
           const d = Math.sqrt(ex * ex + ey * ey);
+          if (d > reach) continue;
+          const i = y * W + x;
+          // 계단 너비 (길 가장자리 흔들기와 상관없이 가운데선에서)
+          const inner = Math.floor((reach - d) / PX) + 1;
+          if (inner > stairIn[i]) {
+            stairIn[i] = inner;
+            stairCode[i] = code;
+          }
           // 가장자리 흔들기: 3칸 덩어리마다 0~1칸
           const wobble = hash(x >> 1, y >> 1) < 0.35 ? PX : 0;
           if (d > half - wobble) continue;
-          const i = y * W + x;
           const tt = Math.min(100, Math.round((d / half) * 100));
           if (path[i] === PathCode.Stone && code === PathCode.Dirt) continue;
           if (path[i] !== code || tt < pathT[i]) pathT[i] = tt;
@@ -236,23 +259,23 @@ function build(): Terrain {
       }
     }
 
-  // 5) 계단과 걸을 수 없는 칸. 계단 양옆 1칸은 돌 난간이라 막는다
+  // 5) 계단과 걸을 수 없는 칸. 계단은 길이 앞면·가장자리를 지나는 곳에서 길보다 STAIR_PAD씩 넓다. 계단 양옆 1칸은 돌 난간이라 막는다
   const horizon = Math.ceil((HORIZON + 30) / PX);
   const border = Math.ceil(FOREST_EDGE / PX);
   for (let y = 0; y < H; y++)
     for (let x = 0; x < W; x++) {
       const i = y * W + x;
       const cliff = face[i] > 0 || edge[i] > 0;
-      if (cliff && path[i] && !water[i]) {
+      if (cliff && stairIn[i] && !water[i]) {
         stairs[i] = 1;
-        if (pathT[i] > 84) blocked[i] = 1;
+        if (stairIn[i] <= 1) blocked[i] = 1;
         continue;
       }
       if (water[i] || cliff) blocked[i] = 1;
       else if (y < horizon || x < border || x >= W - border || y >= H - border) blocked[i] = 1;
     }
 
-  return { w: W, h: H, level, water, face, faceH, path, pathT, edge, stairs, blocked };
+  return { w: W, h: H, level, water, face, faceH, path, pathT, edge, stairs, stairIn, stairCode, blocked };
 }
 
 /** 그 자리(px)를 걸을 수 있는가 (땅만 본다. 건물·나무는 장면의 충돌 상자가 막는다) */
@@ -274,10 +297,10 @@ export function boxWalkable(x: number, y: number, w: number, h: number) {
 export type Box = { x: number; y: number; w: number; h: number };
 
 /**
- * start에서 걸어서 갈 수 있는 칸 (cell px 격자, 발 상자 크기 feet). 땅과 막는 상자(solids)를 함께 본다.
+ * start에서 걸어서 갈 수 있는 칸 (cell px 격자). 막는 상자(solids)는 발 상자 feet로, 땅은 장면처럼 작은 발 상자 ground로 본다.
  * 시험(test-game.ts)이 모든 입구·텔레포트 자리에 갈 수 있는지 확인한다
  */
-export function reachable(start: { x: number; y: number }, solids: Box[], feet = { w: 28, h: 16 }, cell = 12) {
+export function reachable(start: { x: number; y: number }, solids: Box[], feet = { w: 28, h: 16 }, cell = 12, ground: { w: number; h: number } = TERRAIN_FEET) {
   const cols = Math.ceil(WORLD.width / cell);
   const rows = Math.ceil(WORLD.height / cell);
   const free = new Uint8Array(cols * rows);
@@ -287,7 +310,7 @@ export function reachable(start: { x: number; y: number }, solids: Box[], feet =
     for (let c = 0; c < cols; c++) {
       const x = c * cell + cell / 2;
       const y = r * cell + cell / 2;
-      if (boxWalkable(x, y, feet.w, feet.h) && !hitsSolid(x, y)) free[r * cols + c] = 1;
+      if (boxWalkable(x, y, ground.w, ground.h) && !hitsSolid(x, y)) free[r * cols + c] = 1;
     }
   const seen = new Uint8Array(cols * rows);
   const cellOf = (p: { x: number; y: number }) => Math.floor(p.y / cell) * cols + Math.floor(p.x / cell);
@@ -305,4 +328,54 @@ export function reachable(start: { x: number; y: number }, solids: Box[], feet =
     }
   }
   return (p: { x: number; y: number }) => seen[cellOf(p)] === 1;
+}
+
+export type StairCrossing = { a: { x: number; y: number }; b: { x: number; y: number }; width: number };
+
+let crossings: StairCrossing[] | null = null;
+
+/**
+ * 계단마다 양쪽 끝 바로 바깥 점 (길 가운데선 위, 계단에서 24px). 길을 따라가며 계단 칸을 지나는 구간을 찾는다.
+ * 시험(test-game.ts, e2e town)이 모든 계단을 오르내려 본다
+ */
+export function stairCrossings(): StairCrossing[] {
+  if (crossings) return crossings;
+  const t = terrain();
+  const out: StairCrossing[] = [];
+  const onStairs = (x: number, y: number) => {
+    const gx = Math.floor(x / PIXEL);
+    const gy = Math.floor(y / PIXEL);
+    return gx >= 0 && gy >= 0 && gx < t.w && gy < t.h && t.stairs[gy * t.w + gx] === 1;
+  };
+  for (const p of PATHS) {
+    if (p.kind === "plaza") continue;
+    // 길을 3px마다 따라간 점들
+    const pts = smoothPath(p.points);
+    const line: { x: number; y: number }[] = [];
+    for (let s = 0; s < pts.length - 1; s++) {
+      const [ax, ay] = pts[s];
+      const [bx, by] = pts[s + 1];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 3));
+      for (let k = 0; k < n; k++) line.push({ x: ax + ((bx - ax) * k) / n, y: ay + ((by - ay) * k) / n });
+    }
+    const last = pts[pts.length - 1];
+    line.push({ x: last[0], y: last[1] });
+    const OUT = 8; // 계단 끝에서 24px (3px × 8) 바깥
+    let k = 0;
+    while (k < line.length) {
+      if (!onStairs(line[k].x, line[k].y)) {
+        k++;
+        continue;
+      }
+      let end = k;
+      // 4칸(12px) 안에서 다시 계단이면 같은 계단 (가장자리 띠가 앞면과 떨어져 있는 곳)
+      for (let j = k; j < line.length && j <= end + 4; j++) if (onStairs(line[j].x, line[j].y)) end = j;
+      const a = line[Math.max(0, k - OUT)];
+      const b = line[Math.min(line.length - 1, end + OUT)];
+      out.push({ a: { x: Math.round(a.x), y: Math.round(a.y) }, b: { x: Math.round(b.x), y: Math.round(b.y) }, width: p.width });
+      k = end + 1;
+    }
+  }
+  crossings = out;
+  return out;
 }

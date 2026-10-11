@@ -16,6 +16,8 @@ import {
   FOUNTAIN_FRAMES,
   FOUNTAIN_SIZE,
   fountainSheetSvg,
+  fenceSvg,
+  homeArchSvg,
   houseSvg,
   lampSvg,
   lotSvg,
@@ -26,7 +28,7 @@ import {
 } from "@/lib/art/town";
 import { HOUSE_SLOTS, houseAt, houseSlot, START_POS, townSpots, WORLD } from "./layout";
 import { bakeGround, GROUND_SIZE, HAZE_COLOR, hazeAt } from "./ground";
-import { boxWalkable, terrain } from "./terrain";
+import { boxWalkable, stairCrossings, terrain, TERRAIN_FEET } from "./terrain";
 import { houseKey, npcGraph, segmentClear, solidBox, stageOf, townLayout, townProps, walkKey, type Entrance, type Structure } from "./structures";
 import type { TownData, TownNeighbor, TownTarget } from "./types";
 import { PIXEL } from "@/lib/art/pixel";
@@ -74,6 +76,8 @@ export function townTextures(data: TownData) {
   list.set("farm", toDataUri(farmSvg()));
   list.set("fishing", toDataUri(fishingSvg()));
   list.set("lot", toDataUri(lotSvg()));
+  list.set("home:arch", toDataUri(homeArchSvg()));
+  list.set("home:fence", toDataUri(fenceSvg()));
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
   for (const kind of TREE_KINDS) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
@@ -103,7 +107,12 @@ export function createTownScene(
 ) {
   const allSpots = (() => {
     const { places, houses } = townSpots(data);
-    return [...places, ...houses];
+    // 계단 양쪽 끝 (메뉴에는 없고 시험(e2e)이 캔버스의 bv-teleport 이벤트로 쓴다)
+    const stairs = stairCrossings().flatMap((c, i) => [
+      { key: `stair:${i}:a`, ...c.a },
+      { key: `stair:${i}:b`, ...c.b },
+    ]);
+    return [...places, ...houses, ...stairs];
   })();
   const font = (style: PhaserNS.Types.GameObjects.Text.TextStyle = {}) => ({ fontFamily, ...style });
 
@@ -259,7 +268,15 @@ export function createTownScene(
         this.tweens.add({ targets: ring, scale: 3, alpha: 0, duration: 600, onComplete: () => ring.destroy() });
       };
       this.game.events.on("teleport", teleport);
-      this.events.once("shutdown", () => this.game.events.off("teleport", teleport));
+      // 시험(e2e)용: 캔버스에 bv-teleport 이벤트(detail = 텔레포트 key, 계단 끝은 stair:번호:a|b)를 보내면 그 자리로. 계단 양끝 좌표는 data-stairs
+      const canvas = this.game.canvas;
+      const fromTest = (e: Event) => teleport(String((e as CustomEvent).detail));
+      canvas.addEventListener("bv-teleport", fromTest);
+      canvas.dataset.stairs = JSON.stringify(stairCrossings().map((c) => [c.a.x, c.a.y, c.b.x, c.b.y]));
+      this.events.once("shutdown", () => {
+        this.game.events.off("teleport", teleport);
+        canvas.removeEventListener("bv-teleport", fromTest);
+      });
     }
 
     /** 걷기: 방향마다 1~4칸을 돌린다. 멈추면 그 방향의 0칸(서 있기) */
@@ -340,15 +357,35 @@ export function createTownScene(
         if (d < 8 || this.playerBody.blocked.none === false) this.moveTarget = null;
         else v = new Phaser.Math.Vector2(this.moveTarget.x - this.feet.x, this.moveTarget.y - this.feet.y).setLength(speed);
       }
-      // 땅: 다음 자리에 발 상자가 절벽·물·낭떠러지에 걸리면 그 방향은 멈춘다 (한쪽만 막히면 미끄러져 간다)
+      // 땅: 다음 자리에 발 상자가 절벽·물·낭떠러지에 걸리면 그 방향은 멈춘다 (한쪽만 막히면 미끄러져 간다).
+      // 땅은 작은 발 상자(TERRAIN_FEET)로 본다. 계단 입구 모서리에 걸리면 옆으로 살짝 밀어 계단 쪽으로 들어가게 한다
       if (v.x || v.y) {
         const look = Math.max(0.05, Math.min(delta, 60) / 1000) * 1.2;
         const { x, y } = this.feet;
+        const ok = (px: number, py: number) => boxWalkable(px, py, TERRAIN_FEET.w, TERRAIN_FEET.h);
         // 이미 막힌 곳에 서 있으면(순간 이동 등) 막지 않는다 (빠져나올 수 있게)
-        if (boxWalkable(x, y, FEET.w, FEET.h)) {
-          const okX = !v.x || boxWalkable(x + v.x * look, y, FEET.w, FEET.h);
-          const okY = !v.y || boxWalkable(x, y + v.y * look, FEET.w, FEET.h);
-          if (okX && okY && v.x && v.y && !boxWalkable(x + v.x * look, y + v.y * look, FEET.w, FEET.h)) v.y = 0;
+        if (ok(x, y)) {
+          const okX = !v.x || ok(x + v.x * look, y);
+          const okY = !v.y || ok(x, y + v.y * look);
+          if (okX && okY && v.x && v.y && !ok(x + v.x * look, y + v.y * look)) v.y = 0;
+          if (!okY && !v.x) {
+            // 위아래로 가다 막히면: 옆 24px 안에 지나갈 틈이 있으면 그쪽으로 미끄러진다
+            for (let k = 3; k <= 24; k += 3) {
+              const side = ok(x - k, y + v.y * look) && ok(x - k, y) ? -1 : ok(x + k, y + v.y * look) && ok(x + k, y) ? 1 : 0;
+              if (side) {
+                v.x = side * Math.abs(v.y);
+                break;
+              }
+            }
+          } else if (!okX && !v.y) {
+            for (let k = 3; k <= 24; k += 3) {
+              const side = ok(x + v.x * look, y - k) && ok(x, y - k) ? -1 : ok(x + v.x * look, y + k) && ok(x, y + k) ? 1 : 0;
+              if (side) {
+                v.y = side * Math.abs(v.x);
+                break;
+              }
+            }
+          }
           if (!okX) v.x = 0;
           if (!okY) v.y = 0;
           if (!v.x && !v.y) this.moveTarget = null;
@@ -370,6 +407,9 @@ export function createTownScene(
       // 시험(e2e)이 읽는 걷기 상태: "walk-left" / "idle-down"
       const walk = `${dir ? "walk" : "idle"}-${this.facing}`;
       if (this.game.canvas.dataset.walk !== walk) this.game.canvas.dataset.walk = walk;
+      // 시험(e2e)이 읽는 발 위치 "x,y"
+      const feetAt = `${Math.round(this.feet.x)},${Math.round(this.feet.y)}`;
+      if (this.game.canvas.dataset.feet !== feetAt) this.game.canvas.dataset.feet = feetAt;
       this.player.setPosition(this.feet.x, this.feet.y + 8);
       this.nameTag.setPosition(this.feet.x, this.feet.y - PLAYER_SIZE - 4);
       // 아래쪽에 있을수록 앞에 그린다 (y-sorting)

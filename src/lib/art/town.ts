@@ -695,6 +695,69 @@ export function farmSvg(): string {
   return svg(FARM);
 }
 
+// ===== 내 정원 (사용자 요청 2026-10-11 "내 집이 가장 특별한 곳에 따로"): 장미 아치 문과 흰 울타리 =====
+const HOME_ARCH = (() => {
+  const W = 44;
+  const H = 46;
+  const p = new Pix(W, H);
+  p.shadow(W / 2, H - 2, W / 2 - 2, 1.5);
+  // 기둥 두 개 (흰 격자)
+  for (const x0 of [3, W - 9]) {
+    p.box(x0, 12, 6, H - 14, "w");
+    p.vline(x0 + 4, 13, H - 4, "y");
+    for (let y = 16; y < H - 4; y += 5) p.hline(x0 + 1, x0 + 4, y, "y");
+    p.box(x0 - 1, H - 5, 8, 4, "y");
+  }
+  // 둥근 지붕 테 (흰 나무)
+  for (let x = 2; x < W - 2; x++) {
+    const t = (x - W / 2 + 0.5) / (W / 2 - 2);
+    const y = Math.round(13 - 9 * Math.sqrt(Math.max(0, 1 - t * t)));
+    p.rect(x, y - 1, 1, 4, "#").rect(x, y, 1, 2, "w").px(x, y + 1, "y");
+  }
+  // 덩굴 잎과 장미
+  for (let k = 0; k < 70; k++) {
+    const x = 2 + ((k * 23) % (W - 4));
+    const t = (x - W / 2 + 0.5) / (W / 2 - 2);
+    const top = Math.round(13 - 9 * Math.sqrt(Math.max(0, 1 - t * t)));
+    const y = top - 2 + ((k * 7) % 5);
+    p.px(x, y, k % 3 ? "l" : "m");
+  }
+  for (let y = 14; y < H - 8; y += 3) {
+    p.px(2, y, "m").px(3, y + 1, "l").px(W - 3, y + 1, "m").px(W - 4, y, "l");
+  }
+  const rose = (x: number, y: number) => p.stamp([".RR.", "RVVR", "RVwR", ".RR."], x, y);
+  for (const [x, y] of [[4, 8], [11, 4], [19, 2], [27, 3], [34, 6], [39, 11], [1, 18], [W - 5, 22], [1, 30], [W - 5, 34]]) rose(x, y);
+  // 가운데 문패: 작은 집 모양
+  p.box(W / 2 - 6, 6, 12, 9, "c");
+  p.stamp(["...##...", "..#22#..", ".#2222#.", "#222222#", ".#wwww#.", ".#w##w#.", ".######."], W / 2 - 4, 7);
+  return p.rows();
+})();
+export const HOME_ARCH_SIZE = sizeOf(HOME_ARCH);
+export function homeArchSvg(): string {
+  return svg(HOME_ARCH, roof("#e05a4f"));
+}
+
+const FENCE = (() => {
+  const W = 16;
+  const H = 15;
+  const p = new Pix(W, H);
+  p.rect(0, H - 2, W, 2, ":");
+  // 가로대 두 줄
+  for (const y of [5, 10]) p.rect(0, y, W, 2, "#").hline(0, W - 1, y, "w");
+  // 뾰족한 말뚝 (4칸마다)
+  for (let x = 1; x < W; x += 4) {
+    p.px(x + 1, 0, "#");
+    p.rect(x, 1, 3, H - 3, "#");
+    p.vline(x + 1, 1, H - 3, "w");
+    p.px(x + 1, H - 4, "y");
+  }
+  return p.rows();
+})();
+export const FENCE_SIZE = sizeOf(FENCE);
+export function fenceSvg(): string {
+  return svg(FENCE);
+}
+
 /** SVG 문자열 → data URI */
 export function toDataUri(svgText: string) {
   return svgDataUri(svgText);
