@@ -99,6 +99,71 @@ check("친구 목록: 이웃 없음 안내", await panel().getByText("아직 이
 await page.keyboard.press("Escape");
 check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
 
+// 계단 (사용자 요청 2026-10-11 "계단이 너무 좁아서 안 가지는 길이 많다"): 모든 계단을 방향키로 올라갔다 내려온다.
+// 계단 양끝 좌표는 canvas의 data-stairs, 발 위치는 data-feet. 계단 끝으로는 bv-teleport 이벤트로 옮긴다
+{
+  const canvas = page.locator("canvas");
+  const stairs = JSON.parse((await canvas.getAttribute("data-stairs")) ?? "[]");
+  const feet = async () => ((await canvas.getAttribute("data-feet")) ?? "0,0").split(",").map(Number);
+  /** 방향키로 (tx, ty)까지 걸어간다 (8방향, 60ms마다 방향을 다시 고른다) */
+  async function walkTo(tx, ty, ms = 8000) {
+    const held = new Set();
+    const t0 = Date.now();
+    let ok = false;
+    while (Date.now() - t0 < ms) {
+      const [x, y] = await feet();
+      const dx = tx - x;
+      const dy = ty - y;
+      const d = Math.hypot(dx, dy);
+      if (d < 24) {
+        ok = true;
+        break;
+      }
+      const want = new Set();
+      if (dx > d * 0.38) want.add("ArrowRight");
+      if (dx < -d * 0.38) want.add("ArrowLeft");
+      if (dy > d * 0.38) want.add("ArrowDown");
+      if (dy < -d * 0.38) want.add("ArrowUp");
+      for (const k of [...held])
+        if (!want.has(k)) {
+          await page.keyboard.up(k);
+          held.delete(k);
+        }
+      for (const k of want)
+        if (!held.has(k)) {
+          await page.keyboard.down(k);
+          held.add(k);
+        }
+      await page.waitForTimeout(60);
+    }
+    for (const k of held) await page.keyboard.up(k);
+    return ok;
+  }
+  const failed = [];
+  for (const [i, [ax, ay, bx, by]] of stairs.entries()) {
+    // 헤드리스 브라우저가 잠깐 멈추면(프레임 끊김) 한 번에 멀리 가 버릴 수 있어 한 번은 다시 해 본다
+    let fail = "";
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await canvas.evaluate((el, key) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: key })), `stair:${i}:a`);
+      await page.waitForTimeout(300);
+      const up = await walkTo(bx, by);
+      const down = up && (await walkTo(ax, ay));
+      fail = up && down ? "" : `${i}(${ax},${ay}→${bx},${by}) ${up ? "돌아오기" : "건너기"} 실패, 발 ${(await feet()).join(",")}`;
+      if (!fail) break;
+    }
+    if (fail) failed.push(fail);
+    if (i === 1) await page.screenshot({ path: `${outDir}/town-stairs.png` });
+  }
+  check(`계단 ${stairs.length}곳을 모두 걸어서 오르내림`, stairs.length >= 10 && failed.length === 0, failed.join(" | ") || String(stairs.length));
+  // 내 정원: 내 집으로 텔레포트하면 정원 단(높이 2) 위, 계단 하나로 상점 길에 이어진다
+  await openMenu("텔레포트");
+  await panel().locator('[data-spot="house:0"]').click();
+  await page.waitForTimeout(800);
+  const [hx, hy] = await feet();
+  check("내 집은 동쪽 내 정원 안", hx > 1850 && hx < 2500 && hy > 1200 && hy < 1620, `${hx},${hy}`);
+  await page.screenshot({ path: `${outDir}/town-home.png` });
+}
+
 // 준비: A가 11명을 이웃으로 추가, B는 A를 맞이웃. B에게 공개 글 2개
 for (const [i, u] of neighbors.entries()) {
   await db.query("INSERT INTO follows (follower_id, followee_id, created_at) VALUES ($1, $2, now() - make_interval(mins => $3))", [aId, ids[u], 100 - i]);
