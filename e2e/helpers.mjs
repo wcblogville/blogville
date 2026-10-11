@@ -1,5 +1,6 @@
 // E2E 공통 도우미
-export const BASE = "http://localhost:3000";
+/** 개발 서버 주소. 다른 포트로 띄웠으면 E2E_BASE=http://localhost:3001 처럼 넘긴다 */
+export const BASE = process.env.E2E_BASE ?? "http://localhost:3000";
 
 /**
  * 화면 오류를 모은다. 레벨업 팝업(GAME-06)은 보상으로 언제든 뜰 수 있어서, 기본으로 뜨면 [확인]을 눌러 닫는다.
