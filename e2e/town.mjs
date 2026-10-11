@@ -307,6 +307,12 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
   await page.screenshot({ path: `${outDir}/town-pet-1.png` });
   await page.waitForTimeout(250);
   await page.screenshot({ path: `${outDir}/town-pet-2.png` });
+  // 걷는 동안 그림 칸: 착지·기욺·뛰어오름 (2·3·4, 2026-10-11 "펫 따라다니는 모션")
+  const walkFrames = new Set();
+  for (let i = 0; i < 8; i++) {
+    walkFrames.add(await canvas.getAttribute("data-pet-frame"));
+    await page.waitForTimeout(45);
+  }
   await page.keyboard.up("ArrowDown");
   await page.waitForTimeout(1500);
   const [fx, fy] = await xy("data-feet");
@@ -314,12 +320,45 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
   const gap = Math.hypot(fx - px, fy - py);
   check("걸으면 동물도 통통 뛰며 따라온다 (data-pet-walk=walk)", midWalk === "walk", midWalk);
   check("멈추면 동물은 내 뒤(위쪽)에 조금 떨어져 선다", py < fy && gap > 25 && gap < 80 && (await canvas.getAttribute("data-pet-walk")) === "idle", `나 ${fx},${fy} / 동물 ${px},${py}, ${Math.round(gap)}px`);
+  check("걸을 때 걷기 그림 칸이 돈다 (2·3·4 중 둘 이상)", [...walkFrames].filter((f) => ["2", "3", "4"].includes(f)).length >= 2, [...walkFrames].join(","));
+  const idleFrames = new Set();
+  for (let i = 0; i < 24; i++) {
+    idleFrames.add(await canvas.getAttribute("data-pet-frame"));
+    await page.waitForTimeout(150);
+  }
+  check("서 있으면 숨쉬기 (0·1을 번갈아)", idleFrames.has("0") && idleFrames.has("1") && idleFrames.size === 2, [...idleFrames].join(","));
+  check("멈추면 나를 본다 (data-pet-face)", (await canvas.getAttribute("data-pet-face")) === (px < fx ? "right" : "left"), await canvas.getAttribute("data-pet-face"));
   // 순간 이동하면 동물도 옆으로 온다
   await canvas.evaluate((el) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: "shop" })));
   await page.waitForTimeout(600);
   const [sx, sy] = await xy("data-feet");
   const [tx, ty] = await xy("data-pet-at");
   check("순간 이동 → 동물도 내 옆", Math.hypot(sx - tx, sy - ty) < 80, `${Math.round(Math.hypot(sx - tx, sy - ty))}px`);
+  // 동물 크기 (사용자 요청 2026-10-11 "작은 동물은 작게 큰 동물은 크게"): 토끼는 small, 송아지는 large이고 더 떨어져 선다
+  check("토끼는 작은 동물 (data-pet-size=small)", (await canvas.getAttribute("data-pet-size")) === "small", await canvas.getAttribute("data-pet-size"));
+  await page.screenshot({ path: `${outDir}/town-pet-small.png` });
+  const smallGap = Math.hypot(sx - tx, sy - ty);
+  const calf = await one(
+    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
+     VALUES ($1, (SELECT id FROM animal_species WHERE code = 'calf'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+    [aId],
+  );
+  await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [aId, calf.id]);
+  // 스킨 (2026-10-11 "펫 종류별로 스킨"): 딸기우유 송아지를 사 두고 입힌다
+  const skin = await one("SELECT id, asset_key FROM animal_skins WHERE code = 'calf_strawberry'");
+  await db.query("INSERT INTO user_animal_skins (user_id, skin_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [aId, skin.id]);
+  await db.query("UPDATE user_animals SET skin_id = $2 WHERE id = $1", [calf.id, skin.id]);
+  await page.reload();
+  await canvas.waitFor();
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 15000 });
+  await canvas.evaluate((el) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: "shop" })));
+  await page.waitForTimeout(600);
+  const [cx, cy] = await xy("data-feet");
+  const [kx, ky] = await xy("data-pet-at");
+  const bigGap = Math.hypot(cx - kx, cy - ky);
+  check("입힌 스킨으로 따라온다 (data-pet-skin)", (await canvas.getAttribute("data-pet-skin")) === skin.asset_key, await canvas.getAttribute("data-pet-skin"));
+  check("송아지는 큰 동물이고 토끼보다 멀리 선다", (await canvas.getAttribute("data-pet-size")) === "large" && bigGap > smallGap + 10 && bigGap < 120, `토끼 ${Math.round(smallGap)}px / 송아지 ${Math.round(bigGap)}px`);
+  await page.screenshot({ path: `${outDir}/town-pet-large.png` });
 }
 
 // 방문자: 메뉴에 텔레포트와 로그인만
