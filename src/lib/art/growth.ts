@@ -85,6 +85,35 @@ const GROWTH: Record<string, Art> = {
       return p.shadow(16, 30.5, 9, 1.5).rows();
     })(),
   },
+  // 황금 성장 물약: 금빛 물약이 담긴 세모 플라스크, 왕관 마개 (사용자 요청 2026-10-11)
+  "growth.elixir": {
+    colors: tint("#ffc533"),
+    rows: (() => {
+      const p = new Pix(32, 32);
+      // 왕관 마개
+      p.rect(13, 3, 6, 3, "z").px(13, 2, "z").px(15, 1, "z").px(16, 1, "z").px(18, 2, "z").px(15, 2, "Z").px(16, 4, "N");
+      // 병목
+      p.rect(14, 6, 4, 6, "I").vline(14, 6, 11, "w");
+      // 세모 플라스크
+      for (let y = 12; y < 29; y++) {
+        const half = 2 + Math.floor((y - 12) * 0.62);
+        p.hline(16 - half, 15 + half, y, "I");
+      }
+      for (let y = 16; y < 29; y++) {
+        const half = 1 + Math.floor((y - 12) * 0.62);
+        p.hline(16 - half, 15 + half, y, y === 16 ? "4" : "5");
+        p.px(15 + half, y, "6").px(14 + half, y, "6");
+      }
+      p.hline(7, 24, 28, "6");
+      p.px(13, 20, "w").px(12, 22, "w").px(18, 24, "4").px(15, 18, "4").px(19, 21, "Z");
+      p.outline();
+      const spark = (x: number, y: number) => p.px(x, y, "Z").px(x - 1, y, "z").px(x + 1, y, "z").px(x, y - 1, "z").px(x, y + 1, "z");
+      spark(25, 8);
+      spark(6, 13);
+      spark(26, 20);
+      return p.shadow(16, 30.5, 10, 1.5).rows();
+    })(),
+  },
 };
 
 const FALLBACK: Sprite = (() => {
@@ -92,6 +121,10 @@ const FALLBACK: Sprite = (() => {
   p.ellipse(16, 20, 9, 9, "c").ellipse(14, 17, 3, 3, "w");
   return p.outline().shadow(16, 30.5, 9, 1.5).rows();
 })();
+
+export function hasGrowthArt(assetKey: string) {
+  return assetKey in GROWTH;
+}
 
 /** 성장 아이템 SVG. size = 화면에 보일 한 변 px (32의 배수면 도트가 고르다) */
 export function growthSvg(assetKey: string, size = 96): string {

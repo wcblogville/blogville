@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTransition } from "react";
 import { ItemArt } from "@/components/item-art";
 import { withJosa } from "@/lib/josa";
@@ -41,7 +42,10 @@ export function ShopGrid({
               {item.requiredLevel >= 2 && <span className="text-xs text-ink-soft">Lv.{item.requiredLevel}+</span>}
               {growth && item.quantity > 0 && (
                 <span className="text-xs font-bold text-leaf-dark" data-quantity>
-                  보유 {item.quantity}개
+                  보유 {item.quantity}개 ·{" "}
+                  <Link href="/farm" className="underline">
+                    농장에서 쓰기
+                  </Link>
                 </span>
               )}
             </p>

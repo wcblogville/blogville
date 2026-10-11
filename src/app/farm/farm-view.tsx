@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { animalSvg, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
+import { growthDataUri } from "@/lib/art/growth";
 import { animalStage, CARE_ACTIONS, STAGE_LABEL } from "@/lib/farm";
 import type { FarmAnimal } from "@/server/farm";
 import { buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg } from "./actions";
@@ -36,11 +38,12 @@ export function FarmView({
   eggPrice: number;
   eggEvery: number;
   /** 상점에서 산 성장 아이템 (SHOP FR-044) */
-  growthItems?: { id: number; name: string; growthValue: number | null; quantity: number }[];
+  growthItems?: { id: number; name: string; assetKey: string; growthValue: number | null; quantity: number }[];
 }) {
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<FarmResult | null>(null);
   const run = (fn: () => Promise<FarmResult>) => start(async () => setMessage(await fn()));
+  const growing = active.filter((a) => a.status === "growing");
 
   return (
     <>
@@ -73,6 +76,44 @@ export function FarmView({
         <span className="text-xs text-ink-soft">
           {slotsLeft <= 0 ? "자리가 꽉 찼어요. 다 키운 뒤에 받을 수 있어요" : `레벨 ${eggEvery}마다 무료 알을 하나씩 받아요`}
         </span>
+      </section>
+
+      {/* 성장 아이템 가방 (SHOP-01, TOWN-09): 상점에서 산 먹이·성장 촉진제. 쓰는 버튼은 동물 카드마다 있다 */}
+      <section className="card mt-4 p-4" aria-labelledby="growth-bag-title" data-growth-bag>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="growth-bag-title" className="font-bold">
+            🎒 성장 아이템
+          </h2>
+          <Link href="/shop#growth" className="text-sm text-ink-soft underline">
+            🛒 상점에서 더 사기
+          </Link>
+        </div>
+        {growthItems.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-soft">
+            가진 성장 아이템이 없어요. 상점에서 동물 먹이·고급 먹이·성장 촉진제를 사면 여기에 모이고, 키우는 동물에게 바로 쓸 수 있어요.
+          </p>
+        ) : (
+          <>
+            <ul className="mt-3 flex flex-wrap gap-3">
+              {growthItems.map((g) => (
+                <li key={g.id} className="flex items-center gap-2 rounded-xl border-2 border-line bg-white py-1 pl-1 pr-3" data-growth-bag-item={g.assetKey}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
+                  <img src={growthDataUri(g.assetKey, 64)} alt="" width={64} height={64} className="pixelated" />
+                  <span className="text-sm">
+                    <b>{g.name}</b> ×{g.quantity}
+                    <br />
+                    <span className="text-xs text-leaf-dark">한 번에 성장 +{g.growthValue ?? 0}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-ink-soft">
+              {growing.length > 0
+                ? "아래 동물 카드의 🌱 버튼을 누르면 하나를 써요. 하루 횟수 제한 없이 가진 만큼 쓸 수 있어요."
+                : "알을 부화시키면 키우는 동물에게 쓸 수 있어요."}
+            </p>
+          </>
+        )}
       </section>
 
       {/* 키우는 동물 */}
@@ -123,18 +164,27 @@ export function FarmView({
                     </div>
                     {growthItems.length > 0 && (
                       <div className="mt-2 flex flex-wrap justify-center gap-2" data-growth-items>
-                        {growthItems.map((g) => (
-                          <button
-                            key={g.id}
-                            type="button"
-                            disabled={pending}
-                            onClick={() => run(() => feedGrowthItem(a.id, g.id))}
-                            className="btn bg-[#e9f6e4] px-2.5 py-1.5 text-xs text-ink"
-                            title={`성장 +${g.growthValue ?? 0}`}
-                          >
-                            🌱 {g.name} ×{g.quantity}
-                          </button>
-                        ))}
+                        {growthItems.map((g) => {
+                          const value = g.growthValue ?? 0;
+                          // 이 아이템 하나로 다 자라면 미리 알려 준다
+                          const finishes = a.growExp !== null && a.growth + value >= a.growExp;
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              disabled={pending}
+                              onClick={() => run(() => feedGrowthItem(a.id, g.id))}
+                              className="btn flex items-center gap-1 bg-[#e9f6e4] py-1 pl-1 pr-2.5 text-xs text-ink"
+                              title={finishes ? `성장 +${value}, 이걸 쓰면 다 자라요` : `성장 +${value}`}
+                              data-use-growth={g.assetKey}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
+                              <img src={growthDataUri(g.assetKey, 32)} alt="" width={32} height={32} className="pixelated" />
+                              🌱 {g.name} ×{g.quantity}
+                              <span className="font-bold text-leaf-dark">{finishes ? "🎉 다 자라요" : `+${value}`}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </>

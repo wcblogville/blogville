@@ -71,7 +71,12 @@ const SHADOW = PALETTE[":"];
 
 // ===== 미용실 머리 (SHOP-07) =====
 {
-  expect("머리 모양 7개, 머리 색 8개", [Object.keys(HAIR_STYLES).length, Object.keys(HAIR_COLORS).length], [7, 8]);
+  expect("머리 모양 16개, 머리 색 16개 (2026-10-11 9·8개 더함)", [Object.keys(HAIR_STYLES).length, Object.keys(HAIR_COLORS).length], [16, 16]);
+  expect(
+    "머리 모양은 눈(7~9줄의 4·5·10·11칸)을 가리지 않는다 (포니테일은 앞머리가 왼눈 위를 살짝 덮는 그림)",
+    Object.entries(HAIR_STYLES).filter(([k]) => k !== "hair.pony").filter(([, r]) => [7, 8, 9].some((y) => [4, 5, 10, 11].some((x) => (r[y]?.[x] ?? ".") !== "."))).map(([k]) => k),
+    [],
+  );
   expect("머리 모양은 16칸 폭, 18줄 이하", Object.entries(HAIR_STYLES).filter(([, r]) => r.length > 18 || r.some((x) => x.length !== 16)).map(([k]) => k), []);
   expect("부위 5개", [...AVATAR_SLOTS].sort(), ["accessory", "hair", "hair_color", "hat", "outfit"]);
   expect("겹치는 순서: 머리 색 → 머리 → 옷 → 소품 → 모자", orderOutfit(["hat.straw", "acc.glasses", "outfit.suit", "hair.bob", "haircolor.mint"]), ["haircolor.mint", "hair.bob", "outfit.suit", "acc.glasses", "hat.straw"]);
@@ -82,7 +87,20 @@ const SHADOW = PALETTE[":"];
   // 머리를 바꿔도 몸(13줄 아래)은 그대로 (긴 머리는 어깨까지 덮으니 짧은 머리로)
   expect("짧은 머리로 바꿔도 몸 줄은 그대로", same(lookGrid("char.girl", ["hair.short"]).slice(18), lookGrid("char.girl").slice(18)), true);
   expect("머리 카드 미리보기는 사람 주민", [previewLook("hair.bob").asset, previewLook("haircolor.red").asset, previewLook("hat.crown").asset], ["char.boy", "char.girl", "char.mannequin"]);
-  expect("새 옷·모자 9개 + 원래 9개 + 머리 15개", Object.keys(AVATAR_PARTS).length, 33);
+  expect("모자·옷·소품 45개 (원래 18 + 2026-10-11 27) + 머리 32개", Object.keys(AVATAR_PARTS).length, 77);
+  expect(
+    "모자·옷·소품은 16칸 폭, 24줄 이하",
+    Object.entries(AVATAR_PARTS).filter(([, p]) => p.rows.length > 24 || p.rows.some((x) => x.length !== 16)).map(([k]) => k),
+    [],
+  );
+  expect(
+    "얼굴 위 소품(face)이 아닌 모자·옷은 눈을 가리지 않는다",
+    Object.entries(AVATAR_PARTS)
+      .filter(([, p]) => !p.face && p.slot !== "hair" && p.slot !== "hair_color")
+      .filter(([, p]) => [7, 8, 9].some((y) => [4, 5, 10, 11].some((x) => (p.rows[y]?.[x] ?? ".") !== ".")))
+      .map(([k]) => k),
+    [],
+  );
 }
 
 // ===== 가게 계산 (SHOP-07·08) =====
