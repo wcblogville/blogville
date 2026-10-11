@@ -49,6 +49,7 @@ import {
 import { bakeGround, GROUND_SIZE } from "./ground";
 import type { TownData, TownDecoration, TownHouse, TownTarget } from "./types";
 import { PIXEL } from "@/lib/art/pixel";
+import { WALK_DIRS, WALK_FPS, walkDirOf, walkFrameIndex, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 
 type PhaserLib = typeof PhaserNS;
 
@@ -91,6 +92,8 @@ type Entrance = {
 const charKey = (asset: string, outfit: string[] = []) => `char:${lookKey(asset, outfit)}`;
 const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
 const decoKey = (asset: string) => `deco:${asset}`;
+/** 걷기 그림판 (TOWN-17): 방향 4줄 × 5칸. 플레이어만 걷는다 */
+const walkKey = (asset: string, outfit: string[] = []) => `walk:${lookKey(asset, outfit)}`;
 const stageOf = (h: TownHouse) => houseStage(h.level);
 
 /** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 */
@@ -98,8 +101,8 @@ export function townTextures(data: TownData) {
   const list = new Map<string, string>();
   const houses = [data.myHouse, ...data.neighbors].filter(Boolean) as TownHouse[];
   list.set(
-    charKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit),
-    characterDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, PLAYER_SIZE, data.player?.outfit ?? []),
+    walkKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit),
+    walkSheetDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit ?? [], PIXEL),
   );
   for (const h of houses) {
     list.set(charKey(h.characterAsset, h.outfit), characterDataUri(h.characterAsset, PLAYER_SIZE, h.outfit));
@@ -240,7 +243,9 @@ export function createTownScene(
   return class TownScene extends Phaser.Scene {
     private feet!: PhaserNS.GameObjects.Zone; // 부딪힘을 계산하는 발밑 상자
     private playerBody!: PhaserNS.Physics.Arcade.Body;
-    private player!: PhaserNS.GameObjects.Image; // 보이는 캐릭터 그림 (발 상자를 따라간다)
+    private player!: PhaserNS.GameObjects.Sprite; // 보이는 캐릭터 그림 (발 상자를 따라간다, 걷기 그림판)
+    private facing: WalkDir = "down";
+    private sheet = walkKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit);
     private nameTag!: PhaserNS.GameObjects.Text;
     private cursors!: PhaserNS.Types.Input.Keyboard.CursorKeys;
     private wasd!: Record<"W" | "A" | "S" | "D", PhaserNS.Input.Keyboard.Key>;
@@ -265,7 +270,23 @@ export function createTownScene(
     }
 
     create() {
-      for (const [key, img] of images) if (!this.textures.exists(key)) this.textures.addImage(key, img);
+      for (const [key, img] of images) {
+        if (this.textures.exists(key)) continue;
+        // 걷기 그림판은 칸(24칸 틀 × PIXEL)마다 잘라 쓴다
+        if (key.startsWith("walk:")) this.textures.addSpriteSheet(key, img, { frameWidth: PLAYER_SIZE, frameHeight: PLAYER_SIZE });
+        else this.textures.addImage(key, img);
+      }
+      // 걷기: 방향마다 1~4칸을 돌린다. 멈추면 그 방향의 0칸(서 있기)
+      for (const dir of WALK_DIRS) {
+        const key = `${this.sheet}:${dir}`;
+        if (this.anims.exists(key)) continue;
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(this.sheet, { frames: [1, 2, 3, 4].map((f) => walkFrameIndex(dir, f)) }),
+          frameRate: WALK_FPS,
+          repeat: -1,
+        });
+      }
 
       this.physics.world.setBounds(0, 0, WORLD.width, WORLD.height);
       this.drawGround();
@@ -296,10 +317,7 @@ export function createTownScene(
       this.playerBody = this.feet.body as PhaserNS.Physics.Arcade.Body;
       this.playerBody.setCollideWorldBounds(true);
       this.physics.add.collider(this.feet, walls);
-      this.player = this.add
-        .image(0, 0, charKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit))
-        .setDisplaySize(PLAYER_SIZE, PLAYER_SIZE)
-        .setOrigin(0.5, 0.94);
+      this.player = this.add.sprite(0, 0, this.sheet, walkFrameIndex("down", 0)).setOrigin(0.5, 0.94);
 
       this.nameTag = this.add
         .text(0, 0, data.player?.nickname ?? "구경하는 중", font({
@@ -440,13 +458,11 @@ export function createTownScene(
           .normalize()
           .scale(SPEED);
         this.playerBody.setVelocity(v.x, v.y);
-        if (v.x !== 0) this.player.setFlipX(v.x > 0);
       } else if (this.joystick && this.joystick.vector.lengthSq() > 0) {
         // 조이스틱: 많이 밀수록 빠르게 (최대 SPEED)
         this.moveTarget = null;
         const v = this.joystick.vector.clone().scale(SPEED);
         this.playerBody.setVelocity(v.x, v.y);
-        if (Math.abs(v.x) > 1) this.player.setFlipX(v.x > 0);
       } else if (this.moveTarget) {
         const d = Phaser.Math.Distance.Between(this.feet.x, this.feet.y, this.moveTarget.x, this.moveTarget.y);
         if (d < 8 || this.playerBody.blocked.none === false) {
@@ -454,17 +470,27 @@ export function createTownScene(
           this.playerBody.setVelocity(0, 0);
         } else {
           this.physics.moveTo(this.feet, this.moveTarget.x, this.moveTarget.y, SPEED);
-          this.player.setFlipX(this.moveTarget.x > this.feet.x);
         }
       } else {
         this.playerBody.setVelocity(0, 0);
       }
 
-      // 그림은 발 상자를 따라간다. 걷는 동안 살짝 통통 튀기
-      const moving = this.playerBody.velocity.lengthSq() > 1;
-      const bob = moving ? Math.abs(Math.sin(this.time.now / 90)) * 4 : 0;
-      this.player.setPosition(this.feet.x, this.feet.y + 8 - bob);
-      this.nameTag.setPosition(this.feet.x, this.feet.y - PLAYER_SIZE - 4 - bob);
+      // 그림은 발 상자를 따라간다. 걷는 방향의 걷기 그림을 돌리고(통통 튀는 것도 그림에 있다), 멈추면 그 방향으로 서 있는다.
+      // 벽에 막혀 제자리걸음일 때는 걷지 않는다 (속도는 남아도 실제로 움직이지 않는다)
+      const { velocity } = this.playerBody;
+      const dir = this.playerBody.speed > 1 && (this.playerBody.deltaAbsX() > 0.2 || this.playerBody.deltaAbsY() > 0.2) ? walkDirOf(velocity.x, velocity.y) : null;
+      if (dir) {
+        this.facing = dir;
+        this.player.play(`${this.sheet}:${dir}`, true);
+      } else if (this.player.anims.isPlaying || this.player.frame.name !== String(walkFrameIndex(this.facing, 0))) {
+        this.player.stop();
+        this.player.setFrame(walkFrameIndex(this.facing, 0));
+      }
+      // 시험(e2e)이 읽는 걷기 상태: "walk-left" / "idle-down"
+      const walk = `${dir ? "walk" : "idle"}-${this.facing}`;
+      if (this.game.canvas.dataset.walk !== walk) this.game.canvas.dataset.walk = walk;
+      this.player.setPosition(this.feet.x, this.feet.y + 8);
+      this.nameTag.setPosition(this.feet.x, this.feet.y - PLAYER_SIZE - 4);
       // 아래쪽에 있을수록 앞에 그린다 (y-sorting)
       this.player.setDepth(this.feet.y + 8);
       this.nameTag.setDepth(this.feet.y + 9);
