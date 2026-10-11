@@ -32,8 +32,8 @@ expect("가운데 공백 거부", () => slug("my blog"), null);
 expect("SLUG_RE는 DB CHECK와 같은 식", () => SLUG_RE.source, "^[a-z0-9_]{3,20}$");
 
 // FR-009 예약어 16개 + 나중에 생긴 화면 3개 (값은 blog, 모듈은 auth)
-const RESERVED = ["admin", "api", "town", "feed", "shop", "closet", "write", "settings", "blog", "onboarding", "farm", "attendance", "tags", "wallet", "files", "notice", "notifications", "fishing", "house"];
-expect("예약어 목록이 FR-009 16개 + 새 화면 3개와 같음", () => [...RESERVED_NAMES].sort(), [...RESERVED].sort());
+const RESERVED = ["admin", "api", "town", "feed", "shop", "closet", "write", "settings", "blog", "onboarding", "farm", "attendance", "tags", "wallet", "files", "notice", "notifications", "fishing", "house", "salon", "clothes"];
+expect("예약어 목록이 FR-009 16개 + 새 화면 5개와 같음", () => [...RESERVED_NAMES].sort(), [...RESERVED].sort());
 expect("19개 모두 예약어", () => RESERVED.every((n) => isReservedName(n)), true);
 expect("Notice → 예약어", () => isReservedName("Notice"), true);
 expect("' TOWN ' → 예약어", () => isReservedName(" TOWN "), true);

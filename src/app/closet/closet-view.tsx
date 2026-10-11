@@ -9,11 +9,11 @@ import { withJosa } from "@/lib/josa";
 import { CLOSET_ERRORS, equipMessage } from "@/lib/shop";
 import { equipItem, unequipAvatar } from "./actions";
 
-type Slot = "hat" | "outfit" | "accessory";
+type Slot = "hat" | "outfit" | "accessory" | "hair" | "hair_color";
 type OwnedItem = { id: number; type: string; name: string; assetKey: string; avatarSlot: Slot | null };
 type Equipped = { characterItemId: number; backgroundItemId: number; avatar: Partial<Record<Slot, number>> };
 
-const SLOT_NAMES: Record<Slot, string> = { hat: "모자", outfit: "옷", accessory: "소품" };
+const SLOT_NAMES: Record<Slot, string> = { hat: "모자", outfit: "옷", accessory: "소품", hair: "머리 모양", hair_color: "머리 색" };
 
 export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedItem[]; equipped: Equipped; nickname: string; slug: string }) {
   const [current, setCurrent] = useState(equipped);

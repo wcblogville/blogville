@@ -280,7 +280,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 **입력 규칙**
 - 아이디: 영문 소문자·숫자·`_`, 4~20자. 앞뒤 공백은 지우고 대문자는 소문자로 바꿔 저장·비교한다 (`normalizeName`).
-- 예약어 19개는 아이디·블로그 주소로 쓸 수 없다 (`src/lib/names.ts` `RESERVED_NAMES`): `admin`, `api`, `town`, `feed`, `shop`, `closet`, `write`, `settings`, `blog`, `onboarding`, `farm`, `attendance`, `tags`, `wallet`, `files`, `notice`, `notifications`, `fishing`, `house`. `notifications`·`fishing`·`house`는 PR #68에서 더했다.
+- 예약어 21개는 아이디·블로그 주소로 쓸 수 없다 (`src/lib/names.ts` `RESERVED_NAMES`): `admin`, `api`, `town`, `feed`, `shop`, `closet`, `write`, `settings`, `blog`, `onboarding`, `farm`, `attendance`, `tags`, `wallet`, `files`, `notice`, `notifications`, `fishing`, `house`, `salon`, `clothes`. `notifications`·`fishing`·`house`는 PR #68에서, `salon`·`clothes`(미용실·옷가게)는 2026-10-11에 더했다.
 - 비밀번호: 8~64자. 문자 종류 제한 없음.
 - 캐릭터: 기본 캐릭터(`items.is_starter`) 2종 중 하나. 처음에는 남자 주민이 골라져 있다.
 
@@ -776,7 +776,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 **입력 규칙** (`src/lib/names.ts`)
 - 영문 소문자·숫자·`_`, 3~20자 (`SLUG_RE` `^[a-z0-9_]{3,20}$`).
-- 예약어 19개는 쓸 수 없다: `admin`, `api`, `town`, `feed`, `shop`, `closet`, `write`, `settings`, `blog`, `onboarding`, `farm`, `attendance`, `tags`, `wallet`, `files`, `notice`, `notifications`, `fishing`, `house` (`RESERVED_NAMES`). `notice`는 관리자만 쓴다.
+- 예약어 21개는 쓸 수 없다: `admin`, `api`, `town`, `feed`, `shop`, `closet`, `write`, `settings`, `blog`, `onboarding`, `farm`, `attendance`, `tags`, `wallet`, `files`, `notice`, `notifications`, `fishing`, `house`, `salon`, `clothes` (`RESERVED_NAMES`). `notice`는 관리자만 쓴다.
 - 다른 회원의 아이디·블로그 주소와 겹칠 수 없다 (대소문자 무시). 닉네임과는 같아도 된다 (BLOG-03).
 - 앞뒤 공백은 지우고, 대문자로 입력하면 소문자로 바꿔 저장한다. (`JinHaeng` → `jinhaeng`, `normalizeName`)
 - 오류 문구: 형식이 틀림 `주소는 영문 소문자, 숫자, _ 로 3~20자예요` · 예약어 `이 주소는 쓸 수 없어요` · 이미 있는 주소 `이미 있는 주소예요`
@@ -814,7 +814,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 **열린 질문**
 - `/blog/주소`로도 들어가지는데, `/@주소`로 이동(redirect)시킬까? (사이트 안 링크는 모두 `/@주소`라서 직접 입력할 때만 열린다)
 - 주소를 바꾸면 예전 주소는 바로 404가 되고 다른 회원이 곧바로 가져갈 수 있다. 예전 주소로 들어온 사람을 새 주소로 옮겨 주거나, 예전 주소를 며칠 묶어 둘까? (남이 예전 주소로 흉내 낼 수 있다, BLOG-03 열린 질문)
-- ~~예약어에 `attendance`, `tags`, `notice`를 넣을까?~~ → **해결**: 예약어는 19개이고 셋 다 들어 있다 (`RESERVED_NAMES`).
+- ~~예약어에 `attendance`, `tags`, `notice`를 넣을까?~~ → **해결**: 예약어는 21개이고 셋 다 들어 있다 (`RESERVED_NAMES`).
 - (해결됨, #21) `/@주소/012`, `/@주소/1e1`은 이제 404다. `Number()` 대신 `parseId`(`src/lib/ids.ts`)가 `^[1-9][0-9]{0,9}$`이고 2147483647 이하인 값만 받는다. 2147483647보다 큰 ID의 500 오류도 함께 고쳤다.
 - (제안) 대문자 주소: 지금 `/@NOTICE`는 404 → 소문자로 바꿔 찾고 `/@notice`로 이동시킬까?
 - (제안) 없는 블로그 문구: 지금은 없는 글·비공개 글과 같은 404 문구 → 없는 블로그만 `없는 블로그예요.`로 따로 보여줄까? (비공개 글은 있다는 것을 숨기려고 지금처럼 같은 문구로 둔다)

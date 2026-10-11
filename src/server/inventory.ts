@@ -1,8 +1,9 @@
 import "server-only";
-import { and, asc, eq, gt, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { avatarEquips, blogs, items, profiles, userItems } from "@/db/schema";
+import type { AvatarSlot } from "@/lib/art/avatar";
 import type { ShopItem } from "@/lib/shop";
 import type { Tx } from "@/server/points";
 
@@ -13,7 +14,7 @@ export function outfitOf(userIdColumn: AnyPgColumn | SQL): SQL<string[]> {
   )`;
 }
 
-/** 상점 목록: 판매 중인 것만, 내 수량(없으면 0)과 가진 회원 수 (contracts/shop.md 1.1) */
+/** 상점 목록: 판매 중인 것만, 내 수량(없으면 0)과 가진 회원 수 (contracts/shop.md 1.1). 머리 모양·머리 색은 미용실에서만 판다 (SHOP-07) */
 export async function listShopItems(userId: string): Promise<ShopItem[]> {
   const owners = db
     .select({ itemId: userItems.itemId, n: sql<number>`COUNT(*)::int`.as("n") })
@@ -36,11 +37,17 @@ export async function listShopItems(userId: string): Promise<ShopItem[]> {
     .from(items)
     .leftJoin(userItems, and(eq(userItems.itemId, items.id), eq(userItems.userId, userId)))
     .leftJoin(owners, eq(owners.itemId, items.id))
-    .where(and(eq(items.isOnSale, true), ne(items.type, "character")))
+    .where(
+      and(
+        eq(items.isOnSale, true),
+        ne(items.type, "character"),
+        or(isNull(items.avatarSlot), notInArray(items.avatarSlot, ["hair", "hair_color"])),
+      ),
+    )
     .orderBy(asc(items.requiredLevel), asc(items.price), asc(items.id));
 }
 
-export type OwnedItem = { id: number; type: ShopItem["type"]; name: string; assetKey: string; avatarSlot: "hat" | "outfit" | "accessory" | null };
+export type OwnedItem = { id: number; type: ShopItem["type"]; name: string; assetKey: string; avatarSlot: AvatarSlot | null };
 
 /** 꾸미기 목록: 가진 것(수량 > 0)만, 성장 아이템 제외, 판매를 멈춘 것도 포함 (contracts/closet.md 1.1, D12) */
 export async function listOwnedItems(userId: string): Promise<OwnedItem[]> {
@@ -62,7 +69,7 @@ export async function getEquipped(userId: string) {
       .where(eq(profiles.userId, userId)),
     db.select({ slot: avatarEquips.slot, itemId: avatarEquips.itemId }).from(avatarEquips).where(eq(avatarEquips.userId, userId)),
   ]);
-  const avatar: Partial<Record<"hat" | "outfit" | "accessory", number>> = {};
+  const avatar: Partial<Record<AvatarSlot, number>> = {};
   for (const w of worn) avatar[w.slot] = w.itemId;
   return { ...row, avatar };
 }

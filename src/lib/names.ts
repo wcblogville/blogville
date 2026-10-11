@@ -24,6 +24,9 @@ export const RESERVED_NAMES: ReadonlySet<string> = new Set([
   "notifications",
   "fishing",
   "house",
+  // 미용실·옷가게 (SHOP-07·08, 2026-10-11)
+  "salon",
+  "clothes",
 ]);
 
 /** 아이디 형식: 영문 소문자·숫자·_ 4~20자 (DB CHECK users_username_check와 같다) */
