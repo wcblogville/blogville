@@ -2,7 +2,12 @@
 // 실행: npm run test:shop
 import { AVATAR_PARTS, orderOutfit, outfitLayers } from "../src/lib/art/avatar";
 import { characterSvg, lookKey } from "../src/lib/art/characters";
-import { growthSvg } from "../src/lib/art/growth";
+import { readFileSync } from "node:fs";
+import { backgroundSvg } from "../src/lib/art/backgrounds";
+import { CHARACTER_KEYS } from "../src/lib/art/characters";
+import { hasDecoArt } from "../src/lib/art/deco";
+import { FURNITURE_KEYS, furnitureRows, hasFurnitureArt } from "../src/lib/art/furniture";
+import { growthSvg, hasGrowthArt } from "../src/lib/art/growth";
 import { CATCHES, pickCatch } from "../src/lib/fishing";
 import { buttonState, purchaseMessage, SHOP_ERRORS, SHOP_SECTIONS, shortage, sortShopItems, type ShopItem } from "../src/lib/shop";
 
@@ -59,8 +64,31 @@ expect("모자는 top 층", outfitLayers(["hat.straw"]).top === AVATAR_PARTS["ha
 expect("lookKey는 순서와 상관없이 같음", lookKey("char.cat", ["hat.straw", "acc.glasses"]) === lookKey("char.cat", ["acc.glasses", "hat.straw"]), true);
 expect("옷 없으면 lookKey = 캐릭터", lookKey("char.cat"), "char.cat");
 expect("입히면 그림이 달라짐", characterSvg("char.cat", 64, ["hat.straw"]) !== characterSvg("char.cat", 64), true);
-expect("아바타 그림 33개 (모자·옷·소품 18 + 머리 모양 7 + 머리 색 8)", Object.keys(AVATAR_PARTS).length, 33);
-expect("성장 아이템 그림", ["growth.feed", "growth.premium", "growth.booster"].every((k) => growthSvg(k).startsWith("<svg")), true);
+expect("아바타 그림 77개 (모자·옷·소품 45 + 머리 모양 16 + 머리 색 16)", Object.keys(AVATAR_PARTS).length, 77);
+expect("성장 아이템 그림", ["growth.feed", "growth.premium", "growth.booster", "growth.elixir"].every((k) => growthSvg(k).startsWith("<svg") && hasGrowthArt(k)), true);
+
+// 아이템 카탈로그(scripts/seed.ts)의 모든 asset_key에 코드로 그린 그림이 있다 (그림이 없으면 회색 상자로 보인다)
+{
+  const seed = readFileSync(new URL("./seed.ts", import.meta.url), "utf8");
+  const rows = [...seed.matchAll(/type: "(\w+)".*?price: (\d+).*?assetKey: "([\w.]+)"/g)].map(([, type, price, key]) => ({ type, price: Number(price), key }));
+  const hasArt: Record<string, (k: string) => boolean> = {
+    character: (k) => CHARACTER_KEYS().includes(k),
+    // 모르는 배경은 초원으로 그린다
+    background: (k) => k === "bg.meadow" || backgroundSvg(k) !== backgroundSvg("bg.meadow"),
+    furniture: hasFurnitureArt,
+    avatar: (k) => k in AVATAR_PARTS,
+    growth: hasGrowthArt,
+    deco: hasDecoArt,
+  };
+  expect("카탈로그 아이템을 읽음", rows.length > 100, true);
+  expect("그림 없는 아이템 없음", rows.filter((r) => !hasArt[r.type]?.(r.key)).map((r) => r.key), []);
+  expect("asset_key가 겹치지 않음", rows.length, new Set(rows.map((r) => r.key)).size);
+  const count = (type: string) => rows.filter((r) => r.type === type).length;
+  expect("가구 그림은 모두 32 × 32칸", FURNITURE_KEYS().filter((k) => { const r = furnitureRows(k)!; return r.length !== 32 || r.some((x) => x.length !== 32); }), []);
+  expect("가구 38개 (기본 2 + 원래 6 + 2026-10-11 30)", count("furniture"), 38);
+  const furniture = rows.filter((r) => r.type === "furniture" && r.price > 0).map((r) => r.price);
+  expect("가구 값: 30부터 3,000까지 (싼 소품부터 오래 모으는 목표까지)", [Math.min(...furniture), Math.max(...furniture)], [30, 3000]);
+}
 
 // 연못 낚시터: 무게 합 100, 경계값
 expect("낚시 무게 합 100", CATCHES.reduce((n, c) => n + c.weight, 0), 100);
