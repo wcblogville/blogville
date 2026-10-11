@@ -6,6 +6,7 @@ import { LevelUpPopup } from "@/components/game/level-up-popup";
 import { NotificationBell } from "@/components/game/notification-bell";
 import { SessionKeeper } from "@/components/session-keeper";
 import { SignOutButton } from "@/components/sign-out-button";
+import { formatCoinsShort } from "@/lib/format";
 import { todayKST } from "@/lib/game";
 import { getViewer } from "@/server/dal";
 import { getHeaderNotifications } from "@/server/notifications";
@@ -36,8 +37,12 @@ export async function SiteHeader() {
               Lv.{wallet.level}
             </span>
             {/* 누르는 영역은 44px, 보이는 알약은 그대로 (NF-06) */}
-            <Link href="/wallet" title="코인" className="grid min-h-11 shrink-0 place-items-center rounded-full hover:text-leaf-dark focus-visible:outline-2 focus-visible:outline-sky">
-              <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm">🪙 {wallet.coins.toLocaleString()}</span>
+            <Link href="/wallet" title="코인" data-coins={wallet.coins} className="grid min-h-11 shrink-0 place-items-center rounded-full hover:text-leaf-dark focus-visible:outline-2 focus-visible:outline-sky">
+              <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm">
+                {/* 휴대폰은 큰 수를 줄여 쓴다 (1.2만): 다 쓰면 헤더가 화면 밖으로 넘쳤다 (AUTH-10 테스트 지급) */}
+                🪙 <span className="max-sm:hidden">{wallet.coins.toLocaleString()}</span>
+                <span className="sm:hidden">{formatCoinsShort(wallet.coins)}</span>
+              </span>
             </Link>
             {/* 알림함 🔔 (GAME-08 / FR-042) */}
             <NotificationBell unread={alerts.unread} />

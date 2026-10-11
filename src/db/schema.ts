@@ -45,6 +45,7 @@ export const ledgerReason = pgEnum("ledger_reason", [
   "farm_grown",
   "egg_purchase",
   "fishing",
+  "admin_grant", // 관리자 테스트 지급 (AUTH-10)
 ]);
 // 동물 농장 (TOWN-09)
 export const animalStatus = pgEnum("animal_status", ["egg", "growing", "grown"]);

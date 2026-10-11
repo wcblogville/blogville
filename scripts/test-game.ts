@@ -16,6 +16,8 @@ import { animalSvg } from "../src/lib/art/animals";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
+import { formatCoinsShort } from "../src/lib/format";
+import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
 import { currentRoof, decorationSlots, decoSlotLevel, furnitureSlots, houseInfo, MAX_DECO_SLOTS, roofOrder, unlockedRoofs } from "../src/lib/house";
 
@@ -269,5 +271,16 @@ expect("fitSvg 96px에 32칸 → 틀 32칸 (3배)", view(fitSvg(furnitureRows("f
 expect("fitSvg 72px에 32칸 → 틀 36칸 (2배)", view(fitSvg(furnitureRows("furniture.bed")!, 72)), ["-2 -4 36 36", "72"]);
 expect("동물은 단계마다 다른 그림", new Set((["baby", "teen", "adult"] as const).map((st) => animalSvg("animal.chick", st))).size, 3);
 expect("배경 1280px × 5배 → 256칸, 높이 60칸 × 5", backgroundSvg("bg.meadow", 1280, 5).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [256, BG_ROWS, 1280, BG_ROWS * 5]);
+
+// AUTH-10 관리자 테스트 지급: 입력 검사와 빠른 버튼
+const grantForm = (o: Record<string, string>) => ({ get: (k: string) => o[k] ?? null });
+expect("빈 아이디·숫자 → 그대로 (아이디는 소문자, @ 뺌)", parseGrantInput(grantForm({ username: " @Tester ", coins: "1,000", exp: "50" })), { username: "tester", coins: 1000, exp: 50, preset: null });
+expect("코인 최대 넘음 → 문구", "error" in parseGrantInput(grantForm({ coins: String(GRANT_COINS_MAX + 1) })), true);
+expect("음수·소수 경험치 → 문구", ["-1", "1.5", "abc"].map((exp) => "error" in parseGrantInput(grantForm({ exp }))), [true, true, true]);
+expect("둘 다 0 → 문구", parseGrantInput(grantForm({ coins: "", exp: "0" })), { error: "코인이나 경험치를 1 이상 적어 주세요" });
+expect("[+10,000 코인]은 칸 값을 무시", parseGrantInput(grantForm({ preset: "coins", coins: "9" })), { username: "", coins: QUICK_COINS, exp: 0, preset: "coins" });
+expect("경험치 최대로 0에서 Lv.99에 닿음", levelFromExp(GRANT_EXP_MAX), MAX_LEVEL);
+expect("Lv.99까지 모자란 경험치", [0, 1000, expForLevel(MAX_LEVEL) + 5].map(expToMaxLevel), [97020, 96020, 0]);
+expect("휴대폰 헤더 짧은 코인", [9999, 10017, 12345, 1_000_000, 12_345_678, 350_000_000].map(formatCoinsShort), ["9,999", "1만", "1.2만", "100만", "1234만", "3.5억"]);
 
 if (failed) process.exit(1);

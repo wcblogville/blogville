@@ -55,7 +55,7 @@ export async function loginDev(page, devId, character = "남자 주민", passwor
   }
 }
 
+/** 헤더 코인. 휴대폰 헤더는 큰 수를 줄여 보여서(`1.2만`) 글자 대신 data-coins 값을 읽는다 */
 export async function coins(page) {
-  const text = await page.getByRole("banner").getByTitle("코인").innerText();
-  return Number(text.replace(/[^0-9]/g, ""));
+  return Number(await page.getByRole("banner").getByTitle("코인").getAttribute("data-coins"));
 }
