@@ -9,7 +9,7 @@ import { useRef, useTransition } from "react";
 import { AnimalArt } from "@/components/character";
 import { setShowcaseAnimal } from "@/app/settings/blog/actions";
 
-export type CollectionCard = { id: number; name: string; assetKey: string; grownDate: string };
+export type CollectionCard = { id: number; name: string; assetKey: string; skinKey?: string | null; grownDate: string };
 
 export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: CollectionCard[]; showcaseId: number | null; isOwner: boolean }) {
   const [pending, start] = useTransition();
@@ -58,7 +58,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
                       data-animal-card
                       className={`flex w-28 flex-col items-center rounded-xl border-2 p-2 text-center ${shown ? "border-sun bg-[#fff3d6]" : "border-line bg-white"}`}
                     >
-                      <AnimalArt assetKey={a.assetKey} size={64} />
+                      <AnimalArt assetKey={a.assetKey} skinKey={a.skinKey} size={64} />
                       <span className="font-display leading-tight">{a.name}</span>
                       <span className="text-[11px] text-ink-soft">{a.grownDate}</span>
                       {shown && <span className="mt-1 text-xs font-bold text-sun-dark">전시 중</span>}
