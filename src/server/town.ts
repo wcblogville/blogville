@@ -15,7 +15,7 @@ import type { TownFriend, TownHouse, TownNeighbor } from "@/components/town/type
 
 const characterItem = alias(items, "character_item");
 
-/** 마을 둘레 이웃집 자리 수 (내 집 1 + 즐겨찾기 10, 사용자 요청 2026-10-08) */
+/** 마을 이웃집 자리 수 (내 집 1 + 즐겨찾기 10, 사용자 요청 2026-10-08) */
 export const FAVORITE_LIMIT = 10;
 /** 방문자 광장은 인기 블로그 이만큼 중에서 고른다 (TOWN-04) */
 const POPULAR_POOL = 100;
@@ -33,7 +33,7 @@ const lastPublicPostAt = sql<Date | null>`(
   WHERE ${posts.blogId} = ${blogs.id} AND ${posts.visibility} = 'public'
 )`;
 
-/** 관리자 블로그(Blogville 공지사항)는 남의 마을 둘레 집·텔레포트에 나오지 않는다. 관리자 본인에게는 내 집으로 보인다 (사용자 요청 2026-10-08) */
+/** 관리자 블로그(Blogville 공지사항)는 남의 마을 집·텔레포트에 나오지 않는다. 관리자 본인에게는 내 집으로 보인다 (사용자 요청 2026-10-08) */
 const notAdminBlog = sql`NOT EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${blogs.ownerId} AND ${users.role} = 'admin')`;
 
 function houseQuery() {
@@ -156,7 +156,7 @@ export async function getFriends(userId: string): Promise<TownFriend[]> {
 
 /**
  * 마을을 구경할 회원 (/town/블로그 주소, 사용자 요청 2026-10-09). 없는 주소와 공지 블로그(관리자)는 null.
- * 관리자 블로그는 남의 마을 둘레에도 나오지 않는다 (notAdminBlog)
+ * 관리자 블로그는 남의 마을에도 나오지 않는다 (notAdminBlog)
  */
 export async function getTownHost(slug: string) {
   const [row] = await db

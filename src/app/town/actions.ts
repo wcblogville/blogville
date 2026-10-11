@@ -12,7 +12,7 @@ import { assignLots, isNeighborLot, NEIGHBOR_LOTS } from "@/lib/town-lots";
 export type FavoriteResult = { ok: true; isFavorite: boolean } | { ok: false; error: string };
 
 /**
- * 친구 목록의 ⭐: 즐겨찾기를 켜거나 끈다. 즐겨찾기한 이웃의 집이 마을 둘레에 선다 (최대 10채).
+ * 친구 목록의 ⭐: 즐겨찾기를 켜거나 끈다. 즐겨찾기한 이웃의 집이 마을에 선다 (최대 10채).
  * 이미 이웃으로 추가한 사람만 즐겨찾기할 수 있다. 같은 회원의 요청은 lockUser로 줄 세워 10명을 넘지 않게 한다
  */
 export async function toggleFavorite(followeeId: unknown): Promise<FavoriteResult> {
