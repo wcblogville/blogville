@@ -4,7 +4,7 @@ import { config } from "dotenv";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { animalSpecies, items } from "../src/db/schema";
+import { animalSkins, animalSpecies, items } from "../src/db/schema";
 
 config({ path: ".env.local" });
 
@@ -99,6 +99,35 @@ const SPECIES: (typeof animalSpecies.$inferInsert)[] = [
   { code: "bunny", name: "토끼", assetKey: "animal.bunny", growExp: 90, rewardExp: 80, rewardCoins: 30, hatchWeight: 30 },
   { code: "piglet", name: "아기 돼지", assetKey: "animal.piglet", growExp: 120, rewardExp: 110, rewardCoins: 50, hatchWeight: 20 },
   { code: "calf", name: "송아지", assetKey: "animal.calf", growExp: 160, rewardExp: 160, rewardCoins: 80, hatchWeight: 10 },
+  // 분양 동물 (2026-10-11 "펫 종류"): 알에서 안 나오고(hatchWeight 0) 농장 [동물 분양]에서 코인으로 아기를 데려온다.
+  // 크기(작은·중간·큰)는 src/lib/art/animals.ts ANIMAL_SIZE
+  { code: "hamster", name: "햄스터", assetKey: "animal.hamster", growExp: 70, rewardExp: 60, rewardCoins: 20, hatchWeight: 0, price: 200 },
+  { code: "kitten", name: "아기 고양이", assetKey: "animal.kitten", growExp: 100, rewardExp: 90, rewardCoins: 30, hatchWeight: 0, price: 300 },
+  { code: "puppy", name: "강아지", assetKey: "animal.puppy", growExp: 110, rewardExp: 100, rewardCoins: 35, hatchWeight: 0, price: 350 },
+  { code: "lamb", name: "아기 양", assetKey: "animal.lamb", growExp: 130, rewardExp: 120, rewardCoins: 45, hatchWeight: 0, price: 400 },
+  { code: "pony", name: "조랑말", assetKey: "animal.pony", growExp: 180, rewardExp: 180, rewardCoins: 70, hatchWeight: 0, price: 600 },
+];
+
+// 동물 스킨 (2026-10-11 "펫 종류별로 스킨"): 종류마다 둘. 색·무늬는 src/lib/art/animals.ts ANIMAL_SKINS (asset_key)
+const SKINS: { code: string; species: string; name: string; price: number }[] = [
+  { code: "chick_choco", species: "chick", name: "초코 병아리", price: 120 },
+  { code: "chick_mint", species: "chick", name: "민트 병아리", price: 150 },
+  { code: "bunny_gray", species: "bunny", name: "회색 토끼", price: 120 },
+  { code: "bunny_patch", species: "bunny", name: "얼룩 토끼", price: 180 },
+  { code: "hamster_snow", species: "hamster", name: "눈송이 햄스터", price: 150 },
+  { code: "hamster_choco", species: "hamster", name: "초코 햄스터", price: 150 },
+  { code: "kitten_black", species: "kitten", name: "까망이", price: 200 },
+  { code: "kitten_calico", species: "kitten", name: "삼색이", price: 250 },
+  { code: "puppy_shiba", species: "puppy", name: "시바 강아지", price: 200 },
+  { code: "puppy_choco", species: "puppy", name: "초코 강아지", price: 200 },
+  { code: "piglet_spot", species: "piglet", name: "점박이 돼지", price: 180 },
+  { code: "piglet_black", species: "piglet", name: "흑돼지", price: 200 },
+  { code: "lamb_black", species: "lamb", name: "까만 양", price: 220 },
+  { code: "lamb_pink", species: "lamb", name: "솜사탕 양", price: 250 },
+  { code: "calf_hanwoo", species: "calf", name: "누렁 송아지", price: 220 },
+  { code: "calf_strawberry", species: "calf", name: "딸기우유 송아지", price: 260 },
+  { code: "pony_white", species: "pony", name: "백마", price: 300 },
+  { code: "pony_zebra", species: "pony", name: "얼룩말", price: 350 },
 ];
 
 async function main() {
@@ -141,11 +170,22 @@ async function main() {
             rewardExp: sp.rewardExp,
             rewardCoins: sp.rewardCoins,
             hatchWeight: sp.hatchWeight,
+            price: sp.price ?? null,
           },
         });
     }
+    const speciesIds = new Map((await db.select({ id: animalSpecies.id, code: animalSpecies.code }).from(animalSpecies)).map((r) => [r.code, r.id]));
+    for (const sk of SKINS) {
+      const speciesId = speciesIds.get(sk.species);
+      if (!speciesId) throw new Error(`스킨 ${sk.code}: 동물 종류 ${sk.species}가 없어요`);
+      const row = { code: sk.code, speciesId, name: sk.name, price: sk.price, assetKey: `skin.${sk.code.replace("_", ".")}` };
+      await db
+        .insert(animalSkins)
+        .values(row)
+        .onConflictDoUpdate({ target: animalSkins.code, set: { name: row.name, price: row.price, assetKey: row.assetKey } });
+    }
     const rows = await db.execute(sql`SELECT type, COUNT(*)::int AS n FROM items GROUP BY type ORDER BY type`);
-    console.log("✔ 아이템 시드 완료", rows.rows, `동물 ${SPECIES.length}종`);
+    console.log("✔ 아이템 시드 완료", rows.rows, `동물 ${SPECIES.length}종, 스킨 ${SKINS.length}개`);
   } finally {
     await pool.end();
   }
