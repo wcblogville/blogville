@@ -13,11 +13,17 @@ export type TownHouse = {
   recentPosts: { id: number; title: string }[];
 };
 
+/** 마을에 집이 선 이웃 (집 자리 번호 lot 1~10) */
+export type TownNeighbor = TownHouse & { lot: number };
+
 export type TownData = {
   player: { nickname: string; characterAsset: string; outfit: string[] } | null; // null = 로그인하지 않은 방문자
   myHouse: TownHouse | null;
-  /** 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳. 모자라면 빈 집터 */
-  neighbors: TownHouse[];
+  /**
+   * 이웃 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳. 모자라면 빈 집터.
+   * lot = 집 자리 번호(1~10, layout.ts HOUSE_LOTS). 회원이 고른 자리, 안 고른 이웃은 남은 자리를 차례로 (TOWN-18)
+   */
+  neighbors: TownNeighbor[];
   /** 오늘 출석 일차 (자동 출석, GAME-04 / FR-028). 방문자나 출석 실패면 null */
   attendanceDay: number | null;
   /**
@@ -31,7 +37,8 @@ export type TownData = {
 export type TownTarget =
   | { kind: "link"; href: string }
   | { kind: "login" }
-  | { kind: "mailbox"; slot: number }; // 집 앞 우체통 (0 = 내 집)
+  | { kind: "mailbox"; slot: number } // 집 앞 우체통 (0 = 내 집)
+  | { kind: "lot"; slot: number }; // 빈 집터 (내 마을): 이웃 집 자리 고르기 창을 연다 (TOWN-18)
 
 /** 메뉴의 친구 목록 한 줄: 내가 이웃으로 추가한 사람 */
 export type TownFriend = {
@@ -45,4 +52,6 @@ export type TownFriend = {
   isNotice: boolean;
   /** 상대도 나를 이웃으로 추가했는지 (서로 이웃) */
   followsBack: boolean;
+  /** 내가 골라 준 집 자리 (1~10). 안 골랐으면 null (TOWN-18) */
+  townLot: number | null;
 };

@@ -65,10 +65,10 @@ export default async function TownPage(props: PageProps<"/town">) {
   );
 }
 
-/** 블로그 주소 → 그 집의 텔레포트 key (마을 둘레에 없는 집이면 null = 광장 아래쪽) */
+/** 블로그 주소 → 그 집의 텔레포트 key (마을에 없는 집이면 null = 광장 아래쪽) */
 function startAt(data: TownData, slug: string | string[] | undefined): string | null {
   if (typeof slug !== "string") return null;
   if (data.myHouse?.slug === slug) return "house:0";
-  const i = data.neighbors.findIndex((h) => h.slug === slug);
-  return i >= 0 ? `house:${i + 1}` : null;
+  const h = data.neighbors.find((n) => n.slug === slug);
+  return h ? `house:${h.lot}` : null;
 }

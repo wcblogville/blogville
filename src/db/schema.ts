@@ -10,6 +10,7 @@ import {
   pgEnum,
   pgTable,
   primaryKey,
+  smallint,
   text,
   timestamp,
   uuid,
@@ -503,12 +504,17 @@ export const follows = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     // 즐겨찾는 이웃 (TOWN-08이 바꾸고, 이웃 새 글에서 최근 7일 글을 맨 위로, SOC-04)
     isFavorite: boolean("is_favorite").notNull().default(false),
+    // 즐겨찾기 이웃의 집 자리 (마을 집 자리 1~10번, TOWN-18). 회원이 골라 준 자리, 안 골랐으면 NULL(남은 자리를 차례로).
+    // 즐겨찾기를 끄면 NULL로 비운다. 한 회원의 마을에서 한 자리에는 한 이웃만
+    townLot: smallint("town_lot"),
     createdAt: createdAt(),
   },
   (t) => [
     primaryKey({ columns: [t.followerId, t.followeeId] }),
     check("follows_not_self_check", sql`${t.followerId} <> ${t.followeeId}`),
+    check("follows_town_lot_check", sql`${t.townLot} IS NULL OR (${t.townLot} BETWEEN 1 AND 10 AND ${t.isFavorite})`),
     index("follows_followee_idx").on(t.followeeId),
+    uniqueIndex("follows_town_lot_uq").on(t.followerId, t.townLot).where(sql`${t.townLot} IS NOT NULL`),
   ],
 );
 

@@ -7,10 +7,11 @@ import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, users 
 import { ROOF_HEX } from "@/lib/art/town";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
+import { assignLots } from "@/lib/town-lots";
 import { getHeaderNotifications, listNotifications } from "@/server/notifications";
 import { getWallet } from "@/server/points";
 import type { TownHudMember } from "@/components/town/town-hud";
-import type { TownFriend, TownHouse } from "@/components/town/types";
+import type { TownFriend, TownHouse, TownNeighbor } from "@/components/town/types";
 
 const characterItem = alias(items, "character_item");
 
@@ -85,7 +86,7 @@ const totalVisits = sql`(SELECT COUNT(*) FROM ${blogVisits} WHERE ${blogVisits.b
  * 로그인하지 않은 방문자의 둘레 집 (TOWN-04): 공개 글이 있는 블로그 중 인기 100곳에서 광장을 열 때마다 무작위 10곳.
  * 인기 = 누적 방문자 수, 같으면 최근 공개 글 순 (문서의 열린 질문이라 2026-10-09에 정함). 공지 블로그는 빠진다
  */
-export async function getGuestHouses(): Promise<TownHouse[]> {
+export async function getGuestHouses(): Promise<TownNeighbor[]> {
   const popular = db
     .select({ id: blogs.id })
     .from(blogs)
@@ -93,17 +94,33 @@ export async function getGuestHouses(): Promise<TownHouse[]> {
     .orderBy(sql`${totalVisits} DESC`, sql`${lastPublicPostAt} DESC`, desc(blogs.id))
     .limit(POPULAR_POOL);
   const rows = await houseQuery().where(inArray(blogs.id, popular)).orderBy(sql`random()`).limit(FAVORITE_LIMIT);
-  return toHouses(rows);
+  return (await toHouses(rows)).map((h, i) => ({ ...h, lot: i + 1 }));
 }
 
-/** 회원의 둘레 집: 즐겨찾기한 이웃 (먼저 이웃이 된 순, 최대 10) */
-export async function getFavoriteHouses(userId: string): Promise<TownHouse[]> {
+/**
+ * 회원 마을의 이웃 집: 즐겨찾기한 이웃 (먼저 이웃이 된 순, 최대 10). 집 자리는 회원이 골라 준 자리(town_lot)가 먼저,
+ * 안 고른 이웃은 남은 자리를 차례로 (TOWN-18, lib/town-lots.ts)
+ */
+export async function getFavoriteHouses(userId: string): Promise<TownNeighbor[]> {
   const rows = await houseQuery()
     .innerJoin(follows, and(eq(follows.followeeId, blogs.ownerId), eq(follows.followerId, userId), eq(follows.isFavorite, true)))
     .where(notAdminBlog)
-    .orderBy(asc(follows.createdAt), asc(blogs.id))
+    // 같은 순서를 집 자리 고르기(app/town/actions.ts setTownLot)도 쓴다
+    .orderBy(asc(follows.createdAt), asc(follows.followeeId))
     .limit(FAVORITE_LIMIT);
-  return toHouses(rows);
+  if (!rows.length) return [];
+  const lots = await db
+    .select({ blogId: blogs.id, townLot: follows.townLot })
+    .from(follows)
+    .innerJoin(blogs, eq(blogs.ownerId, follows.followeeId))
+    .where(and(eq(follows.followerId, userId), inArray(blogs.id, rows.map((r) => r.blogId))));
+  const lotOf = new Map(lots.map((l) => [l.blogId, l.townLot]));
+  const houses = await toHouses(rows);
+  return assignLots(houses.map((h, i) => ({ ...h, townLot: lotOf.get(rows[i].blogId) ?? null }))).map((h) => {
+    const { townLot, ...house } = h;
+    void townLot;
+    return house;
+  });
 }
 
 export async function getMyHouse(userId: string): Promise<TownHouse | null> {
@@ -121,6 +138,7 @@ export async function getFriends(userId: string): Promise<TownFriend[]> {
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
       isFavorite: follows.isFavorite,
+      townLot: follows.townLot,
       // 공지 블로그(관리자)는 마을에 집이 없어 ⭐로 자리를 차지하지 않게 한다
       isNotice: sql<boolean>`NOT ${notAdminBlog}`,
       followsBack: sql<boolean>`EXISTS (
