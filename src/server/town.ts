@@ -3,14 +3,14 @@ import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, townDecorations, userItems, users } from "@/db/schema";
+import { blogs, blogVisits, follows, items, pointLedger, posts, profiles, users } from "@/db/schema";
 import { ROOF_HEX } from "@/lib/art/town";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
 import { getHeaderNotifications, listNotifications } from "@/server/notifications";
-import { getWallet, type Tx } from "@/server/points";
+import { getWallet } from "@/server/points";
 import type { TownHudMember } from "@/components/town/town-hud";
-import type { TownDecoration, TownFriend, TownHouse } from "@/components/town/types";
+import type { TownFriend, TownHouse } from "@/components/town/types";
 
 const characterItem = alias(items, "character_item");
 
@@ -149,38 +149,17 @@ export async function getTownHost(slug: string) {
   return row ?? null;
 }
 
-/** 광장에 놓인 장식 (광장 꾸미기). 자리 번호 순 */
-export async function getDecorations(userId: string, executor: typeof db | Tx = db): Promise<TownDecoration[]> {
-  return executor
-    .select({ slot: townDecorations.slot, assetKey: items.assetKey })
-    .from(townDecorations)
-    .innerJoin(items, eq(items.id, townDecorations.itemId))
-    .where(eq(townDecorations.userId, userId))
-    .orderBy(asc(townDecorations.slot));
-}
-
-/** 내가 가진 광장 장식 (광장 꾸미기 창의 고르기 목록). 싼 것부터 */
-async function getOwnedDecos(userId: string) {
-  return db
-    .select({ itemId: items.id, name: items.name, assetKey: items.assetKey })
-    .from(userItems)
-    .innerJoin(items, eq(items.id, userItems.itemId))
-    .where(and(eq(userItems.userId, userId), eq(items.type, "deco")))
-    .orderBy(asc(items.requiredLevel), asc(items.price), asc(items.id));
-}
-
-/** ☰ 메뉴에 필요한 내 정보: 지갑·알림·친구·가진 장식 (내 마을과 남의 마을 구경에서 같이 쓴다) */
+/** ☰ 메뉴에 필요한 내 정보: 지갑·알림·친구 (내 마을과 남의 마을 구경에서 같이 쓴다) */
 export async function getHudMember(
   userId: string,
   isAdmin: boolean,
   profile: { photoKey: string | null; blogTitle: string; blogSlug: string },
 ): Promise<TownHudMember> {
-  const [wallet, header, list, friends, decos] = await Promise.all([
+  const [wallet, header, list, friends] = await Promise.all([
     getWallet(userId),
     getHeaderNotifications(userId),
     listNotifications(userId, 1),
     getFriends(userId),
-    getOwnedDecos(userId),
   ]);
   return {
     userId,
@@ -192,6 +171,5 @@ export async function getHudMember(
     unread: header.unread,
     notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
     friends,
-    decos,
   };
 }

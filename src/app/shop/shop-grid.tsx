@@ -55,8 +55,6 @@ export function ShopGrid({
                   onMessage(
                     item.type === "furniture"
                       ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! 내 블로그의 우리 집에 놓아 보세요.`, link: { href: `/@${blogSlug}`, label: "🏠 우리 집으로" } }
-                      : item.type === "deco"
-                      ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! PC 광장의 ☰ 메뉴 → 광장 꾸미기에서 놓아 보세요.`, link: { href: "/town?deco=1", label: "🌷 광장으로", pcOnly: true } }
                       : {
                           ok: true,
                           text: purchaseMessage(r.kind, r.name),

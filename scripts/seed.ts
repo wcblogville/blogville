@@ -106,8 +106,9 @@ async function main() {
   const db = drizzle(pool);
   try {
     for (const raw of ITEMS) {
-      // 캐릭터와 기본 아이템은 팔지 않는다 (SHOP-01, D12). 나머지는 판매 중
-      const item = { ...raw, isOnSale: raw.type !== "character" && !raw.isStarter };
+      // 캐릭터와 기본 아이템은 팔지 않는다 (SHOP-01, D12). 나머지는 판매 중.
+      // 광장 장식은 광장 꾸미기를 쉬면서(사용자 결정 2026-10-11, TOWN-16) 팔지 않는다. 이미 산 장식·표는 그대로 둔다
+      const item = { ...raw, isOnSale: raw.type !== "character" && raw.type !== "deco" && !raw.isStarter };
       await db
         .insert(items)
         .values(item)

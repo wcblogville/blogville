@@ -7,7 +7,6 @@ export type ItemType = "character" | "background" | "furniture" | "avatar" | "gr
 export const SHOP_SECTIONS: { type: Exclude<ItemType, "character">; title: string }[] = [
   { type: "avatar", title: "👕 아바타 꾸미기" },
   { type: "furniture", title: "🪑 가구" },
-  { type: "deco", title: "🌷 광장 장식" },
   { type: "background", title: "🖼 배경" },
   { type: "growth", title: "🌱 성장 아이템" },
 ];
