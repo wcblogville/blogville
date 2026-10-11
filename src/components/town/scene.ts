@@ -474,12 +474,6 @@ export function createTownScene(
           .setOrigin(0.5, 0)
           .setDepth(LABEL_DEPTH + s.y);
       }
-      if (s.sub) {
-        this.add
-          .text(s.x, s.y + 30, s.sub, font({ fontSize: "12px", color: "#3e2b20", stroke: "#fff8ec", strokeThickness: 3 }))
-          .setOrigin(0.5, 0)
-          .setDepth(LABEL_DEPTH + s.y);
-      }
     }
 
     /** 멀리(북쪽) 있는 그림일수록 공기 색을 살짝 덮는다 (바닥과 같은 세기, 대기 원근). 밝게만 하는 SCREEN 색조 */
