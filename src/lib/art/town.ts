@@ -512,13 +512,73 @@ export function fountainSheetSvg(): string {
 }
 
 // ===== 나무 =====
-export type TreeKind = "round" | "pine" | "bush" | "blossom";
+export type TreeKind = "round" | "pine" | "bush" | "blossom" | "oak" | "cherry" | "rock" | "boulder";
+
+/**
+ * 큰 참나무 (2.5D 마을, 2026-10-11): 잎 덩어리를 겹겹이 쌓아 아래·오른쪽은 그늘, 왼쪽 위는 햇빛.
+ * 아랫부분 잎 그늘이 줄기 위를 덮고, 발밑에 둥근 그림자
+ */
+const OAK = (() => {
+  const p = new Pix(40, 50);
+  p.shadow(20, 46.5, 15, 2.5);
+  // 줄기와 뿌리 (앞면이 보이게 왼쪽 밝게, 오른쪽 그늘)
+  p.rect(16, 31, 8, 15, "b").vline(16, 31, 45, "B").vline(17, 33, 45, "B").vline(23, 31, 45, "n").vline(22, 36, 45, "n");
+  p.rect(14, 44, 3, 2, "b").rect(23, 44, 3, 2, "n");
+  p.px(19, 38, "n").px(20, 39, "n");
+  // 잎: 짙은 바탕 → 중간 → 밝은 → 햇빛 점
+  for (const [x, y, rx, ry] of [[20, 18, 18, 15], [9, 24, 8, 8], [31, 24, 8, 8], [20, 28, 14, 7]]) p.ellipse(x, y, rx, ry, "M");
+  for (const [x, y, rx, ry] of [[18, 15, 15, 11], [9, 21, 6, 6], [29, 20, 7, 6], [16, 25, 9, 4]]) p.ellipse(x, y, rx, ry, "m");
+  for (const [x, y, rx, ry] of [[15, 11, 10, 7], [26, 15, 5, 4], [8, 18, 4, 3], [20, 20, 5, 3]]) p.ellipse(x, y, rx, ry, "l");
+  for (const [x, y, rx, ry] of [[13, 8, 5, 3], [24, 12, 2.5, 2], [7, 16, 2, 1.5]]) p.ellipse(x, y, rx, ry, "L");
+  // 잎 결: 덩어리 경계에 한 칸씩 섞는다
+  p.map((c, x, y) => {
+    const n = ((x * 7 + y * 13) ^ (x * y)) % 11;
+    if (c === "m" && n === 0) return "M";
+    if (c === "l" && n === 3) return "m";
+    if (c === "L" && n === 5) return "l";
+    if (c === "M" && n === 7 && y < 30) return "m";
+    return c;
+  });
+  return p.outline().rows();
+})();
+
+/** 바위: 윗면은 밝고 앞면(아래)은 어둡다 */
+const ROCK = (() => {
+  const p = new Pix(20, 15);
+  p.shadow(10, 13, 9, 1.8);
+  p.ellipse(10, 8, 8.5, 5.5, "X");
+  p.ellipse(9.5, 7, 7.5, 4.5, "x");
+  p.ellipse(9, 5.5, 6, 3, "y");
+  p.ellipse(8, 4.5, 3.5, 1.8, "Y");
+  p.px(13, 8, "X").px(14, 7, "X").px(6, 9, "X");
+  return p.outline().rows();
+})();
+
+/** 큰 바위 (이끼 낀) */
+const BOULDER = (() => {
+  const p = new Pix(30, 24);
+  p.shadow(15, 21.5, 14, 2.2);
+  p.ellipse(15, 13, 13.5, 8.5, "X");
+  p.ellipse(14, 11.5, 12.5, 7.5, "x");
+  p.ellipse(13, 9, 10, 5.5, "y");
+  p.ellipse(11, 7, 6, 3, "Y");
+  p.ellipse(19, 6.5, 4, 2, "l");
+  p.ellipse(20, 6, 2.5, 1.2, "L");
+  p.vline(18, 10, 16, "X").px(17, 11, "X").px(19, 13, "X");
+  return p.outline().rows();
+})();
+
+const PINK = { L: "#ffe8f0", l: "#ffbfd6", m: "#f29bbd", M: "#c96a92" };
 const TREES: Record<TreeKind, { rows: string[]; colors?: Colors }> = {
   round: { rows: trim(TREEROUND) },
   pine: { rows: trim(TREEPINE) },
   bush: { rows: trim(BUSH) },
   // 벚나무: 둥근 나무를 분홍으로
-  blossom: { rows: trim(TREEROUND), colors: { L: "#ffe0ea", l: "#ffb7d0", m: "#f08fb3", M: "#c96a92" } },
+  blossom: { rows: trim(TREEROUND), colors: PINK },
+  oak: { rows: trim(OAK) },
+  cherry: { rows: trim(OAK), colors: PINK },
+  rock: { rows: trim(ROCK) },
+  boulder: { rows: trim(BOULDER) },
 };
 /** 나무 종류별 광장 크기 (px) */
 export function treeSize(kind: TreeKind) {

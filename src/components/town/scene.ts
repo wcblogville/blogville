@@ -1,60 +1,34 @@
-// 중앙 광장 (2D 탑다운). Phaser는 브라우저에서만 동작하므로 런타임에 받아서 씬을 만든다.
-// 그림은 src/lib/art/ 의 SVG를 이미지로 바꿔 쓴다 (townTextures → TownGame이 미리 불러온다).
-// 배치는 layout.ts: 가운데 타운을 집 11채(내 집 + 즐겨찾기 이웃 10)가 원형으로 둘러싼다.
+// 중앙 광장 (2.5D 3/4 탑다운). Phaser는 브라우저에서만 동작하므로 런타임에 받아서 씬을 만든다.
+// 그림은 src/lib/art/ 의 도트 SVG를 이미지로 바꿔 쓴다 (townTextures → TownGame이 미리 불러온다).
+// 배치는 layout.ts(좌표)·terrain.ts(땅 높이·걸을 수 있는 곳)·structures.ts(건물·나무·입구·이웃이 걷는 길).
+// - 깊이: 모든 그림은 아랫변 y가 깊이라 캐릭터가 나무·건물 뒤로 가면 가려진다 (y-sorting)
+// - 땅: 절벽 앞면·물·단 가장자리는 못 지나가고 계단으로만 오르내린다 (발 상자로 미리 확인)
+// - 즐겨찾기 이웃은 집 앞에 서 있지 않고 마을 길을 걸어 다닌다 (NPC, 사용자 요청 2026-10-11)
 import type * as PhaserNS from "phaser";
-import { characterDataUri, lookKey, VISITOR_CHARACTER } from "@/lib/art/characters";
+import { VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
-  BOARD_SIZE,
   boardSvg,
-  CLOTHES_SIZE,
   clothesSvg,
-  SALON_SIZE,
   salonSvg,
-  FARM_SIZE,
-  FISHING_SIZE,
   fishingSvg,
   farmSvg,
   FOUNTAIN_FPS,
   FOUNTAIN_FRAMES,
   FOUNTAIN_SIZE,
   fountainSheetSvg,
-  HOUSE_STAGES,
-  houseStage,
   houseSvg,
-  LAMP_SIZE,
   lampSvg,
-  LOT_SIZE,
   lotSvg,
-  MAILBOX_SIZE,
   mailboxSvg,
-  SHOP_SIZE,
   shopSvg,
   toDataUri,
-  treeSize,
   treeSvg,
-  type HouseStage,
 } from "@/lib/art/town";
-import {
-  BOARD_POS,
-  CENTER,
-  CLOTHES_POS,
-  SALON_POS,
-  DECO_SLOTS,
-  FARM_POS,
-  FISHING_POS,
-  HOUSE_SLOTS,
-  houseAt,
-  houseSlot,
-  PLAZA_RADIUS,
-  POND_POS,
-  RING_RADIUS,
-  SHOP_POS,
-  START_POS,
-  townSpots,
-  WORLD,
-} from "./layout";
-import { bakeGround, GROUND_SIZE } from "./ground";
-import type { TownData, TownHouse, TownTarget } from "./types";
+import { HOUSE_SLOTS, houseAt, houseSlot, START_POS, townSpots, WORLD } from "./layout";
+import { bakeGround, GROUND_SIZE, HAZE_COLOR, hazeAt } from "./ground";
+import { boxWalkable, terrain } from "./terrain";
+import { houseKey, npcGraph, segmentClear, solidBox, stageOf, townLayout, townProps, walkKey, type Entrance, type Structure } from "./structures";
+import type { TownData, TownNeighbor, TownTarget } from "./types";
 import { PIXEL } from "@/lib/art/pixel";
 import { WALK_DIRS, WALK_FPS, walkDirOf, walkFrameIndex, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 
@@ -62,61 +36,35 @@ type PhaserLib = typeof PhaserNS;
 
 export { WORLD };
 const SPEED = 230;
+/** 계단에서는 조금 느리게 */
+const STAIRS_SPEED = 0.72;
 const INTERACT_DISTANCE = 90;
 const PLAYER_SIZE = 24 * PIXEL; // 캐릭터 그림 크기 (도트 24칸 정사각형 × 3배 = 72)
+/** 발 상자 (부딪힘) */
+const FEET = { w: 28, h: 16 };
 // 가상 조이스틱 (터치 화면 전용, TOWN-02)
 const JOYSTICK = { radius: 56, thumb: 26, margin: 28, deadZone: 8 };
-/** 처음 서는 곳: 광장 아래쪽 */
-const START = START_POS;
-
-/** 광장에 놓는 그림 하나. (x, y) = 아랫변 가운데 (발 닿는 곳) */
-type Structure = {
-  texture: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  solid?: { w: number; h: number }; // 부딪히는 영역 (아랫변 기준)
-  label?: string;
-  sub?: string;
-  /** 칸을 돌리는 그림판이면 그 애니메이션 키 (분수) */
-  anim?: string;
-};
-
-/** 들어갈 수 있는 곳: 문 앞 좌표에서 Space / 클릭 */
-type Entrance = {
-  label: string;
-  emoji: string;
-  x: number;
-  y: number;
-  target: TownTarget;
-  /** 클릭으로 들어가기 판정할 그림 영역 */
-  area: { x: number; y: number; w: number; h: number };
-  promptY: number;
-  /** 안내 동사 (기본 "들어가기") */
-  verb?: string;
-};
-
-/** 캐릭터 + 입은 아바타 아이템마다 그림 하나 (SHOP-06) */
-const charKey = (asset: string, outfit: string[] = []) => `char:${lookKey(asset, outfit)}`;
-const houseKey = (stage: HouseStage, roof: string) => `house:${stage}:${roof}`;
-/** 걷기 그림판 (TOWN-17): 방향 4줄 × 5칸. 플레이어만 걷는다 */
-const walkKey = (asset: string, outfit: string[] = []) => `walk:${lookKey(asset, outfit)}`;
-const stageOf = (h: TownHouse) => houseStage(h.level);
+/** 이웃(NPC) 걷는 빠르기 (px/초)와 이름표가 보이는 거리 */
+const NPC_SPEED = 68;
+const NPC_NEAR = 170;
+/** 이웃이 서 있지 않는 내 집 앞 반지름 */
+const NPC_AVOID_HOME = 190;
+/** 그림이름표·안내는 모든 그림 위 */
+const LABEL_DEPTH = 60000;
+const HAZE_DEPTH = 90000;
+const TREE_KINDS = ["round", "pine", "bush", "blossom", "oak", "cherry", "rock", "boulder"] as const;
 
 /** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 */
 export function townTextures(data: TownData) {
   const list = new Map<string, string>();
-  const houses = [data.myHouse, ...data.neighbors].filter(Boolean) as TownHouse[];
-  list.set(
-    walkKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit),
-    walkSheetDataUri(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit ?? [], PIXEL),
-  );
-  for (const h of houses) {
-    list.set(charKey(h.characterAsset, h.outfit), characterDataUri(h.characterAsset, PLAYER_SIZE, h.outfit));
-    const roof = h.roof;
-    list.set(houseKey(stageOf(h), roof), toDataUri(houseSvg(stageOf(h), roof)));
+  const player = data.player?.characterAsset ?? VISITOR_CHARACTER;
+  list.set(walkKey(player, data.player?.outfit), walkSheetDataUri(player, data.player?.outfit ?? [], PIXEL));
+  for (const h of [data.myHouse, ...data.neighbors]) {
+    if (!h) continue;
+    list.set(houseKey(stageOf(h), h.roof), toDataUri(houseSvg(stageOf(h), h.roof)));
   }
+  // 걸어 다니는 이웃 (내 집 주인은 빼고)
+  for (const h of data.neighbors) list.set(walkKey(h.characterAsset, h.outfit), walkSheetDataUri(h.characterAsset, h.outfit, PIXEL));
   list.set("board", toDataUri(boardSvg()));
   list.set("shop", toDataUri(shopSvg()));
   list.set("salon", toDataUri(salonSvg()));
@@ -128,119 +76,21 @@ export function townTextures(data: TownData) {
   list.set("lot", toDataUri(lotSvg()));
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
-  for (const kind of ["round", "pine", "bush", "blossom"] as const) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
+  for (const kind of TREE_KINDS) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
   return [...list].map(([key, uri]) => ({ key, uri }));
 }
 
-function layout(data: TownData) {
-  const member = Boolean(data.player);
-  const need = (href: string): TownTarget => (member ? { kind: "link", href } : { kind: "login" });
-  const structures: Structure[] = [];
-  const entrances: Entrance[] = [];
-
-  // 마을 게시판: 왼쪽 판 = 마을 소식, 오른쪽 판 = 출석 체크
-  const bw = BOARD_SIZE.width, bh = BOARD_SIZE.height;
-  structures.push({
-    texture: "board", ...BOARD_POS, w: bw, h: bh, solid: { w: bw * 0.92, h: 22 },
-    label: "마을 게시판", sub: `마을 소식 · 출석 체크${data.attendanceDay ? ` (오늘 ${data.attendanceDay}일차 ✅)` : ""}`,
-  });
-  const boardArea = { x: BOARD_POS.x - bw / 2, y: BOARD_POS.y - bh, w: bw, h: bh };
-  entrances.push(
-    { label: "마을 소식", emoji: "📋", x: BOARD_POS.x - 55, y: BOARD_POS.y + 26, target: { kind: "link", href: "/feed" },
-      area: { ...boardArea, w: bw / 2 }, promptY: BOARD_POS.y - bh - 6 },
-    { label: data.attendanceDay ? `출석 체크 (오늘 ${data.attendanceDay}일차 ✅)` : "출석 체크", emoji: "📮", x: BOARD_POS.x + 55, y: BOARD_POS.y + 26,
-      target: need("/attendance"), area: { ...boardArea, x: BOARD_POS.x, w: bw / 2 }, promptY: BOARD_POS.y - bh - 6 },
-  );
-
-  // 상점
-  structures.push({ texture: "shop", ...SHOP_POS, w: SHOP_SIZE.width, h: SHOP_SIZE.height, solid: { w: SHOP_SIZE.width * 0.86, h: 60 }, label: "상점", sub: "아바타·가구·배경" });
-  entrances.push({
-    label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 24, target: need("/shop"),
-    area: { x: SHOP_POS.x - SHOP_SIZE.width / 2, y: SHOP_POS.y - SHOP_SIZE.height, w: SHOP_SIZE.width, h: SHOP_SIZE.height },
-    promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
-  });
-
-  // 미용실·옷가게 (SHOP-07·08): 문은 건물 오른쪽에 있다
-  for (const b of [
-    { texture: "salon", pos: SALON_POS, size: SALON_SIZE, label: "미용실", sub: "머리 모양 · 머리 색", emoji: "💇", href: "/salon" },
-    { texture: "clothes", pos: CLOTHES_POS, size: CLOTHES_SIZE, label: "옷가게", sub: "옷 · 모자 · 소품", emoji: "👗", href: "/clothes" },
-  ]) {
-    structures.push({ texture: b.texture, ...b.pos, w: b.size.width, h: b.size.height, solid: { w: b.size.width * 0.86, h: 54 }, label: b.label, sub: b.sub });
-    entrances.push({
-      label: b.label, emoji: b.emoji, x: b.pos.x + 30, y: b.pos.y + 24, target: need(b.href),
-      area: { x: b.pos.x - b.size.width / 2, y: b.pos.y - b.size.height, w: b.size.width, h: b.size.height },
-      promptY: b.pos.y - b.size.height - 6,
-    });
-  }
-
-  // 연못 낚시터: 하루 한 번 낚시 (사용자 요청 2026-10-08)
-  structures.push({
-    texture: "fishing", ...FISHING_POS, w: FISHING_SIZE.width, h: FISHING_SIZE.height, solid: { w: FISHING_SIZE.width * 0.9, h: 90 },
-    label: "낚시터", sub: "하루 한 번 낚시",
-  });
-  entrances.push({
-    label: "낚시터", emoji: "🎣", x: FISHING_POS.x, y: FISHING_POS.y + 24, target: need("/fishing"),
-    area: { x: FISHING_POS.x - FISHING_SIZE.width / 2, y: FISHING_POS.y - FISHING_SIZE.height, w: FISHING_SIZE.width, h: FISHING_SIZE.height },
-    promptY: FISHING_POS.y - FISHING_SIZE.height - 6,
-  });
-
-  // 동물 농장: 알을 받아 동물을 키운다 (내 집 옆)
-  structures.push({
-    texture: "farm", ...FARM_POS, w: FARM_SIZE.width, h: FARM_SIZE.height, solid: { w: FARM_SIZE.width * 0.94, h: 100 },
-    label: "동물 농장", sub: "알 부화 · 동물 키우기",
-  });
-  entrances.push({
-    label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
-    area: { x: FARM_POS.x - FARM_SIZE.width / 2, y: FARM_POS.y - FARM_SIZE.height, w: FARM_SIZE.width, h: FARM_SIZE.height },
-    promptY: FARM_POS.y - FARM_SIZE.height - 6,
-  });
-
-  // 집 11채: 0번 = 내 집, 1~10번 = 즐겨찾기 이웃(방문자는 인기 블로그). 없으면 빈 집터
-  for (let i = 0; i < HOUSE_SLOTS; i++) {
-    const pos = houseSlot(i);
-    const h = houseAt(data, i);
-    if (!h) {
-      structures.push({ texture: "lot", x: pos.x, y: pos.y, w: LOT_SIZE.width, h: LOT_SIZE.height, label: i === 0 && !data.host ? "내 집 자리" : "빈 집터" });
-      continue;
-    }
-    // 다른 회원의 마을(host)을 구경할 때 0번 집은 그 주인의 집이다
-    const mine = i === 0 && !data.host;
-    const stage = stageOf(h);
-    const { width: w, height: hh } = HOUSE_STAGES[stage];
-    const roof = h.roof;
-    structures.push({
-      texture: houseKey(stage, roof), ...pos, w, h: hh, solid: { w: w * 0.72, h: 46 },
-      label: mine ? "내 집" : `${h.nickname}의 집`, sub: h.title,
-    });
-    // 집 주인 캐릭터가 집 왼쪽 앞에 서 있다 (광장 캐릭터와 같은 배율)
-    structures.push({ texture: charKey(h.characterAsset, h.outfit), x: pos.x - w / 2 - 12, y: pos.y + 8, w: PLAYER_SIZE, h: PLAYER_SIZE });
-    entrances.push({
-      label: mine ? "내 집" : `${h.nickname}의 집`, emoji: "🏠", x: pos.x, y: pos.y + 22, target: { kind: "link", href: `/@${h.slug}` },
-      area: { x: pos.x - w / 2, y: pos.y - hh, w, h: hh }, promptY: pos.y - hh - 4,
-    });
-    // 집 앞 우체통: 내 집은 내 소식(알림), 이웃집은 그 집 새 글
-    const mb = { x: pos.x + w / 2 + 6, y: pos.y + 14 };
-    structures.push({ texture: mine ? "mailbox:mine" : "mailbox", ...mb, w: MAILBOX_SIZE.width, h: MAILBOX_SIZE.height, solid: { w: 14, h: 10 } });
-    entrances.push({
-      label: mine ? "내 우체통" : `${h.nickname}의 우체통`, emoji: "📬", x: mb.x, y: mb.y + 22, target: { kind: "mailbox", slot: i }, verb: "소식 보기",
-      area: { x: mb.x - MAILBOX_SIZE.width / 2, y: mb.y - MAILBOX_SIZE.height, w: MAILBOX_SIZE.width, h: MAILBOX_SIZE.height }, promptY: mb.y - MAILBOX_SIZE.height - 4,
-    });
-  }
-
-  // 분수, 가로등
-  structures.push({ texture: "fountain", x: CENTER.x, y: CENTER.y + FOUNTAIN_SIZE.height / 2, w: FOUNTAIN_SIZE.width, h: FOUNTAIN_SIZE.height, solid: { w: 150, h: 70 }, anim: "fountain:flow" });
-  for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    structures.push({ texture: "lamp", x: CENTER.x + dx * 185, y: CENTER.y + dy * 185 + 40, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
-  }
-  // 둘레 길 가로등
-  for (let i = 0; i < HOUSE_SLOTS; i++) {
-    const a = Math.PI / 2 + ((i + 0.5) * 2 * Math.PI) / HOUSE_SLOTS;
-    const x = CENTER.x + Math.cos(a) * (RING_RADIUS + 60);
-    const y = CENTER.y + Math.sin(a) * (RING_RADIUS + 60);
-    structures.push({ texture: "lamp", x, y, w: LAMP_SIZE.width, h: LAMP_SIZE.height, solid: { w: 14, h: 10 } });
-  }
-  return { structures, entrances };
-}
+type Npc = {
+  house: TownNeighbor;
+  sprite: PhaserNS.GameObjects.Sprite;
+  tag: PhaserNS.GameObjects.Text;
+  sheet: string;
+  at: number; // 지금 (또는 막 떠난) 마디
+  prev: number;
+  to: number | null; // 가는 중인 마디
+  wait: number; // 남은 쉬는 시간 (ms)
+  dir: WalkDir;
+};
 
 export function createTownScene(
   Phaser: PhaserLib,
@@ -271,6 +121,10 @@ export function createTownScene(
     private moveTarget: PhaserNS.Math.Vector2 | null = null;
     private entrances: Entrance[] = [];
     private prompt!: PhaserNS.GameObjects.Text;
+    private haze!: PhaserNS.GameObjects.Image;
+    private npcs: Npc[] = [];
+    private graph: { nodes: { x: number; y: number }[]; links: number[][] } = { nodes: [], links: [] };
+    private hoverNpc: Npc | null = null;
     private joystick: {
       base: PhaserNS.GameObjects.Arc;
       thumb: PhaserNS.GameObjects.Arc;
@@ -291,18 +145,7 @@ export function createTownScene(
         else if (key === "fountain") this.textures.addSpriteSheet(key, img, { frameWidth: FOUNTAIN_SIZE.width, frameHeight: FOUNTAIN_SIZE.height });
         else this.textures.addImage(key, img);
       }
-      // 걷기: 방향마다 1~4칸을 돌린다. 멈추면 그 방향의 0칸(서 있기)
-      for (const dir of WALK_DIRS) {
-        const key = `${this.sheet}:${dir}`;
-        if (this.anims.exists(key)) continue;
-        this.anims.create({
-          key,
-          frames: this.anims.generateFrameNumbers(this.sheet, { frames: [1, 2, 3, 4].map((f) => walkFrameIndex(dir, f)) }),
-          frameRate: WALK_FPS,
-          repeat: -1,
-        });
-      }
-
+      this.walkAnims(this.sheet);
       if (!this.anims.exists("fountain:flow")) {
         this.anims.create({ key: "fountain:flow", frames: this.anims.generateFrameNumbers("fountain", { start: 0, end: FOUNTAIN_FRAMES - 1 }), frameRate: FOUNTAIN_FPS, repeat: -1 });
       }
@@ -311,14 +154,14 @@ export function createTownScene(
       this.drawGround();
 
       const walls = this.physics.add.staticGroup();
-      const { structures, entrances } = layout(data);
+      const { structures, entrances } = townLayout(data);
       this.entrances = entrances;
-      for (const s of structures) this.placeStructure(s, walls);
-      this.plantTrees(walls);
+      const props = townProps();
+      for (const s of [...structures, ...props]) this.placeStructure(s, walls);
 
       // 플레이어: 발 상자(물리) + 그림
-      const start = allSpots.find((p) => p.key === startAt) ?? START;
-      this.feet = this.add.zone(start.x, start.y, 28, 16);
+      const start = allSpots.find((p) => p.key === startAt) ?? START_POS;
+      this.feet = this.add.zone(start.x, start.y, FEET.w, FEET.h);
       this.physics.add.existing(this.feet);
       this.playerBody = this.feet.body as PhaserNS.Physics.Arcade.Body;
       this.playerBody.setCollideWorldBounds(true);
@@ -346,6 +189,9 @@ export function createTownScene(
         .setOrigin(0.5, 1)
         .setDepth(100000)
         .setVisible(false);
+
+      this.createNpcs([...structures, ...props]);
+      this.createHaze();
 
       // 카메라
       this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
@@ -378,6 +224,9 @@ export function createTownScene(
           this.moveJoystick(pointer);
           return;
         }
+        // 걸어 다니는 이웃을 누르면 그 집 우체통(새 글·집에 들어가기)을 연다
+        const npc = this.npcAt(pointer.worldX, pointer.worldY);
+        if (npc) return onEnter({ kind: "mailbox", slot: npc.house.lot });
         const hit = this.entranceAt(pointer.worldX, pointer.worldY);
         if (hit) {
           // 가까우면 바로 들어가고, 멀면 그 입구 앞까지 걸어간다
@@ -389,6 +238,8 @@ export function createTownScene(
       });
       this.input.on("pointermove", (pointer: PhaserNS.Input.Pointer) => {
         if (this.joystick?.pointerId === pointer.id) this.moveJoystick(pointer);
+        this.hoverNpc = this.npcAt(pointer.worldX, pointer.worldY);
+        this.game.canvas.style.cursor = this.hoverNpc ? "pointer" : "";
       });
       const release = (pointer: PhaserNS.Input.Pointer) => {
         if (this.joystick?.pointerId === pointer.id) this.resetJoystick();
@@ -409,6 +260,20 @@ export function createTownScene(
       };
       this.game.events.on("teleport", teleport);
       this.events.once("shutdown", () => this.game.events.off("teleport", teleport));
+    }
+
+    /** 걷기: 방향마다 1~4칸을 돌린다. 멈추면 그 방향의 0칸(서 있기) */
+    private walkAnims(sheet: string) {
+      for (const dir of WALK_DIRS) {
+        const key = `${sheet}:${dir}`;
+        if (this.anims.exists(key)) continue;
+        this.anims.create({
+          key,
+          frames: this.anims.generateFrameNumbers(sheet, { frames: [1, 2, 3, 4].map((f) => walkFrameIndex(dir, f)) }),
+          frameRate: WALK_FPS,
+          repeat: -1,
+        });
+      }
     }
 
     // ===== 가상 조이스틱 =====
@@ -452,34 +317,44 @@ export function createTownScene(
       j.thumb.setPosition(j.base.x, j.base.y);
     }
 
-    update() {
+    update(_time: number, delta: number) {
       const left = this.cursors.left.isDown || this.wasd.A.isDown;
       const right = this.cursors.right.isDown || this.wasd.D.isDown;
       const up = this.cursors.up.isDown || this.wasd.W.isDown;
       const down = this.cursors.down.isDown || this.wasd.S.isDown;
+      // 계단에서는 조금 느리게
+      const t = terrain();
+      const onStairs = t.stairs[Math.floor(this.feet.y / PIXEL) * t.w + Math.floor(this.feet.x / PIXEL)] === 1;
+      const speed = SPEED * (onStairs ? STAIRS_SPEED : 1);
 
+      let v = new Phaser.Math.Vector2(0, 0);
       if (left || right || up || down) {
         this.moveTarget = null;
-        const v = new Phaser.Math.Vector2((right ? 1 : 0) - (left ? 1 : 0), (down ? 1 : 0) - (up ? 1 : 0))
-          .normalize()
-          .scale(SPEED);
-        this.playerBody.setVelocity(v.x, v.y);
+        v = new Phaser.Math.Vector2((right ? 1 : 0) - (left ? 1 : 0), (down ? 1 : 0) - (up ? 1 : 0)).normalize().scale(speed);
       } else if (this.joystick && this.joystick.vector.lengthSq() > 0) {
         // 조이스틱: 많이 밀수록 빠르게 (최대 SPEED)
         this.moveTarget = null;
-        const v = this.joystick.vector.clone().scale(SPEED);
-        this.playerBody.setVelocity(v.x, v.y);
+        v = this.joystick.vector.clone().scale(speed);
       } else if (this.moveTarget) {
         const d = Phaser.Math.Distance.Between(this.feet.x, this.feet.y, this.moveTarget.x, this.moveTarget.y);
-        if (d < 8 || this.playerBody.blocked.none === false) {
-          this.moveTarget = null;
-          this.playerBody.setVelocity(0, 0);
-        } else {
-          this.physics.moveTo(this.feet, this.moveTarget.x, this.moveTarget.y, SPEED);
-        }
-      } else {
-        this.playerBody.setVelocity(0, 0);
+        if (d < 8 || this.playerBody.blocked.none === false) this.moveTarget = null;
+        else v = new Phaser.Math.Vector2(this.moveTarget.x - this.feet.x, this.moveTarget.y - this.feet.y).setLength(speed);
       }
+      // 땅: 다음 자리에 발 상자가 절벽·물·낭떠러지에 걸리면 그 방향은 멈춘다 (한쪽만 막히면 미끄러져 간다)
+      if (v.x || v.y) {
+        const look = Math.max(0.05, Math.min(delta, 60) / 1000) * 1.2;
+        const { x, y } = this.feet;
+        // 이미 막힌 곳에 서 있으면(순간 이동 등) 막지 않는다 (빠져나올 수 있게)
+        if (boxWalkable(x, y, FEET.w, FEET.h)) {
+          const okX = !v.x || boxWalkable(x + v.x * look, y, FEET.w, FEET.h);
+          const okY = !v.y || boxWalkable(x, y + v.y * look, FEET.w, FEET.h);
+          if (okX && okY && v.x && v.y && !boxWalkable(x + v.x * look, y + v.y * look, FEET.w, FEET.h)) v.y = 0;
+          if (!okX) v.x = 0;
+          if (!okY) v.y = 0;
+          if (!v.x && !v.y) this.moveTarget = null;
+        }
+      }
+      this.playerBody.setVelocity(v.x, v.y);
 
       // 그림은 발 상자를 따라간다. 걷는 방향의 걷기 그림을 돌리고(통통 튀는 것도 그림에 있다), 멈추면 그 방향으로 서 있는다.
       // 벽에 막혀 제자리걸음일 때는 걷지 않는다 (속도는 남아도 실제로 움직이지 않는다)
@@ -499,8 +374,10 @@ export function createTownScene(
       this.nameTag.setPosition(this.feet.x, this.feet.y - PLAYER_SIZE - 4);
       // 아래쪽에 있을수록 앞에 그린다 (y-sorting)
       this.player.setDepth(this.feet.y + 8);
-      this.nameTag.setDepth(this.feet.y + 9);
+      this.hazeTint(this.player, this.feet.y);
+      this.nameTag.setDepth(LABEL_DEPTH + this.feet.y);
 
+      this.updateNpcs(delta);
       this.updatePrompt();
     }
 
@@ -537,9 +414,14 @@ export function createTownScene(
 
     private placeStructure(s: Structure, walls: PhaserNS.Physics.Arcade.StaticGroup) {
       // 깊이 = 아랫변의 y. 캐릭터가 뒤(위쪽)에 있으면 가려지고, 앞(아래쪽)에 있으면 앞에 보인다
-      if (s.anim) this.add.sprite(s.x, s.y, s.texture, 0).setOrigin(0.5, 1).setDepth(s.y).play(s.anim);
-      else this.add.image(s.x, s.y, s.texture).setOrigin(0.5, 1).setDisplaySize(s.w, s.h).setDepth(s.y);
-      if (s.solid) walls.add(this.add.zone(s.x, s.y - s.solid.h / 2, s.solid.w, s.solid.h));
+      const img = s.anim
+        ? this.add.sprite(s.x, s.y, s.texture, 0).setOrigin(0.5, 1).setDepth(s.y).play(s.anim)
+        : this.add.image(s.x, s.y, s.texture).setOrigin(0.5, 1).setDepth(s.y);
+      this.hazeTint(img, s.y);
+      // 바닥에 닿는 그림자 (빛은 왼쪽 위: 그림자는 살짝 오른쪽 아래)
+      if (s.shadow) this.add.image(s.x + 6, s.y + 2, this.shadowTexture(s.shadow)).setOrigin(0.5, 0.6).setScale(PIXEL).setDepth(-5);
+      const box = solidBox(s);
+      if (box) walls.add(this.add.zone(box.x, box.y, box.w, box.h));
       if (s.label) {
         this.add
           .text(s.x, s.y + 6, s.label.length > 12 ? `${s.label.slice(0, 12)}…` : s.label, font({
@@ -550,14 +432,49 @@ export function createTownScene(
             padding: { x: 7, y: 3 },
           }))
           .setOrigin(0.5, 0)
-          .setDepth(s.y + 1);
+          .setDepth(LABEL_DEPTH + s.y);
       }
       if (s.sub) {
         this.add
           .text(s.x, s.y + 30, s.sub, font({ fontSize: "12px", color: "#3e2b20", stroke: "#fff8ec", strokeThickness: 3 }))
           .setOrigin(0.5, 0)
-          .setDepth(s.y + 1);
+          .setDepth(LABEL_DEPTH + s.y);
       }
+    }
+
+    /** 멀리(북쪽) 있는 그림일수록 공기 색을 살짝 덮는다 (바닥과 같은 세기, 대기 원근). 밝게만 하는 SCREEN 색조 */
+    private hazeTint(obj: PhaserNS.GameObjects.Image | PhaserNS.GameObjects.Sprite, y: number) {
+      const a = hazeAt(y);
+      if (a <= 0.005) {
+        if (obj.tintMode !== Phaser.TintModes.MULTIPLY) obj.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
+        return;
+      }
+      const c = Phaser.Display.Color.HexStringToColor(HAZE_COLOR);
+      obj.setTint(Phaser.Display.Color.GetColor(c.red * a, c.green * a, c.blue * a)).setTintMode(Phaser.TintModes.SCREEN);
+    }
+
+    /** 납작한 도트 그림자 (너비 px). 안쪽은 진하게, 둘레는 옅게 두 겹 */
+    private shadowTexture(widthPx: number) {
+      const w = Math.max(8, Math.round(widthPx / PIXEL / 2) * 2);
+      const key = `shadow:${w}`;
+      if (this.textures.exists(key)) return key;
+      const h = Math.max(4, Math.round(w * 0.22));
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d")!;
+      for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+          const dx = (x + 0.5 - w / 2) / (w / 2);
+          const dy = (y + 0.5 - h / 2) / (h / 2);
+          const d = dx * dx + dy * dy;
+          if (d > 1) continue;
+          ctx.fillStyle = d < 0.55 ? "rgba(34,52,30,0.26)" : "rgba(34,52,30,0.14)";
+          ctx.fillRect(x, y, 1, 1);
+        }
+      // 도트 한 칸 = PIXEL px (pixelArt: 가까운 픽셀로 키운다)
+      this.textures.addCanvas(key, canvas);
+      return key;
     }
 
     /**
@@ -576,46 +493,119 @@ export function createTownScene(
       this.add.image(0, 0, "ground").setOrigin(0, 0).setScale(PIXEL).setDepth(-10);
     }
 
-    /** 나무: 길, 광장, 건물·집 자리를 피해서 심는다. 바깥쪽은 숲처럼 빽빽하게 */
-    private plantTrees(walls: PhaserNS.Physics.Arcade.StaticGroup) {
-      const rng = new Phaser.Math.RandomDataGenerator(["blogville-trees"]);
-      const blocked = [
-        { ...BOARD_POS, r: 190 }, { ...SHOP_POS, r: 170 }, { ...SALON_POS, r: 160 }, { ...CLOTHES_POS, r: 160 }, { ...FARM_POS, r: 190 }, { ...FISHING_POS, r: 180 }, { ...POND_POS, r: 150 },
-        ...Array.from({ length: HOUSE_SLOTS }, (_, i) => ({ ...houseSlot(i), r: 190 })),
-        // 광장 꾸미기 자리 (장식이 나무에 가리지 않게)
-        ...DECO_SLOTS.map((p) => ({ ...p, r: 110 })),
-      ];
-      const onRoad = (x: number, y: number) => {
-        const d = Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y);
-        if (Math.abs(d - RING_RADIUS) < 80) return true;
-        const ang = Math.atan2(y - CENTER.y, x - CENTER.x);
-        for (let i = 0; i < HOUSE_SLOTS; i++) {
-          const a = houseSlot(i).angle;
-          let diff = Math.abs(ang - a) % (2 * Math.PI);
-          if (diff > Math.PI) diff = 2 * Math.PI - diff;
-          if (d < RING_RADIUS + 200 && diff * d < 70) return true;
+    /**
+     * 원근감 (멀리 있는 것은 옅고 푸르게, 사용자 요청 "멀리 있으면 한 점에 모이는 느낌"): 화면 위쪽에 하늘빛 공기를 얇게 덮는다.
+     * 화면에 붙어 있어(scrollFactor 0) 어디서든 화면 위쪽이 먼 곳처럼 보인다. 아래 가장자리는 아주 살짝 어둡게
+     */
+    private createHaze() {
+      if (!this.textures.exists("haze")) {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 32;
+        const ctx = canvas.getContext("2d")!;
+        for (let y = 0; y < 32; y++) {
+          const t = y / 31;
+          // 위 45%: 하늘빛, 맨 아래 10%: 그늘
+          const top = Math.max(0, 1 - t / 0.45) ** 1.6 * 0.3;
+          const bottom = Math.max(0, (t - 0.88) / 0.12) ** 2 * 0.12;
+          ctx.fillStyle = top > 0 ? `rgba(214,236,248,${top.toFixed(3)})` : `rgba(30,40,40,${bottom.toFixed(3)})`;
+          ctx.fillRect(0, y, 1, 1);
         }
-        return false;
-      };
-      let planted = 0;
-      for (let i = 0; i < 2000 && planted < 150; i++) {
-        const x = rng.between(40, WORLD.width - 40);
-        const y = rng.between(110, WORLD.height - 20);
-        const d = Phaser.Math.Distance.Between(x, y, CENTER.x, CENTER.y);
-        if (d < PLAZA_RADIUS + 120) continue;
-        // 타운 안은 드문드문, 바깥은 빽빽하게
-        if (d < RING_RADIUS && rng.frac() > 0.25) continue;
-        if (onRoad(x, y)) continue;
-        if (blocked.some((b) => Phaser.Math.Distance.Between(x, y - 60, b.x, b.y - 60) < b.r)) continue;
-        const kind = rng.pick(["round", "round", "round", "pine", "pine", "bush", "blossom"] as const);
-        // 도트가 고르게 보이도록 나무는 늘이거나 줄이지 않는다 (종류로만 달라 보이게)
-        const { width, height } = treeSize(kind);
-        this.placeStructure(
-          { texture: `tree:${kind}`, x: Math.round(x), y: Math.round(y), w: width, h: height, solid: { w: kind === "bush" ? 30 : 24, h: 12 } },
-          walls,
-        );
-        planted++;
+        this.textures.addCanvas("haze", canvas);
       }
+      this.haze = this.add.image(0, 0, "haze").setOrigin(0, 0).setScrollFactor(0).setDepth(HAZE_DEPTH);
+      const fit = () => this.haze.setDisplaySize(this.scale.width, this.scale.height);
+      fit();
+      this.scale.on("resize", fit);
+    }
+
+    // ===== 걸어 다니는 이웃 (NPC) =====
+    private createNpcs(things: Structure[]) {
+      const solids = things.map(solidBox).filter((b) => b !== null);
+      // 내 집 앞은 비워 둔다 (사용자 요청 2026-10-11)
+      const home = houseSlot(0);
+      const g = npcGraph([{ x: home.x, y: home.y + 46, r: NPC_AVOID_HOME }]);
+      // 건물·나무에 막히는 줄은 뺀다
+      g.links = g.links.map((ls, i) => ls.filter((j) => segmentClear(g.nodes[i], g.nodes[j], solids)));
+      this.graph = g;
+      const usable = g.nodes.map((_, i) => i).filter((i) => g.links[i].length > 0);
+      for (let i = 1; i < HOUSE_SLOTS; i++) {
+        const house = houseAt(data, i) as TownNeighbor | null;
+        if (!house || !usable.length) continue;
+        const sheet = walkKey(house.characterAsset, house.outfit);
+        if (!this.textures.exists(sheet)) continue;
+        this.walkAnims(sheet);
+        // 마을 여기저기에서 시작한다 (집 앞에 모여 서 있지 않게): 자리 번호로 고른 마디
+        const start = usable[Math.floor((((i * 7919) % 104729) / 104729) * usable.length)];
+        const p = g.nodes[start];
+        const sprite = this.add.sprite(p.x, p.y + 8, sheet, walkFrameIndex("down", 0)).setOrigin(0.5, 0.94).setDepth(p.y + 8);
+        const tag = this.add
+          .text(p.x, p.y - PLAYER_SIZE - 2, house.nickname, font({ fontSize: "12px", fontStyle: "bold", color: "#2b2118", backgroundColor: "#fff8ecd9", padding: { x: 6, y: 2 } }))
+          .setOrigin(0.5)
+          .setVisible(false);
+        this.npcs.push({ house, sprite, tag, sheet, at: start, prev: -1, to: null, wait: 400 + Math.random() * 2500, dir: "down" });
+      }
+      this.game.canvas.dataset.npcs = String(this.npcs.length);
+    }
+
+    private updateNpcs(delta: number) {
+      const g = this.graph;
+      let walking = 0;
+      for (const n of this.npcs) {
+        const pos = { x: n.sprite.x, y: n.sprite.y - 8 };
+        if (n.to === null) {
+          n.wait -= delta;
+          if (n.wait <= 0) {
+            const options = g.links[n.at];
+            if (options.length) {
+              // 막 지나온 길로 바로 돌아가지는 않는다 (막다른 길이면 돌아간다)
+              const ahead = options.filter((j) => j !== n.prev);
+              const pick = ahead.length ? ahead : options;
+              n.to = pick[Math.floor(Math.random() * pick.length)];
+            } else n.wait = 1500;
+          }
+        }
+        if (n.to !== null) {
+          const target = g.nodes[n.to];
+          const dx = target.x - pos.x;
+          const dy = target.y - pos.y;
+          const dist = Math.hypot(dx, dy);
+          const step = (NPC_SPEED * Math.min(delta, 60)) / 1000;
+          if (dist <= step) {
+            n.sprite.setPosition(target.x, target.y + 8);
+            n.prev = n.at;
+            n.at = n.to;
+            n.to = null;
+            // 갈림길에서는 잠깐 둘러보고, 막다른 곳(집 앞 등)은 짧게, 길 중간 마디는 그냥 지나간다
+            const ways = g.links[n.at].length;
+            n.wait = ways > 2 ? 1000 + Math.random() * 3000 : ways === 1 ? 300 + Math.random() * 700 : Math.random() < 0.06 ? 1500 + Math.random() * 2500 : 0;
+          } else {
+            n.sprite.setPosition(pos.x + (dx / dist) * step, pos.y + (dy / dist) * step + 8);
+            const dir = walkDirOf(dx, dy);
+            if (dir) n.dir = dir;
+            n.sprite.play(`${n.sheet}:${n.dir}`, true);
+            walking++;
+          }
+        }
+        if (n.to === null && n.sprite.anims.isPlaying) {
+          n.sprite.stop();
+          n.sprite.setFrame(walkFrameIndex(n.dir === "up" ? "down" : n.dir, 0));
+        }
+        n.sprite.setDepth(n.sprite.y);
+        this.hazeTint(n.sprite, n.sprite.y);
+        // 이름표: 가까이 가거나 마우스를 올리면
+        const near = Math.hypot(n.sprite.x - this.feet.x, n.sprite.y - 8 - this.feet.y) < NPC_NEAR;
+        n.tag.setVisible(near || this.hoverNpc === n).setPosition(n.sprite.x, n.sprite.y - PLAYER_SIZE - 6).setDepth(LABEL_DEPTH + n.sprite.y);
+      }
+      const state = String(walking);
+      if (this.game.canvas.dataset.npcWalking !== state) this.game.canvas.dataset.npcWalking = state;
+    }
+
+    /** 그 자리(월드 좌표)에 있는 이웃 */
+    private npcAt(x: number, y: number) {
+      return (
+        this.npcs.find((n) => Math.abs(x - n.sprite.x) < PLAYER_SIZE * 0.32 && y < n.sprite.y + 4 && y > n.sprite.y - PLAYER_SIZE * 0.9) ?? null
+      );
     }
   };
 }

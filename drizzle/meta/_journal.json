@@ -225,6 +225,13 @@
       "when": 1791690631710,
       "tag": "0031_style_hair_slots",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791694451339,
+      "tag": "0032_follows_town_lot",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -187,6 +187,7 @@ erDiagram
         varchar follower_id PK,FK
         varchar followee_id PK,FK
         boolean is_favorite "즐겨찾는 이웃 (최대 10)"
+        smallint town_lot "내 마을의 집 자리 1~10 (NULL = 차례로)"
         timestamptz created_at
     }
     items {
@@ -629,7 +630,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 |---|---|---|
 | `user_items` (`user_id`, `item_id`) | `quantity`, `acquired_at` | 그 회원이 가진 그 아이템의 개수·얻은 시각 ✅ |
 | `post_likes` (`post_id`, `user_id`) | `created_at` | ✅ |
-| `follows` (`follower_id`, `followee_id`) | `is_favorite`, `created_at` | 그 이웃 관계의 속성 ✅ |
+| `follows` (`follower_id`, `followee_id`) | `is_favorite`, `town_lot`, `created_at` | 그 이웃 관계의 속성 ✅ |
 | `attendances` (`user_id`, `date`) | `cycle_day`, `session_id`, `checked_at` | 그 회원의 그날 출석 ✅ |
 | `blog_visits` | `created_at` | ✅ |
 | `animal_cares` | `created_at` | ✅ |
@@ -707,6 +708,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 자리 번호 0~7: `town_decorations_slot_check`. 쓸 수 있는 자리 수는 가구 칸과 같이 집 단계로 앱이 정한다: Lv.1~9 4자리, Lv.10~19 6자리, Lv.20~ 8자리 (`src/lib/house.ts` `decorationSlots`). 자리 좌표는 `src/components/town/layout.ts` `DECO_SLOTS`.
 - 장식 아이템은 `items.type = 'deco'` 8종(벤치·꽃밭·이정표·눈사람·텐트·그네·곰 동상·풍차)이고 상점에서 산다. PostgreSQL은 새 enum 값을 더한 트랜잭션 안에서 그 값을 쓸 수 없어서, 마이그레이션은 `deco` 값과 표만 만들고 아이템 행은 `db:seed`가 넣는다.
 
+### 3.26 이웃 집 자리 고르기 (사용자 요청 2026-10-11, TOWN-18, `0032_follows_town_lot`)
+
+- 내 마을의 이웃 집 자리(1~10번, 0번은 내 집)에 어느 즐겨찾기 이웃을 둘지 고른다: **`follows.town_lot`** (SMALLINT, NULL 허용). 새 표를 만들지 않은 이유: 자리는 "내가 그 이웃을 즐겨찾기한 관계"의 속성이라 그 관계 행에 두면 즐겨찾기를 끄거나 이웃을 끊거나 탈퇴할 때 함께 정리된다 (따로 표를 두면 지우는 길을 하나 더 지켜야 한다).
+- CHECK `follows_town_lot_check`: `town_lot IS NULL OR (town_lot BETWEEN 1 AND 10 AND is_favorite)` — 즐겨찾기한 이웃만 자리를 가진다. 즐겨찾기를 끄면 `toggleFavorite`가 자리도 비운다.
+- 한 자리에 한 이웃: 부분 고유 인덱스 `follows_town_lot_uq (follower_id, town_lot) WHERE town_lot IS NOT NULL`.
+- NULL인 즐겨찾기 이웃은 남은 자리를 작은 번호부터 즐겨찾기한 순서(`created_at`, `followee_id`)대로 받는다. 이 나누기는 `src/lib/town-lots.ts` `assignLots` 하나가 서버 화면(`getFavoriteHouses`)과 Server Action(`setTownLot`)에 같이 쓰인다. 고른 자리에 다른 이웃이 있으면 두 이웃의 자리를 맞바꾼다 (같은 트랜잭션, `lockUser`로 줄 세움, 고유 인덱스에 잠깐도 겹치지 않게 먼저 비운다).
+- 친구 마을(`/town/[slug]`)은 그 마을 주인이 고른 자리를 그대로 쓴다.
+
 ## 4. 데이터 마이그레이션
 
 구조가 아니라 **데이터**를 바꿔야 할 때도 마이그레이션 파일로 남긴다. 그래야 팀원 각자의 DB와 배포 DB에 똑같이 적용된다.
@@ -744,7 +753,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | 3 | ✅ `attachments.post_id`(+ `detached_at`, post), ✅ `profiles.photo_key` 추가 | 기존 글 본문의 `/files/키`로 `post_id`를 채운다 (`0018_attachment_backfill`) |
 | 4 | ✅ `attendances.cycle_day`·`session_id`·`checked_at`, `attendance_rewards` 추가, `streak` 삭제, `point_ledger_attendance_uq` | `cycle_day = ((streak − 1) % 7) + 1` (`0024_attendance_cycle`) |
 | 5 | ✅ `users.username` NOT NULL·CHECK, `accounts` UNIQUE (`user_id`, `provider_id`), 소셜 토큰 비우기, `sessions.remember_me`, `login_attempts` | 아이디 없는 회원·프로필 없는 회원 정리 (auth 마이그레이션) |
-| 6 | ✅ `follows.is_favorite` | 없음 |
+| 6 | ✅ `follows.is_favorite`, ✅ `follows.town_lot` (`0032_follows_town_lot`) | 없음 (NULL = 즐겨찾기 순서대로 빈자리) |
 | 6-3 | ✅ `subcategories` 만들기 (blog), ✅ `posts.subcategory_id` + 복합 FK + CHECK + 트리거 (post) | 없음 (기존 글은 대분류만) |
 | 6-2 | `items.type`에 `growth`, `items.growth_value`, `user_items.quantity`(기본 1), ✅ `user_animals` UNIQUE (`user_id`, `id`), ✅ `blogs.showcase_animal_id` | 기존 보유 아이템은 수량 1 |
 | 7 | ✅ 가입에 온보딩 합치기(기본값으로 프로필·블로그 생성), ✅ 닉네임 2~20자, ✅ 소셜 연동 화면, ✅ 탈퇴(댓글 자리 포함), ✅ 닉네임·블로그 주소 수정(blog), ✅ 자동 출석(game) | 코드 |

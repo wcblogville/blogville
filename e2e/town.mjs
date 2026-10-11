@@ -1,5 +1,6 @@
-// 마을 개편 1차 (사용자 요청 2026-10-08): 집 11채 원형 배치, ☰ 메뉴 텔레포트(정류장은 없앰), 우체통, ☰ 메뉴(프로필·알림·텔레포트·친구), ⭐ 즐겨찾기
+// 마을 개편 1차 (사용자 요청 2026-10-08): 집 11자리, ☰ 메뉴 텔레포트(정류장은 없앰), 우체통, ☰ 메뉴(프로필·알림·텔레포트·친구), ⭐ 즐겨찾기
 // 사용: 개발 서버를 띄운 상태에서 node e2e/town.mjs <스크린샷 폴더>
+// 2.5D 마을 (2026-10-11): 이웃 집 자리 고르기(TOWN-18, 서버가 남의 이웃·자리 번호 밖을 거절), 걸어 다니는 이웃(NPC)
 // 실행마다 새 회원 A와 이웃 B~L(11명)을 만들고, 이웃 관계·글은 pg로 넣어 준비한다
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
@@ -68,6 +69,18 @@ const disabled = await houseButtons.evaluateAll((els) => els.filter((e) => e.dis
 check("이웃이 없으면 빈 집터 10자리 (누를 수 없음), 내 집은 누를 수 있음", disabled === 10 && (await panel().locator('[data-spot="house:0"]').isEnabled()));
 await page.screenshot({ path: `${outDir}/town-teleport.png` });
 
+// 빈 집터: ☰ 이웃 집 자리에서 그 자리로 텔레포트 → 광장에서 Space → 그 자리 고르기 창 (즐겨찾기가 없으면 안내)
+await openMenu("이웃 집 자리");
+check("이웃 집 자리 창: 1~10번", (await panel().locator("[data-lot]").count()) === 10);
+await panel().getByRole("button", { name: "3번 자리로 텔레포트" }).click();
+await page.waitForTimeout(800);
+await page.keyboard.press("Space");
+const picker = page.locator('[data-lot-picker="3"]');
+check("광장의 빈 집터에서 Space → 3번 자리 고르기", await picker.waitFor({ timeout: 5000 }).then(() => true, () => false));
+check("즐겨찾기가 없으면 안내", await picker.getByText("즐겨찾기한 이웃이 없어요").isVisible());
+check("이웃이 없으면 걸어 다니는 이웃도 없음", (await page.locator("canvas").getAttribute("data-npcs")) === "0");
+await page.keyboard.press("Escape");
+
 // 프로필: 헤더와 같은 코인, 경험치 n/m
 await openMenu("내 프로필");
 const coinText = await panel().locator("[data-profile-coins]").innerText();
@@ -127,11 +140,72 @@ await openMenu("텔레포트");
 const disabled2 = await houseButtons.evaluateAll((els) => els.filter((e) => e.disabled).length);
 check("즐겨찾기 10명이면 빈 집터 없음", disabled2 === 0);
 
+// 걸어 다니는 이웃 (사용자 요청 2026-10-11): 즐겨찾기 10명이 마을을 걷는다. 집 앞에 서 있는 주민은 없다
+check("걸어 다니는 이웃 10명 (data-npcs)", (await page.locator("canvas").getAttribute("data-npcs")) === "10");
+const walking = await page
+  .waitForFunction(() => Number(document.querySelector("canvas")?.dataset.npcWalking) > 0, null, { timeout: 15000 })
+  .then(() => true, () => false);
+check("이웃이 실제로 걷는다 (data-npc-walking > 0)", walking, await page.locator("canvas").getAttribute("data-npc-walking"));
+
+// 이웃 집 자리 고르기 (TOWN-18): 5번 자리를 눌러 B를 고르면 B가 5번, 5번에 있던 이웃은 B의 옛 자리(1번)로
+await page.keyboard.press("Escape");
+await openMenu("이웃 집 자리");
+await panel().locator('[data-lot="5"]').click();
+const sixth = neighbors[4]; // 즐겨찾기 순서 5번째 = 처음엔 5번 자리
+check("5번 자리 고르기 창: 지금 사는 이웃 표시", (await panel().locator(`[data-lot-friend="${sixth}"]`).innerText()).includes("지금 이 자리에 살아요"));
+await page.screenshot({ path: `${outDir}/town-lot-picker.png` });
+await panel().locator(`[data-lot-friend="${B}"]`).click();
+await panel().locator("[data-lot]").first().waitFor({ timeout: 10000 });
+const lotOf = async (u) => (await one("SELECT town_lot FROM follows WHERE follower_id = $1 AND followee_id = $2", [aId, ids[u]])).town_lot;
+check("B를 5번 자리에 (DB)", (await lotOf(B)) === 5, String(await lotOf(B)));
+check("5번에 있던 이웃은 B의 옛 자리 1번으로 (맞바꾸기)", (await lotOf(sixth)) === 1, String(await lotOf(sixth)));
+await page.waitForLoadState("networkidle");
+await page.locator("canvas").waitFor();
+await openMenu("텔레포트");
+check("텔레포트 5번 집 = B의 집", (await panel().locator('[data-spot="house:5"]').innerText()).includes(`${B}의 집`));
+
+// 서버가 거절: 요청을 가로채 남의 이웃(즐겨찾기 안 한 L)·자리 번호 11로 바꿔 보낸다 → 거절, DB 그대로
+for (const [name, rewrite, want] of [
+  ["즐겨찾기 안 한 이웃", (body) => body.replace(ids[B], ids[last]), "즐겨찾기한 이웃만"],
+  ["자리 번호 11", (body) => body.replace(/,\s*2\s*\]$/, ",11]"), "1~10번"],
+]) {
+  let forged = false;
+  const forge = async (route) => {
+    const req = route.request();
+    if (!forged && req.method() === "POST" && req.headers()["next-action"]) {
+      forged = true;
+      return route.continue({ postData: rewrite(req.postData() ?? "") });
+    }
+    return route.continue();
+  };
+  await page.route("**/town", forge);
+  await openMenu("이웃 집 자리");
+  await panel().locator('[data-lot="2"]').click();
+  await panel().locator(`[data-lot-friend="${B}"]`).click();
+  const alert = panel().getByRole("alert");
+  const said = await alert.waitFor({ timeout: 10000 }).then(() => alert.innerText(), () => "");
+  await page.unroute("**/town", forge);
+  check(`서버가 거절: ${name}`, forged && said.includes(want) && (await lotOf(B)) === 5 && (await lotOf(last)) === null, said);
+  await page.keyboard.press("Escape");
+}
+
+// 즐겨찾기를 끄면 자리도 비운다
+await db.query("UPDATE follows SET town_lot = 9 WHERE follower_id = $1 AND followee_id = $2", [aId, ids[neighbors[8]]]).catch(() => {});
+await openMenu("친구 목록");
+await panel().getByRole("button", { name: `${neighbors[8]} 즐겨찾기 끄기` }).click();
+await panel().getByRole("button", { name: `${neighbors[8]} 즐겨찾기`, exact: true }).waitFor({ timeout: 10000 });
+check("⭐를 끄면 집 자리도 비움 (DB)", (await lotOf(neighbors[8])) === null);
+await page.keyboard.press("Escape");
+await db.query("UPDATE follows SET is_favorite = true WHERE follower_id = $1 AND followee_id = $2", [aId, ids[neighbors[8]]]);
+await page.reload();
+await page.locator("canvas").waitFor();
+await openMenu("텔레포트");
+
 // 정류장은 없앴다 (사용자 요청 2026-10-08): 텔레포트 목록에 정류장 없음
 check("텔레포트 목록에 정류장 없음", (await panel().locator('[data-spot="signpost"]').count()) === 0 && !(await panel().innerText()).includes("정류장"));
 
-// 텔레포트 목록에서 B의 집 → 창이 닫히고, 문 앞에서 Space → B의 블로그
-await panel().locator('[data-spot="house:1"]').click();
+// 텔레포트 목록에서 B의 집(고른 5번 자리) → 창이 닫히고, 문 앞에서 Space → B의 블로그
+await panel().locator('[data-spot="house:5"]').click();
 check("텔레포트하면 창이 닫힘", (await panel().count()) === 0);
 await page.waitForTimeout(800);
 await page.locator("canvas").focus().catch(() => {});

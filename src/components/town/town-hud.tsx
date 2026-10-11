@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { toggleFavorite } from "@/app/town/actions";
+import { setTownLot, toggleFavorite } from "@/app/town/actions";
 import { openNotification } from "@/app/notifications/actions";
 import { OwnerAvatar } from "@/components/blog/blog-header";
 import { CharacterBadge } from "@/components/character";
 import { SignOutButton } from "@/components/sign-out-button";
 import { notificationText, notificationTime, unreadBadge, type NotificationRow } from "@/lib/notifications";
 import { townBus } from "./bus";
-import { houseAt, townSpots, type TownSpot } from "./layout";
+import { houseAt, LOT_AREAS, townSpots, type TownSpot } from "./layout";
 import type { TownData, TownFriend } from "./types";
 
 /** 메뉴에 필요한 회원 정보 (방문자는 null) */
@@ -33,6 +33,7 @@ type Panel =
   | { kind: "notifications" }
   | { kind: "teleport" }
   | { kind: "friends" }
+  | { kind: "lots"; slot: number | null }
   | { kind: "mailbox"; slot: number };
 
 /**
@@ -51,7 +52,10 @@ export function TownHud({
 }) {
   const [panel, setPanel] = useState<Panel | null>(null);
 
-  useEffect(() => townBus.on("open", (target) => setPanel({ kind: "mailbox", slot: target.slot })), []);
+  useEffect(
+    () => townBus.on("open", (target) => setPanel(target.kind === "lot" ? { kind: "lots", slot: target.slot } : { kind: "mailbox", slot: target.slot })),
+    [],
+  );
   useEffect(() => {
     townBus.emit("panel", panel !== null);
     if (!panel) return;
@@ -115,12 +119,15 @@ export function TownHud({
               </button>
             </div>
             {panel.kind === "menu" && (
-              <MenuPanel member={member} badge={badge} open={setPanel} />
+              <MenuPanel member={member} badge={badge} open={setPanel} ownTown={!data.host} />
             )}
             {panel.kind === "profile" && member && data.player && <ProfilePanel data={data} member={member} />}
             {panel.kind === "notifications" && member && <NotificationsPanel member={member} />}
             {panel.kind === "teleport" && <TeleportPanel data={data} withPlaces onPick={teleport} />}
             {panel.kind === "friends" && member && <FriendsPanel data={data} member={member} onPick={teleport} />}
+            {panel.kind === "lots" && member && !data.host && (
+              <LotsPanel data={data} member={member} slot={panel.slot} choose={(slot) => setPanel({ kind: "lots", slot })} onPick={teleport} />
+            )}
             {panel.kind === "mailbox" && (
               <MailboxPanel data={data} member={member} slot={panel.slot} onPick={teleport} />
             )}
@@ -137,6 +144,7 @@ const PANEL_TITLE: Record<Panel["kind"], string> = {
   notifications: "🔔 알림",
   teleport: "✨ 텔레포트",
   friends: "👫 친구 목록",
+  lots: "🏡 이웃 집 자리",
   mailbox: "📮 우체통",
 };
 
@@ -152,10 +160,13 @@ function MenuPanel({
   member,
   badge,
   open,
+  ownTown,
 }: {
   member: TownHudMember | null;
   badge: string | null;
   open: (p: Panel) => void;
+  /** 내 마을인가 (남의 마을 구경 중에는 집 자리를 고를 수 없다) */
+  ownTown: boolean;
 }) {
   if (!member) {
     return (
@@ -178,6 +189,7 @@ function MenuPanel({
     { kind: "notifications", emoji: "🔔", label: "알림", sub: badge ? `안 읽은 알림 ${badge}개` : "새 알림 없음" },
     { kind: "teleport", emoji: "✨", label: "텔레포트", sub: "상점·농장·이웃집 앞으로" },
     { kind: "friends", emoji: "👫", label: "친구 목록", sub: `이웃 ${member.friends.length}명` },
+    ...(ownTown ? [{ kind: "lots" as const, emoji: "🏡", label: "이웃 집 자리", sub: "즐겨찾기 이웃이 살 곳 고르기" }] : []),
   ];
   return (
     <ul className="grid grid-cols-2 gap-2">
@@ -186,7 +198,7 @@ function MenuPanel({
         <li key={it.kind} className={i === items.length - 1 && items.length % 2 === 1 ? "col-span-2" : undefined}>
           <button
             type="button"
-            onClick={() => open({ kind: it.kind } as Panel)}
+            onClick={() => open((it.kind === "lots" ? { kind: "lots", slot: null } : { kind: it.kind }) as Panel)}
             className="card flex h-full min-h-24 w-full flex-col items-center justify-center gap-0.5 p-2 text-center hover:bg-cream focus-visible:outline-2 focus-visible:outline-sky"
           >
             <span className="text-3xl" aria-hidden>{it.emoji}</span>
@@ -346,7 +358,7 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
   }
   return (
     <div>
-      <p className="px-2 pb-2 text-xs text-ink-soft">⭐ 즐겨찾기한 이웃의 집이 마을 둘레에 생겨요 ({favorites}/10)</p>
+      <p className="px-2 pb-2 text-xs text-ink-soft">⭐ 즐겨찾기한 이웃의 집이 마을에 생겨요 ({favorites}/10)</p>
       {error && (
         <p role="alert" className="mb-2 rounded-xl bg-[#ffe4e4] px-3 py-2 text-sm text-berry">
           {error}
@@ -407,6 +419,115 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * 이웃 집 자리 (TOWN-18, 사용자 요청 2026-10-11): 1~10번 자리마다 누가 사는지 보고, 자리를 눌러 즐겨찾기 이웃 중 한 명을 고른다.
+ * 그 자리에 다른 이웃이 있으면 둘이 자리를 맞바꾼다 (서버 setTownLot). 광장의 빈 집터를 눌러도 이 창이 그 자리로 열린다
+ */
+function LotsPanel({
+  data,
+  member,
+  slot,
+  choose,
+  onPick,
+}: {
+  data: TownData;
+  member: TownHudMember;
+  slot: number | null;
+  choose: (slot: number | null) => void;
+  onPick: (s: TownSpot) => void;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const favorites = member.friends.filter((f) => f.isFavorite && !f.isNotice);
+  const { houses } = townSpots(data);
+
+  if (slot !== null) {
+    const here = houseAt(data, slot);
+    return (
+      <div data-lot-picker={slot}>
+        <p className="px-2 pb-2 text-sm text-ink-soft">
+          <b>{slot}번 자리</b> · {LOT_AREAS[slot]} — 여기 살 이웃을 고르세요
+        </p>
+        {error && (
+          <p role="alert" className="mb-2 rounded-xl bg-[#ffe4e4] px-3 py-2 text-sm text-berry">
+            {error}
+          </p>
+        )}
+        {favorites.length === 0 ? (
+          <p className="px-2 py-4 text-center text-sm text-ink-soft">⭐ 즐겨찾기한 이웃이 없어요. 친구 목록에서 ⭐를 눌러 보세요.</p>
+        ) : (
+          <ul className="divide-y-2 divide-line">
+            {favorites.map((f) => {
+              const now = data.neighbors.find((h) => h.slug === f.slug)?.lot;
+              const current = here?.slug === f.slug;
+              return (
+                <li key={f.userId}>
+                  <button
+                    type="button"
+                    disabled={pending || current}
+                    data-lot-friend={f.nickname}
+                    onClick={() =>
+                      start(async () => {
+                        const r = await setTownLot(f.userId, slot);
+                        setError(r.ok ? null : r.error);
+                        if (r.ok) choose(null);
+                      })
+                    }
+                    className={itemClass}
+                  >
+                    <CharacterBadge asset={f.characterAsset} size={36} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-bold">{f.nickname}</span>
+                      <span className="block truncate text-xs text-ink-soft">
+                        {current ? "지금 이 자리에 살아요" : now ? `지금 ${now}번 자리${here ? ` → ${here.nickname}님과 자리 바꾸기` : ""}` : "아직 자리가 없어요"}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <button type="button" onClick={() => choose(null)} className="btn mt-2 w-full text-sm">
+          ‹ 자리 목록
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p className="px-2 pb-2 text-xs text-ink-soft">자리를 누르면 그곳에 살 ⭐ 즐겨찾기 이웃을 고를 수 있어요. 안 고른 이웃은 남은 자리에 차례로 살아요.</p>
+      <ol>
+        {houses.slice(1).map((spot, k) => {
+          const i = k + 1;
+          const h = houseAt(data, i);
+          return (
+            <li key={spot.key} className="flex items-center gap-1">
+              <button type="button" className={itemClass} onClick={() => choose(i)} data-lot={i}>
+                <span className="text-2xl" aria-hidden>{h ? "🏠" : "🪧"}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">
+                    {i}번 · {h ? `${h.nickname}의 집` : "빈 집터"}
+                  </span>
+                  <span className="block truncate text-xs text-ink-soft">{LOT_AREAS[i]}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onPick(spot)}
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg hover:bg-cream"
+                aria-label={`${i}번 자리로 텔레포트`}
+              >
+                ✨
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
