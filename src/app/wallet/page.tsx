@@ -18,6 +18,8 @@ const REASON_LABEL: Record<LedgerReason, string> = {
   farm_care: "🥕 동물 돌보기",
   farm_grown: "🏅 동물 다 키움",
   egg_purchase: "🥚 알 구매",
+  animal_adopt: "🐾 동물 분양",
+  skin_purchase: "🎨 동물 스킨",
   fishing: "🎣 낚시",
   admin_grant: "👑 관리자 테스트 지급",
 };

@@ -43,9 +43,9 @@ export function CharacterArt({
 }
 
 /** 다 키운 동물 그림 (도감 카드, 미니룸 전시). 어른 단계로 그린다. size는 32의 배수(64 등)여야 도트가 고르다 */
-export function AnimalArt({ assetKey, size = 64, className = "" }: { assetKey: string; size?: number; className?: string }) {
+export function AnimalArt({ assetKey, skinKey = null, size = 64, className = "" }: { assetKey: string; skinKey?: string | null; size?: number; className?: string }) {
   // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
-  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size))} alt="" width={size} height={size} className={`pixelated ${className}`} aria-hidden />;
+  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size, skinKey))} alt="" width={size} height={size} className={`pixelated ${className}`} aria-hidden />;
 }
 
 /** 미니룸: 장착한 배경 장면 위에 캐릭터가 서 있는 작은 방.

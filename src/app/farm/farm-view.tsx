@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { animalSvg, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
+import { ANIMAL_SIZE, type AnimalTier, animalSvg, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
 import { growthDataUri } from "@/lib/art/growth";
 import { animalStage, CARE_ACTIONS, STAGE_LABEL } from "@/lib/farm";
-import type { FarmAnimal } from "@/server/farm";
-import { buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg } from "./actions";
+import type { AdoptableSpecies, FarmAnimal, FarmSkin } from "@/server/farm";
+import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, wearSkin } from "./actions";
+
+const TIER_LABEL: Record<AnimalTier, string> = { small: "작은 동물", medium: "중간 동물", large: "큰 동물" };
 
 type FreeEgg = { kind: "starter"; label: string } | { kind: "level"; level: number; label: string };
 
@@ -15,8 +17,13 @@ function AnimalImage({ animal, size }: { animal: FarmAnimal; size: number }) {
   const svg =
     animal.status === "egg" || !animal.assetKey || !animal.growExp
       ? eggSvg(size)
-      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size);
+      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size, animal.skinKey);
   return <img src={toAnimalDataUri(svg)} alt="" width={size} height={size} className="pixelated" aria-hidden />;
+}
+
+/** 어른 그림 (분양·스킨 미리보기) */
+function AdultImage({ assetKey, skinKey = null, size }: { assetKey: string; skinKey?: string | null; size: number }) {
+  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size, skinKey))} alt="" width={size} height={size} className="pixelated" aria-hidden />;
 }
 /* eslint-enable @next/next/no-img-element */
 
@@ -29,6 +36,8 @@ export function FarmView({
   eggPrice,
   eggEvery,
   growthItems = [],
+  adoptable = [],
+  skins = [],
 }: {
   active: FarmAnimal[];
   grown: FarmAnimal[];
@@ -39,8 +48,15 @@ export function FarmView({
   eggEvery: number;
   /** 상점에서 산 성장 아이템 (SHOP FR-044) */
   growthItems?: { id: number; name: string; assetKey: string; growthValue: number | null; quantity: number }[];
+  /** 코인으로 분양하는 동물 (2026-10-11 "펫 종류") */
+  adoptable?: AdoptableSpecies[];
+  /** 동물 스킨 목록과 산 것 (2026-10-11 "펫 종류별로 스킨") */
+  skins?: FarmSkin[];
 }) {
   const [pending, start] = useTransition();
+  const dressable = [...active, ...grown].filter((a) => a.status !== "egg" && a.assetKey && a.speciesId !== null);
+  const [dressId, setDressId] = useState<number | null>(null);
+  const dressing = dressable.find((a) => a.id === dressId) ?? dressable[0] ?? null;
   const [message, setMessage] = useState<FarmResult | null>(null);
   const run = (fn: () => Promise<FarmResult>) => start(async () => setMessage(await fn()));
   const growing = active.filter((a) => a.status === "growing");
@@ -115,6 +131,33 @@ export function FarmView({
           </>
         )}
       </section>
+
+      {/* 동물 분양: 코인으로 아기를 바로 데려온다. 크기(작은·중간·큰)는 광장·우리 집에서 보이는 크기 */}
+      {adoptable.length > 0 && (
+        <section className="mt-6" data-adopt-list>
+          <h2 className="mb-1 font-display text-2xl">🐾 동물 분양</h2>
+          <p className="mb-3 text-sm text-ink-soft">알 없이 아기를 바로 데려와요. 키우는 자리를 함께 써요.</p>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {adoptable.map((sp) => (
+              <li key={sp.id} className="card flex flex-col items-center p-3 text-center" data-adopt={sp.code}>
+                <AdultImage assetKey={sp.assetKey} size={96} />
+                <span className="font-display text-lg">{sp.name}</span>
+                <span className="text-xs text-ink-soft">
+                  {TIER_LABEL[ANIMAL_SIZE[sp.assetKey]?.tier ?? "medium"]} · 성장 {sp.growExp}
+                </span>
+                <button
+                  type="button"
+                  disabled={pending || slotsLeft <= 0 || coins < sp.price}
+                  onClick={() => run(() => adoptAnimal(sp.id))}
+                  className="btn mt-2 bg-sun px-3 py-1.5 text-sm text-ink"
+                >
+                  🪙 {sp.price} 데려오기
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* 키우는 동물 */}
       <section className="mt-6">
@@ -194,6 +237,51 @@ export function FarmView({
           </ul>
         )}
       </section>
+
+      {/* 스킨 입히기: 동물을 고르고 그 종류의 색·무늬를 입힌다 (안 산 스킨은 코인으로 사서 바로) */}
+      {dressing && (
+        <section className="mt-8" data-skin-shop>
+          <h2 className="mb-1 font-display text-2xl">🎨 스킨 입히기</h2>
+          <p className="mb-3 text-sm text-ink-soft">한 번 산 스킨은 같은 종류의 내 동물 모두에게 입힐 수 있어요. 광장·우리 집에서도 그 색으로 보여요.</p>
+          <div className="card p-3">
+            <ul className="flex gap-2 overflow-x-auto pb-1" aria-label="스킨을 입힐 동물">
+              {dressable.map((a) => (
+                <li key={a.id} className="shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDressId(a.id)}
+                    aria-pressed={a.id === dressing.id}
+                    data-dress={a.id}
+                    className={`flex w-20 flex-col items-center rounded-xl border-2 p-1 text-xs ${a.id === dressing.id ? "border-leaf bg-[#e9f6e4]" : "border-transparent bg-white"}`}
+                  >
+                    <AnimalImage animal={a} size={64} />
+                    <span className="truncate">{a.name}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <ul className="mt-3 flex flex-wrap gap-3" data-skins={dressing.id}>
+              {[{ id: null, name: "기본", price: 0, assetKey: null, owned: true }, ...skins.filter((k) => k.speciesId === dressing.speciesId)].map((k) => {
+                const wearing = dressing.skinId === k.id;
+                return (
+                  <li key={k.id ?? "base"} className={`card flex w-28 flex-col items-center p-2 text-center ${wearing ? "border-leaf" : ""}`} data-skin={k.assetKey ?? "base"}>
+                    <AdultImage assetKey={dressing.assetKey!} skinKey={k.assetKey} size={64} />
+                    <span className="text-sm font-bold">{k.name}</span>
+                    <button
+                      type="button"
+                      disabled={pending || wearing || (!k.owned && coins < k.price)}
+                      onClick={() => run(() => wearSkin(dressing.id, k.id))}
+                      className={`btn mt-1 px-2.5 py-1 text-xs ${k.owned ? "bg-white text-ink" : "bg-sun text-ink"}`}
+                    >
+                      {wearing ? "✓ 입는 중" : k.owned ? "입히기" : `🪙 ${k.price} 사서 입히기`}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* 다 키운 동물 카드 (도감은 2차에서 블로그로) */}
       <section className="mt-8">

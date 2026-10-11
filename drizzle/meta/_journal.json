@@ -239,6 +239,13 @@
       "when": 1791715444271,
       "tag": "0033_admin_grant",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791717005999,
+      "tag": "0034_pet_species_skins",
+      "breakpoints": true
     }
   ]
 }

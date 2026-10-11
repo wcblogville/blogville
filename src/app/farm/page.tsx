@@ -36,6 +36,8 @@ export default async function FarmPage() {
         eggPrice={EGG_PRICE}
         eggEvery={EGG_LEVEL_EVERY}
         growthItems={growthItems}
+        adoptable={farm.adoptable}
+        skins={farm.skins}
       />
     </div>
   );

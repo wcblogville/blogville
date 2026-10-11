@@ -1,4 +1,5 @@
 // TOWN-09 동물 농장 1차: 첫 알 → 부화 → 돌보기(하루 한 번) → 다 자라면 보상, 알 사기, 5마리 제한, 글쓰기 연동
+// 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨": 동물 분양(코인), 스킨 사서 입히기, 우리 집·광장에서 스킨과 움직임
 // 사용: 개발 서버를 띄운 상태에서 node e2e/farm.mjs <스크린샷 폴더> (실행마다 새 회원)
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
@@ -126,6 +127,69 @@ await page.getByRole("button", { name: "발행하기" }).click();
 // 발행 보상은 안내 문구로 확인한다 (post: 보상 여부를 주소에 담지 않음, POST-01 / FR-013)
 await page.getByText("코인을 받았어요").waitFor();
 check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM user_animals WHERE id = $1", [growingId])).growth === 10);
+
+// ── 동물 분양·스킨 (사용자 요청 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨") ──
+{
+  const adoptOnly = await one("SELECT COUNT(*)::int AS n FROM animal_species WHERE hatch_weight = 0 AND price IS NOT NULL");
+  check("분양 동물 5종은 알에서 안 나오고 값이 있다", adoptOnly.n === 5, adoptOnly.n);
+  await db.query("DELETE FROM user_animals WHERE user_id = $1 AND status <> 'grown'", [uid]);
+  // 시험용 코인 (관리자 테스트 지급과 같은 사유)
+  await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta) VALUES ($1, 'admin_grant', 5000)", [uid]);
+  await page.goto(`${BASE}/farm`);
+  const list = page.locator("[data-adopt-list]");
+  check("[🐾 동물 분양]에 5종, 크기 표시", (await list.locator("[data-adopt]").count()) === 5 && (await list.locator('[data-adopt="pony"]').innerText()).includes("큰 동물") && (await list.locator('[data-adopt="hamster"]').innerText()).includes("작은 동물"));
+  const kitten = await one("SELECT id, price, grow_exp FROM animal_species WHERE code = 'kitten'");
+  const k0 = await coins(page);
+  await list.locator('[data-adopt="kitten"]').getByRole("button").click();
+  await page.getByText(/왔어요/).waitFor();
+  const adopted = await one("SELECT id, status, source, growth FROM user_animals WHERE user_id = $1 AND species_id = $2", [uid, kitten.id]);
+  const adoptLedger = await one("SELECT coin_delta FROM point_ledger WHERE user_id = $1 AND reason = 'animal_adopt'", [uid]);
+  check("아기 고양이 분양 → 알 없이 키우는 중, 코인 −값", adopted?.status === "growing" && adopted.source === "adopt" && adoptLedger?.coin_delta === -kitten.price);
+  await page.reload();
+  check("헤더 코인에 분양 값 반영", k0 - (await coins(page)) === kitten.price, `${k0} → ${await coins(page)}`);
+
+  // 스킨: 동물을 고르고 삼색이를 사서 입힌다 → 기본으로 → 다시 입히면 공짜
+  const calico = await one("SELECT id, price, asset_key FROM animal_skins WHERE code = 'kitten_calico'");
+  const shop = page.locator("[data-skin-shop]");
+  await shop.locator(`[data-dress="${adopted.id}"]`).click();
+  check("고른 동물 종류의 스킨만 (기본 + 2)", (await shop.locator(`[data-skins="${adopted.id}"] [data-skin]`).count()) === 3);
+  await shop.locator(`[data-skin="${calico.asset_key}"]`).getByRole("button").click();
+  await page.getByText(/사서 입혔어요/).waitFor();
+  const worn = await one("SELECT skin_id FROM user_animals WHERE id = $1", [adopted.id]);
+  const skinLedger = await one("SELECT COUNT(*)::int AS c, SUM(coin_delta)::int AS s FROM point_ledger WHERE user_id = $1 AND reason = 'skin_purchase'", [uid]);
+  check("스킨 사서 입히기 → skin_id·산 스킨·코인 −값", worn.skin_id === calico.id && skinLedger.c === 1 && skinLedger.s === -calico.price);
+  await shop.locator('[data-skin="base"]').getByRole("button", { name: "입히기" }).click();
+  await page.getByText(/기본 색/).waitFor();
+  check("기본으로 되돌리기", (await one("SELECT skin_id FROM user_animals WHERE id = $1", [adopted.id])).skin_id === null);
+  await shop.locator(`[data-skin="${calico.asset_key}"]`).getByRole("button", { name: "입히기" }).click();
+  await page.getByText(/스킨을 입혔어요/).waitFor();
+  const again = await one("SELECT COUNT(*)::int AS c FROM point_ledger WHERE user_id = $1 AND reason = 'skin_purchase'", [uid]);
+  check("산 스킨은 다시 입혀도 공짜", again.c === 1 && (await one("SELECT skin_id FROM user_animals WHERE id = $1", [adopted.id])).skin_id === calico.id);
+  const other = await one("SELECT id FROM animal_skins WHERE code = 'pony_zebra'");
+  const bad = await db.query("UPDATE user_animals SET skin_id = $2 WHERE id = $1", [adopted.id, other.id]).then(() => "ok", (e) => e.constraint ?? e.message);
+  check("다른 종류의 스킨은 DB가 막는다 (복합 FK)", bad === "user_animals_skin_species_fk", bad);
+  await page.reload();
+  await page.screenshot({ path: `${outDir}/94-farm-adopt-skin.png`, fullPage: true });
+
+  // 다 키워 전시 → 우리 집 방: 스킨·크기·움직임(걷기·숨쉬기 그림, 보는 쪽)
+  await db.query("UPDATE user_animals SET status = 'grown', growth = $2, grown_at = now() WHERE id = $1", [adopted.id, kitten.grow_exp]);
+  await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, adopted.id]);
+  await page.goto(`${BASE}/@${devId}`);
+  const pet = page.locator("[data-house-room] [data-showcase]");
+  await pet.waitFor();
+  check("방 안 전시 동물에 스킨·크기", (await pet.getAttribute("data-skin")) === calico.asset_key && (await pet.getAttribute("data-size")) === "small");
+  const walked = await page
+    .waitForFunction(() => document.querySelector("[data-showcase]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 15000 })
+    .then(() => true, () => false);
+  check("주인을 따라 걸을 때 걷기 그림 (data-walk=walk-…)", walked, await pet.getAttribute("data-walk"));
+  const positions = new Set();
+  for (let i = 0; i < 12; i++) {
+    positions.add(await pet.evaluate((el) => el.style.backgroundPosition));
+    await page.waitForTimeout(70);
+  }
+  check("걷는 동안 그림 칸이 바뀐다 (그림판 칸 2개 이상)", positions.size >= 2, [...positions].join(" | "));
+  await page.screenshot({ path: `${outDir}/95-room-skin-pet.png` });
+}
 
 console.log(results.join("\n"));
 console.log("errors:", errors.length ? errors : "none");

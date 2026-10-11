@@ -35,8 +35,8 @@ export type TownData = {
   pet: TownPet | null;
 };
 
-/** 따라다니는 동물 (그림 키 = animal_species.asset_key, 어른 단계로 그린다) */
-export type TownPet = { assetKey: string; name: string };
+/** 따라다니는 동물 (그림 키 = animal_species.asset_key, 어른 단계로 그린다. skinKey = 입힌 스킨 animal_skins.asset_key) */
+export type TownPet = { assetKey: string; name: string; skinKey?: string | null };
 
 /** 광장에서 들어가거나 눌렀을 때 일어날 일 */
 export type TownTarget =

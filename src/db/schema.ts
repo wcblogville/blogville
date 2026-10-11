@@ -46,10 +46,13 @@ export const ledgerReason = pgEnum("ledger_reason", [
   "egg_purchase",
   "fishing",
   "admin_grant", // 관리자 테스트 지급 (AUTH-10)
+  "animal_adopt", // 동물 분양 (TOWN-09, 2026-10-11 "펫 종류")
+  "skin_purchase", // 동물 스킨 구매 (TOWN-09, 2026-10-11 "펫 종류별로 스킨")
 ]);
 // 동물 농장 (TOWN-09)
 export const animalStatus = pgEnum("animal_status", ["egg", "growing", "grown"]);
-export const eggSource = pgEnum("egg_source", ["starter", "level", "shop"]);
+// adopt = 코인으로 분양받은 동물 (알 없이 아기로 온다, 2026-10-11)
+export const eggSource = pgEnum("egg_source", ["starter", "level", "shop", "adopt"]);
 export const careAction = pgEnum("care_action", ["feed", "water", "pet"]);
 
 // ===== 인증 (Better Auth가 요구하는 구조) =====
@@ -626,13 +629,53 @@ export const animalSpecies = pgTable(
     growExp: integer("grow_exp").notNull(), // 다 자라는 데 필요한 성장치
     rewardExp: integer("reward_exp").notNull(), // 다 키웠을 때 받는 경험치
     rewardCoins: integer("reward_coins").notNull(),
-    hatchWeight: integer("hatch_weight").notNull(), // 알에서 나올 확률 비중 (클수록 흔함)
+    hatchWeight: integer("hatch_weight").notNull(), // 알에서 나올 확률 비중 (클수록 흔함, 0 = 알에서 안 나옴)
+    // 분양 값 (코인). NULL이면 분양하지 않고 알에서만 나온다 (2026-10-11 "펫 종류")
+    price: integer("price"),
   },
   (t) => [
     check("animal_species_grow_check", sql`${t.growExp} > 0`),
     check("animal_species_reward_check", sql`${t.rewardExp} >= 0 AND ${t.rewardCoins} >= 0`),
-    check("animal_species_weight_check", sql`${t.hatchWeight} > 0`),
+    check("animal_species_weight_check", sql`${t.hatchWeight} >= 0`),
+    check("animal_species_price_check", sql`${t.price} IS NULL OR ${t.price} > 0`),
+    // 알에서도 안 나오고 분양도 안 하는 종류는 없다
+    check("animal_species_obtainable_check", sql`${t.hatchWeight} > 0 OR ${t.price} IS NOT NULL`),
   ],
+);
+
+// 동물 스킨 카탈로그 (2026-10-11 "펫 종류별로 스킨"): 종류마다 코인으로 사는 색·무늬. 실제 색은 src/lib/art/animals.ts (asset_key)
+export const animalSkins = pgTable(
+  "animal_skins",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    code: text("code").notNull().unique(),
+    speciesId: integer("species_id")
+      .notNull()
+      .references(() => animalSpecies.id),
+    name: text("name").notNull(),
+    price: integer("price").notNull(),
+    assetKey: text("asset_key").notNull().unique(),
+  },
+  (t) => [
+    check("animal_skins_price_check", sql`${t.price} > 0`),
+    // user_animals가 "그 종류의 스킨"만 입도록 복합 FK가 가리킬 UNIQUE
+    unique("animal_skins_species_id_id_uq").on(t.speciesId, t.id),
+  ],
+);
+
+// 회원 ↔ 스킨 (N:M): 산 스킨. 한 번 사면 그 종류의 내 동물 모두에게 입힐 수 있다
+export const userAnimalSkins = pgTable(
+  "user_animal_skins",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    skinId: integer("skin_id")
+      .notNull()
+      .references(() => animalSkins.id),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.skinId] })],
 );
 
 // 회원이 가진 알·동물. 알일 때는 종류가 정해지지 않았다가 부화할 때 랜덤으로 정해진다
@@ -651,6 +694,8 @@ export const userAnimals = pgTable(
     createdAt: createdAt(),
     hatchedAt: timestamp("hatched_at", { withTimezone: true }),
     grownAt: timestamp("grown_at", { withTimezone: true }),
+    // 입힌 스킨 (NULL = 기본 색). 그 종류의 스킨이고 주인이 산 것만 (복합 FK 두 개)
+    skinId: integer("skin_id"),
   },
   (t) => [
     check("user_animals_species_check", sql`(${t.status} = 'egg') = (${t.speciesId} IS NULL)`),
@@ -663,6 +708,16 @@ export const userAnimals = pgTable(
     // 블로그 전시 동물 복합 FK(blogs_showcase_owned_fk)가 가리킬 UNIQUE (town T-M1, 요청: blog BLOG-04, ERD 3.11).
     // id가 PK라 늘 고유하다. 부분 고유 인덱스는 FK 대상이 될 수 없어 따로 둔다
     unique("user_animals_user_id_id_uq").on(t.userId, t.id),
+    foreignKey({
+      name: "user_animals_skin_species_fk",
+      columns: [t.speciesId, t.skinId],
+      foreignColumns: [animalSkins.speciesId, animalSkins.id],
+    }),
+    foreignKey({
+      name: "user_animals_skin_owned_fk",
+      columns: [t.userId, t.skinId],
+      foreignColumns: [userAnimalSkins.userId, userAnimalSkins.skinId],
+    }),
   ],
 );
 

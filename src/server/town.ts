@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import { animalSpecies, blogs, blogVisits, follows, items, pointLedger, posts, profiles, userAnimals, users } from "@/db/schema";
+import { animalSkins, animalSpecies, blogs, blogVisits, follows, items, pointLedger, posts, profiles, userAnimals, users } from "@/db/schema";
 import { hasAnimalArt } from "@/lib/art/animals";
 import { ROOF_HEX } from "@/lib/art/town";
 import { levelFromExp } from "@/lib/game";
@@ -135,10 +135,11 @@ export async function getMyHouse(userId: string): Promise<TownHouse | null> {
  */
 export async function getTownPet(userId: string): Promise<TownPet | null> {
   const [row] = await db
-    .select({ assetKey: animalSpecies.assetKey, name: animalSpecies.name })
+    .select({ assetKey: animalSpecies.assetKey, name: animalSpecies.name, skinKey: animalSkins.assetKey })
     .from(blogs)
     .innerJoin(userAnimals, and(eq(userAnimals.id, blogs.showcaseAnimalId), eq(userAnimals.userId, blogs.ownerId)))
     .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
+    .leftJoin(animalSkins, eq(animalSkins.id, userAnimals.skinId))
     .where(and(eq(blogs.ownerId, userId), eq(userAnimals.status, "grown")));
   return row && hasAnimalArt(row.assetKey) ? row : null;
 }

@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { animalCares, animalSpecies, userAnimals } from "@/db/schema";
+import { animalCares, animalSkins, animalSpecies, userAnimalSkins, userAnimals } from "@/db/schema";
 import { type CareAction, levelEggLevels, MAX_ACTIVE_ANIMALS, POST_GROWTH } from "@/lib/farm";
 import { todayKST } from "@/lib/game";
 import { addLedgerEntry, type Tx } from "@/server/points";
@@ -10,6 +10,10 @@ export type FarmAnimal = {
   id: number;
   status: "egg" | "growing" | "grown";
   growth: number;
+  speciesId: number | null;
+  /** 입힌 스킨 (animal_skins.id·asset_key, 없으면 기본 색) */
+  skinId: number | null;
+  skinKey: string | null;
   name: string | null;
   assetKey: string | null;
   growExp: number | null;
@@ -29,6 +33,9 @@ export async function getFarm(userId: string, level: number) {
       source: userAnimals.source,
       sourceLevel: userAnimals.sourceLevel,
       grownAt: userAnimals.grownAt,
+      speciesId: userAnimals.speciesId,
+      skinId: userAnimals.skinId,
+      skinKey: animalSkins.assetKey,
       name: animalSpecies.name,
       assetKey: animalSpecies.assetKey,
       growExp: animalSpecies.growExp,
@@ -37,6 +44,7 @@ export async function getFarm(userId: string, level: number) {
     })
     .from(userAnimals)
     .leftJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
+    .leftJoin(animalSkins, eq(animalSkins.id, userAnimals.skinId))
     .where(eq(userAnimals.userId, userId))
     .orderBy(asc(userAnimals.id));
 
@@ -63,7 +71,38 @@ export async function getFarm(userId: string, level: number) {
       .map((l) => ({ kind: "level" as const, level: l, label: `레벨 ${l} 보상 알` })),
   ];
 
-  return { active, grown, freeEggs, slotsLeft: MAX_ACTIVE_ANIMALS - active.length };
+  const [adoptable, skins] = await Promise.all([listAdoptable(), listSkins(userId)]);
+  return { active, grown, freeEggs, slotsLeft: MAX_ACTIVE_ANIMALS - active.length, adoptable, skins };
+}
+
+export type AdoptableSpecies = { id: number; code: string; name: string; assetKey: string; price: number; growExp: number };
+
+/** 코인으로 분양하는 동물 종류 (값이 있는 종류, 싼 것부터) */
+export async function listAdoptable(): Promise<AdoptableSpecies[]> {
+  const rows = await db
+    .select({ id: animalSpecies.id, code: animalSpecies.code, name: animalSpecies.name, assetKey: animalSpecies.assetKey, price: animalSpecies.price, growExp: animalSpecies.growExp })
+    .from(animalSpecies)
+    .where(isNotNull(animalSpecies.price))
+    .orderBy(asc(animalSpecies.price), asc(animalSpecies.id));
+  return rows.map((r) => ({ ...r, price: r.price! }));
+}
+
+export type FarmSkin = { id: number; speciesId: number; name: string; price: number; assetKey: string; owned: boolean };
+
+/** 스킨 목록과 내가 산 것 */
+export async function listSkins(userId: string): Promise<FarmSkin[]> {
+  return db
+    .select({
+      id: animalSkins.id,
+      speciesId: animalSkins.speciesId,
+      name: animalSkins.name,
+      price: animalSkins.price,
+      assetKey: animalSkins.assetKey,
+      owned: sql<boolean>`${userAnimalSkins.skinId} IS NOT NULL`,
+    })
+    .from(animalSkins)
+    .leftJoin(userAnimalSkins, and(eq(userAnimalSkins.skinId, animalSkins.id), eq(userAnimalSkins.userId, userId)))
+    .orderBy(asc(animalSkins.speciesId), asc(animalSkins.price), asc(animalSkins.id));
 }
 
 /** 키우는 중인 알·동물 수 (다 키운 동물은 빼고) */
