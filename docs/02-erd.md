@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -63,6 +63,10 @@ erDiagram
     animal_species |o..o{ user_animals : "종류 (알이면 없음)"
     user_animals ||--o{ animal_cares : "돌보기 기록"
     user_animals |o..o| blogs : "전시 동물 (다 키운 동물 1마리)"
+    animal_species ||..o{ animal_skins : "종류별 스킨"
+    users ||..o{ user_animal_skins : "산 스킨"
+    animal_skins ||..o{ user_animal_skins : "산 회원"
+    user_animal_skins |o..o{ user_animals : "입힌 스킨 (그 종류·산 것만)"
 
     users {
         varchar id PK
@@ -279,7 +283,21 @@ erDiagram
         int grow_exp
         int reward_exp
         int reward_coins
-        smallint hatch_weight
+        smallint hatch_weight "0 = 알에서 안 나옴"
+        int price "분양 값, NULL = 분양 안 함"
+    }
+    animal_skins {
+        int id PK
+        varchar code UK
+        int species_id FK "UK(species_id, id): 입힌 스킨 FK용"
+        varchar name
+        int price
+        varchar asset_key UK
+    }
+    user_animal_skins {
+        varchar user_id PK,FK
+        int skin_id PK,FK
+        timestamptz created_at
     }
     user_animals {
         int id PK
@@ -287,11 +305,12 @@ erDiagram
         int species_id FK "알이면 NULL"
         animal_status status "egg / growing / grown"
         int growth
-        egg_source source "starter / level / shop"
+        egg_source source "starter / level / shop / adopt"
         smallint source_level
         timestamptz created_at
         timestamptz hatched_at
         timestamptz grown_at
+        int skin_id FK "NULL = 기본 색"
     }
     animal_cares {
         int animal_id PK,FK
@@ -315,7 +334,7 @@ erDiagram
 | 보상 | `attendances`, `attendance_rewards`, `point_ledger`, `notifications` | GAME-02~05, GAME-06, GAME-08 |
 | 첨부 | `attachments` | POST-07, POST-09 |
 | 방문자 | `blog_visits` | BLOG-06 |
-| 동물 농장 | `animal_species`, `user_animals`, `animal_cares` | TOWN-09 |
+| 동물 농장 | `animal_species`, `animal_skins`, `user_animals`, `user_animal_skins`, `animal_cares` | TOWN-09 |
 
 인증 테이블 중 `users`·`accounts`·`sessions`·`verifications`는 로그인 라이브러리(Better Auth)가 정한 구조를 따르고(칸 몇 개를 더했다), `login_attempts`와 나머지는 직접 설계했다.
 
@@ -567,9 +586,9 @@ COMMIT
 | `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제), `deco`(광장 장식) |
 | `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품), `hair`(머리 모양), `hair_color`(머리 색) |
 | `visibility` | `public`, `private` |
-| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시), `admin_grant`(관리자 테스트 지급, AUTH-10) |
+| `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시), `admin_grant`(관리자 테스트 지급, AUTH-10), `animal_adopt`(동물 분양), `skin_purchase`(동물 스킨) |
 | `animal_status` | `egg`, `growing`, `grown` |
-| `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알) |
+| `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알), `adopt`(코인으로 분양받은 아기, 알 없음) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
 | `notification_kind` | `level_up`(레벨업), `like`(공감), `comment`(댓글), `reply`(답글) |
 
@@ -722,6 +741,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 경험치는 `addLedgerEntry`로 넣어 오른 레벨마다 `level_up` 알림이 같은 트랜잭션에 생긴다 (`lockUser`로 그 회원의 다른 보상·구매와 줄 세움). 한 번에 코인 0~1,000,000, 경험치 0~100,000(0에서 Lv.99까지 97,020). [Lv.99까지 경험치]는 잠근 뒤 모자란 만큼(`expForLevel(99) − 지금 경험치`)만 준다.
 - 마이그레이션은 `ALTER TYPE ... ADD VALUE`만 하고 새 값을 쓰지 않는다. PostgreSQL은 트랜잭션 안에서 더한 enum 값을 같은 트랜잭션에서 못 쓰게 막는데, `scripts/migrate-deploy.ts`는 마이그레이션마다 따로 트랜잭션이라 배포 DB(전용 스키마)에도 그대로 적용된다 (빈 스키마에 0000~0033을 처음부터 적용해 확인).
 
+### 3.28 펫 종류·스킨 (사용자 요청 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨", TOWN-09, `0034_pet_species_skins`)
+
+- **분양 동물**: 새 표 없이 `animal_species.price`(NULL = 분양 안 함)를 더했다. 햄스터·아기 고양이·강아지·아기 양·조랑말은 `hatch_weight = 0`이라 알에서 나오지 않고 값으로만 데려온다. CHECK `animal_species_obtainable_check`(알에서 나오거나 값이 있다)로 얻을 수 없는 종류를 막는다. 분양하면 `user_animals`에 `source = 'adopt'`, `status = 'growing'`(알 없이 아기)으로 한 줄, 원장 `animal_adopt`(경험치 0이라 직접 INSERT, `ref_id` = 동물 ID). 키우는 자리 5마리를 알과 함께 쓴다.
+- **스킨**: `animal_skins`는 종류마다의 색·무늬 카탈로그(실제 색은 코드 `src/lib/art/animals.ts` `ANIMAL_SKINS`, DB에는 `asset_key`만). 산 것은 `user_animal_skins (user_id, skin_id)`(N:M, 한 번 사면 같은 종류의 내 동물 모두에게), 입힌 것은 `user_animals.skin_id`.
+- 입힌 스킨이 "그 종류의 것"이고 "내가 산 것"인지는 복합 FK 두 개로 DB가 지킨다: `(species_id, skin_id) → animal_skins (species_id, id)`(이를 위해 `animal_skins`에 UNIQUE `(species_id, id)`), `(user_id, skin_id) → user_animal_skins (user_id, skin_id)`. `skin_id`가 NULL이면(기본 색) 두 FK 모두 검사하지 않는다 (MATCH SIMPLE). 탈퇴하면 `user_animals`·`user_animal_skins`가 함께 CASCADE로 지워지고, NO ACTION 검사는 문장 끝에 하므로 막히지 않는다.
+- 스킨을 사고 입히는 것은 한 Server Action(`wearSkin`)에서 `lockUser` 트랜잭션으로: 안 산 스킨이면 잔액 확인 → `user_animal_skins` INSERT → 원장 `skin_purchase`(`ref_id` = 스킨 ID) → `skin_id` UPDATE.
+- 동물 크기(작은·중간·큰)와 따라다니는 움직임은 그림 코드(`ANIMAL_SIZE`, `petSheetSvg`)라 DB에 두지 않는다.
+
 ## 4. 데이터 마이그레이션
 
 구조가 아니라 **데이터**를 바꿔야 할 때도 마이그레이션 파일로 남긴다. 그래야 팀원 각자의 DB와 배포 DB에 똑같이 적용된다.
@@ -806,7 +833,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `comments.content`, `replies.content` | `VARCHAR(1000)` | 1~1000자, 삭제하면 빈 글자 |
 | `items.code`, `items.name` | `VARCHAR(30)` | |
 | `items.description` | `VARCHAR(200)` | |
-| `items.asset_key`, `animal_species.asset_key` | `VARCHAR(50)` | |
+| `items.asset_key`, `animal_species.asset_key`, `animal_skins.asset_key` | `VARCHAR(50)` | |
 | `animal_species.code`, `name` | `VARCHAR(20)` | |
 | `point_ledger.ref_id` | `VARCHAR(64)` | 회원 ID(32자)보다 넉넉하게 |
 | `attachments.kind` | `VARCHAR(5)` | image / file |
@@ -815,4 +842,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`·`skin_id`, `animal_species.price`
