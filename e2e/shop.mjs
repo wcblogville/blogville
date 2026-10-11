@@ -25,7 +25,7 @@ const card = (name) => page.locator("article", { has: page.getByRole("heading", 
 // ── 상점 구역 (FR-003): 아바타 → 가구 → 배경 → 성장, 캐릭터 없음 ──
 await page.goto(`${BASE}/shop`);
 const sections = await page.locator("[data-shop-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-shop-section")));
-check("상점 구역 5개 순서 (광장 장식은 가구 다음)", sections.join(",") === "avatar,furniture,deco,background,growth", sections.join(","));
+check("상점 구역 4개 순서 (광장 장식은 2026-10-11에 뺐다)", sections.join(",") === "avatar,furniture,background,growth", sections.join(","));
 const main = await page.locator("main").innerText();
 check("상점 제목·안내", main.includes("🏪 마을 상점") && main.includes("내 캐릭터와 미니룸을 꾸며 보세요"));
 check("상점에 캐릭터·기본 아이템 없음", !main.includes("고양이") && !main.includes("나무 의자") && !main.includes("남자 주민"));
