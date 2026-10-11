@@ -5,7 +5,7 @@
 // - 풀은 넓은 얼룩(밝은·짙은 잔디)과 키 큰 풀 포기·꽃, 맨 위는 먼 하늘·산·숲, 북쪽(멀리)일수록 옅고 푸르게(대기 원근)
 // Phaser 없이 쓰는 순수 계산이라 브라우저 밖에서도 돌릴 수 있다.
 import { PALETTE, PIXEL, rgbOf, TILE, TILES } from "@/lib/art/pixel";
-import { CENTER, HORIZON, PLAZA_RADIUS, POND } from "./layout";
+import { CENTER, HOME, HOME_BEDS, HORIZON, PLAZA_RADIUS, POND } from "./layout";
 import { GROUND_SIZE, hash, PathCode, terrain } from "./terrain";
 
 export { GROUND_SIZE };
@@ -77,7 +77,7 @@ function bake(): Uint8ClampedArray {
   const { stone: STONE, path: SAND, grass: GRASS_TILE } = TILES;
   const TL = TILE;
   const [STONE_PATH, DIRT_PATH] = [PathCode.Stone, PathCode.Dirt];
-  const { level, water, face, faceH, path, pathT, edge, stairs } = T;
+  const { level, water, face, faceH, path, pathT, edge, stairs, stairIn, stairCode } = T;
   const HZ = HORIZON;
   const horizon = Math.round(HZ / PX);
   const out = new Uint8ClampedArray(W * H * 4);
@@ -94,6 +94,11 @@ function bake(): Uint8ClampedArray {
     const dy = (y + 0.5) * PX - CY;
     return Math.abs(dx) > PLAZA + 40 || Math.abs(dy) > PLAZA + 40 ? PLAZA + 40 : Math.sqrt(dx * dx + dy * dy);
   };
+  // 내 정원 (도트 칸 단위): 반듯한 타원 안인가, 꽃밭 칸
+  const [HX, HY, HRX, HRY] = [HOME.x / PX, HOME.y / PX, HOME.rx / PX, HOME.ry / PX];
+  const inGarden = (x: number, y: number) => ((x + 0.5 - HX) / HRX) ** 2 + ((y + 0.5 - HY) / HRY) ** 2 < 1;
+  const beds = HOME_BEDS.map((b) => ({ x0: Math.round((b.x - b.w / 2) / PX), y0: Math.round((b.y - b.h / 2) / PX), w: Math.round(b.w / PX), h: Math.round(b.h / PX) }));
+  const BED_FLOWERS = [PAL.V, PAL.R, PAL.U, PAL.z, PAL.w];
   // 대기 원근 세기 (줄마다)
   const farOf = new Float32Array(H);
   for (let y = 0; y < H; y++) {
@@ -149,9 +154,9 @@ function bake(): Uint8ClampedArray {
       } else if (stairs[i] && face[i]) {
         // ===== 계단 (절벽 앞면을 지나는 길): 밝은 디딤판 2줄 + 챌판 그늘 2줄, 양옆은 돌 난간 =====
         const r = face[i] - 1;
-        const t = pathT[i];
-        if (t > 94) c = WALL[4];
-        else if (t > 80) c = r % 5 === 0 ? WALL[1] : r % 5 === 4 ? WALL[4] : WALL[3];
+        const inner = stairIn[i];
+        if (inner <= 1) c = WALL[4];
+        else if (inner <= 3) c = r % 5 === 0 ? WALL[1] : r % 5 === 4 ? WALL[4] : inner === 2 ? WALL[3] : WALL[2];
         else {
           const k = r % 4;
           c = k === 0 ? "#f7f1e6" : k === 1 ? PAL.Y : k === 2 ? PAL.y : PAL.X;
@@ -164,7 +169,7 @@ function bake(): Uint8ClampedArray {
         const upper = level[at(x, y - r - 1)] ?? lv;
         const gU = GRASS[upper] ?? GRASS[1];
         // 위가 돌광장이면 늘어진 풀 대신 돌 테두리
-        const stoneTop = plazaD(x, y - r - 1) < PLAZA;
+        const stoneTop = plazaD(x, y - r - 1) < PLAZA || inGarden(x, y - r - 1);
         const droop = stoneTop ? 2 : 1 + (hash(x >> 1, 9) < 0.45 ? 1 : 0) + (hash(x >> 2, 4) < 0.18 ? 2 : 0);
         if (r < droop) c = stoneTop ? (r === 0 ? PAL.Y : PAL.X) : r === droop - 1 ? gU[3] : gU[2];
         else if (r === droop) c = WALL[0];
@@ -186,10 +191,11 @@ function bake(): Uint8ClampedArray {
           if (r > fh * 0.7 && c === WALL[1]) c = WALL[2];
           else if (r > fh * 0.7 && c === WALL[0]) c = WALL[1];
         }
-      } else if (path[i]) {
-        // ===== 길 =====
-        const t = pathT[i];
-        if (path[i] === STONE_PATH) {
+      } else if (path[i] || stairs[i]) {
+        // ===== 길 (계단 너비만큼 길 밖으로 나온 계단 칸도 그 길처럼) =====
+        const kind = path[i] || stairCode[i];
+        const t = path[i] ? pathT[i] : 60;
+        if (kind === STONE_PATH) {
           // 자갈: 5×4 돌, 줄마다 엇갈림. 가장자리는 연석
           const row = Math.floor(y / 4);
           const sx = (x + (row % 2) * 3) % 5;
@@ -204,14 +210,40 @@ function bake(): Uint8ClampedArray {
         }
         if (stairs[i] && edge[i]) {
           // 뒤·옆 낭떠러지를 지나는 계단: 단 줄
-          if (pathT[i] > 84) c = WALL[3];
+          if (stairIn[i] <= 1) c = WALL[3];
           else if (y % 4 === 0) c = WALL[2];
         }
       } else {
         // ===== 풀 =====
         c = grass(x, y, lv);
         const d = plazaD(x, y) - PLAZA;
-        if (d < 0) c = PAL[STONE[ly][lx]];
+        const bed = lv === HOME.level && inGarden(x, y) ? beds.find((b) => x >= b.x0 && x < b.x0 + b.w && y >= b.y0 && y < b.y0 + b.h) : undefined;
+        if (bed) {
+          // 내 정원 꽃밭: 나무 테두리 → 흙 → 꽃 (잎 위에 꽃송이)
+          const bx = x - bed.x0;
+          const by = y - bed.y0;
+          if (bx === 0 || by === 0 || bx === bed.w - 1 || by === bed.h - 1) c = by === bed.h - 1 ? PAL.n : PAL.b;
+          else {
+            const k = hash(x >> 1, y >> 1);
+            c = (x + y) % 3 === 0 ? PAL.n : PAL.b;
+            if (k < 0.55) c = (x + y) % 2 ? PAL.l : PAL.m;
+            if ((x % 3 === 1 && y % 3 === 1) || k < 0.12) c = BED_FLOWERS[Math.floor(hash(x >> 1, (y >> 1) + 7) * BED_FLOWERS.length)];
+          }
+        } else if (lv === HOME.level && inGarden(x, y)) {
+          // 내 정원 잔디: 깎은 줄무늬 (넓은 띠가 엇갈린다)
+          const g = GRASS[1];
+          c = Math.floor((x + Math.floor(y / 2)) / 7) % 2 ? g[0] : g[1];
+          if (hash(x, y) < 0.04) c = g[2];
+        }
+        if (edge[i] && lv === HOME.level && inGarden(x, y)) {
+          // 내 정원 뒤·옆 가장자리: 낮은 돌 테 (광장처럼)
+          c = (x + y) % 5 === 0 ? PAL.x : hash(x, y) < 0.5 ? PAL.Y : PAL.y;
+          if (!edge[at(x, y - 1)] || !inGarden(x, y - 1)) c = PAL.X;
+        } else if (bed || (lv === HOME.level && inGarden(x, y))) {
+          // 꽃밭·잔디는 그대로 (아래 가장자리 그늘·연석은 칠한다)
+          const n = at(x, y - 1);
+          if (n >= 0 && path[n] === STONE_PATH && !stairs[n]) c = PAL.X;
+        } else if (d < 0) c = PAL[STONE[ly][lx]];
         else if (d < 12) c = d < 2.5 || d > 9.5 ? PAL.X : (x + y) % 6 === 0 ? PAL.x : PAL.y;
         // 돌광장 남쪽 턱의 앞면
         else if (d < 16 && (y + 0.5) * PX > CY + 40) c = d < 14 ? "#9e8c7c" : "#7c6b5e";

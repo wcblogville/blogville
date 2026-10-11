@@ -3,7 +3,9 @@
 // - 가운데 단(높이 1)에 게시판·상점·미용실·옷가게·낚시터·연못, 그 가운데 한 단 높은 돌광장(높이 2)과 분수가 있다.
 // - 북쪽은 한 단 높은 언덕(높이 2), 그 왼쪽 위에 한 단 더 높은 전망대(높이 3), 동쪽에 작은 둔덕(높이 2), 남쪽은 한 단 낮은 들판(높이 0).
 // - 단과 단 사이는 절벽(앞면이 보이는 돌벽)이고 길이 지나가는 곳만 계단이다. 연못은 땅보다 낮게 파여 있다.
-// - 집 11채가 길을 따라 여기저기 서 있다. 0번이 내 집(남쪽 들판, 옆에 동물 농장).
+// - 내 집(0번)과 동물 농장은 동쪽의 높은 정원 단(HOME)에 따로 있다 (사용자 요청 2026-10-11 "내 집이 가장 특별한 곳에 따로").
+//   광장 동쪽 문 → 상점 길 → 정원 계단 → 아치 문 하나로만 들어가고, 걸어 다니는 이웃(NPC)은 들어오지 않는다.
+// - 이웃 집 10채(1~10번)는 북쪽 언덕 마을(1~5)과 남쪽 들판 마을(6~10)에 모여 있다.
 import type { TownData, TownHouse } from "./types";
 
 export const WORLD = { width: 2600, height: 2600 };
@@ -28,11 +30,22 @@ export const CLIFF_LINES = {
   south: [[0, 1850], [300, 1870], [600, 1840], [900, 1870], [1150, 1890], [1300, 1890], [1500, 1895], [1800, 1880], [2050, 1920], [2300, 1960], [2600, 1950]],
 } as const satisfies Record<string, readonly (readonly [number, number])[]>;
 
-/** 둥근 단: 그 안은 정한 높이 (언덕 위 전망대, 동쪽 둔덕). 가장자리는 terrain.ts가 흔든다 */
+/**
+ * 내 정원 (0번 집 + 동물 농장만 있는 곳): 가운데 단보다 한 단 높은 돌 축대 정원. 가장자리를 흔들지 않은 반듯한 타원이고
+ * 앞(남쪽)면은 다듬은 돌 축대, 앞 가장자리를 따라 울타리, 가운데 계단 위에 아치 문
+ */
+export const HOME = { x: 2160, y: 1390, rx: 330, ry: 230, level: 2 } as const;
+
+/** 둥근 단: 그 안은 정한 높이 (언덕 위 전망대, 내 정원). round = 가장자리를 흔들지 않는다. 가장자리는 terrain.ts가 흔든다 */
 export const MESAS = [
-  { key: "lookout", x: 430, y: 400, rx: 235, ry: 140, level: 3 },
-  { key: "knoll", x: 2290, y: 1340, rx: 220, ry: 160, level: 2 },
+  { key: "lookout", x: 430, y: 400, rx: 235, ry: 140, level: 3, round: false },
+  { key: "home", x: HOME.x, y: HOME.y, rx: HOME.rx, ry: HOME.ry, level: HOME.level, round: true },
 ] as const;
+
+/** 그 자리가 내 정원 단 안인가 (margin px만큼 넓혀서) */
+export function inHome(x: number, y: number, margin = 0) {
+  return ((x - HOME.x) / (HOME.rx + margin)) ** 2 + ((y - HOME.y) / (HOME.ry + margin)) ** 2 < 1;
+}
 
 /** 낚시 연못 (땅보다 낮은 물). 가운데와 반지름 */
 export const POND = { x: CENTER.x - 250, y: CENTER.y + 400, rx: 125, ry: 75 };
@@ -46,27 +59,36 @@ export const SALON_POS = { x: CENTER.x - 560, y: CENTER.y - 190 };
 export const CLOTHES_POS = { x: CENTER.x + 560, y: CENTER.y - 190 };
 
 /**
- * 집 자리 11곳 (아랫변 가운데). 0번 = 내 집 (남쪽 들판), 1~10번 = 즐겨찾기 이웃이 고른 자리 (TOWN-04·18).
- * 언덕(1·2·4), 전망대(3), 동쪽 둔덕(5), 가운데 단(6·10), 남쪽 들판(0·7·8·9)
+ * 집 자리 11곳 (아랫변 가운데). 0번 = 내 집 (내 정원), 1~10번 = 즐겨찾기 이웃이 고른 자리 (TOWN-04·18).
+ * 번호는 follows.town_lot에 저장되므로 바꾸지 않는다 (자리만 옮긴다, 2026-10-11): 언덕 마을 1~5(3은 전망대), 들판 마을 6~10
  */
 export const HOUSE_LOTS = [
-  { x: 1110, y: 2280 },
+  { x: 1990, y: 1420 },
   { x: 1000, y: 520 },
   { x: 1620, y: 500 },
   { x: 430, y: 420 },
-  { x: 2150, y: 470 },
-  { x: 2290, y: 1390 },
-  { x: 300, y: 1150 },
-  { x: 520, y: 2280 },
-  { x: 810, y: 2280 },
-  { x: 1900, y: 2280 },
-  { x: 2330, y: 1820 },
+  { x: 2240, y: 470 },
+  { x: 1930, y: 500 },
+  { x: 430, y: 2280 },
+  { x: 740, y: 2280 },
+  { x: 1050, y: 2280 },
+  { x: 1580, y: 2280 },
+  { x: 1890, y: 2280 },
 ] as const;
 export const HOUSE_SLOTS = HOUSE_LOTS.length;
 /** 집 자리가 있는 곳 (이웃 집 자리 고르기 창에 보인다) */
-export const LOT_AREAS = ["남쪽 들판", "언덕", "언덕", "언덕 위 전망대", "언덕 동쪽", "동쪽 둔덕", "서쪽 마을", "남쪽 들판 서쪽", "남쪽 들판", "남쪽 들판 동쪽", "동쪽 계단 옆"] as const;
-/** 동물 농장: 내 집(0번) 오른쪽, 큰길 건너 */
-export const FARM_POS = { x: 1500, y: 2290 };
+export const LOT_AREAS = ["내 정원", "언덕 마을", "언덕 마을", "언덕 위 전망대", "언덕 마을 동쪽 끝", "언덕 마을 동쪽", "들판 마을 서쪽 끝", "들판 마을", "들판 마을", "들판 마을 동쪽", "들판 마을 동쪽 끝"] as const;
+/** 동물 농장: 내 정원 안, 내 집 오른쪽 */
+export const FARM_POS = { x: HOME.x + 162, y: HOME.y + 30 };
+/** 내 정원 아치 문 (계단 꼭대기, 아랫변 가운데) */
+export const HOME_GATE = { x: HOME.x, y: HOME.y + HOME.ry - 6 };
+/** 내 정원 꽃밭 (가운데 x, y, 너비, 높이 px). 바닥 그림이 굽는다 */
+export const HOME_BEDS = [
+  { x: HOME.x - 110, y: HOME.y + 160, w: 126, h: 33 },
+  { x: HOME.x + 110, y: HOME.y + 160, w: 126, h: 33 },
+  { x: HOME.x - 285, y: HOME.y + 40, w: 36, h: 120 },
+  { x: HOME.x + 30, y: HOME.y - 120, w: 90, h: 27 },
+] as const;
 /** 처음 서는 곳 (광장 아래쪽) */
 export const START_POS = { x: CENTER.x + 50, y: CENTER.y + PLAZA_RADIUS + 100 };
 
@@ -77,11 +99,13 @@ export function plazaGate(deg: number): [number, number] {
 }
 
 export type PathKind = "stone" | "dirt" | "plaza";
+/** 내 정원으로 가는 길 (이웃 NPC가 걷지 않는다) */
+const HOME_FORK: [number, number] = [1930, 1720];
 /**
  * 길 (꺾은선). stone = 광장에서 나가는 큰 돌길, dirt = 모래 흙길, plaza = 돌광장 안의 고리(그리지 않고 사람이 걷는 길로만 쓴다).
  * 갈림길은 같은 좌표를 공유한다 (사람이 걷는 길 그래프가 이어진다). 길이 단 경계를 지나는 곳이 계단이 된다
  */
-export const PATHS: { kind: PathKind; width: number; points: (readonly [number, number])[] }[] = [
+export const PATHS: { kind: PathKind; width: number; points: (readonly [number, number])[]; private?: boolean }[] = [
   // 돌광장 안 고리 (10도마다)
   { kind: "plaza", width: 40, points: [...Array.from({ length: 36 }, (_, i) => plazaGate(-180 + i * 10)), plazaGate(-180)] },
   // 북쪽 큰길: 광장 → 게시판 왼쪽 → 계단 → 언덕 길
@@ -89,13 +113,13 @@ export const PATHS: { kind: PathKind; width: number; points: (readonly [number, 
   // 게시판 앞 작은 길
   { kind: "dirt", width: 40, points: [[1150, 1010], [1300, 990]] },
   // 언덕 길: 전망대 계단 아래 → 언덕 집들 → 동쪽 끝
-  { kind: "dirt", width: 46, points: [[440, 640], [600, 625], [800, 600], [1000, 575], [1180, 570], [1400, 580], [1620, 560], [1880, 565], [2100, 560], [2150, 520]] },
+  { kind: "dirt", width: 46, points: [[440, 640], [600, 625], [800, 600], [1000, 575], [1180, 570], [1400, 580], [1620, 560], [1880, 565], [2100, 560], [2240, 540]] },
   // 전망대 계단 → 3번 집
   { kind: "dirt", width: 42, points: [[440, 640], [435, 540], [430, 470]] },
   // 언덕에서 서쪽으로 내려와 미용실 앞까지
   { kind: "dirt", width: 42, points: [[600, 625], [560, 720], [525, 830], [560, 950], [615, 1060], [640, 1165], [700, 1165]] },
-  // 미용실 길: 광장 → 미용실 → 6번 집
-  { kind: "stone", width: 50, points: [plazaGate(-160), [960, 1180], [800, 1165], [700, 1165], [500, 1210], [300, 1196]] },
+  // 미용실 길: 광장 → 미용실 앞
+  { kind: "stone", width: 50, points: [plazaGate(-160), [960, 1180], [800, 1165], [700, 1165]] },
   // 낚시터 길: 광장 → 낚시터 → 서남쪽 계단 → 들판
   { kind: "stone", width: 50, points: [plazaGate(160), [1000, 1430], [900, 1440]] },
   { kind: "dirt", width: 42, points: [[900, 1440], [740, 1490], [560, 1540], [410, 1640], [335, 1780], [320, 1910], [280, 2060], [255, 2200], [300, 2330]] },
@@ -103,12 +127,14 @@ export const PATHS: { kind: PathKind; width: number; points: (readonly [number, 
   { kind: "stone", width: 54, points: [plazaGate(90), [1300, 1640], [1290, 1780], [1290, 1960], [1300, 2100], [1300, 2330]] },
   // 들판 길 (집들 앞)
   { kind: "dirt", width: 46, points: [[300, 2330], [420, 2365], [520, 2340], [660, 2372], [810, 2338], [960, 2372], [1110, 2340], [1300, 2330], [1500, 2348], [1700, 2378], [1900, 2338], [2030, 2368], [2120, 2330], [2260, 2300], [2380, 2330]] },
-  // 상점 길: 광장 → 상점 → 둔덕 계단 → 5번 집
-  { kind: "stone", width: 50, points: [plazaGate(20), [1600, 1410], [1740, 1420], [1900, 1450], [2060, 1600], [2215, 1610]] },
-  { kind: "dirt", width: 42, points: [[2215, 1610], [2225, 1450], [2290, 1436]] },
-  // 둔덕 아래에서 10번 집 → 동남쪽 계단 → 들판
-  { kind: "dirt", width: 42, points: [[2060, 1600], [2110, 1720], [2130, 1866], [2330, 1866]] },
-  { kind: "dirt", width: 42, points: [[2130, 1866], [2180, 1990], [2150, 2120], [2120, 2230], [2120, 2330]] },
+  // 상점 길: 광장 → 상점 → 내 정원 갈림길
+  { kind: "stone", width: 50, points: [plazaGate(20), [1600, 1410], [1740, 1440], [1840, 1580], HOME_FORK] },
+  // 내 정원 길 (하나뿐): 갈림길 → 정원 계단 → 아치 문 → 집 앞·농장 앞
+  { kind: "stone", width: 54, private: true, points: [HOME_FORK, [2060, 1738], [HOME.x, 1730], [HOME.x, HOME.y + HOME.ry + 20], [HOME.x, HOME.y + 120]] },
+  { kind: "stone", width: 44, private: true, points: [[HOME.x, HOME.y + 120], [HOME.x - 90, HOME.y + 86], [HOUSE_LOTS[0].x, HOUSE_LOTS[0].y + 50]] },
+  { kind: "stone", width: 44, private: true, points: [[HOME.x, HOME.y + 120], [HOME.x + 90, HOME.y + 86], [FARM_POS.x, FARM_POS.y + 45]] },
+  // 갈림길에서 동남쪽 계단 → 들판
+  { kind: "dirt", width: 42, points: [HOME_FORK, [2010, 1800], [2110, 1860], [2180, 1990], [2150, 2120], [2120, 2230], [2120, 2330]] },
   // 옷가게 길: 광장 → 옷가게 → 동쪽 계단 → 언덕 길
   { kind: "stone", width: 50, points: [plazaGate(-20), [1650, 1185], [1890, 1160], [2000, 1120]] },
   { kind: "dirt", width: 42, points: [[2000, 1120], [2120, 1020], [2140, 900], [2085, 800], [2110, 700], [2150, 620], [2100, 560]] },
@@ -150,8 +176,9 @@ export const LAMPS = [
   { x: 1375, y: 2050 },
   { x: 960, y: 2428 },
   { x: 1690, y: 2432 },
-  { x: 2000, y: 1500 },
-  { x: 1960, y: 1210 },
+  { x: 2105, y: 1800 },
+  { x: 2255, y: 1790 },
+  { x: 1905, y: 1212 },
   { x: 700, y: 560 },
   { x: 1800, y: 610 },
 ];
