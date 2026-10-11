@@ -1,5 +1,5 @@
 import { CharacterArt } from "@/components/character";
-import { backgroundDataUri, backgroundSky, decoDataUri, furnitureDataUri, growthDataUri, MANNEQUIN } from "@/lib/assets";
+import { backgroundDataUri, backgroundSky, decoDataUri, furnitureDataUri, growthDataUri, previewLook } from "@/lib/assets";
 
 /** 아이템 미리보기 그림 (상점, 꾸미기) */
 export function ItemArt({
@@ -21,11 +21,12 @@ export function ItemArt({
       </div>
     );
   }
-  // 아바타 꾸미기: 회색 몸 위에 그 아이템만 입혀 보여 준다 (SHOP-06)
+  // 아바타 꾸미기: 회색 몸 위에 그 아이템만 입혀 보여 준다 (SHOP-06). 머리 모양·색은 사람 주민에게 (SHOP-07)
   if (type === "avatar") {
+    const look = previewLook(assetKey);
     return (
       <div className={`grid place-items-center rounded-xl bg-cream ${className}`} aria-hidden>
-        <CharacterArt asset={MANNEQUIN} outfit={[assetKey]} size={characterSize} />
+        <CharacterArt asset={look.asset} outfit={look.outfit} size={characterSize} />
       </div>
     );
   }

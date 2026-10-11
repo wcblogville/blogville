@@ -6,8 +6,8 @@ export const WORLD = { width: 2600, height: 2600 };
 export const CENTER = { x: WORLD.width / 2, y: WORLD.height / 2 };
 /** 가운데 돌광장 반지름 */
 export const PLAZA_RADIUS = 250;
-/** 타운(건물들이 있는 잔디 원) 반지름 */
-export const TOWN_RADIUS = 560;
+/** 타운(건물들이 있는 잔디 원) 반지름. 미용실·옷가게가 들어오도록 560에서 넓혔다 (2026-10-11) */
+export const TOWN_RADIUS = 640;
 /** 집들을 잇는 둘레 길 반지름 */
 export const RING_RADIUS = 860;
 /** 집이 놓이는 원 반지름 (아랫변 기준) */
@@ -23,9 +23,13 @@ export const START_POS = { x: CENTER.x + 50, y: CENTER.y + PLAZA_RADIUS + 100 };
 /** 연못 낚시터: 광장 왼쪽, 상점 맞은편 (원래 농장 자리, 사용자 요청 2026-10-08) */
 export const FISHING_POS = { x: CENTER.x - 410, y: CENTER.y + 90 };
 export const POND_POS = { x: CENTER.x - 250, y: CENTER.y + 400 };
+/** 미용실·옷가게 (사용자 요청 2026-10-11): 게시판 양옆 위쪽, 타운 잔디 끝에 마주 보고 선다 (왼쪽 미용실, 오른쪽 옷가게) */
+export const SALON_POS = { x: CENTER.x - 560, y: CENTER.y - 190 };
+export const CLOTHES_POS = { x: CENTER.x + 560, y: CENTER.y - 190 };
 
 /**
- * 광장 꾸미기 자리 (장식의 아랫변 가운데, 사용자 요청 2026-10-09). 앞 번호부터 집 단계만큼 열린다 (4/6/8, lib/house.ts decorationSlots).
+ * 광장 꾸미기 자리 (장식의 아랫변 가운데, 사용자 요청 2026-10-09). 광장 꾸미기는 쉬는 중이라(2026-10-11, TOWN-16) 그리지 않지만
+ * town_decorations.slot 번호가 가리키는 자리라 남겨 둔다. 앞 번호부터 집 단계만큼 열린다 (4/6/8, lib/house.ts decorationSlots).
  * 분수 양옆, 광장 아래, 그리고 집으로 가는 길 사이사이 잔디. 건물·길·연못과 겹치지 않는 곳이다
  */
 export const DECO_SLOTS = [
@@ -57,14 +61,16 @@ export function houseAt(data: TownData, i: number): TownHouse | null {
 
 export type TownSpot = { key: string; label: string; emoji: string; x: number; y: number; href: string | null; empty?: boolean };
 
-/** 텔레포트할 수 있는 곳. 좌표는 캐릭터가 설 자리(문 앞). decos는 광장 꾸미기 창이 자리를 고를 때만 쓴다 (텔레포트 목록에는 없다) */
-export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpot[]; decos: TownSpot[] } {
+/** 텔레포트할 수 있는 곳. 좌표는 캐릭터가 설 자리(문 앞) */
+export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpot[] } {
   const places: TownSpot[] = [
     { key: "plaza", label: "광장 분수", emoji: "⛲", x: CENTER.x, y: CENTER.y + 140, href: "/town" },
     { key: "board", label: "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: "/feed" },
     { key: "shop", label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 40, href: "/shop" },
     { key: "farm", label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 40, href: "/farm" },
     { key: "fishing", label: "낚시터", emoji: "🎣", x: FISHING_POS.x + 40, y: FISHING_POS.y + 40, href: "/fishing" },
+    { key: "salon", label: "미용실", emoji: "💇", x: SALON_POS.x + 30, y: SALON_POS.y + 40, href: "/salon" },
+    { key: "clothes", label: "옷가게", emoji: "👗", x: CLOTHES_POS.x + 30, y: CLOTHES_POS.y + 40, href: "/clothes" },
   ];
   const houses: TownSpot[] = [];
   for (let i = 0; i < HOUSE_SLOTS; i++) {
@@ -74,7 +80,5 @@ export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpo
     const label = i === 0 && !data.host ? (h ? "내 집" : "내 집 자리") : h ? `${h.nickname}의 집` : "빈 집터";
     houses.push({ key: `house:${i}`, label, emoji: h ? "🏠" : "🪧", x: p.x, y: p.y + 46, href: h ? `/@${h.slug}` : null, empty: !h });
   }
-  // 장식 앞(아래쪽)에 선다
-  const decos: TownSpot[] = DECO_SLOTS.map((p, i) => ({ key: `deco:${i}`, label: `꾸미기 ${i + 1}번 자리`, emoji: "🌷", x: p.x, y: p.y + 40, href: null }));
-  return { places, houses, decos };
+  return { places, houses };
 }

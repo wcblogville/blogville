@@ -442,3 +442,46 @@ export function rgbOf(color: string): [number, number, number] {
   const n = parseInt(color.slice(1, 7), 16);
   return [n >> 16, (n >> 8) & 255, n & 255];
 }
+
+// ===== 색 칸 격자 (캐릭터 걷기 그림) =====
+// 글자 줄은 그림마다 글자 뜻(색)이 다르다 (캐릭터 색 + 아바타 색). 여러 그림을 겹친 뒤 칸을 옮기려면
+// 글자 대신 "실제 색"을 칸마다 들고 있어야 한다. null = 투명
+export type Grid = (string | null)[][];
+
+/** 글자 줄 → 색 칸 격자 (모르는 글자·"."은 투명) */
+export function rowsToGrid(rows: Sprite, colors: Colors = {}): Grid {
+  return rows.map((row) => [...row].map((ch) => (ch === "." ? null : (colors[ch] ?? PALETTE[ch] ?? null))));
+}
+
+/** 격자 위에 글자 줄을 덮는다 ("."은 건너뛴다). 새 격자를 돌려준다 */
+export function stampGrid(base: Grid, rows: Sprite, colors: Colors = {}, x = 0, y = 0): Grid {
+  const out = base.map((r) => [...r]);
+  rows.forEach((row, j) => {
+    const line = out[y + j];
+    if (!line) return;
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (ch === "." || x + i < 0 || x + i >= line.length) continue;
+      const color = colors[ch] ?? PALETTE[ch];
+      if (color) line[x + i] = color;
+    }
+  });
+  return out;
+}
+
+/** 격자 SVG 조각: spriteRects와 같은 방식 (같은 색 칸을 <path> 하나로, 한 줄에서 이어진 칸은 사각형 하나) */
+export function gridRects(grid: Grid, dx = 0, dy = 0): string {
+  const paths = new Map<string, string>();
+  grid.forEach((row, y) => {
+    for (let x = 0; x < row.length; ) {
+      const color = row[x];
+      let end = x + 1;
+      while (end < row.length && row[end] === color) end++;
+      if (color) paths.set(color, `${paths.get(color) ?? ""}M${x + dx} ${y + dy}h${end - x}v1h-${end - x}z`);
+      x = end;
+    }
+  });
+  let out = "";
+  for (const [color, d] of paths) out += `<path ${fillAttr(color)} d="${d}"/>`;
+  return out;
+}

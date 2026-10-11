@@ -131,6 +131,18 @@ body {
   opacity: 0.7;
 }
 
+/* 걷기 그림판(walk.ts) 한 줄의 걷기 1~4칸을 돌린다 (미용실·옷가게 거울). --cell = 한 칸 화면 크기 */
+@keyframes walk-cycle {
+  from { background-position-x: calc(var(--cell) * -1); }
+  to { background-position-x: calc(var(--cell) * -5); }
+}
+@utility walk-cycle {
+  animation: walk-cycle 0.5s steps(4, end) infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 /* ===== 도트 화면 틀 (첫 화면 로그인·회원가입, 2026-10-11 사용자 요청) =====
    테두리는 box-shadow로 위·아래·왼쪽·오른쪽에 3px(광장 도트 한 칸)씩 그려 모서리가 한 칸 깎인 도트 상자가 된다.
    안쪽 밝은 면·그늘(inset)로 볼록한 느낌을 낸다. 색은 도트 그림 팔레트(pixel.ts)와 같다 */

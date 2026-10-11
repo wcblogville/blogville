@@ -4,23 +4,21 @@ import { PhoneHome } from "@/components/town/phone-home";
 import { TownMenu } from "@/components/town/town-menu";
 import { TownScreen } from "@/components/town/town-screen";
 import type { TownData } from "@/components/town/types";
-import { decorationSlots } from "@/lib/house";
 import { getViewer } from "@/server/dal";
-import { getDecorations, getFavoriteHouses, getGuestHouses, getHudMember, getMyHouse } from "@/server/town";
+import { getFavoriteHouses, getGuestHouses, getHudMember, getMyHouse } from "@/server/town";
 
 export const metadata = { title: "중앙 광장" };
 
 export default async function TownPage(props: PageProps<"/town">) {
   const viewer = await getViewer();
   const member = viewer?.profile ? viewer : null;
-  const { welcome, at, menu, deco } = await props.searchParams;
+  const { welcome, at, menu } = await props.searchParams;
 
   // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳
-  const [neighbors, myHouse, hud, decorations] = await Promise.all([
+  const [neighbors, myHouse, hud] = await Promise.all([
     member ? getFavoriteHouses(member.userId) : getGuestHouses(),
     member ? getMyHouse(member.userId) : null,
     member ? getHudMember(member.userId, member.user.role === "admin", member.profile) : null,
-    member ? getDecorations(member.userId) : [],
   ]);
 
   const data: TownData = {
@@ -31,8 +29,6 @@ export default async function TownPage(props: PageProps<"/town">) {
     neighbors,
     attendanceDay: member?.attendance?.cycleDay ?? null,
     host: null,
-    decorations,
-    decoSlots: myHouse ? decorationSlots(myHouse.level) : 0,
   };
 
   // 안내·환영·이웃집은 게임 위에 띄운다.
@@ -43,7 +39,6 @@ export default async function TownPage(props: PageProps<"/town">) {
       hud={hud}
       // 집의 🚪 문으로 나오면(?at=블로그 주소) 그 집 앞에서, 처음 온 회원은 내 집 앞에서 시작한다
       startAt={startAt(data, welcome && member ? myHouse?.slug : at)}
-      openDeco={Boolean(deco)}
       phone={
         member && !menu ? (
           <PhoneHome href={`/@${member.profile.blogSlug}`} className="hidden phone:block" />

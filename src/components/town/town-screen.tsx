@@ -11,7 +11,6 @@ export function TownScreen({
   data,
   hud,
   startAt,
-  openDeco = false,
   phone,
   children,
 }: {
@@ -19,8 +18,6 @@ export function TownScreen({
   hud: TownHudMember | null;
   /** 처음 설 곳 (텔레포트 목록의 key). 없으면 광장 아래쪽 */
   startAt: string | null;
-  /** 광장 꾸미기 창을 열고 시작 (?deco=1) */
-  openDeco?: boolean;
   /** 휴대폰 화면에 대신 보일 것 */
   phone: ReactNode;
   /** 게임 위에 띄울 것 (환영 문구 등) */
@@ -30,7 +27,7 @@ export function TownScreen({
     <div className="relative h-dvh min-h-[420px] w-full overflow-hidden phone:h-auto phone:min-h-0 phone:overflow-visible phone:pt-14">
       <h1 className="sr-only">{data.host ? `${data.host.nickname}님의 마을` : "중앙 광장"}</h1>
       <TownGame data={data} startAt={startAt} className="h-full w-full phone:hidden" />
-      <TownHud data={data} member={hud} openDeco={openDeco} className="phone:hidden" />
+      <TownHud data={data} member={hud} className="phone:hidden" />
       {phone}
       {children}
 

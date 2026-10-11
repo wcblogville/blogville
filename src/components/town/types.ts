@@ -25,14 +25,7 @@ export type TownData = {
    * 구경할 때는 myHouse(0번 집)가 주인의 집이고, neighbors가 주인이 즐겨찾기한 이웃이다
    */
   host: { nickname: string; slug: string } | null;
-  /** 이 마을 주인이 광장에 놓은 장식 (광장 꾸미기). 방문자 광장은 빈 목록 */
-  decorations: TownDecoration[];
-  /** 이 마을 주인에게 열린 꾸미기 자리 수 (집 단계만큼 4/6/8). 방문자 광장은 0 */
-  decoSlots: number;
 };
-
-/** 광장 꾸미기 자리 하나에 놓인 장식 (slot = layout.ts DECO_SLOTS 번호) */
-export type TownDecoration = { slot: number; assetKey: string };
 
 /** 광장에서 들어가거나 눌렀을 때 일어날 일 */
 export type TownTarget =

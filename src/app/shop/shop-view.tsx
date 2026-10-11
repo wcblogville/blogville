@@ -53,7 +53,6 @@ export function ShopView({ items, level, coins, blogSlug }: { items: ShopItem[];
           <section key={s.type} className="mt-8" data-shop-section={s.type}>
             <h2 className="mb-3 font-display text-2xl">{s.title}</h2>
             {s.type === "furniture" && <p className="-mt-2 mb-3 text-sm text-ink-soft">산 가구는 내 블로그의 &lsquo;우리 집&rsquo;에서 [가구 놓기]로 놓아요.</p>}
-            {s.type === "deco" && <p className="-mt-2 mb-3 text-sm text-ink-soft">산 장식은 광장의 ☰ 메뉴 → 🌷 광장 꾸미기에서 놓아요. 친구가 내 광장에 놀러 오면 볼 수 있어요.</p>}
             {s.type === "growth" && <p className="-mt-2 mb-3 text-sm text-ink-soft">동물 농장의 친구들을 빨리 키워 주는 먹이예요. 여러 번 살 수 있어요.</p>}
             {list.length === 0 ? (
               <p className="card p-4 text-center text-sm text-ink-soft">지금은 파는 아이템이 없어요.</p>

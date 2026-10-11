@@ -388,41 +388,127 @@ export function shopSvg(): string {
   return svg(SHOP_ROWS, { 1: "#8fded2", 2: "#3fae9f", 3: "#2b7380" });
 }
 
-// ===== 분수 =====
-const FOUNTAIN = (() => {
-  const p = new Pix(60, 50);
-  p.shadow(30, 46, 29, 3);
-  // 둥근 수반 (앞쪽 벽이 보이게 아래로 두껍게)
-  p.ellipse(30, 36, 29, 11, "#");
-  p.ellipse(30, 36, 28, 10, "y");
-  p.rect(2, 36, 56, 5, "y");
-  p.ellipse(30, 41, 28, 6, "y");
-  p.ellipse(30, 41, 29, 7, "#");
-  p.ellipse(30, 40.5, 28, 6, "x");
-  p.ellipse(30, 36, 28, 10, "Y");
-  p.ellipse(30, 35, 25, 8, "#");
-  p.ellipse(30, 35.5, 24, 7, "v");
-  p.ellipse(30, 35, 23, 6, "i");
-  for (const [x, y] of [[16, 34], [40, 37], [27, 39]]) p.hline(x, x + 3, y, "I");
-  // 가운데 기둥과 작은 수반
-  p.box(27, 17, 6, 19, "Y");
-  p.vline(31, 18, 34, "x");
-  p.ellipse(30, 17, 11, 4, "#");
-  p.ellipse(30, 17, 10, 3, "Y");
-  p.ellipse(30, 16.5, 8, 2, "v");
-  // 물줄기
-  p.vline(30, 4, 15, "i").vline(29, 5, 15, "I");
-  p.stamp([".I.", "IiI", ".I."], 28, 1);
-  for (let k = 0; k < 8; k++) {
-    p.px(28 - k * 2, 8 + k + Math.floor((k * k) / 4), "i");
-    p.px(31 + k * 2, 8 + k + Math.floor((k * k) / 4), "i");
+// ===== 분수 (광장 한가운데, 사용자 요청 2026-10-11 "분수대 이쁘게 하나") =====
+// 3단 돌 분수: 큰 수반 + 가운데 받침 + 중간 접시 + 맨 위 작은 접시와 금빛 봉오리.
+// 물(물줄기·흘러내리는 물·물결·반짝임)만 칸마다 조금씩 달라서 3칸을 돌리면 물이 흐른다 (FOUNTAIN_FRAMES).
+export const FOUNTAIN_FRAMES = 3;
+/** 1초에 바뀌는 칸 수 (Phaser 애니메이션) */
+export const FOUNTAIN_FPS = 6;
+const FW = 60;
+const FH = 52;
+/** 물이 지나가는 칸이면 칸 번호에 따라 밝은 물(I)과 보통 물(i)을 번갈아 칠한다 → 아래로 흐르는 것처럼 보인다 */
+const flow = (y: number, f: number) => ((y - f + 30) % 3 === 0 ? "I" : "i");
+
+function buildFountain(f: number): string[] {
+  const p = new Pix(FW, FH);
+  const cx = 30;
+  p.shadow(cx, 49, 29, 3);
+
+  // --- 큰 수반: 앞쪽 돌벽(블록 무늬) + 윗면 테두리 ---
+  p.ellipse(cx, 42, 29, 7, "#");
+  p.rect(1, 34, 58, 8, "#");
+  p.ellipse(cx, 42, 28, 6, "y");
+  p.rect(2, 34, 56, 8, "y");
+  // 왼쪽은 밝게, 오른쪽은 어둡게 (빛이 왼쪽 위에서)
+  p.map((c, x, y) => (y >= 34 && c === "y" ? (x < 14 ? "Y" : x > 46 ? "x" : c) : c));
+  // 블록 줄눈: 가운데 가로줄 하나, 세로줄은 엇갈리게
+  p.map((c, x, y) => (c !== "#" && c !== "." && y === 39 ? "x" : c));
+  for (let x = 6; x < 56; x += 8) {
+    for (let y = 35; y <= 47; y++) {
+      const top = y < 39;
+      const xx = top ? x : x + 4;
+      if (xx > 1 && xx < 58 && p.get(xx, y) !== "#" && p.get(xx, y) !== ".") p.px(xx, y, top ? "x" : "X");
+    }
   }
-  p.stamp([".I.", "IiI"], 11, 26).stamp([".I.", "IiI"], 46, 26);
+  // 테두리 윗면
+  p.ellipse(cx, 34, 29, 10, "#");
+  p.ellipse(cx, 34, 28, 9, "Y");
+  p.ellipse(cx, 35, 28, 8, "y");
+  p.ellipse(cx, 34, 28, 8, "Y");
+  // 물
+  p.ellipse(cx, 34, 25, 7, "#");
+  p.ellipse(cx, 34.5, 24, 6, "t");
+  p.ellipse(cx, 34, 24, 5, "v");
+  p.ellipse(cx, 33.5, 21, 4, "i");
+  // 물결: 받침에서 퍼지는 둥근 물결 (칸마다 한 걸음씩 커진다)
+  for (const r of [9 + f * 5]) {
+    for (let a = 0; a < 360; a += 10) {
+      const x = Math.round(cx + Math.cos((a * Math.PI) / 180) * r);
+      const y = Math.round(34.5 + Math.sin((a * Math.PI) / 180) * r * 0.28);
+      const c = p.get(x, y);
+      if (c === "i" || c === "v") p.px(x, y, c === "i" ? "I" : "i");
+    }
+  }
+  // 연잎과 분홍 꽃
+  p.stamp([".lLl.", "lmlLl", ".mml."], 7, 33);
+  p.stamp([".V.", "VwV", ".R."], 8, 31);
+  p.stamp([".lLl", "lmml"], 47, 36);
+  // 바닥에 던진 동전 (반짝)
+  p.px(41, 32, "z").px(17, 37, "z");
+
+  // --- 가운데 받침 (기둥) ---
+  p.ellipse(cx, 32, 5, 2, "#");
+  p.ellipse(cx, 32, 4, 1, "y");
+  p.box(26, 20, 8, 13, "Y");
+  p.vline(27, 21, 31, "w");
+  p.vline(32, 21, 31, "x");
+  p.hline(27, 32, 25, "z");
+  p.hline(27, 32, 26, "u");
+
+  // --- 중간 접시 ---
+  p.ellipse(cx, 21, 13, 4, "#");
+  p.ellipse(cx, 21, 12, 3, "Y");
+  p.ellipse(cx, 22.5, 11, 2, "y");
+  p.hline(21, 39, 24, "x");
+  p.ellipse(cx, 20, 10, 2, "#");
+  p.ellipse(cx, 20, 9, 1.5, "v");
+  p.hline(23, 37, 20, "i");
+  p.hline(26, 29, 19, "I");
+  // 접시에서 흘러내리는 물 (가장자리 양쪽 + 앞쪽 두 줄기)
+  for (const x of [17, 18, 42, 43]) for (let y = 22; y <= 31; y++) p.px(x + (x < cx ? -Math.floor((y - 22) / 4) : Math.floor((y - 22) / 4)), y, flow(y, f));
+  for (const x of [23, 37]) for (let y = 25; y <= 32; y++) p.px(x, y, flow(y + 1, f));
+  // 떨어진 자리의 물보라
+  for (const x of [14, 46]) p.stamp(f === 1 ? ["I.I", ".i."] : ["...", "IiI"], x - 1, 30);
+
+  // --- 맨 위 작은 접시 ---
+  p.box(28, 11, 4, 9, "Y");
+  p.vline(31, 12, 18, "x");
+  p.ellipse(cx, 11, 7, 2.5, "#");
+  p.ellipse(cx, 11, 6, 1.5, "Y");
+  p.hline(25, 35, 10, "v");
+  p.hline(26, 34, 10, "i");
+  for (const x of [23, 37]) for (let y = 13; y <= 18; y++) p.px(x, y, flow(y, f));
+
+  // --- 금빛 봉오리와 솟는 물줄기 ---
+  p.stamp([".#z#.", "#zZz#", "#uzu#", ".###."], 28, 6);
+  const jetTop = [1, 0, 2][f];
+  p.vline(30, jetTop + 1, 6, "i").vline(29, jetTop + 2, 6, "I");
+  p.stamp([".I.", "IwI"], 28, jetTop);
+  // 튀는 물방울 (칸마다 자리가 다르다)
+  const drops: [number, number][][] = [
+    [[25, 3], [35, 4], [22, 7]],
+    [[26, 2], [34, 2], [38, 7]],
+    [[24, 5], [36, 5], [21, 9]],
+  ];
+  for (const [x, y] of drops[f]) p.px(x, y, "I");
+  // 물 위 반짝임
+  const sparkle: [number, number][][] = [
+    [[12, 30], [44, 33]],
+    [[20, 37], [38, 31]],
+    [[34, 38], [15, 34]],
+  ];
+  for (const [x, y] of sparkle[f]) p.px(x, y, "w");
   return p.rows();
-})();
+}
+
+const FOUNTAIN_ROWS = Array.from({ length: FOUNTAIN_FRAMES }, (_, f) => buildFountain(f));
+/** 0번 칸 (그림 검사·크기 계산용) */
+const FOUNTAIN = FOUNTAIN_ROWS[0];
 export const FOUNTAIN_SIZE = sizeOf(FOUNTAIN);
-export function fountainSvg(): string {
-  return svg(FOUNTAIN);
+/** 분수 그림판: 3칸을 가로로 이어 붙인다 (칸 하나 = FOUNTAIN_SIZE) */
+export function fountainSheetSvg(): string {
+  const rows = FOUNTAIN_ROWS[0].map((_, y) => FOUNTAIN_ROWS.map((frame) => frame[y]).join(""));
+  return svg(rows);
 }
 
 // ===== 나무 =====
@@ -599,5 +685,140 @@ export function fishingSvg(): string {
   return svg(FISHING);
 }
 
+// ===== 미용실·옷가게 (SHOP-07·08, 사용자 요청 2026-10-11) =====
+// 2.5D: 지붕 윗면과 앞 벽이 보이고, 돌 기초·계단이 땅에 붙어 있다. 지붕 1·2·3 칸은 가게 색(분홍·민트)으로 칠한다.
+// 미용실: 줄무늬 차양, 거울과 의자가 보이는 창, 빙글빙글 이발소 기둥, 가위 간판
+// 옷가게: 줄무늬 차양, 원피스 두 벌이 걸린 진열창, 문 옆 마네킹, 옷걸이 간판
+function buildBoutique(kind: "salon" | "clothes"): string[] {
+  const W = 52;
+  const H = 60;
+  const p = new Pix(W, H);
+  const x0 = 5; // 벽 왼쪽
+  const wallW = 42;
+  const x1 = x0 + wallW - 1;
+  const cx = x0 + wallW / 2;
+  const wallTop = 27;
+  const ground = 51; // 기초 줄
+  p.shadow(W / 2, ground + 4, W / 2 - 1, 2.5);
+
+  // 지붕: 처마가 벽보다 넓고 위로 갈수록 좁다. 맨 앞 두 줄은 처마 끝(그늘), 그 위는 기와 줄무늬 + 밝은 윗면
+  const roofH = 17;
+  for (let r = 0; r < roofH; r++) {
+    const y = wallTop - 2 - r;
+    const half = wallW / 2 + 4 - Math.floor(r * 0.55);
+    const a = Math.round(cx - half);
+    const b = Math.round(cx + half) - 1;
+    p.hline(a, b, y, "#");
+    if (r === roofH - 1) continue;
+    for (let x = a + 1; x < b; x++) p.px(x, y, r < 2 ? "3" : r % 3 === 0 ? ((x + r) % 4 === 0 ? "3" : "2") : r > roofH - 5 ? "1" : (x + r) % 7 === 0 ? "1" : "2");
+  }
+  p.hline(Math.round(cx - wallW / 2 - 4), Math.round(cx + wallW / 2 + 4) - 1, wallTop - 1, "#");
+  // 지붕 위 굴뚝 / 둥근 간판
+  p.box(x1 - 9, wallTop - 20, 5, 6, "x");
+  p.rect(x1 - 8, wallTop - 19, 1, 4, "Y");
+  p.oval(cx, wallTop - 10, 8, 6, "c");
+  p.ellipse(cx, wallTop - 10, 6, 4, "w");
+  if (kind === "salon") {
+    // 가위
+    p.stamp(["#..#..", "##.##.", ".###..", "..#...", ".#V#..", "#V.V#.", ".#.#.."].map((r) => r.replace(/V/g, "R")), Math.round(cx) - 3, wallTop - 14);
+  } else {
+    // 옷걸이에 걸린 원피스
+    p.stamp(["...##...", "..#..#..", ".######.", ".#5555#.", "..#55#..", ".#5445#.", "#555555#", "########"], Math.round(cx) - 4, wallTop - 15);
+  }
+
+  // 벽: 크림색 판자, 양쪽 나무 기둥, 오른쪽은 그늘
+  p.box(x0, wallTop, wallW, ground - wallTop, "c");
+  p.hline(x0 + 1, x1 - 1, wallTop + 1, "d");
+  for (let y = wallTop + 4; y < ground; y += 4) p.hline(x0 + 3, x1 - 3, y, "d");
+  p.rect(x0 + 1, wallTop + 1, 2, ground - wallTop - 1, "B");
+  p.vline(x0 + 2, wallTop + 1, ground - 1, "b");
+  p.rect(x1 - 2, wallTop + 1, 2, ground - wallTop - 1, "b");
+  p.vline(x1 - 1, wallTop + 1, ground - 1, "n");
+
+  // 진열창 (왼쪽 큰 창)
+  const wx = x0 + 4;
+  const wy = wallTop + 8;
+  p.box(wx, wy, 20, 13, "i");
+  p.rect(wx + 1, wy + 1, 18, 11, "I");
+  for (let k = 0; k < 4; k++) p.px(wx + 3 + k, wy + 2 + k, "w");
+  if (kind === "salon") {
+    // 거울(타원)과 빨간 의자
+    p.oval(wx + 6, wy + 5, 3, 4, "i");
+    p.ellipse(wx + 6, wy + 5, 2, 3, "w");
+    p.stamp([".####.", "#NNNN#", "#NQQN#", "######", ".#..#.", ".#..#."], wx + 11, wy + 5);
+    p.stamp(["#z#", "#u#"], wx + 2, wy + 9);
+  } else {
+    // 마네킹 두 개에 원피스
+    p.stamp(["..##..", ".#yy#.", "..##..", ".#VV#.", "#VVVR#", "#VRVR#", "######", "..#...", "..#..."], wx + 2, wy + 2);
+    p.stamp(["..##..", ".#yy#.", "..##..", ".#zz#.", "#zZzu#", "#zzZu#", "######", "...#..", "...#.."], wx + 11, wy + 2);
+  }
+  p.hline(wx, wx + 19, wy + 13, "#").hline(wx, wx + 19, wy + 14, "B").hline(wx + 1, wx + 18, wy + 15, "b");
+  // 꽃 상자
+  p.stamp(["VzUlVzUlVzUlVzUlVzUl", "nbbbbbbbbbbbbbbbbbbn"], wx, wy + 16);
+  // 줄무늬 차양 (창 위, 앞으로 튀어나온 면 + 늘어진 끝)
+  for (let x = wx - 2; x <= wx + 21; x++) {
+    const stripe = Math.floor((x - wx + 2) / 3) % 2 === 0;
+    p.px(x, wy - 4, "#");
+    p.px(x, wy - 3, stripe ? "2" : "w");
+    p.px(x, wy - 2, stripe ? "2" : "w");
+    p.px(x, wy - 1, stripe ? "3" : "Y");
+    if ((x - wx + 2) % 3 === 1) p.px(x, wy, stripe ? "3" : "y");
+  }
+  p.vline(wx - 3, wy - 4, wy - 1, "#").vline(wx + 22, wy - 4, wy - 1, "#");
+
+  // 문 (오른쪽): 유리창 달린 두 짝 문, 위에 작은 차양
+  const dx = x1 - 17;
+  const dTop = ground - 14;
+  p.box(dx, dTop, 10, 14, "b");
+  p.rect(dx + 1, dTop + 1, 8, 13, "B");
+  p.vline(dx + 5, dTop + 1, ground - 1, "n");
+  p.box(dx + 1, dTop + 2, 4, 5, "i").box(dx + 5, dTop + 2, 4, 5, "i");
+  p.px(dx + 2, dTop + 3, "I").px(dx + 6, dTop + 3, "I");
+  p.px(dx + 4, dTop + 9, "z").px(dx + 6, dTop + 9, "z");
+  for (let x = dx - 1; x <= dx + 10; x++) {
+    p.px(x, dTop - 2, "#");
+    p.px(x, dTop - 1, (x - dx) % 2 ? "2" : "1");
+  }
+  if (kind === "salon") {
+    // 이발소 기둥: 빨강·흰·파랑 줄이 비스듬히
+    const px = x1 - 5;
+    p.box(px, wallTop + 5, 4, ground - wallTop - 6, "w");
+    for (let y = wallTop + 6; y < ground - 2; y++)
+      for (let i = 1; i <= 2; i++) {
+        const k = Math.floor((y + i) / 2) % 3;
+        p.px(px + i, y, k === 0 ? "N" : k === 1 ? "w" : "v");
+      }
+    p.box(px - 1, wallTop + 3, 6, 3, "z");
+    p.box(px - 1, ground - 2, 6, 3, "z");
+  } else {
+    // 문 옆 옷걸이 (셔츠 두 벌)
+    const px = x1 - 5;
+    p.vline(px + 2, wallTop + 5, ground - 1, "n");
+    p.hline(px - 1, px + 5, wallTop + 5, "n");
+    p.stamp(["#..#", "#55#", "#45#", "####"], px - 1, wallTop + 7);
+    p.stamp(["#..#", "#NK#", "#NN#", "####"], px + 3, wallTop + 7);
+  }
+
+  // 돌 기초와 앞 계단 (땅에 붙는다)
+  p.box(x0 - 1, ground, wallW + 2, 3, "y");
+  p.hline(x0, x1, ground + 1, "Y");
+  p.box(dx - 1, ground + 2, 12, 3, "x");
+  p.hline(dx, dx + 9, ground + 3, "y");
+  // 앞 화분 둘
+  p.stamp([".#VV#.", "#VlVl#", ".####.", ".#bb#.", ".####."], x0 - 3, ground - 3);
+  p.stamp([".#Ul#.", "#lUlV#", ".####.", ".#bb#.", ".####."], x1 - 1, ground - 3);
+  return p.rows();
+}
+const SALON = buildBoutique("salon");
+const CLOTHES = buildBoutique("clothes");
+export const SALON_SIZE = sizeOf(SALON);
+export const CLOTHES_SIZE = sizeOf(CLOTHES);
+export function salonSvg(): string {
+  return svg(SALON, roof("#f07fa8"));
+}
+export function clothesSvg(): string {
+  return svg(CLOTHES, { ...roof("#45bf9c"), 4: "#ffd0e0", 5: "#ff9ec3" });
+}
+
 /** 미리보기·시험용: 그림 글자 줄 */
-export const TOWN_ROWS = { houses: HOUSES, lot: LOT, mailbox: MAILBOX, signpost: SIGNPOST, board: BOARD_ROWS, shop: SHOP_ROWS, fountain: FOUNTAIN, lamp: LAMP, farm: FARM, fishing: FISHING };
+export const TOWN_ROWS = { houses: HOUSES, lot: LOT, mailbox: MAILBOX, signpost: SIGNPOST, board: BOARD_ROWS, shop: SHOP_ROWS, fountain: FOUNTAIN, lamp: LAMP, farm: FARM, fishing: FISHING, salon: SALON, clothes: CLOTHES };

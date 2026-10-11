@@ -61,6 +61,32 @@ const ITEMS: NewItem[] = [
   { code: "acc_glasses", type: "avatar", avatarSlot: "accessory", name: "안경", description: "글자가 또렷하게 보이는 동그란 안경", price: 70, requiredLevel: 1, isStarter: false, assetKey: "acc.glasses" },
   { code: "acc_scarf", type: "avatar", avatarSlot: "accessory", name: "목도리", description: "목을 포근하게 감싸는 줄무늬 목도리", price: 120, requiredLevel: 2, isStarter: false, assetKey: "acc.scarf" },
   { code: "acc_bag", type: "avatar", avatarSlot: "accessory", name: "가방", description: "공책과 펜이 들어가는 크로스백", price: 180, requiredLevel: 3, isStarter: false, assetKey: "acc.bag" },
+  // 옷가게 (SHOP-08, 사용자 요청 2026-10-11): 새 옷·모자. 위의 모자·옷·소품과 함께 옷가게에서 입어 보고 산다
+  { code: "outfit_pajama", type: "avatar", avatarSlot: "outfit", name: "줄무늬 잠옷", description: "늦잠 자고 싶은 날의 하늘색 줄무늬 잠옷", price: 90, requiredLevel: 1, isStarter: false, assetKey: "outfit.pajama" },
+  { code: "outfit_chef", type: "avatar", avatarSlot: "outfit", name: "요리사 옷", description: "빨간 스카프를 맨 하얀 요리사 옷", price: 140, requiredLevel: 2, isStarter: false, assetKey: "outfit.chef" },
+  { code: "outfit_suit", type: "avatar", avatarSlot: "outfit", name: "정장", description: "중요한 글을 올리는 날 입는 남색 정장", price: 160, requiredLevel: 2, isStarter: false, assetKey: "outfit.suit" },
+  { code: "outfit_hanbok", type: "avatar", avatarSlot: "outfit", name: "색동 한복", description: "명절에 입는 노란 저고리와 빨간 치마", price: 220, requiredLevel: 3, isStarter: false, assetKey: "outfit.hanbok" },
+  { code: "outfit_wizard", type: "avatar", avatarSlot: "outfit", name: "마법사 로브", description: "금빛 별이 반짝이는 보라 로브", price: 300, requiredLevel: 4, isStarter: false, assetKey: "outfit.wizard" },
+  { code: "outfit_knight", type: "avatar", avatarSlot: "outfit", name: "기사 갑옷", description: "마을을 지키는 은빛 갑옷", price: 400, requiredLevel: 5, isStarter: false, assetKey: "outfit.knight" },
+  { code: "hat_chef", type: "avatar", avatarSlot: "hat", name: "요리사 모자", description: "높고 하얀 요리사 모자", price: 70, requiredLevel: 2, isStarter: false, assetKey: "hat.chef" },
+  { code: "hat_wizard", type: "avatar", avatarSlot: "hat", name: "마법사 모자", description: "별이 달린 보라 고깔모자", price: 120, requiredLevel: 4, isStarter: false, assetKey: "hat.wizard" },
+  { code: "hat_crown", type: "avatar", avatarSlot: "hat", name: "금관", description: "빨간 보석이 박힌 반짝이는 금관", price: 500, requiredLevel: 6, isStarter: false, assetKey: "hat.crown" },
+  // 미용실 (SHOP-07, 사용자 요청 2026-10-11): 머리 모양·머리 색. 사람 캐릭터만 보인다. 0코인은 미용실에서 고르면 바로 받는다
+  { code: "hair_short", type: "avatar", avatarSlot: "hair", name: "짧은 머리", description: "단정하고 깔끔한 짧은 머리", price: 0, requiredLevel: 1, isStarter: false, assetKey: "hair.short" },
+  { code: "hair_bob", type: "avatar", avatarSlot: "hair", name: "단발", description: "일자 앞머리 단발", price: 0, requiredLevel: 1, isStarter: false, assetKey: "hair.bob" },
+  { code: "hair_spiky", type: "avatar", avatarSlot: "hair", name: "삐죽 머리", description: "하늘로 뻗친 장난꾸러기 머리", price: 40, requiredLevel: 1, isStarter: false, assetKey: "hair.spiky" },
+  { code: "hair_pony", type: "avatar", avatarSlot: "hair", name: "포니테일", description: "빨간 끈으로 높이 묶은 꽁지머리", price: 60, requiredLevel: 1, isStarter: false, assetKey: "hair.pony" },
+  { code: "hair_long", type: "avatar", avatarSlot: "hair", name: "긴 생머리", description: "어깨 아래로 찰랑이는 긴 머리", price: 80, requiredLevel: 2, isStarter: false, assetKey: "hair.long" },
+  { code: "hair_buns", type: "avatar", avatarSlot: "hair", name: "똥머리", description: "양쪽으로 동그랗게 묶은 머리", price: 90, requiredLevel: 2, isStarter: false, assetKey: "hair.buns" },
+  { code: "hair_curly", type: "avatar", avatarSlot: "hair", name: "뽀글 파마", description: "몽글몽글 부푼 곱슬 파마", price: 120, requiredLevel: 3, isStarter: false, assetKey: "hair.curly" },
+  { code: "haircolor_brown", type: "avatar", avatarSlot: "hair_color", name: "밤색", description: "따뜻한 밤색", price: 0, requiredLevel: 1, isStarter: false, assetKey: "haircolor.brown" },
+  { code: "haircolor_black", type: "avatar", avatarSlot: "hair_color", name: "흑발", description: "윤기 나는 검은색", price: 0, requiredLevel: 1, isStarter: false, assetKey: "haircolor.black" },
+  { code: "haircolor_blonde", type: "avatar", avatarSlot: "hair_color", name: "금발", description: "햇살 같은 금색", price: 30, requiredLevel: 1, isStarter: false, assetKey: "haircolor.blonde" },
+  { code: "haircolor_red", type: "avatar", avatarSlot: "hair_color", name: "빨강 머리", description: "단풍처럼 붉은색", price: 40, requiredLevel: 1, isStarter: false, assetKey: "haircolor.red" },
+  { code: "haircolor_pink", type: "avatar", avatarSlot: "hair_color", name: "분홍 머리", description: "벚꽃 같은 분홍색", price: 60, requiredLevel: 1, isStarter: false, assetKey: "haircolor.pink" },
+  { code: "haircolor_mint", type: "avatar", avatarSlot: "hair_color", name: "민트 머리", description: "시원한 민트색", price: 60, requiredLevel: 2, isStarter: false, assetKey: "haircolor.mint" },
+  { code: "haircolor_lavender", type: "avatar", avatarSlot: "hair_color", name: "보라 머리", description: "몽환적인 연보라색", price: 80, requiredLevel: 2, isStarter: false, assetKey: "haircolor.lavender" },
+  { code: "haircolor_silver", type: "avatar", avatarSlot: "hair_color", name: "은발", description: "반짝이는 은빛", price: 100, requiredLevel: 3, isStarter: false, assetKey: "haircolor.silver" },
   // 성장 아이템 (SHOP-01 2026-10-07, TOWN-09): 여러 번 사서 모으고 농장에서 쓴다
   { code: "growth_feed", type: "growth", growthValue: 20, name: "동물 먹이", description: "동물이 조금 자라요 (성장 +20)", price: 20, requiredLevel: 1, isStarter: false, assetKey: "growth.feed" },
   { code: "growth_premium", type: "growth", growthValue: 50, name: "고급 먹이", description: "영양 가득한 먹이 (성장 +50)", price: 60, requiredLevel: 1, isStarter: false, assetKey: "growth.premium" },
@@ -80,8 +106,9 @@ async function main() {
   const db = drizzle(pool);
   try {
     for (const raw of ITEMS) {
-      // 캐릭터와 기본 아이템은 팔지 않는다 (SHOP-01, D12). 나머지는 판매 중
-      const item = { ...raw, isOnSale: raw.type !== "character" && !raw.isStarter };
+      // 캐릭터와 기본 아이템은 팔지 않는다 (SHOP-01, D12). 나머지는 판매 중.
+      // 광장 장식은 광장 꾸미기를 쉬면서(사용자 결정 2026-10-11, TOWN-16) 팔지 않는다. 이미 산 장식·표는 그대로 둔다
+      const item = { ...raw, isOnSale: raw.type !== "character" && raw.type !== "deco" && !raw.isStarter };
       await db
         .insert(items)
         .values(item)

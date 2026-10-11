@@ -1,8 +1,8 @@
 // 게임 규칙 계산 테스트: 레벨(GAME-02), 출석 일차(GAME-04), 레벨업(GAME-06), 동물 농장(TOWN-09), 집 단계·지붕 색(TOWN-07·11), 광장 꾸미기 자리
 // 실행: npm run test:game
 import { DECO_ASSETS, decoSize } from "../src/lib/art/deco";
-import { BOARD_POS, CENTER, DECO_SLOTS, FARM_POS, FISHING_POS, HOUSE_SLOTS, houseSlot, PLAZA_RADIUS, POND_POS, SHOP_POS, TOWN_RADIUS } from "../src/components/town/layout";
-import { BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, HOUSE_STAGES, houseStage, LAMP_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
+import { BOARD_POS, CENTER, CLOTHES_POS, DECO_SLOTS, FARM_POS, FISHING_POS, HOUSE_SLOTS, houseSlot, PLAZA_RADIUS, POND_POS, RING_RADIUS, SALON_POS, SHOP_POS, TOWN_RADIUS, townSpots } from "../src/components/town/layout";
+import { BOARD_SIZE, CLOTHES_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_FRAMES, FOUNTAIN_SIZE, fountainSheetSvg, HOUSE_STAGES, houseStage, LAMP_SIZE, SALON_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
 import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
 import { AVATAR_PARTS } from "../src/lib/art/avatar";
 import { fitSvg, PIXEL } from "../src/lib/art/pixel";
@@ -45,10 +45,18 @@ expect("Lv.95 집: 10단계, 다음 없음", [houseInfo(95).stage, houseInfo(95)
   const { houses, ...others } = TOWN_ROWS;
   const sprites: [string, readonly string[]][] = [...Object.entries(houses).map(([k, v]): [string, string[]] => [`house${k}`, v]), ...Object.entries(others)];
   expect("건물 그림 줄 길이가 고름", sprites.filter(([, rows]) => !even(rows)).map(([k]) => k), []);
-  const sizes = [BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, LAMP_SIZE, SHOP_SIZE, ...Object.values(HOUSE_STAGES), ...DECO_ASSETS.map(decoSize)];
+  const sizes = [BOARD_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_SIZE, LAMP_SIZE, SHOP_SIZE, SALON_SIZE, CLOTHES_SIZE, ...Object.values(HOUSE_STAGES), ...DECO_ASSETS.map(decoSize)];
   expect("광장 그림 크기는 PIXEL의 정수배", sizes.filter((z) => z.width % PIXEL || z.height % PIXEL).length, 0);
   const st = Object.values(HOUSE_STAGES);
   expect("집은 단계마다 같거나 커지고 10단계가 1단계의 2배 이상 넓다", st.every((z, i) => i === 0 || (z.width >= st[i - 1].width && z.height >= st[i - 1].height)) && st[9].width >= st[0].width * 2, true);
+}
+
+// 광장 분수 (2026-10-11 "분수대 이쁘게"): 3칸 그림판, 칸 하나 = FOUNTAIN_SIZE, 칸마다 물이 달라 흐르는 것처럼 보인다
+{
+  const sheet = fountainSheetSvg();
+  const size = sheet.match(/width="(\d+)" height="(\d+)"/);
+  expect("분수 그림판은 3칸 가로", [Number(size?.[1]), Number(size?.[2])], [FOUNTAIN_SIZE.width * FOUNTAIN_FRAMES, FOUNTAIN_SIZE.height]);
+  expect("분수 칸 크기 60×52 도트 (광장 배치는 그대로, 너비도 예전과 같다)", FOUNTAIN_SIZE, { width: 180, height: 156 });
 }
 
 // TOWN-07 지붕 색: 블로그마다 정해진 순서(10색 모두 한 번씩), 단계 수만큼 열림, 안 골랐으면 첫 색
@@ -77,6 +85,8 @@ expect("꾸미기 자리는 타운 잔디 원 안", DECO_SLOTS.every((p) => Math
     ["상점", box(SHOP_POS.x, SHOP_POS.y, SHOP_SIZE.width, SHOP_SIZE.height)],
     ["낚시터", box(FISHING_POS.x, FISHING_POS.y, FISHING_SIZE.width, FISHING_SIZE.height)],
     ["농장", box(FARM_POS.x, FARM_POS.y, FARM_SIZE.width, FARM_SIZE.height)],
+    ["미용실", box(SALON_POS.x, SALON_POS.y, SALON_SIZE.width, SALON_SIZE.height)],
+    ["옷가게", box(CLOTHES_POS.x, CLOTHES_POS.y, CLOTHES_SIZE.width, CLOTHES_SIZE.height)],
     ["분수", box(CENTER.x, CENTER.y + FOUNTAIN_SIZE.height / 2, FOUNTAIN_SIZE.width, FOUNTAIN_SIZE.height)],
     ["연못", { x1: POND_POS.x - 125, y1: POND_POS.y - 75, x2: POND_POS.x + 125, y2: POND_POS.y + 75 }],
     ...[[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy]): [string, Box] => ["가로등", box(CENTER.x + dx * 185, CENTER.y + dy * 185 + 40, LAMP_SIZE.width, LAMP_SIZE.height)]),
@@ -97,6 +107,30 @@ expect("꾸미기 자리는 타운 잔디 원 안", DECO_SLOTS.every((p) => Math
       .map(() => `${i + 1}번`),
   );
   expect("꾸미기 자리가 집으로 가는 길과 겹치지 않음", onPath, []);
+
+  // 미용실·옷가게 (2026-10-11): 다른 건물·연못과 겹치지 않고, 그림 어느 곳도 집으로 가는 길·둘레 길·광장에 걸치지 않는다
+  const shops: [string, Box][] = buildings.filter(([n]) => n === "미용실" || n === "옷가게");
+  const others = buildings.filter(([n]) => n !== "미용실" && n !== "옷가게");
+  expect("미용실·옷가게가 다른 건물·연못·가로등과 겹치지 않음", shops.flatMap(([a, b]) => others.filter(([, o]) => overlap(b, o)).map(([n]) => `${a}-${n}`)), []);
+  expect("미용실과 옷가게가 서로 겹치지 않음", overlap(shops[0][1], shops[1][1]), false);
+  const blocked = shops.flatMap(([name, b]) => {
+    const hits = new Set<string>();
+    for (let x = b.x1; x <= b.x2; x += 6)
+      for (let y = b.y1; y <= b.y2 + 30; y += 6) {
+        const d = Math.hypot(x - CENTER.x, y - CENTER.y);
+        if (d < PLAZA_RADIUS + 42) hits.add("광장");
+        if (Math.abs(d - RING_RADIUS) < 38) hits.add("둘레 길");
+        for (let h = 0; h < HOUSE_SLOTS; h++) {
+          const p = houseSlot(h);
+          if (toSegment(x, y, CENTER.x + Math.cos(p.angle) * PLAZA_RADIUS, CENTER.y + Math.sin(p.angle) * PLAZA_RADIUS, p.x, p.y) < 27) hits.add(`${h}번 집 길`);
+        }
+      }
+    return [...hits].map((h) => `${name}-${h}`);
+  });
+  expect("미용실·옷가게가 길·광장에 걸치지 않음", blocked, []);
+  expect("미용실·옷가게는 타운 잔디 원 안", [SALON_POS, CLOTHES_POS].every((p) => Math.hypot(p.x - CENTER.x, p.y - CENTER.y) < TOWN_RADIUS), true);
+  const spots = townSpots({ player: null, myHouse: null, neighbors: [], attendanceDay: null, host: null }).places;
+  expect("텔레포트 목록에 미용실·옷가게", spots.filter((p) => p.key === "salon" || p.key === "clothes").map((p) => p.href), ["/salon", "/clothes"]);
 }
 
 // 한국 날짜 0시 경계 (FR-008)

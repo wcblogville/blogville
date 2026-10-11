@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
-import { placeDecoration, toggleFavorite } from "@/app/town/actions";
+import { toggleFavorite } from "@/app/town/actions";
 import { openNotification } from "@/app/notifications/actions";
 import { OwnerAvatar } from "@/components/blog/blog-header";
 import { CharacterBadge } from "@/components/character";
-import { ItemArt } from "@/components/item-art";
 import { SignOutButton } from "@/components/sign-out-button";
-import { decoSlotLevel, MAX_DECO_SLOTS } from "@/lib/house";
 import { notificationText, notificationTime, unreadBadge, type NotificationRow } from "@/lib/notifications";
 import { townBus } from "./bus";
 import { houseAt, townSpots, type TownSpot } from "./layout";
-import type { TownData, TownDecoration, TownFriend } from "./types";
+import type { TownData, TownFriend } from "./types";
 
 /** 메뉴에 필요한 회원 정보 (방문자는 null) */
 export type TownHudMember = {
@@ -27,8 +25,6 @@ export type TownHudMember = {
   unread: number;
   notifications: (NotificationRow & { id: number; createdAt: Date; readAt: Date | null })[];
   friends: TownFriend[];
-  /** 내가 가진 광장 장식 (광장 꾸미기 창의 고르기 목록) */
-  decos: { itemId: number; name: string; assetKey: string }[];
 };
 
 type Panel =
@@ -37,34 +33,23 @@ type Panel =
   | { kind: "notifications" }
   | { kind: "teleport" }
   | { kind: "friends" }
-  | { kind: "deco" }
   | { kind: "mailbox"; slot: number };
 
 /**
  * 광장 위 메뉴 버튼 (사용자 요청 2026-10-08): ① 내 프로필(코인, 경험치 현재/필요) ② 알림 ③ 텔레포트 ④ 친구 목록.
- * 내 마을에서는 ⑤ 광장 꾸미기 (사용자 요청 2026-10-09, ?deco=1이면 처음부터 연다). 광장의 우체통(소식)도 여기서 연다 (townBus "open").
+ * 광장의 우체통(소식)도 여기서 연다 (townBus "open"). 광장 꾸미기 창은 사용자 결정(2026-10-11, 집 꾸미기에 집중)으로 뺐다 (TOWN-16).
  * 다른 회원의 마을(data.host)을 구경할 때는 위에 "누구의 마을"과 [내 마을로]를 띄운다
  */
 export function TownHud({
   data,
   member,
-  openDeco = false,
   className = "",
 }: {
   data: TownData;
   member: TownHudMember | null;
-  openDeco?: boolean;
   className?: string;
 }) {
-  const decorating = Boolean(member && !data.host);
-  const [panel, setPanel] = useState<Panel | null>(openDeco && decorating ? { kind: "deco" } : null);
-  // 꾸미기 창에서 바꾼 장식. 광장 데이터가 새로 오면(서버가 다시 그림) 그 값을 쓴다
-  const [placed, setPlaced] = useState<{ base: TownData; list: TownDecoration[] } | null>(null);
-  const decorations = placed?.base === data ? placed.list : data.decorations;
-  const changeDecorations = (list: TownDecoration[]) => {
-    setPlaced({ base: data, list });
-    townBus.emit("decorations", list);
-  };
+  const [panel, setPanel] = useState<Panel | null>(null);
 
   useEffect(() => townBus.on("open", (target) => setPanel({ kind: "mailbox", slot: target.slot })), []);
   useEffect(() => {
@@ -130,15 +115,12 @@ export function TownHud({
               </button>
             </div>
             {panel.kind === "menu" && (
-              <MenuPanel member={member} badge={badge} open={setPanel} deco={decorating ? { placed: decorations.length, slots: data.decoSlots } : null} />
+              <MenuPanel member={member} badge={badge} open={setPanel} />
             )}
             {panel.kind === "profile" && member && data.player && <ProfilePanel data={data} member={member} />}
             {panel.kind === "notifications" && member && <NotificationsPanel member={member} />}
             {panel.kind === "teleport" && <TeleportPanel data={data} withPlaces onPick={teleport} />}
             {panel.kind === "friends" && member && <FriendsPanel data={data} member={member} onPick={teleport} />}
-            {panel.kind === "deco" && member && decorating && (
-              <DecoPanel data={data} member={member} decorations={decorations} onChange={changeDecorations} />
-            )}
             {panel.kind === "mailbox" && (
               <MailboxPanel data={data} member={member} slot={panel.slot} onPick={teleport} />
             )}
@@ -155,7 +137,6 @@ const PANEL_TITLE: Record<Panel["kind"], string> = {
   notifications: "🔔 알림",
   teleport: "✨ 텔레포트",
   friends: "👫 친구 목록",
-  deco: "🌷 광장 꾸미기",
   mailbox: "📮 우체통",
 };
 
@@ -171,13 +152,10 @@ function MenuPanel({
   member,
   badge,
   open,
-  deco,
 }: {
   member: TownHudMember | null;
   badge: string | null;
   open: (p: Panel) => void;
-  /** 내 마을이면 광장 꾸미기 칸 (놓은 장식 수 / 열린 자리 수), 남의 마을이면 null */
-  deco: { placed: number; slots: number } | null;
 }) {
   if (!member) {
     return (
@@ -201,7 +179,6 @@ function MenuPanel({
     { kind: "teleport", emoji: "✨", label: "텔레포트", sub: "상점·농장·이웃집 앞으로" },
     { kind: "friends", emoji: "👫", label: "친구 목록", sub: `이웃 ${member.friends.length}명` },
   ];
-  if (deco) items.push({ kind: "deco", emoji: "🌷", label: "광장 꾸미기", sub: `장식 ${deco.placed}/${deco.slots}자리` });
   return (
     <ul className="grid grid-cols-2 gap-2">
       {items.map((it, i) => (
@@ -480,132 +457,6 @@ function MailboxPanel({
         <Link href={`/town/${h.slug}`} className="btn mt-2 block w-full text-center text-sm">
           🏘 {h.nickname}님의 마을 구경
         </Link>
-      )}
-    </div>
-  );
-}
-
-/**
- * 광장 꾸미기 (사용자 요청 2026-10-09): 자리를 고르면 캐릭터가 그 앞으로 가고, 가진 장식을 골라 놓거나 비운다.
- * 자리는 집 단계만큼 열린다 (4/6/8). 열려 있는 동안 광장에 자리 번호가 보인다 (townBus "deco-mode")
- */
-function DecoPanel({
-  data,
-  member,
-  decorations,
-  onChange,
-}: {
-  data: TownData;
-  member: TownHudMember;
-  decorations: TownDecoration[];
-  onChange: (list: TownDecoration[]) => void;
-}) {
-  const [slot, setSlot] = useState<number | null>(null);
-  const [pending, start] = useTransition();
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  useEffect(() => {
-    townBus.emit("deco-mode", true);
-    return () => townBus.emit("deco-mode", false);
-  }, []);
-
-  const at = (i: number) => decorations.find((d) => d.slot === i);
-  const nameOf = (assetKey: string) => member.decos.find((d) => d.assetKey === assetKey)?.name ?? "장식";
-  const choose = (i: number) => {
-    setSlot(i);
-    setMessage(null);
-    townBus.emit("teleport", `deco:${i}`);
-  };
-  const place = (target: number, itemId: number | null) =>
-    start(async () => {
-      const r = await placeDecoration(target, itemId);
-      if (!r.ok) {
-        setMessage({ ok: false, text: r.error });
-        return;
-      }
-      onChange(r.decorations);
-      setMessage({ ok: true, text: itemId === null ? `${target + 1}번 자리를 비웠어요.` : `${target + 1}번 자리에 놓았어요 ✓` });
-    });
-
-  return (
-    <div className="space-y-3" data-deco-panel>
-      <p className="px-1 text-sm text-ink-soft">
-        자리를 고르면 그 앞으로 가요. 집이 커질수록 자리가 늘어요 ({data.decoSlots}/{MAX_DECO_SLOTS}자리)
-      </p>
-      <ol className="grid grid-cols-4 gap-1.5">
-        {Array.from({ length: MAX_DECO_SLOTS }, (_, i) => {
-          const open = i < data.decoSlots;
-          const d = at(i);
-          return (
-            <li key={i}>
-              <button
-                type="button"
-                disabled={!open}
-                onClick={() => choose(i)}
-                aria-pressed={slot === i}
-                aria-label={open ? `${i + 1}번 자리${d ? `: ${nameOf(d.assetKey)}` : " (비어 있음)"}` : `${i + 1}번 자리 (Lv.${decoSlotLevel(i)}에 열려요)`}
-                data-deco-slot={i}
-                className={`flex h-16 w-full flex-col items-center justify-center rounded-xl border-2 text-xs focus-visible:outline-2 focus-visible:outline-sky disabled:cursor-not-allowed disabled:opacity-60 ${
-                  slot === i ? "border-sun bg-[#fff3d6]" : "border-line bg-white hover:bg-cream"
-                }`}
-              >
-                {d ? (
-                  <ItemArt type="deco" assetKey={d.assetKey} className="h-9 w-12" characterSize={36} />
-                ) : (
-                  <span className="text-lg" aria-hidden>
-                    {open ? "＋" : "🔒"}
-                  </span>
-                )}
-                <span className="font-bold">{open ? `${i + 1}번` : `Lv.${decoSlotLevel(i)}`}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-      {message && (
-        <p role={message.ok ? "status" : "alert"} className={`rounded-xl px-3 py-2 text-sm font-bold ${message.ok ? "bg-[#e9f6e4] text-leaf-dark" : "bg-[#ffe4e4] text-berry"}`}>
-          {message.text}
-        </p>
-      )}
-      {slot !== null && (
-        <div>
-          <h3 className="px-1 pb-1 text-sm font-bold">{slot + 1}번 자리에 놓을 장식</h3>
-          {member.decos.length === 0 ? (
-            <p className="rounded-xl bg-cream px-3 py-3 text-center text-sm">
-              아직 장식이 없어요.{" "}
-              <Link href="/shop" className="font-bold underline">
-                상점
-              </Link>
-              의 🌷 광장 장식에서 사 보세요.
-            </p>
-          ) : (
-            <ul className="grid grid-cols-3 gap-1.5">
-              {member.decos.map((d) => {
-                const where = decorations.find((x) => x.assetKey === d.assetKey);
-                const here = where?.slot === slot;
-                return (
-                  <li key={d.itemId}>
-                    <button
-                      type="button"
-                      disabled={pending || here}
-                      onClick={() => place(slot, d.itemId)}
-                      data-deco-item={d.assetKey}
-                      className="flex w-full flex-col items-center rounded-xl border-2 border-line bg-white p-1.5 text-xs hover:bg-cream focus-visible:outline-2 focus-visible:outline-sky disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <ItemArt type="deco" assetKey={d.assetKey} className="h-12 w-full" characterSize={44} />
-                      <span className="mt-1 line-clamp-1 font-bold">{d.name}</span>
-                      <span className="text-[11px] text-ink-soft">{here ? "놓여 있어요" : where ? `${where.slot + 1}번에서 옮기기` : "놓기"}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {at(slot) && (
-            <button type="button" disabled={pending} onClick={() => place(slot, null)} className="btn mt-2 w-full bg-white text-sm" data-deco-clear>
-              🧹 이 자리 비우기
-            </button>
-          )}
-        </div>
       )}
     </div>
   );

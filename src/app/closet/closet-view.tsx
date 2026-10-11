@@ -9,11 +9,11 @@ import { withJosa } from "@/lib/josa";
 import { CLOSET_ERRORS, equipMessage } from "@/lib/shop";
 import { equipItem, unequipAvatar } from "./actions";
 
-type Slot = "hat" | "outfit" | "accessory";
+type Slot = "hat" | "outfit" | "accessory" | "hair" | "hair_color";
 type OwnedItem = { id: number; type: string; name: string; assetKey: string; avatarSlot: Slot | null };
 type Equipped = { characterItemId: number; backgroundItemId: number; avatar: Partial<Record<Slot, number>> };
 
-const SLOT_NAMES: Record<Slot, string> = { hat: "모자", outfit: "옷", accessory: "소품" };
+const SLOT_NAMES: Record<Slot, string> = { hat: "모자", outfit: "옷", accessory: "소품", hair: "머리 모양", hair_color: "머리 색" };
 
 export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedItem[]; equipped: Equipped; nickname: string; slug: string }) {
   const [current, setCurrent] = useState(equipped);
@@ -153,7 +153,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         <section className="mt-8" data-closet-section="deco">
           <h2 className="mb-3 font-display text-2xl">🌷 광장 장식</h2>
           <p className="-mt-2 mb-3 text-sm text-ink-soft">
-            장식은 PC의 <Link href="/town?deco=1" className="font-bold underline">광장</Link>에서 ☰ 메뉴 → 🌷 광장 꾸미기로 놓아요. 친구가 내 마을에 놀러 오면 볼 수 있어요.
+            광장 꾸미기는 지금 쉬고 있어요. 이미 산 장식은 이곳에 그대로 남아 있어요.
           </p>
           {grid(decos, false)}
         </section>
