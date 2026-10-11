@@ -108,12 +108,13 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
  * 글 삭제 (FR-016, contracts/write-actions.md §3): 내 블로그 글만. 태그 연결·댓글·공감·조회 기록은 CASCADE,
  * 첨부는 떨어진다(post_id NULL + detached_at). 보상은 회수하지 않는다
  */
-export async function deletePost(postId: number) {
+export async function deletePost(postId: number, back?: "manage") {
   const viewer = await requireMember();
   if (parseId(postId) === null) return;
   await db.delete(posts).where(and(eq(posts.id, postId), eq(posts.blogId, viewer.profile.blogId)));
   revalidatePath("/", "layout");
-  redirect(`/@${viewer.profile.blogSlug}`);
+  // 글 관리 화면에서 지웠으면 그 화면에 머문다 (정해 둔 값만, 주소를 받지 않는다)
+  redirect(back === "manage" ? "/settings/posts" : `/@${viewer.profile.blogSlug}`);
 }
 
 /** 수정 화면이면 글 번호, 새 글이면 null. 잘못된 값이면 undefined */

@@ -8,12 +8,14 @@ import {
   blogs,
   blogVisits,
   categories,
+  comments,
   follows,
   items,
   postLikes,
   posts,
   postTags,
   profiles,
+  replies,
   subcategories,
   tags,
   userAnimals,
@@ -209,6 +211,7 @@ async function paged<T>(
   page: number,
   extra: (q: ReturnType<typeof baseList>) => Promise<T[]>,
   orderFirst?: SQL,
+  size = PAGE_SIZE,
 ) {
   const [{ total }] = await db
     .select({ total: sql<number>`COUNT(*)::int` })
@@ -216,7 +219,7 @@ async function paged<T>(
     .innerJoin(blogs, eq(blogs.id, posts.blogId))
     .where(where);
   const items = await extra(baseList(where, orderFirst));
-  return { items, total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) };
+  return { items, total, page, pageCount: Math.max(1, Math.ceil(total / size)) };
 }
 
 function baseList(where: SQL | undefined, orderFirst?: SQL) {
@@ -249,14 +252,30 @@ export async function listBlogPosts(opts: {
   isOwner: boolean;
   categoryId?: number;
   subcategoryId?: number;
+  /** 블로그 안 검색: 제목·본문 부분 일치 (%·_·\ 는 글자 그대로). 주인이면 비공개 글도 찾는다 (사용자 요청 2026-10-11) */
+  search?: string;
+  /** 이 블로그에서 그 태그가 붙은 글 */
+  tag?: string;
+  /** 비공개 글만 / 공개 글만 (글 관리 화면, 주인만) */
+  visibility?: "public" | "private";
   page: number;
+  pageSize?: number;
 }) {
+  const pattern = opts.search ? toLikePattern(opts.search) : null;
   const where = and(
     eq(posts.blogId, opts.blogId),
-    opts.isOwner ? undefined : eq(posts.visibility, "public"),
+    opts.isOwner ? (opts.visibility ? eq(posts.visibility, opts.visibility) : undefined) : eq(posts.visibility, "public"),
     opts.subcategoryId ? eq(posts.subcategoryId, opts.subcategoryId) : opts.categoryId ? eq(posts.categoryId, opts.categoryId) : undefined,
+    pattern ? or(sql`${posts.title} ILIKE ${pattern} ESCAPE '\\'`, sql`${posts.contentText} ILIKE ${pattern} ESCAPE '\\'`) : undefined,
+    opts.tag
+      ? inArray(
+          posts.id,
+          db.select({ id: postTags.postId }).from(postTags).innerJoin(tags, eq(tags.id, postTags.tagId)).where(eq(tags.name, opts.tag)),
+        )
+      : undefined,
   );
-  return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE));
+  const size = opts.pageSize ?? PAGE_SIZE;
+  return paged(where, opts.page, (q) => q.limit(size).offset((opts.page - 1) * size), undefined, size);
 }
 
 /**
@@ -286,6 +305,80 @@ export async function listFeed(opts: { page: number; followerId?: string; tag?: 
     : undefined;
   return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE), favoriteFirst);
 }
+
+// ===== 블로그 옆 칸 위젯 (사용자 요청 2026-10-11 "내 블로그에 글쓰기랑 다른 부가기능들이 부족") =====
+
+/**
+ * 블로그 옆 칸: 최근 글·인기 글(조회수)·최근 댓글(댓글 + 답글)·태그 목록.
+ * 주인이 아니면 공개 글과 그 글의 댓글만 (비공개 글은 제목도 내보내지 않는다). 지운 댓글·답글은 뺀다.
+ * 글은 posts_blog_created_idx(blog_id, created_at)로 이 블로그 글만 읽는다
+ */
+export async function getBlogSidebar(blogId: number, isOwner: boolean, limit = 5) {
+  const visible = and(eq(posts.blogId, blogId), isOwner ? undefined : eq(posts.visibility, "public"));
+  const visibleSql = isOwner ? sql`` : sql`AND p.visibility = 'public'`;
+  const short = { id: posts.id, title: posts.title, visibility: posts.visibility, viewCount: posts.viewCount, createdAt: posts.createdAt };
+  const [recent, popular, recentComments, blogTags, privateCount] = await Promise.all([
+    db.select(short).from(posts).where(visible).orderBy(desc(posts.createdAt), desc(posts.id)).limit(limit),
+    db
+      .select(short)
+      .from(posts)
+      .where(and(visible, sql`${posts.viewCount} > 0`))
+      .orderBy(desc(posts.viewCount), desc(posts.createdAt), desc(posts.id))
+      .limit(limit),
+    db
+      .execute<{ kind: "comment" | "reply"; id: number; post_id: number; post_title: string; content: string; created_at: string; nickname: string | null }>(
+        sql`SELECT x.kind, x.id, x.post_id, p.title AS post_title, left(x.content, 60) AS content, x.created_at, pr.nickname
+            FROM (
+              SELECT 'comment' AS kind, c.id, c.post_id, c.content, c.created_at, c.author_id
+              FROM ${comments} c JOIN ${posts} p ON p.id = c.post_id
+              WHERE p.blog_id = ${blogId} AND c.deleted_at IS NULL ${visibleSql}
+              UNION ALL
+              SELECT 'reply', r.id, c.post_id, r.content, r.created_at, r.author_id
+              FROM ${replies} r JOIN ${comments} c ON c.id = r.comment_id JOIN ${posts} p ON p.id = c.post_id
+              WHERE p.blog_id = ${blogId} AND r.deleted_at IS NULL ${visibleSql}
+            ) x
+            JOIN ${posts} p ON p.id = x.post_id
+            LEFT JOIN ${profiles} pr ON pr.user_id = x.author_id
+            ORDER BY x.created_at DESC, x.id DESC
+            LIMIT ${limit}`,
+      )
+      .then((r) => r.rows),
+    db
+      .select({ name: tags.name, count: sql<number>`COUNT(*)::int` })
+      .from(postTags)
+      .innerJoin(tags, eq(tags.id, postTags.tagId))
+      .innerJoin(posts, eq(posts.id, postTags.postId))
+      .where(visible)
+      .groupBy(tags.id)
+      .orderBy(desc(sql`COUNT(*)`), asc(tags.name))
+      .limit(30),
+    // 주인 도구 막대의 글 수 (공개 + 비공개)
+    isOwner
+      ? db
+          .select({ n: sql<number>`COUNT(*)::int` })
+          .from(posts)
+          .where(and(eq(posts.blogId, blogId), eq(posts.visibility, "private")))
+          .then((r) => r[0].n)
+      : 0,
+  ]);
+  return {
+    privateCount,
+    recent,
+    popular,
+    comments: recentComments.map((c) => ({
+      kind: c.kind,
+      id: c.id,
+      postId: c.post_id,
+      postTitle: c.post_title,
+      content: c.content,
+      createdAt: new Date(c.created_at),
+      nickname: c.nickname,
+    })),
+    tags: blogTags,
+  };
+}
+
+export type BlogSidebar = Awaited<ReturnType<typeof getBlogSidebar>>;
 
 // ===== 글 상세 =====
 export async function getPost(blogId: number, postId: number) {

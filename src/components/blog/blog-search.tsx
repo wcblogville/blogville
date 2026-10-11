@@ -4,23 +4,26 @@
 import Form from "next/form";
 import Link from "next/link";
 import { OwnerAvatar } from "@/components/blog/blog-header";
+import { Widget } from "@/components/blog/blog-sidebar";
 import { PostCard, type PostCardData } from "@/components/blog/post-card";
 import { SEARCH_QUERY_MAX } from "@/lib/blog";
 
-/** 검색창: GET으로 /@{내 주소}?q=검색어 (next/form, 화면 안 이동) */
+/** 검색창: GET으로 /@{내 주소}?q=검색어 (next/form, 화면 안 이동). 옆 칸의 `🏘 마을 검색` 위젯 (주인만) */
 export function BlogSearchBox({ base, q }: { base: string; q: string }) {
   return (
-    <Form action={base} className="card mb-4 flex gap-2 p-3" role="search">
-      <input
-        name="q"
-        defaultValue={q}
-        maxLength={SEARCH_QUERY_MAX}
-        aria-label="검색어"
-        placeholder="마을의 글·블로그 검색"
-        className="min-h-11 w-full min-w-0 rounded-xl border-2 border-line bg-white px-3 text-sm outline-none focus:border-sun"
-      />
-      <button className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-cream">검색</button>
-    </Form>
+    <Widget title="🏘 마을 검색" label="마을 검색" data-widget="village-search">
+      <Form action={base} className="flex gap-2" role="search" aria-label="마을 검색">
+        <input
+          name="q"
+          defaultValue={q}
+          maxLength={SEARCH_QUERY_MAX}
+          aria-label="검색어"
+          placeholder="마을의 글·블로그 검색"
+          className="min-h-11 w-full min-w-0 rounded-xl border-2 border-line bg-white px-3 text-sm outline-none focus:border-sun"
+        />
+        <button className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-cream">검색</button>
+      </Form>
+    </Widget>
   );
 }
 

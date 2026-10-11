@@ -18,7 +18,11 @@ export function VisitCount({ blogId, initial, isOwner }: { blogId: number; initi
     if (isOwner) return;
     startTransition(async () => {
       const next = await recordBlogVisit(blogId).catch(() => null);
-      if (next) setStats(next);
+      if (next) {
+        setStats(next);
+        // 옆 칸 방문자 위젯도 같은 숫자로 (VisitWidget)
+        window.dispatchEvent(new CustomEvent("bv-blog-visits", { detail: { blogId, ...next } }));
+      }
     });
     // 쿠키를 새로 만든 첫 방문에는 화면이 한 번 더 그려지므로 blogId가 바뀔 때만 부른다
     // eslint-disable-next-line react-hooks/exhaustive-deps

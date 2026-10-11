@@ -21,10 +21,11 @@ export function CategoryNav({
 }) {
   const line = (on: boolean) => `flex min-h-11 items-center gap-1 rounded-lg px-2 ${on ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`;
   return (
-    <nav className="card p-4" aria-label="카테고리">
-      <h2 className="mb-2 font-display text-lg">카테고리</h2>
+    <nav className="card overflow-hidden" aria-label="카테고리" data-widget="categories">
+      {/* 옆 칸 위젯과 같은 이름표 제목 (blog-sidebar.tsx Widget) */}
+      <h2 className="border-b-2 border-line bg-[#fff3d6] px-4 py-2 font-display text-lg">🗂 카테고리</h2>
       {/* 카테고리 링크는 누르는 영역 44px 이상 (FR-059, research R-24) */}
-      <ul className="space-y-0.5 text-sm">
+      <ul className="space-y-0.5 p-3 text-sm">
         <li>
           <Link href={base} className={line(selected?.kind === "all")} aria-current={selected?.kind === "all" ? "page" : undefined}>
             전체 글 <span className="text-ink-soft">({publicCount})</span>
