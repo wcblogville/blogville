@@ -1,4 +1,4 @@
-// 관리자 화면 (AUTH-08 / FR-043~FR-047, FR-054, contracts/admin.md 1장)
+// 관리자 화면 (AUTH-08 / FR-043~FR-047, FR-054, contracts/admin.md 1장), 테스트 지급 (AUTH-10)
 // 관리자가 아니면(로그인하지 않은 사람 포함) requireAdmin()이 404를 보여 화면이 있다는 것도 드러내지 않는다.
 // 375px에서는 표 대신 행을 쌓은 목록을 보여 가로 스크롤이 없게 하고, 링크·[삭제]의 누르는 영역은 44px 이상으로 둔다.
 import { desc, eq, gte, sql } from "drizzle-orm";
@@ -11,6 +11,7 @@ import { requireAdmin } from "@/server/dal";
 import { startOfTodayKST } from "@/server/points";
 import { countLiveComments } from "@/server/social";
 import { AdminDeletePostButton } from "./delete-button";
+import { AdminGrantForm } from "./grant-form";
 
 export const metadata = { title: "관리자" };
 
@@ -22,7 +23,7 @@ const providerLabels = (providers: string[] | null) => (providers ?? []).map((p)
 const linkTap = "inline-flex min-h-11 items-center";
 
 export default async function AdminPage() {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const [[stats], commentCount, recentUsers, recentPosts] = await Promise.all([
     db
@@ -79,6 +80,12 @@ export default async function AdminPage() {
             <p className="font-display text-3xl">{c.value.toLocaleString()}</p>
           </div>
         ))}
+      </section>
+
+      <section className="card mt-8 p-5" aria-labelledby="admin-grant-title">
+        <h2 id="admin-grant-title" className="font-display text-xl">🧪 테스트 지급</h2>
+        <p className="mb-4 mt-1 text-sm text-ink-soft">기능을 시험해 볼 때 쓰는 관리자 전용 도구예요. 회원에게 코인·경험치를 바로 넣어 줍니다 (AUTH-10).</p>
+        <AdminGrantForm adminUsername={admin.user.username ?? "admin"} />
       </section>
 
       <section className="card mt-8 p-5">

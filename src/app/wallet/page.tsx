@@ -19,6 +19,7 @@ const REASON_LABEL: Record<LedgerReason, string> = {
   farm_grown: "🏅 동물 다 키움",
   egg_purchase: "🥚 알 구매",
   fishing: "🎣 낚시",
+  admin_grant: "👑 관리자 테스트 지급",
 };
 
 const signed = (n: number) => (n > 0 ? `+${n.toLocaleString()}` : `−${Math.abs(n).toLocaleString()}`);
