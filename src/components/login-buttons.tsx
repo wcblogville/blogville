@@ -4,6 +4,7 @@
 import { useActionState, useState } from "react";
 import { signIn, signUp, startSocialSignIn, type AuthFormState } from "@/app/(auth)/actions";
 import { CharacterArt } from "@/components/character";
+import { BLOG_TITLE_MAX, defaultBlogFor } from "@/lib/blog";
 import type { SocialReady } from "@/lib/social";
 
 type Providers = SocialReady;
@@ -53,6 +54,11 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
   // 처음에는 남자 주민(char_boy)을 골라 둔다. 오류 뒤에는 고른 캐릭터를 그대로 둔다 (FR-005)
   const defaultId = starters.find((s) => s.code === "char_boy")?.id ?? starters[0]?.id;
   const chosen = state.values?.characterId ? Number(state.values.characterId) : defaultId;
+  // 블로그 이름 (2026-10-11 사용자 요청): 직접 고치기 전까지는 아이디를 따라 `{아이디}의 블로그`로 채워 둔다.
+  // 고친 뒤에는 회원이 적은 값을 그대로 둔다 (지우면 다시 따라간다). 오류 뒤에도 적은 값이 남는다 (controlled)
+  const [username, setUsername] = useState("");
+  const [blogTitle, setBlogTitle] = useState<string | null>(null);
+  const shownTitle = blogTitle ?? (username.trim() ? defaultBlogFor(username.trim().toLowerCase()).title : "");
 
   return (
     <form action={action} className="space-y-3">
@@ -60,6 +66,7 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
         <input
           name="username"
           defaultValue={state.values?.username}
+          onChange={(e) => setUsername(e.target.value)}
           placeholder="아이디"
           autoComplete="username"
           required
@@ -74,6 +81,23 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
       </div>
       <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autoComplete="new-password" required maxLength={64} className={input} aria-label="비밀번호" />
       <input name="passwordConfirm" type="password" placeholder="비밀번호 확인" autoComplete="new-password" required maxLength={64} className={input} aria-label="비밀번호 확인" />
+      <div>
+        <input
+          name="blogTitle"
+          value={shownTitle}
+          onChange={(e) => setBlogTitle(e.target.value === "" ? null : e.target.value)}
+          placeholder="블로그 이름 (예: 나의 작은 정원)"
+          autoComplete="off"
+          required
+          maxLength={BLOG_TITLE_MAX}
+          className={input}
+          aria-label="블로그 이름"
+          aria-describedby="signup-blog-title-hint"
+        />
+        <p id="signup-blog-title-hint" className="mt-1 text-xs text-ink-soft">
+          {BLOG_TITLE_MAX}자까지, 나중에 블로그 관리에서 바꿀 수 있어요
+        </p>
+      </div>
 
       <fieldset>
         <legend className="mb-1.5 text-sm font-bold">캐릭터 고르기</legend>

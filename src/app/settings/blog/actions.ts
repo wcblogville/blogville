@@ -7,7 +7,7 @@ import { and, asc, eq, exists, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { blogs, categories, posts, subcategories, userAnimals } from "@/db/schema";
-import { BLOG_DESCRIPTION_MAX, BLOG_TITLE_MAX, charCount, SLUG_RE, swapPosition } from "@/lib/blog";
+import { BLOG_DESCRIPTION_MAX, charCount, checkBlogTitle, SLUG_RE, swapPosition } from "@/lib/blog";
 import { parseId } from "@/lib/ids";
 import { isReservedName, normalizeName } from "@/lib/names";
 import { requireMember } from "@/server/dal";
@@ -27,30 +27,21 @@ function field(formData: FormData, name: string): string {
   return typeof v === "string" ? v : "";
 }
 
-const INFO_ERRORS = {
-  titleEmpty: "블로그 이름을 적어 주세요",
-  titleLong: "블로그 이름은 40자까지예요",
-  descriptionLong: "소개는 160자까지예요",
-} as const;
+const DESCRIPTION_LONG = "소개는 160자까지예요";
 
 /**
  * 블로그 이름·소개 (BLOG-03 / FR-016, FR-017, FR-021, contracts/blog-settings.md 1절).
  * title·description만 읽는다. 길이는 앞뒤 공백을 지운 뒤 코드 포인트로 세고, 오류는 이름 → 소개 순으로 첫 번째 하나만.
+ * 이름 규칙은 회원가입과 같은 checkBlogTitle (src/lib/blog.ts)
  */
 export async function updateBlogInfo(_prev: FormState, formData: FormData): Promise<FormState> {
   const viewer = await requireMember();
   const sent = { title: field(formData, "title"), description: field(formData, "description") };
-  const title = sent.title.trim();
+  const checked = checkBlogTitle(sent.title);
+  if (!checked.ok) return { error: checked.error, values: sent };
+  const { title } = checked;
   const description = sent.description.trim();
-  const error =
-    charCount(title) === 0
-      ? INFO_ERRORS.titleEmpty
-      : charCount(title) > BLOG_TITLE_MAX
-        ? INFO_ERRORS.titleLong
-        : charCount(description) > BLOG_DESCRIPTION_MAX
-          ? INFO_ERRORS.descriptionLong
-          : null;
-  if (error) return { error, values: sent };
+  if (charCount(description) > BLOG_DESCRIPTION_MAX) return { error: DESCRIPTION_LONG, values: sent };
 
   await db.update(blogs).set({ title, description }).where(eq(blogs.ownerId, viewer.userId));
   revalidatePath("/", "layout");

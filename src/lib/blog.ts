@@ -19,10 +19,28 @@ export function charCount(s: string): number {
   return [...s.trim()].length;
 }
 
+/** 블로그 이름 오류 문구 (FR-016). 블로그 관리와 회원가입이 같은 문구를 쓴다 */
+export const BLOG_TITLE_ERRORS = {
+  empty: "블로그 이름을 적어 주세요",
+  long: `블로그 이름은 ${BLOG_TITLE_MAX}자까지예요`,
+} as const;
+
+/**
+ * 블로그 이름 검사 (BLOG-03 블로그 관리, AUTH-07 회원가입 공용).
+ * 앞뒤 공백을 지운 뒤 1~40자(코드 포인트, DB CHECK blogs_title_check와 같다). 통과하면 지운 값을 돌려준다
+ */
+export function checkBlogTitle(raw: unknown): { ok: true; title: string } | { ok: false; error: string } {
+  const title = typeof raw === "string" ? raw.trim() : "";
+  if (charCount(title) === 0) return { ok: false, error: BLOG_TITLE_ERRORS.empty };
+  if (charCount(title) > BLOG_TITLE_MAX) return { ok: false, error: BLOG_TITLE_ERRORS.long };
+  return { ok: true, title };
+}
+
 /**
  * 가입 때 만드는 블로그 기본값 (BLOG-01 / FR-001·002, research R-27).
  * 가입 트랜잭션(src/server/signup.ts createMember, auth)이 이 값을 쓴다.
- * 아이디 형식(4~20자)은 주소 형식(3~20자) 안에 들고, 이름은 최대 25자라 DB CHECK를 늘 만족한다.
+ * 아이디 형식(4~20자)은 주소 형식(3~20자) 안에 든다.
+ * title은 가입 폼의 블로그 이름 칸에 처음 채워 두는 값이다 (최대 25자라 40자 제한 안). 실제 이름은 회원이 적은 값을 쓴다 (2026-10-11 사용자 요청)
  */
 export function defaultBlogFor(username: string) {
   return {
