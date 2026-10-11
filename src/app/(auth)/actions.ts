@@ -6,7 +6,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { auth, enabledProviders, REMEMBER_COOKIE } from "@/lib/auth";
-import { defaultBlogFor } from "@/lib/blog";
+import { checkBlogTitle, defaultBlogFor } from "@/lib/blog";
 import { parseId } from "@/lib/ids";
 import { LOGIN_LOCKED_MESSAGE } from "@/lib/login-limit";
 import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
@@ -15,7 +15,10 @@ import { getSession } from "@/server/dal";
 import { clearLoginAttempts, reserveLoginAttempt } from "@/server/login-attempts";
 import { createMember, SIGNUP_ERRORS } from "@/server/signup";
 
-export type AuthFormState = { error?: string; values?: { username: string; characterId?: string; rememberMe?: boolean } };
+export type AuthFormState = {
+  error?: string;
+  values?: { username: string; blogTitle?: string; characterId?: string; rememberMe?: boolean };
+};
 
 // 검사 순서와 문구: contracts/auth-entry.md 2장 (위에서 처음 걸린 것 하나만 보여준다)
 const signUpSchema = z
@@ -32,6 +35,7 @@ const signUpSchema = z
 /**
  * 회원가입 (AUTH-01 / FR-002~FR-008, FR-010, FR-011).
  * 입력 검사 → createMember(한 트랜잭션) → 커밋 뒤 라이브러리로 로그인 → 내 블로그(집 안).
+ * 블로그 이름은 블로그 관리와 같은 규칙(checkBlogTitle)으로, 폼 순서대로 비밀번호 확인 다음에 검사한다 (2026-10-11 사용자 요청).
  * FormData의 다른 칸(예: role)은 읽지 않는다 (FR-011).
  */
 export async function signUp(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -41,19 +45,25 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     username: String(formData.get("username") ?? ""),
     password: String(formData.get("password") ?? ""),
     passwordConfirm: String(formData.get("passwordConfirm") ?? ""),
+    blogTitle: String(formData.get("blogTitle") ?? ""),
     characterId: String(formData.get("characterId") ?? ""),
   };
-  // 오류가 나면 입력한 아이디와 고른 캐릭터를 다시 채운다. 비밀번호 칸은 비운다 (FR-005)
-  const fail = (error: string): AuthFormState => ({ error, values: { username: raw.username, characterId: raw.characterId } });
+  // 오류가 나면 입력한 아이디·블로그 이름과 고른 캐릭터를 다시 채운다. 비밀번호 칸은 비운다 (FR-005)
+  const fail = (error: string): AuthFormState => ({
+    error,
+    values: { username: raw.username, blogTitle: raw.blogTitle, characterId: raw.characterId },
+  });
 
   const parsed = signUpSchema.safeParse(raw);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
   const { username, password } = parsed.data;
+  const blogTitle = checkBlogTitle(raw.blogTitle);
+  if (!blogTitle.ok) return fail(blogTitle.error);
   if (isReservedName(username)) return fail(SIGNUP_ERRORS.reserved);
   const characterId = parseId(raw.characterId);
   if (characterId === null) return fail(SIGNUP_ERRORS.character);
 
-  const result = await createMember({ username, password, characterId });
+  const result = await createMember({ username, password, characterId, blogTitle: blogTitle.title });
   if (!result.ok) return fail(result.error);
 
   // 커밋 뒤 로그인 상태를 만든다. 세션 행·쿠키 서명은 라이브러리에 맡긴다 (nextCookies()가 쿠키를 심는다, research R2).

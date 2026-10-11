@@ -4,6 +4,7 @@
 import { useActionState, useState } from "react";
 import { signIn, signUp, startSocialSignIn, type AuthFormState } from "@/app/(auth)/actions";
 import { CharacterArt } from "@/components/character";
+import { BLOG_TITLE_MAX, defaultBlogFor } from "@/lib/blog";
 import type { SocialReady } from "@/lib/social";
 
 type Providers = SocialReady;
@@ -12,12 +13,13 @@ export type Starter = { id: number; code: string; name: string; description: str
 const SOCIAL = [
   { id: "kakao", label: "카카오", className: "bg-[#FEE500] text-[#191919]" },
   { id: "naver", label: "네이버", className: "bg-[#03C75A] text-white" },
-  { id: "google", label: "Google", className: "bg-white text-ink border-2 border-line" },
+  { id: "google", label: "Google", className: "bg-white text-ink" },
 ] as const;
 
-const input = "w-full rounded-xl border-2 border-line bg-white px-3 py-2.5 outline-none focus:border-sun";
-// 누르는 영역 44×44px 이상, 글자 한 줄, 키보드 초점 표시 (FR-054)
-const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky focus-visible:ring-offset-2";
+// 도트 화면 틀 (globals.css pixel-input·pixel-btn, 2026-10-11). 누르는 영역 44×44px 이상, 글자 한 줄, 키보드 초점 표시 (FR-054)
+const input = "pixel-input";
+const focusRing = "focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-sky";
+const hint = "mt-2 text-xs text-ink-soft";
 
 // [로그인 상태 유지]는 카드가 들고 있어 같은 카드의 소셜 버튼에도 쓴다 (research R7)
 type Remember = { remember: boolean; setRemember: (v: boolean) => void };
@@ -26,11 +28,11 @@ function SignInForm({ remember, setRemember }: Remember) {
   const [state, action, pending] = useActionState<AuthFormState, FormData>(signIn, {});
   return (
     // noValidate: 빈 칸은 브라우저 말풍선 대신 서버 문구 `아이디와 비밀번호를 적어 주세요`로 알린다 (FR-017)
-    <form action={action} noValidate className="space-y-3">
+    <form action={action} noValidate className="space-y-4">
       <input name="username" defaultValue={state.values?.username} placeholder="아이디" autoComplete="username" className={input} aria-label="아이디" />
       <input name="password" type="password" placeholder="비밀번호" autoComplete="current-password" className={input} aria-label="비밀번호" />
       {/* [로그인 상태 유지]: 처음엔 선택 안 됨. 고르면 7일, 아니면 브라우저 종료·마지막 사용 2시간 (FR-019~FR-021) */}
-      <label className="flex min-h-11 w-fit cursor-pointer items-center gap-2 text-sm">
+      <label className="flex min-h-11 w-fit cursor-pointer items-center gap-2 pt-1 text-sm">
         <input
           type="checkbox"
           name="rememberMe"
@@ -41,7 +43,7 @@ function SignInForm({ remember, setRemember }: Remember) {
         로그인 상태 유지
       </label>
       {state.error && <p role="alert" className="text-sm font-bold text-berry">{state.error}</p>}
-      <button disabled={pending} className={`btn min-h-11 w-full whitespace-nowrap bg-leaf py-3 text-white ${focusRing}`}>
+      <button disabled={pending} className="pixel-btn min-h-12 w-full whitespace-nowrap bg-[#64b85a] text-white [text-shadow:0_2px_0_#2b6b4a]">
         {pending ? "들어가는 중..." : "로그인"}
       </button>
     </form>
@@ -53,13 +55,19 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
   // 처음에는 남자 주민(char_boy)을 골라 둔다. 오류 뒤에는 고른 캐릭터를 그대로 둔다 (FR-005)
   const defaultId = starters.find((s) => s.code === "char_boy")?.id ?? starters[0]?.id;
   const chosen = state.values?.characterId ? Number(state.values.characterId) : defaultId;
+  // 블로그 이름 (2026-10-11 사용자 요청): 직접 고치기 전까지는 아이디를 따라 `{아이디}의 블로그`로 채워 둔다.
+  // 고친 뒤에는 회원이 적은 값을 그대로 둔다 (지우면 다시 따라간다). 오류 뒤에도 적은 값이 남는다 (controlled)
+  const [username, setUsername] = useState("");
+  const [blogTitle, setBlogTitle] = useState<string | null>(null);
+  const shownTitle = blogTitle ?? (username.trim() ? defaultBlogFor(username.trim().toLowerCase()).title : "");
 
   return (
-    <form action={action} className="space-y-3">
+    <form action={action} className="space-y-4">
       <div>
         <input
           name="username"
           defaultValue={state.values?.username}
+          onChange={(e) => setUsername(e.target.value)}
           placeholder="아이디"
           autoComplete="username"
           required
@@ -68,22 +76,40 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
           aria-label="아이디"
           aria-describedby="signup-username-hint"
         />
-        <p id="signup-username-hint" className="mt-1 text-xs text-ink-soft">
+        <p id="signup-username-hint" className={hint}>
           영문 소문자, 숫자, _ 로 4~20자
         </p>
       </div>
       <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autoComplete="new-password" required maxLength={64} className={input} aria-label="비밀번호" />
       <input name="passwordConfirm" type="password" placeholder="비밀번호 확인" autoComplete="new-password" required maxLength={64} className={input} aria-label="비밀번호 확인" />
+      <div>
+        <input
+          name="blogTitle"
+          value={shownTitle}
+          onChange={(e) => setBlogTitle(e.target.value === "" ? null : e.target.value)}
+          placeholder="블로그 이름 (예: 나의 작은 정원)"
+          autoComplete="off"
+          required
+          maxLength={BLOG_TITLE_MAX}
+          className={input}
+          aria-label="블로그 이름"
+          aria-describedby="signup-blog-title-hint"
+        />
+        <p id="signup-blog-title-hint" className={hint}>
+          {BLOG_TITLE_MAX}자까지, 나중에 블로그 관리에서 바꿀 수 있어요
+        </p>
+      </div>
 
       <fieldset>
-        <legend className="mb-1.5 text-sm font-bold">캐릭터 고르기</legend>
-        <div className="grid grid-cols-2 gap-2">
+        <legend className="mb-2 font-display text-base">캐릭터 고르기</legend>
+        <div className="grid grid-cols-2 gap-3 p-[3px]">
           {starters.map((c) => (
             <label key={c.id} className="cursor-pointer">
               <input type="radio" name="characterId" value={c.id} defaultChecked={c.id === chosen} className="peer sr-only" />
-              <span className="flex min-h-11 flex-col items-center rounded-2xl border-2 border-line bg-white p-2 text-center transition peer-checked:border-sun peer-checked:bg-[#fff3d6] peer-checked:shadow-[0_3px_0_0_var(--color-sun-dark)] peer-focus-visible:ring-2 peer-focus-visible:ring-sky peer-focus-visible:ring-offset-2">
+              {/* 인벤토리 칸: 고르면 금색 테두리 + 밝은 칸. 초점이면 하늘색 바깥 테두리 */}
+              <span className="flex min-h-11 flex-col items-center bg-[#f6e0b8] p-2 text-center shadow-[inset_0_3px_0_0_#dcbc8c,0_-3px_0_0_#4a3426,0_3px_0_0_#4a3426,-3px_0_0_0_#4a3426,3px_0_0_0_#4a3426] transition peer-checked:bg-[#fff3c4] peer-checked:shadow-[inset_0_0_0_3px_#ffd36e,0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_6px_0_0_#d99a3666] peer-focus-visible:outline-3 peer-focus-visible:outline-offset-6 peer-focus-visible:outline-sky">
                 <CharacterArt asset={c.assetKey} size={72} />
-                <span className="mt-1 whitespace-nowrap text-sm font-bold">{c.name}</span>
+                <span className="mt-1 whitespace-nowrap font-display text-sm">{c.name}</span>
               </span>
             </label>
           ))}
@@ -92,7 +118,7 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
 
       {/* 오류는 [회원가입] 바로 위에 빨간 굵은 글씨 한 줄 (FR-005) */}
       {state.error && <p role="alert" className="text-sm font-bold text-berry">{state.error}</p>}
-      <button disabled={pending} className={`btn min-h-11 w-full whitespace-nowrap bg-sun py-3 text-ink ${focusRing}`}>
+      <button disabled={pending} className="pixel-btn min-h-12 w-full whitespace-nowrap bg-[#ffd36e] text-ink [text-shadow:0_2px_0_#fff0a8]">
         {pending ? "가입하는 중..." : "회원가입"}
       </button>
     </form>
@@ -110,7 +136,7 @@ function SocialButtons({ providers, remember }: { providers: Providers; remember
   );
   return (
     <form action={action}>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3 px-[3px]">
         {SOCIAL.map((p) => (
           <button
             key={p.id}
@@ -120,7 +146,7 @@ function SocialButtons({ providers, remember }: { providers: Providers; remember
             disabled={!providers[p.id] || pending}
             title={providers[p.id] ? `${p.label}로 로그인` : "아직 연결 준비 중이에요"}
             // 비활성이어도 마우스를 올리면 안내(title)가 보이게 한다 (.btn:disabled의 pointer-events: none을 되돌림)
-            className={`btn min-h-11 whitespace-nowrap px-2 py-2.5 text-sm disabled:pointer-events-auto disabled:cursor-not-allowed ${focusRing} ${p.className}`}
+            className={`pixel-btn min-h-11 whitespace-nowrap px-2 text-sm ${p.className}`}
           >
             {p.label}
           </button>
@@ -140,11 +166,12 @@ export function LoginButtons({ providers, starters, socialError }: { providers: 
   return (
     <div className="w-full max-w-sm">
       {socialError && (
-        <p role="alert" className="mb-4 rounded-xl bg-[#fde8e8] px-3 py-2 text-sm font-bold text-berry">
+        <p role="alert" className="mb-5 bg-[#ffe4e4] px-3 py-2 text-sm font-bold text-berry shadow-[0_-3px_0_0_#c62828,0_3px_0_0_#c62828,-3px_0_0_0_#c62828,3px_0_0_0_#c62828]">
           {socialError}
         </p>
       )}
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-cream p-1" role="tablist">
+      {/* 탭: 고른 쪽은 밝은 종이, 다른 쪽은 나무 판자 */}
+      <div className="mb-5 grid grid-cols-2 gap-3 px-[3px]" role="tablist">
         {(["signin", "signup"] as const).map((t) => (
           <button
             key={t}
@@ -152,7 +179,11 @@ export function LoginButtons({ providers, starters, socialError }: { providers: 
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`min-h-11 whitespace-nowrap rounded-lg py-2 font-bold ${focusRing} ${tab === t ? "bg-white text-ink shadow-sm" : "text-ink-soft"}`}
+            className={`min-h-11 whitespace-nowrap py-2 font-display text-lg ${focusRing} ${
+              tab === t
+                ? "bg-[#fffdf6] text-ink shadow-[inset_0_-3px_0_0_#ffd36e,0_-3px_0_0_#4a3426,0_3px_0_0_#4a3426,-3px_0_0_0_#4a3426,3px_0_0_0_#4a3426]"
+                : "bg-[#e9cfa2] text-[#7a4a2e] shadow-[inset_0_-3px_0_0_#d4b07c,0_-3px_0_0_#4a3426,0_3px_0_0_#4a3426,-3px_0_0_0_#4a3426,3px_0_0_0_#4a3426] hover:bg-[#f1dab1]"
+            }`}
           >
             {t === "signin" ? "로그인" : "회원가입"}
           </button>
@@ -161,10 +192,10 @@ export function LoginButtons({ providers, starters, socialError }: { providers: 
 
       {tab === "signin" ? <SignInForm remember={remember} setRemember={setRemember} /> : <SignUpForm starters={starters} />}
 
-      <div className="my-5 flex items-center gap-3 text-xs text-ink-soft">
-        <span className="h-px flex-1 bg-line" />
+      <div className="my-6 flex items-center gap-3 text-xs text-ink-soft">
+        <span className="h-[3px] flex-1 bg-[repeating-linear-gradient(90deg,#dcbc8c_0_6px,transparent_6px_9px)]" />
         간편 로그인
-        <span className="h-px flex-1 bg-line" />
+        <span className="h-[3px] flex-1 bg-[repeating-linear-gradient(90deg,#dcbc8c_0_6px,transparent_6px_9px)]" />
       </div>
       {/* 회원가입 탭에는 [로그인 상태 유지]가 없으므로 그때는 유지 안 함 */}
       <SocialButtons providers={providers} remember={tab === "signin" && remember} />

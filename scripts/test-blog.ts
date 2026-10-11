@@ -1,6 +1,6 @@
 // 블로그 순수 규칙 테스트 (BLOG-01~05 / FR-009, FR-019, FR-039, FR-040, FR-051, FR-053, quickstart 1절)
 // 실행: npm run test:blog
-import { buildCategoryTree, charCount, parseSearchQuery, ROOF_COLORS, SLUG_RE, swapPosition, toLikePattern } from "../src/lib/blog";
+import { buildCategoryTree, charCount, checkBlogTitle, parseSearchQuery, ROOF_COLORS, SLUG_RE, swapPosition, toLikePattern } from "../src/lib/blog";
 import { isReservedName, normalizeName, RESERVED_NAMES } from "../src/lib/names";
 
 let failed = 0;
@@ -45,6 +45,13 @@ expect('charCount("  가나  ") === 2', () => charCount("  가나  "), 2);
 expect('charCount("   ") === 0', () => charCount("   "), 0);
 expect("이모지 40개 = 40자", () => charCount("😀".repeat(40)), 40);
 expect("닉네임 😀 하나는 2자 미만 (500 대신 문구)", () => charCount("😀") < 2, true);
+
+// 블로그 이름: 블로그 관리(BLOG-03)와 회원가입(AUTH-07)이 같은 검사를 쓴다 (1~40자, 앞뒤 공백 제거)
+expect("블로그 이름 앞뒤 공백 제거", () => checkBlogTitle("  나의 정원  "), { ok: true, title: "나의 정원" });
+expect("블로그 이름 빈 값 → 문구", () => checkBlogTitle("   "), { ok: false, error: "블로그 이름을 적어 주세요" });
+expect("블로그 이름 이모지 40개 통과", () => checkBlogTitle("😀".repeat(40)).ok, true);
+expect("블로그 이름 41자 → 문구", () => checkBlogTitle("가".repeat(41)), { ok: false, error: "블로그 이름은 40자까지예요" });
+expect("블로그 이름이 문자열이 아니면 빈 값", () => checkBlogTitle(null), { ok: false, error: "블로그 이름을 적어 주세요" });
 
 // FR-051 검색 패턴: %, _, \ 를 글자 그대로
 expect('toLikePattern("100%_\\\\")', () => toLikePattern("100%_\\"), "%100\\%\\_\\\\%");
