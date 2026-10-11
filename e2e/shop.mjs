@@ -27,7 +27,7 @@ await page.goto(`${BASE}/shop`);
 const sections = await page.locator("[data-shop-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-shop-section")));
 check("상점 구역 4개 순서 (광장 장식은 2026-10-11에 뺐다)", sections.join(",") === "avatar,furniture,background,growth", sections.join(","));
 const main = await page.locator("main").innerText();
-check("상점 제목·안내", main.includes("🏪 마을 상점") && main.includes("내 캐릭터와 미니룸을 꾸며 보세요"));
+check("상점 제목·안내", main.includes("🏪 마을 상점") && main.includes("내 캐릭터와 우리 집을 꾸며 보세요"));
 check("상점에 캐릭터·기본 아이템 없음", !main.includes("고양이") && !main.includes("나무 의자") && !main.includes("남자 주민"));
 
 // ── 버튼 상태 (FR-006): 가입 110코인, Lv.1 ──
@@ -87,10 +87,10 @@ await page.reload();
 const headerLook = await page.getByRole("banner").locator("[data-look]").first().getAttribute("data-look");
 check("헤더 캐릭터가 모자를 씀", headerLook?.includes("hat.straw"), headerLook);
 
-// 블로그 미니룸, 마을 캐릭터
+// 블로그 우리 집 방 안 캐릭터, 마을 캐릭터
 await page.goto(`${BASE}/@${N}`);
-const blogLook = await page.locator("section").first().locator("[data-look]").first().getAttribute("data-look");
-check("블로그 미니룸 캐릭터가 모자를 씀", blogLook?.includes("hat.straw"), blogLook);
+const blogLook = await page.locator("[data-house-room] [data-room-resident]").getAttribute("data-look");
+check("블로그 우리 집 캐릭터가 모자를 씀", blogLook?.includes("hat.straw"), blogLook);
 await page.goto(`${BASE}/town`);
 await page.locator("canvas").waitFor({ timeout: 15000 });
 const townLook = await page.locator("[data-player-look]").getAttribute("data-player-look");

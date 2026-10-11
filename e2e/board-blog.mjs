@@ -238,13 +238,11 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   check("다른 회원 최근 글·인기 글에 비공개 글 없음", !vRecent.includes("비밀") && !vPopular.includes("비밀") && vPopular.includes("인기 많은 글"), `${vRecent.slice(0, 60)} / ${vPopular.slice(0, 60)}`);
   check("다른 회원 최근 댓글에 비공개 글 댓글 없음", vComments.includes("공개 글에 단 댓글") && !vComments.includes("비밀 글 메모"), vComments.slice(0, 120));
   check("다른 회원 태그에 비공개 글만의 태그 없음", vTags.includes(`#${TAG} 2`) && !vTags.includes(SECRET_TAG), vTags);
-  // 방문자 위젯 = 프로필 카드의 방문 숫자 (기록은 한 번)
+  // 방문자 위젯이 블로그 홈의 방문 숫자 한 곳 (프로필 카드는 없앰, 2026-10-11). 기록은 한 번
   await vp.waitForFunction(() => document.querySelector('[data-visit="오늘"]')?.textContent !== "0", null, { timeout: 8000 }).catch(() => {});
   const widgetToday = Number(await vp.locator('[data-visit="오늘"]').innerText());
-  const cardText = await vp.locator("[data-profile-card]").innerText();
-  const cardToday = Number(cardText.match(/오늘 방문 ([\d,]+)/)?.[1].replace(/,/g, ""));
   const dbToday = (await one("SELECT count(*)::int AS n FROM blog_visits WHERE blog_id = $1 AND date = $2", [blogId, TODAY])).n;
-  check("방문자 위젯 오늘 = 프로필 카드 = DB", widgetToday === cardToday && cardToday === dbToday && dbToday >= 1, `${widgetToday}/${cardToday}/${dbToday}`);
+  check("방문자 위젯 오늘 = DB, 프로필 카드 없음", widgetToday === dbToday && dbToday >= 1 && (await vp.locator("[data-profile-card]").count()) === 0, `${widgetToday}/${dbToday}`);
   await vp.screenshot({ path: `${outDir}/blog-visitor-1280.png`, fullPage: true });
   await vp.goto(`${base}?s=${encodeURIComponent(KEY)}`);
   const vFound = await vp.locator('section[aria-label="글 목록"] article h3').allInnerTexts();

@@ -229,8 +229,8 @@ const selfFollow = await db.query("INSERT INTO follows (follower_id, followee_id
 check("DB 직접 자기 자신 이웃 → 23514", selfFollow === "23514", selfFollow);
 // 내 블로그 홈: 주인 버튼만
 await X.page.goto(`${BASE}/@scx${n}`);
-check("US4-5 내 블로그 홈 → [✏️ 글쓰기] [🎨 꾸미기] [⚙️ 관리]·이웃 버튼 없음",
-  (await X.page.getByRole("link", { name: "✏️ 글쓰기" }).isVisible()) && (await X.page.getByRole("button", { name: /이웃/ }).count()) === 0);
+check("US4-5 내 블로그 홈 → 주인 도구 막대 [✏️ 새 글 쓰기]·이웃 버튼 없음",
+  (await X.page.getByRole("link", { name: "✏️ 새 글 쓰기" }).isVisible()) && (await X.page.getByRole("button", { name: /이웃/ }).count()) === 0);
 
 // 즐겨찾는 이웃 최근 7일 글이 맨 위 (FR-042)
 await db.query("DELETE FROM posts WHERE blog_id = ANY($1)", [[await blogOf(Bn), await blogOf(Cn)]]);

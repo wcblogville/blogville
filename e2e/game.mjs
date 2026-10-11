@@ -30,7 +30,7 @@ await page.waitForLoadState("networkidle");
 console.log("after purchase:", await coins(page));
 await page.screenshot({ path: `${outDir}/21-shop.png`, fullPage: true });
 
-// 꾸미기: 바닷가 장착 → 블로그 미니룸 확인
+// 꾸미기: 바닷가 장착 → 블로그 우리 집 창밖 풍경 확인
 await page.goto(`${BASE}/closet`);
 await page.getByRole("button", { name: /바닷가/ }).click();
 await page.waitForTimeout(800);

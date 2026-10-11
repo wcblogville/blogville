@@ -1,4 +1,5 @@
-// 블로그 미니룸·주인 프로필·동물 도감·전시 동물 (BLOG-04 / US4-1~10, SC-008, quickstart 3.5)
+// 블로그 우리 집 방의 주인 캐릭터·전시 동물, 제목 줄 주인 프로필, 동물 도감 (BLOG-04 / US4-1~10, SC-008, quickstart 3.5)
+// 프로필 카드는 없앴다 (사용자 요청 2026-10-11): 캐릭터·전시 동물은 방 안을 걷고, 사진·닉네임은 제목 줄, [🏅 도감]은 방 도구 줄
 // 사용: 개발 서버를 띄운 상태에서 node e2e/blog-showcase.mjs <스크린샷 폴더>
 // 실행마다 새 회원을 만들고 DB로 다 키운 동물 3마리와 알 1개를 넣는다. DB는 .env.local의 DATABASE_URL.
 import { chromium } from "@playwright/test";
@@ -52,25 +53,25 @@ const egg = await one("INSERT INTO user_animals (user_id, status, source) VALUES
 const growing = await addAnimal(owner.id, "calf", "growing", 0);
 const showcaseNow = async () => (await one("SELECT showcase_animal_id AS id FROM blogs WHERE id = $1", [owner.blog_id])).id;
 
-/** 프로필 카드의 [🏅 도감] 버튼으로 도감 창을 연다 (사용자 요청 2026-10-09: 도감은 버튼 → 창) */
+/** 우리 집 방 도구 줄의 [🏅 도감] 버튼으로 도감 창을 연다 (사용자 요청 2026-10-09: 도감은 버튼 → 창) */
 async function openCollection(page) {
   await page.locator("[data-collection-open]").click();
   await page.locator("dialog[data-collection]").waitFor();
 }
 
-/** 블로그 홈 미니룸·프로필·도감 모습 (보는 사람마다 비교). 도감 창을 열어 둔 채로 돌려준다 */
+/** 블로그 홈 방 안 캐릭터·전시 동물·제목 줄·도감 모습 (보는 사람마다 비교). 도감 창을 열어 둔 채로 돌려준다 */
 async function viewOf(page, slug = OWNER) {
   await page.goto(`${BASE}/@${slug}`);
   await openCollection(page);
   const main = page.locator("main");
-  const room = main.locator("section.card").first().locator("> div").first();
+  const room = main.locator("[data-house-room]");
+  const resident = room.locator("[data-room-resident]");
   return {
-    bg: await room.evaluate((el) => getComputedStyle(el).backgroundImage),
-    character: await room.locator("img").first().getAttribute("src"),
-    badge: (await room.locator("span.rounded-full").last().innerText()).trim(),
+    character: await resident.evaluate((el) => getComputedStyle(el).backgroundImage),
+    look: await resident.getAttribute("data-look"),
     showcase: await room.locator("[data-showcase]").count(),
     showcaseName: (await room.locator("[data-showcase]").count()) ? await room.locator("[data-showcase]").getAttribute("title") : null,
-    profileImg: await main.locator("section.card").first().locator('img[src^="/files/"]').count(),
+    profileImg: await main.locator("[data-blog-title-bar]").locator('img[src^="/files/"]').count(),
     nickname: (await main.locator("[data-owner-nickname]").innerText()).trim(),
     // 카드 글자 (주인에게만 있는 버튼 글자는 뺀다)
     cards: (await main.locator("[data-animal-card]").allInnerTexts()).map((t) => t.split("\n").map((l) => l.trim()).filter((l) => l && !/^전시(하기| 빼기)$/.test(l))),
@@ -78,43 +79,61 @@ async function viewOf(page, slug = OWNER) {
   };
 }
 
-// US4-1 방문자: 배경·캐릭터·닉네임 배지(블로그 이름 아님), 애니메이션 주기 2초
+// US4-1 방문자: 프로필 카드 없음, 방 안에 주인 캐릭터(걷기 그림판)가 걷는다, 제목 줄에 닉네임
 {
   await db.query("UPDATE profiles SET nickname = $2 WHERE user_id = $1", [owner.id, `닉${n}`]);
   const v = await viewOf(guest.page);
-  check("US4-1 미니룸 배경 그림", v.bg.startsWith('url("data:image/svg+xml'), v.bg.slice(0, 40));
-  check("US4-1 미니룸 캐릭터 그림", v.character?.startsWith("data:image/svg+xml"));
-  check("US4-1 배지는 닉네임 (블로그 이름 아님)", v.badge === `닉${n}` && v.badge !== owner.title, v.badge);
-  const anim = await guest.page.locator("main img.animate-bounce").first().evaluate((el) => getComputedStyle(el).animationDuration);
-  check("US4-1 캐릭터 애니메이션 주기 2초", anim === "2s", anim);
+  check("프로필 카드 없음", (await guest.page.locator("[data-profile-card], [data-showcase-line]").count()) === 0);
+  check("US4-1 방 안 주인 캐릭터 그림 (도트 걷기 그림판)", v.character.startsWith('url("data:image/svg+xml'), v.character.slice(0, 40));
+  check("US4-1 제목 줄 닉네임 (블로그 이름 아님)", v.nickname === `닉${n}` && v.nickname !== owner.title, v.nickname);
+  await guest.page.keyboard.press("Escape");
+  const walked = await guest.page
+    .waitForFunction(() => document.querySelector("[data-room-resident]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 9000 })
+    .then(() => true, () => false);
+  check("US4-1 캐릭터가 방 안을 걷는다 (data-walk=walk-…)", walked, await guest.page.locator("[data-room-resident]").getAttribute("data-walk"));
+  const box = await guest.page.locator("[data-room-resident]").boundingBox();
+  check("US4-1 캐릭터 96×96px (24칸 × 4배, 정수배)", Math.round(box.width) === 96 && Math.round(box.height) === 96, `${box.width}×${box.height}`);
 }
 
-// US4-2 꾸미기에서 배경 변경 → 블로그 홈 미니룸 배경이 바뀐다
+// US4-2 옷장에서 아바타를 바꾸면 방 안 캐릭터도 바뀐다
 {
+  const before = (await viewOf(guest.page)).look;
+  const part = await one("SELECT id, asset_key FROM items WHERE code = 'hat_straw'");
+  await db.query("INSERT INTO user_items (user_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [owner.id, part.id]);
+  await db.query("INSERT INTO avatar_equips (user_id, slot, item_id) VALUES ($1, 'hat', $2) ON CONFLICT (user_id, slot) DO UPDATE SET item_id = $2", [owner.id, part.id]);
+  const after = (await viewOf(guest.page)).look;
+  check("US4-2 입은 아바타 → 방 안 캐릭터 그림 바뀜", before !== after && after.includes(part.asset_key), `${before} → ${after}`);
+  await db.query("DELETE FROM avatar_equips WHERE user_id = $1 AND slot = 'hat'", [owner.id]);
+}
+
+// US4-2 꾸미기에서 배경 변경 → 우리 집 창밖 풍경이 바뀐다 (프로필 카드 미니룸 대신, 2026-10-11)
+{
+  const view = (page) => page.locator("[data-house-room] [data-window-view]").getAttribute("data-window-view");
   await db.query("INSERT INTO user_items (user_id, item_id) SELECT $1, id FROM items WHERE code = 'bg_snow' ON CONFLICT DO NOTHING", [owner.id]);
-  const before = (await viewOf(guest.page)).bg;
+  await guest.page.goto(`${BASE}/@${OWNER}`);
+  const before = await view(guest.page);
   await own.page.goto(`${BASE}/closet`);
   await own.page.getByRole("button", { name: /눈/ }).first().click();
   await own.page.getByText(/장착을 저장했어요/).waitFor({ timeout: 10000 });
-  const after = (await viewOf(guest.page)).bg;
-  const code = (await one("SELECT i.code FROM blogs b JOIN items i ON i.id = b.background_item_id WHERE b.id = $1", [owner.blog_id])).code;
-  check("US4-2 꾸미기에서 배경 변경 → 미니룸 배경 바뀜", before !== after && code === "bg_snow", code);
+  await guest.page.goto(`${BASE}/@${OWNER}`);
+  const after = await view(guest.page);
+  check("US4-2 꾸미기에서 배경 변경 → 창밖 풍경 바뀜", before === "bg.meadow" && after === "bg.snow", `${before} → ${after}`);
 }
 
-// US4-4 미니룸(프로필 카드 머리) 높이: 375px·1280px 모두 176px, 아래쪽 테두리 2px·나머지 0
+// US4-4 위쪽: 제목 줄 → 너비를 다 쓰는 방 (1280px·375px 모두 같은 너비, 위아래로)
 {
-  const box = async (page) =>
-    page.locator("main section.card").first().locator("> div").first().evaluate((el) => {
-      const s = getComputedStyle(el);
-      return { h: Math.round(el.getBoundingClientRect().height), b: s.borderBottomWidth, t: s.borderTopWidth, l: s.borderLeftWidth, r: s.borderRightWidth };
-    });
-  const d = await box(guest.page);
+  const boxes = async (page) => ({
+    bar: await page.locator("[data-blog-title-bar]").boundingBox(),
+    room: await page.locator("[data-house-room]").boundingBox(),
+  });
+  const d = await boxes(guest.page);
   const p = await fresh(phone);
   await p.page.goto(`${BASE}/@${OWNER}`);
-  const m = await box(p.page);
-  check("US4-4 1280px 미니룸 높이 176px", d.h === 176, `${d.h}px`);
-  check("US4-4 375px 미니룸 높이 176px", m.h === 176, `${m.h}px`);
-  check("US4-4 아래쪽 테두리 2px만", d.b === "2px" && d.t === "0px" && d.l === "0px" && d.r === "0px", JSON.stringify(d));
+  const m = await boxes(p.page);
+  for (const [label, b] of [["1280px", d], ["375px", m]]) {
+    check(`US4-4 ${label} 제목 줄 위·방 아래, 너비 같음`, b.bar.y + b.bar.height <= b.room.y && Math.abs(b.bar.width - b.room.width) < 1, `제목 ${Math.round(b.bar.width)}, 방 ${Math.round(b.room.width)}`);
+  }
+  check("US4-4 1280px 방이 넓다 (1000px 이상)", d.room.width >= 1000, `${Math.round(d.room.width)}px`);
   await p.ctx.close();
 }
 
@@ -140,7 +159,7 @@ async function viewOf(page, slug = OWNER) {
   await card("토끼").getByRole("button", { name: "전시하기" }).click();
   await card("토끼").getByText("전시 중").waitFor({ timeout: 10000 });
   const v1 = await viewOf(guest.page);
-  check("US4-7 [전시하기] → 미니룸에 토끼", v1.showcase === 1 && v1.showcaseName === "토끼" && (await showcaseNow()) === bunny, v1.showcaseName);
+  check("US4-7 [전시하기] → 방 안에 토끼", v1.showcase === 1 && v1.showcaseName === "토끼" && (await showcaseNow()) === bunny, v1.showcaseName);
   await own.page.goto(`${BASE}/@${OWNER}`);
   await openCollection(own.page);
   await card("병아리").getByRole("button", { name: "전시하기" }).click();
@@ -209,8 +228,8 @@ async function viewOf(page, slug = OWNER) {
   const vo = await viewOf(own.page);
   const vt = await viewOf(oth.page);
   const vg = await viewOf(guest.page);
-  const same = (a, b) => a.bg === b.bg && a.character === b.character && a.badge === b.badge && a.showcaseName === b.showcaseName && a.nickname === b.nickname && JSON.stringify(a.cards) === JSON.stringify(b.cards);
-  check("US4-10 주인·다른 회원·방문자 미니룸·프로필·전시·도감 같음", same(vo, vt) && same(vo, vg) && vo.showcaseName === "아기 돼지", `${vo.showcaseName}/${vt.showcaseName}/${vg.showcaseName}`);
+  const same = (a, b) => a.character === b.character && a.showcaseName === b.showcaseName && a.nickname === b.nickname && JSON.stringify(a.cards) === JSON.stringify(b.cards);
+  check("US4-10 주인·다른 회원·방문자 방 안 캐릭터·제목 줄·전시·도감 같음", same(vo, vt) && same(vo, vg) && vo.showcaseName === "아기 돼지", `${vo.showcaseName}/${vt.showcaseName}/${vg.showcaseName}`);
   check("US4-10 전시 버튼은 주인에게만", vo.showButtons === 3 && vt.showButtons === 0 && vg.showButtons === 0, `${vo.showButtons}/${vt.showButtons}/${vg.showButtons}`);
   await guest.page.screenshot({ path: `${outDir}/sc-02-guest.png`, fullPage: true });
 }
@@ -219,7 +238,7 @@ async function viewOf(page, slug = OWNER) {
 {
   const post = await one("INSERT INTO posts (blog_id, title, content_html, content_text) VALUES ($1, '전시 확인 글', '<p>x</p>', 'x') RETURNING id", [owner.blog_id]);
   await guest.page.goto(`${BASE}/@${OWNER}/${post.id}`);
-  check("FR-032 글 화면에는 미니룸·전시 동물 없음", (await guest.page.locator("main img.animate-bounce, main [data-showcase]").count()) === 0);
+  check("FR-032 글 화면에는 방 안 캐릭터·전시 동물 없음", (await guest.page.locator("main [data-room-resident], main [data-showcase]").count()) === 0);
 }
 
 // US4-5 프로필 사진: photo_key 연결 → /files/키 사진 + 닉네임, 없으면 캐릭터 얼굴
@@ -234,11 +253,11 @@ async function viewOf(page, slug = OWNER) {
   const { key } = await up.json();
   await db.query("UPDATE profiles SET photo_key = $2 WHERE user_id = $1", [owner.id, key]);
   const v1 = await viewOf(guest.page);
-  const src = await guest.page.locator('main section.card img[src^="/files/"]').first().getAttribute("src");
+  const src = await guest.page.locator('main [data-blog-title-bar] img[src^="/files/"]').first().getAttribute("src");
   const res = await guest.page.request.get(`${BASE}${src}`);
   check("US4-5 photo_key 연결 → 방문자에게 /files/키 사진 + 닉네임", v1.profileImg === 1 && src === `/files/${key}` && v1.nickname === `닉${n}`, src);
   check("US4-5 방문자도 사진 200 (T045, /files 공개)", res.status() === 200 && res.headers()["content-type"] === "image/png", `HTTP ${res.status()}`);
-  const size = await guest.page.locator('main section.card img[src^="/files/"]').first().boundingBox();
+  const size = await guest.page.locator('main [data-blog-title-bar] img[src^="/files/"]').first().boundingBox();
   check("US4-5 프로필 사진 48px 원형", Math.round(size.width) === 48 && Math.round(size.height) === 48, `${size.width}×${size.height}`);
   const ownerView = await viewOf(oth.page);
   check("US4-10 다른 회원도 같은 사진", ownerView.profileImg === 1);
@@ -253,11 +272,7 @@ async function viewOf(page, slug = OWNER) {
   await db.query("UPDATE blogs SET background_item_id = $2 WHERE id = $1", [owner.blog_id, bg.id]);
   const before = allErrors.flat().length;
   const v = await viewOf(guest.page);
-  const meadow = (await viewOf(guest.page, OTHER)).bg; // 다른 회원은 기본 초원
   check("US4-3 없는 그림 키 → 캐릭터 회색 몸통", decodeURIComponent(v.character).includes("#cfc4b8"));
-  // 그라데이션 id에 그림 키가 붙으므로(-bgmeadow760) 그 부분만 빼고 비교한다
-  const scene = (bg) => decodeURIComponent(bg).replace(/-\w+760\b/g, "");
-  check("US4-3 없는 그림 키 → 배경 초원", scene(v.bg) === scene(meadow));
   const lost = await guest.page.getByText(/오류|문제가 생겼/).count();
   check("US4-3 오류 문구·콘솔 오류 없음", allErrors.flat().length === before && lost === 0);
   await guest.page.screenshot({ path: `${outDir}/sc-03-missing-art.png` });

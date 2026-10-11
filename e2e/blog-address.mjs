@@ -268,7 +268,7 @@ const A_SLUG = `c5_${n}`;
   const r = await saveNick(a.page, ` ${NICK} `);
   check("US3-6 닉네임 정상 변경 → `저장했어요 ✓`, 칸·DB는 공백 제거 값", r.msg === MSG.saved && (await nickOf(a.userId)) === NICK && r.value === NICK, r.msg);
   await a.page.goto(`${BASE}/@${A_SLUG}`);
-  const badge = await a.page.locator("div.bg-bottom").first().innerText();
+  const badge = await a.page.locator("[data-blog-title-bar] [data-owner-nickname]").innerText(); // 제목 줄 닉네임 (프로필 카드·미니룸은 없앰, 2026-10-11)
   await a.page.goto(`${BASE}/@${A_SLUG}/${post.id}`);
   const detail = await a.page.locator("main").innerText();
   await a.page.goto(`${BASE}/tags/${encodeURIComponent(TAG)}`);
@@ -278,7 +278,7 @@ const A_SLUG = `c5_${n}`;
   await pp.goto(`${BASE}/town?menu=1`);
   const townText = await pp.locator("[data-town-menu]").innerText().catch(() => "");
   await ph.close();
-  check("US3-6 미니룸 배지·글 상세·글 카드에 새 닉네임", badge.includes(NICK) && detail.includes(`· ${NICK}`) && card.includes(NICK), JSON.stringify({ badge, card: card.slice(0, 40) }));
+  check("US3-6 블로그 제목 줄·글 상세·글 카드에 새 닉네임", badge.includes(NICK) && detail.includes(`· ${NICK}`) && card.includes(NICK), JSON.stringify({ badge, card: card.slice(0, 40) }));
   void townText; // 광장 이름표는 게임 화면(캔버스)이라 화면 글자로는 확인하지 않는다 (town.ts가 DB 닉네임을 읽는다)
 
   const rb = await saveNick(b.page, B_NICK);
