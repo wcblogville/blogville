@@ -3,8 +3,9 @@
 // 그래서 아바타 꾸미기(SHOP-06, avatar.ts)의 모자·옷·소품이 어느 캐릭터에나 맞는다.
 // 글자 뜻은 pixel.ts PALETTE. 동물은 털 7·8·9(밝은 면·기본·그늘), 배 k, 코·귀 안쪽 o, 발 F를 캐릭터마다 칠한다.
 // DB의 asset_key("char.cat" 등)로 고른다.
-import { MANNEQUIN, outfitLayers } from "./avatar";
-import { outfit, spriteRects, svgDataUri, type Colors, type Sprite } from "./pixel";
+import { AVATAR_COLORS, AVATAR_PARTS, MANNEQUIN, orderOutfit } from "./avatar";
+import { BALD_HEAD, HAIR_COLORS, hairColors } from "./hair";
+import { gridRects, outfit, PALETTE, rowsToGrid, stampGrid, svgDataUri, type Colors, type Grid, type Sprite } from "./pixel";
 
 // ===== 사람 =====
 // 사람 얼굴 (7~12줄): 눈, 볼터치, 입
@@ -271,13 +272,14 @@ const fur = (light: string, base: string, shade: string, rest: Record<string, st
   ...rest,
 });
 
-type Look = { rows: Sprite; colors?: Colors };
+/** human: 사람 캐릭터 (미용실 머리 모양·머리 색이 보인다). 동물·로봇은 머리 대신 털이라 바뀌지 않는다 */
+type Look = { rows: Sprite; colors?: Colors; human?: boolean };
 
 const CHARACTERS: Record<string, Look> = {
-  "char.human": { rows: HUMAN, colors: { ...outfit("#4caf7a"), b: "#9c6a45", h: "#7a4b2a", H: "#a06a3e" } },
+  "char.human": { rows: HUMAN, colors: { ...outfit("#4caf7a"), b: "#9c6a45", h: "#7a4b2a", H: "#a06a3e" }, human: true },
   // 가입할 때 고르는 기본 캐릭터: 남자 주민(하늘색 셔츠), 여자 주민(분홍 원피스)
-  "char.boy": { rows: BOY },
-  "char.girl": { rows: GIRL, colors: { 4: "#ffc6dc", 5: "#ff9ec3", 6: "#d9709e" } },
+  "char.boy": { rows: BOY, human: true },
+  "char.girl": { rows: GIRL, colors: { 4: "#ffc6dc", 5: "#ff9ec3", 6: "#d9709e" }, human: true },
   "char.cat": { rows: CAT_TAIL, colors: fur("#ffc98a", "#f6a24e", "#d9781f", { k: "#fde3c4" }) },
   "char.dog": { rows: DOG, colors: fur("#fff6e6", "#f1d3a1", "#d6ad78", { k: "#fffaf0", b: "#a8683b", n: "#7a4a2e", B: "#c98c55", F: "#c98c55" }) },
   "char.rabbit": { rows: RABBIT_TAIL, colors: fur("#ffffff", "#fbf7f2", "#e3d9cf", { k: "#ffffff", o: "#ffc2cf", F: "#f1e6dc" }) },
@@ -305,18 +307,68 @@ CHARACTERS[VISITOR_CHARACTER] = {
 const FALLBACK: Look = { rows: ANIMAL, colors: fur("#e2dbd2", "#cfc4b8", "#b3a797") };
 
 /** 그림 틀: 16×24 캐릭터를 가운데 둔 24×24 정사각형 (옛 그림처럼 정사각형으로 쓰는 곳이 많다) */
-const FRAME = 24;
+export const FRAME = 24;
+
+/** 보는 쪽: 앞모습 / 뒷모습 (위로 걸을 때) */
+export type LookView = "front" | "back";
+
+/** 캐릭터 그림 틀 안 자리 (characters 머리말과 avatar.ts가 같은 자리를 쓴다) */
+export const BODY = {
+  /** 얼굴 줄 (눈 7~9줄, 볼·입 10줄, 턱 11줄). 뒷모습에서는 6~11줄 안쪽을 머리카락(털)로 덮는다 */
+  faceRows: [6, 11] as const,
+  /** 머리카락(털) 색을 읽는 칸: 머리 위쪽 가운데 */
+  hairSample: { x: 8, y: 4 },
+} as const;
+
+const OUTLINE = PALETTE["#"];
+
+/** 뒷모습: 얼굴 줄(6~11줄)의 양쪽 외곽선 안을 머리카락(동물은 털) 색으로 덮는다. 맨 아래 줄은 그늘 색 */
+function backOfHead(grid: Grid): Grid {
+  const out = grid.map((r) => [...r]);
+  const hair = grid[BODY.hairSample.y][BODY.hairSample.x] ?? OUTLINE;
+  const [top, bottom] = BODY.faceRows;
+  for (let y = top; y <= bottom; y++) {
+    const row = out[y];
+    const first = row.indexOf(OUTLINE);
+    const last = row.lastIndexOf(OUTLINE);
+    if (first < 0 || last <= first) continue;
+    for (let x = first + 1; x < last; x++) row[x] = hair;
+  }
+  return out;
+}
+
+/**
+ * 캐릭터 + 입은 아바타 아이템을 색 칸 격자 하나(16×24)로 겹친다. 걷기 그림(walk.ts)이 이 격자의 칸을 옮긴다.
+ * 순서: 캐릭터(사람이 머리 모양을 입었으면 머리카락 없는 머리 위에) → 옷 → 머리 모양 → (뒷모습이면 머리 뒤) → 소품 → 모자.
+ * 머리 색은 사람의 머리카락 칸(H·h·j)을 바꿔 칠한다 (원래 머리에도)
+ */
+export function lookGrid(assetKey: string, outfit: readonly string[] = [], view: LookView = "front"): Grid {
+  const look = CHARACTERS[assetKey] ?? FALLBACK;
+  const keys = orderOutfit(outfit);
+  const slotOf = (k: string) => AVATAR_PARTS[k].slot;
+  const style = look.human ? keys.find((k) => slotOf(k) === "hair") : undefined;
+  const color = look.human ? keys.find((k) => slotOf(k) === "hair_color") : undefined;
+  const colors: Colors = { ...look.colors, ...(color ? hairColors(HAIR_COLORS[color]) : {}) };
+
+  let grid = rowsToGrid(style ? [...BALD_HEAD, ...look.rows.slice(BALD_HEAD.length)] : look.rows, colors);
+  for (const k of keys) if (slotOf(k) === "outfit") grid = stampGrid(grid, AVATAR_PARTS[k].rows, AVATAR_COLORS);
+  if (style) grid = stampGrid(grid, AVATAR_PARTS[style].rows, colors);
+  if (view === "back") grid = backOfHead(grid);
+  for (const k of keys) {
+    const part = AVATAR_PARTS[k];
+    if ((part.slot === "accessory" || part.slot === "hat") && !(view === "back" && part.face)) grid = stampGrid(grid, part.rows, AVATAR_COLORS);
+  }
+  return grid;
+}
 
 /**
  * 캐릭터 SVG 문자열. size는 정사각형 한 변 픽셀 (24의 배수면 도트가 고르게 나온다).
- * outfit = 입은 아바타 asset_key 목록 (옷은 몸 위, 소품·모자는 맨 위)
+ * outfit = 입은 아바타 asset_key 목록 (머리·옷은 몸 위, 소품·모자는 맨 위)
  */
 export function characterSvg(assetKey: string, size = 72, outfit: readonly string[] = []): string {
-  const look = CHARACTERS[assetKey] ?? FALLBACK;
-  const layers = outfitLayers(outfit);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-4 0 ${FRAME} ${FRAME}" width="${size}" height="${size}" shape-rendering="crispEdges">` +
-    `${spriteRects(look.rows, look.colors)}${layers.body}${layers.top}</svg>`
+    `${gridRects(lookGrid(assetKey, outfit))}</svg>`
   );
 }
 
@@ -334,3 +386,7 @@ export function characterRows(assetKey: string): Sprite | null {
   return CHARACTERS[assetKey]?.rows ?? null;
 }
 export const CHARACTER_KEYS = () => Object.keys(CHARACTERS);
+/** 미용실 머리 모양·머리 색이 보이는 캐릭터인지 (사람 주민) */
+export function hasHair(assetKey: string): boolean {
+  return CHARACTERS[assetKey]?.human === true;
+}

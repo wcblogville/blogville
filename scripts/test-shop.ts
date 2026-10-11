@@ -59,7 +59,7 @@ expect("모자는 top 층", outfitLayers(["hat.straw"]).top === AVATAR_PARTS["ha
 expect("lookKey는 순서와 상관없이 같음", lookKey("char.cat", ["hat.straw", "acc.glasses"]) === lookKey("char.cat", ["acc.glasses", "hat.straw"]), true);
 expect("옷 없으면 lookKey = 캐릭터", lookKey("char.cat"), "char.cat");
 expect("입히면 그림이 달라짐", characterSvg("char.cat", 64, ["hat.straw"]) !== characterSvg("char.cat", 64), true);
-expect("아바타 그림 9개", Object.keys(AVATAR_PARTS).length, 9);
+expect("아바타 그림 33개 (모자·옷·소품 18 + 머리 모양 7 + 머리 색 8)", Object.keys(AVATAR_PARTS).length, 33);
 expect("성장 아이템 그림", ["growth.feed", "growth.premium", "growth.booster"].every((k) => growthSvg(k).startsWith("<svg")), true);
 
 // 연못 낚시터: 무게 합 100, 경계값
