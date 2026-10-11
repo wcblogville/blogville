@@ -211,7 +211,9 @@ async function reopen(ctx) {
   await out.click();
   await page.waitForURL(`${BASE}/`, { timeout: 15000 }).catch(() => {});
   check("8 확인 창 없이 첫 화면으로", new URL(page.url()).pathname === "/" && dialogs.length === 0, page.url());
-  check("8 헤더에 [시작하기]", await page.getByRole("banner").getByRole("link", { name: "시작하기" }).isVisible());
+  // 첫 화면은 도트 마을 풍경이 맨 위부터 채워 헤더 막대가 없다. [시작하기]도 없앴다 (로그인 칸이 바로 보인다, 2026-10-11 사용자 요청)
+  check("8 첫 화면에 헤더·[시작하기] 없음", (await page.getByRole("banner").count()) === 0 && (await page.getByRole("link", { name: "시작하기" }).count()) === 0);
+  check("8 첫 화면에 로그인 칸", await page.getByRole("button", { name: "로그인", exact: true }).isVisible());
   check("8 그 세션 행 삭제", !(await sessionById(s.id)));
   check("8 세션·dont_remember 쿠키 삭제", !(await sessionCookie(ctx)) && !(await dontRemember(ctx)));
   check("8 /write → /", (await memberPath(page)) === "/");
