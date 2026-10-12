@@ -10,17 +10,18 @@
 // 이제는 ① 동물이 주인 길 위의 "몇 칸 뒤" 자리를 속도(부드럽게 붙는 가속)로 따라가고 ② 걷기/서기를 속도 문턱 두 개(히스테리시스)로 바꿔
 // 짧게 느려져도 통통 뛰기가 끊기지 않으며 ③ 위치는 transform(translate3d)으로만 바꾸고 레이아웃 값을 읽지 않는다. React 상태는 쓰지 않는다 (rAF + ref).
 //
-// 도트: 캐릭터 24칸 틀 × 4배(96px, 방 그림과 같은 배율), 동물 32칸 × 3배(96px). 움직임 줄이기 설정이면 가만히 서 있는다.
+// 도트: 캐릭터 24칸 틀, 동물 32칸 틀. 크기는 방 카메라(roomCamera, src/lib/art/room.ts)가 정한다: 넓은 화면은 방과 같은 배율(4배 = 96px),
+// 넓은 방이면 방과 함께 3배, 휴대폰은 한 단계 더 작게. 동물은 캐릭터의 3/4. 카메라를 재기 전에는 4배·3배 (2026-10-12 사용자 요청).
+// 자리는 기기 픽셀에 맞춰(snap) 걸어도 도트가 고르다. 움직임 줄이기 설정이면 가만히 서 있는다.
 import { useEffect, useMemo, useRef } from "react";
 import { lookKey } from "@/lib/art/characters";
 import { ANIMAL_SIZE, animalHalfWidth, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri } from "@/lib/art/animals";
-import { floorToScreen, type IsoRoom } from "@/lib/art/room";
+import { floorToScreen, type IsoRoom, type RoomCamera } from "@/lib/art/room";
 import { WALK_FPS, WALK_FRAMES, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 import type { AnimalDisplaySize } from "@/lib/farm";
 
+/** 카메라를 재기 전 도트 크기 (방 그림 좌표 px): 캐릭터 4배(96px), 동물 3배(96px) */
 const SCALE = 4;
-const BOX = 24 * SCALE; // 걷기 그림판 한 칸 (96px)
-const PET_BOX = 96;
 const PET_SCALE = 3;
 const ROWS: Record<WalkDir, number> = { down: 0, left: 1, right: 2, up: 3 };
 /** 걷는 빠르기 (바닥 칸/초). 한 칸이 화면에서 약 36px라 초당 약 50px */
@@ -38,11 +39,12 @@ export const depthOf = (x: number, y: number) => 100 + Math.round((x + y) * 10);
 
 type P = { x: number; y: number };
 
-/** 화면 자리: 발밑(그림 아래 가운데에서 10px 위)이 바닥 점에 오게. lift = 통통 뛰는 높이 */
-function spot(room: IsoRoom, p: P, box: number, lift = 0) {
+/** 화면 자리: 발밑(그림 아래 가운데에서 그림 높이의 10/96 위)이 바닥 점에 오게. lift = 통통 뛰는 높이, snap = 기기 픽셀 한 칸 */
+function spot(room: IsoRoom, p: P, box: number, snap: number, lift = 0) {
   const s = floorToScreen(room, p.x, p.y);
+  const at = (v: number) => +(Math.round(v / snap) * snap).toFixed(3);
   return {
-    transform: `translate3d(${Math.round(s.x - box / 2)}px, ${Math.round(s.y - box + 10 + lift)}px, 0)`,
+    transform: `translate3d(${at(s.x - box / 2)}px, ${at(s.y - box + (box * 10) / 96 + lift)}px, 0)`,
     zIndex: String(depthOf(p.x, p.y)),
   };
 }
@@ -84,6 +86,7 @@ export function RoomResident({
   outfit,
   pet,
   hidden = false,
+  camera = null,
 }: {
   room: IsoRoom;
   /** 가구가 놓인 칸 ("x,y") */
@@ -94,11 +97,18 @@ export function RoomResident({
   pet: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
   /** 가구 놓기 중에는 가구를 가리지 않게 숨긴다 */
   hidden?: boolean;
+  /** 방 카메라: 캐릭터·동물 도트 크기와 기기 픽셀 (null = 아직 재지 않음) */
+  camera?: RoomCamera | null;
 }) {
   const meRef = useRef<HTMLDivElement>(null);
   const petRef = useRef<HTMLSpanElement>(null);
   const shown = pet && hasAnimalArt(pet.assetKey) ? pet : null;
-  const sheet = walkSheetDataUri(characterAsset, outfit, SCALE);
+  const scale = camera?.charScale ?? SCALE;
+  const petScale = camera?.petScale ?? PET_SCALE;
+  const snap = camera?.snap ?? 1;
+  const BOX = 24 * scale; // 걷기 그림판 한 칸
+  const PET_BOX = 32 * petScale;
+  const sheet = useMemo(() => walkSheetDataUri(characterAsset, outfit, scale), [characterAsset, outfit, scale]);
   const gap = shown ? petGap(shown.assetKey, shown.size) : 0;
   const blockedKey = blocked.join(";");
   const start = useMemo(() => startTiles(room.grid, new Set(blockedKey ? blockedKey.split(";") : [])), [room.grid, blockedKey]);
@@ -107,7 +117,7 @@ export function RoomResident({
     const me = meRef.current;
     if (!me) return;
     const petEl = petRef.current;
-    const put = (el: HTMLElement, p: P, box: number, lift = 0) => Object.assign(el.style, spot(room, p, box, lift));
+    const put = (el: HTMLElement, p: P, box: number, lift = 0) => Object.assign(el.style, spot(room, p, box, snap, lift));
     const blockedSet = new Set(blockedKey ? blockedKey.split(";") : []);
     const center = (t: P): P => ({ x: t.x + 0.5, y: t.y + 0.5 });
     const s = {
@@ -158,7 +168,7 @@ export function RoomResident({
         // 걸으면 착지·기욺·뛰어오름 그림을 돌리며 통통 뛰고, 서 있으면 숨쉬기 두 칸. 가는 쪽(오른쪽·왼쪽)을 본다
         const step = Math.floor(s.hop / PET_HOP_MS) % PET_WALK_FRAMES.length;
         const f = s.petWalking ? PET_WALK_FRAMES[step] : PET_IDLE_FRAMES[Math.floor(s.idle / PET_BREATH_MS) % PET_IDLE_FRAMES.length];
-        const lift = s.petWalking ? -PET_WALK_LIFT[step] * PET_SCALE : 0;
+        const lift = s.petWalking ? -PET_WALK_LIFT[step] * petScale : 0;
         put(petEl, s.petPos, PET_BOX, lift);
         petEl.style.backgroundPosition = `-${f * PET_BOX}px -${s.face === "left" ? PET_BOX : 0}px`;
         petEl.dataset.walk = `${s.petWalking ? "walk" : "idle"}-${s.face}`;
@@ -261,10 +271,10 @@ export function RoomResident({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [gap, room, start, blockedKey]);
+  }, [gap, room, start, blockedKey, BOX, PET_BOX, petScale, snap]);
 
   // 첫 그림(서버·하이드레이션 전)도 처음 자리(칸 가운데)에 둔다
-  const first = (p: P, box: number) => spot(room, { x: p.x + 0.5, y: p.y + 0.5 }, box);
+  const first = (p: P, box: number) => spot(room, { x: p.x + 0.5, y: p.y + 0.5 }, box, snap);
 
   return (
     <>
@@ -283,7 +293,7 @@ export function RoomResident({
             ...first(start.pet, PET_BOX),
             width: PET_BOX,
             height: PET_BOX,
-            backgroundImage: `url("${petSheetDataUri(shown.assetKey, shown.skinKey, PET_SCALE, shown.size)}")`,
+            backgroundImage: `url("${petSheetDataUri(shown.assetKey, shown.skinKey, petScale, shown.size)}")`,
             backgroundSize: `${PET_BOX * PET_SHEET_FRAMES}px ${PET_BOX * 2}px`,
             backgroundRepeat: "no-repeat",
             backgroundPosition: "0 0",
@@ -300,6 +310,7 @@ export function RoomResident({
         data-room-resident
         data-look={lookKey(characterAsset, outfit)}
         data-walk="idle-down"
+        data-dot={+(scale * (camera?.fit ?? 1)).toFixed(3)}
         className={`pixelated pointer-events-none absolute top-0 left-0 drop-shadow-sm will-change-transform ${hidden ? "invisible" : ""}`}
         style={{
           ...first(start.me, BOX),

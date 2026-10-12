@@ -46,6 +46,19 @@ const head = await room.innerText();
 check("우리 집: 1단계 작은 오두막, 기본 가구 2/4개, 방 6×6칸, Lv.10에 커짐", head.includes("1단계 작은 오두막") && head.includes("가구 2/4개") && head.includes("방 6×6칸") && head.includes("Lv.10에 집이 커져요"), head.split("\n").slice(0, 3).join(" "));
 check("가입하면 기본 가구가 기본 자리(화분 0,1 · 의자 2,0)에 놓여 있음", (await placed()) === "0,1:fur_plant 2,0:fur_chair", await placed());
 check("방 그림: 아이소메트릭 상자 6×6 (바닥 칸 64×32px)", (await room.locator("[data-room-grid]").getAttribute("data-room-grid")) === "6" && (await room.locator("[data-room-grid]").getAttribute("data-tile-size")) === "64,32");
+// 방 카메라 (2026-10-12 "집이 멀어지면 캐릭터도 같이"): 1280px 작은 방은 도트 4px, 주인 캐릭터 96px
+/** 화면에 보이는 크기: 방 도트(px), 주인 캐릭터 높이, 전시 동물 칸 높이 */
+const sizes = async (pg = page) =>
+  pg.locator("[data-house-room]").evaluate((el) => {
+    const h = (q) => {
+      const r = el.querySelector(q)?.getBoundingClientRect();
+      return r ? Math.round(r.height * 100) / 100 : null;
+    };
+    return { dot: Number(el.querySelector("[data-room-grid]").dataset.roomDot), me: h("[data-room-resident]"), pet: h("[data-showcase]") };
+  });
+await room.locator("[data-room-grid][data-room-dot]").waitFor();
+const small1280 = await sizes();
+check("1280px 6×6: 방 도트 4px, 주인 캐릭터 96px", small1280.dot === 4 && small1280.me === 96, JSON.stringify(small1280));
 
 // 지붕 색 (TOWN-07): 1단계는 처음 받은 무작위 색 1개만 열려 있고 9개는 잠김
 const roofButton = room.getByRole("button", { name: "🏠 지붕 색" });
@@ -241,6 +254,12 @@ await setExp(expFor(10));
 await setExp(expFor(50));
 await page.goto(`${BASE}/@${H}`);
 check("5단계: 방 10×10칸, 가구 8개까지", (await countText()).includes("방 10×10칸") && (await countText()).includes("/8개"), await countText());
+{
+  await room.locator("[data-room-grid][data-room-dot]").waitFor();
+  const big = await sizes();
+  const stage = await room.locator("[data-room-grid]").evaluate((el) => el.getBoundingClientRect().width / el.offsetWidth);
+  check("1280px 10×10: 카메라가 물러나 방·가구·주인이 함께 3/4 (도트 3px, 캐릭터 72px)", big.dot === 3 && stage === 0.75 && big.me === 72 && big.me < small1280.me, `${JSON.stringify(big)}, 배율 ${stage}`);
+}
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
 await unplacedButtons().first().click();
 await dragTo("table", 9, 9);
@@ -260,6 +279,11 @@ await room.screenshot({ path: `${outDir}/05-stage5-10x10.png` });
   await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, animal.id]);
   await page.goto(`${BASE}/@${H}`);
   await room.locator("[data-showcase]").waitFor();
+  {
+    const z = await sizes();
+    // 동물은 캐릭터의 3/4 도트: 캐릭터 3px(24칸 = 72px)이면 동물 2px(32칸 = 64px)
+    check("1280px 10×10: 전시 동물도 방과 함께 작아짐 (64px 칸)", z.pet === 64, JSON.stringify(z));
+  }
   await page.waitForFunction(() => document.querySelector("[data-room-resident]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 12000 }).catch(() => {});
   const trace = await page.evaluate(
     () =>
@@ -269,7 +293,7 @@ await room.screenshot({ path: `${outDir}/05-stage5-10x10.png` });
         const rows = [];
         const t0 = performance.now();
         const tick = () => {
-          const m = /translate3d\((-?\d+)px, (-?\d+)px/.exec(pet.style.transform);
+          const m = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(pet.style.transform);
           rows.push({ me: me.dataset.walk, pet: pet.dataset.walk, x: Number(m?.[1]), y: Number(m?.[2]) });
           if (performance.now() - t0 < 4000) requestAnimationFrame(tick);
           else done(rows);
@@ -303,7 +327,8 @@ await page.screenshot({ path: `${outDir}/house-door-town.png` });
 
 // 375px: 가로 스크롤 없음
 {
-  const m = await browser.newContext({ viewport: { width: 375, height: 800 }, isMobile: true, hasTouch: true });
+  // 휴대폰은 화면 점이 2배 이상이라 deviceScaleFactor 2로 본다 (도트 크기를 기기 픽셀로 맞추므로)
+  const m = await browser.newContext({ viewport: { width: 375, height: 800 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   const mp = await m.newPage();
   errors.push(...collectErrors(mp));
   await loginDev(mp, H);
@@ -316,6 +341,9 @@ await page.screenshot({ path: `${outDir}/house-door-town.png` });
   const box = await mp.locator("[data-house-room]").boundingBox();
   const stageBox = await mp.locator("[data-house-room] [data-room-grid]").boundingBox();
   check("375px 10×10 방은 1/2로 줄여 칸 안에 (도트 2배)", fit === 0.5 && stageBox.x >= box.x && stageBox.x + stageBox.width <= box.x + box.width, `배율 ${fit}`);
+  // 휴대폰은 주인·동물이 방보다 한 단계 작다 (2026-10-12 "모바일은 캐릭터 크기 좀 줄여줘"): 방 도트 2px → 캐릭터 1.5px(36px), 예전 48px
+  const ms = await sizes(mp);
+  check("375px 10×10: 주인 캐릭터 36px (예전 48px), 동물은 그보다 작은 도트", ms.dot === 2 && ms.me === 36 && ms.pet !== null && ms.pet < 48, JSON.stringify(ms));
   await mp.locator("[data-house-room]").screenshot({ path: `${outDir}/02-room-375.png` });
   // 휴대폰에서도 끌어 옮기기 (줄인 배율로 칸 계산)
   await mp.locator("[data-house-room]").getByRole("button", { name: "🛋 가구 놓기" }).click();
@@ -324,6 +352,21 @@ await page.screenshot({ path: `${outDir}/house-door-town.png` });
   await mp.locator("[data-house-room]").screenshot({ path: `${outDir}/07-edit-375.png` });
   const overflowEdit = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check("375px 편집 중에도 가로 스크롤 없음", overflowEdit <= 0, String(overflowEdit));
+  await m.close();
+}
+
+// 375px 작은 방(새 회원): 방 도트 3px, 주인 캐릭터 48px (예전 72px)
+{
+  const m = await browser.newContext({ viewport: { width: 375, height: 800 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  const mp = await m.newPage();
+  errors.push(...collectErrors(mp));
+  const L = `${H}s`;
+  await loginDev(mp, L);
+  await mp.goto(`${BASE}/@${L}`);
+  await mp.locator("[data-house-room] [data-room-grid][data-room-dot]").waitFor();
+  const ms = await sizes(mp);
+  check("375px 6×6: 방 도트 3px, 주인 캐릭터 48px (예전 72px)", ms.dot === 3 && ms.me === 48, JSON.stringify(ms));
+  await mp.locator("[data-house-room]").screenshot({ path: `${outDir}/02-room-375-small.png` });
   await m.close();
 }
 

@@ -57,9 +57,9 @@ async function signUp(page, { id, pw = PW, confirm = pw, title, character, tampe
   await page.getByLabel("아이디").fill(id);
   await page.getByLabel("비밀번호", { exact: true }).fill(pw);
   await page.getByLabel("비밀번호 확인").fill(confirm);
-  // 블로그 이름: 적지 않으면 아이디를 따라 `{아이디}의 블로그`로 채워진 값 그대로 보낸다
+  // 블로그 이름: 적지 않으면 빈 칸으로 보내고 서버가 `{아이디}의 블로그`로 만든다 (2026-10-12)
   if (title !== undefined) await page.getByLabel("블로그 이름").fill(title);
-  // 아이디·블로그 이름을 적으면 화면이 다시 그려져(블로그 이름이 아이디를 따라간다) 조작한 radio 값이 되돌아가므로, 다 채운 뒤 한 번 더 조작한다
+  // 아이디를 적으면 화면이 다시 그려져(블로그 이름 안내가 아이디를 따라간다) 조작한 radio 값이 되돌아가므로, 다 채운 뒤 한 번 더 조작한다
   if (tamper) await page.locator("form", { has: page.getByLabel("비밀번호 확인") }).evaluate(tamper, tamperArg);
   if (character) await page.locator("label", { hasText: character }).click();
   await page.getByRole("button", { name: "회원가입", exact: true }).click();
@@ -90,16 +90,26 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
   await page.getByRole("tab", { name: "회원가입" }).click();
   check("1 아이디 칸 아래 안내", await page.getByText("영문 소문자, 숫자, _ 로 4~20자", { exact: true }).isVisible());
   check("1 비밀번호 칸 안내", (await page.getByLabel("비밀번호", { exact: true }).getAttribute("placeholder")) === "비밀번호 (8자 이상)");
-  // 블로그 이름 칸 (2026-10-11 사용자 요청): 처음엔 비어 있고, 아이디를 적으면 `{아이디}의 블로그`로 따라 채워진다
+  // 블로그 이름 칸 (2026-10-12 사용자 요청 "예시가 잘 안 지워져요", "~의 블로그 말고 전체를"): 비어 있고 예시는 흐린 안내 글자뿐.
+  // 아이디를 적어도 칸은 비어 있고 안내 줄만 `비워 두면 「{아이디}의 블로그」`로 바뀐다. 적은 값은 지우면 빈 칸으로 남는다
   const titleField = page.getByLabel("블로그 이름");
-  check("1 블로그 이름 칸 + 안내", (await titleField.inputValue()) === "" && (await titleField.getAttribute("maxlength")) === "40" && (await page.getByText("40자까지, 나중에 블로그 관리에서 바꿀 수 있어요").isVisible()));
+  const titleHint = page.locator("[data-blog-title-hint]");
+  check(
+    "1 블로그 이름 칸: 비어 있음 + 예시는 placeholder + 안내",
+    (await titleField.inputValue()) === "" && (await titleField.getAttribute("placeholder")) === "블로그 이름 (예: 나의 작은 왕국)" && (await titleField.getAttribute("maxlength")) === "40" && (await titleField.getAttribute("required")) === null && (await titleHint.innerText()).includes("40자까지, 나중에 블로그 관리에서 바꿀 수 있어요"),
+    await titleHint.innerText(),
+  );
   await page.getByLabel("아이디").fill("Pixel_Fan");
-  check("1 아이디를 적으면 블로그 이름이 `{아이디}의 블로그`", (await titleField.inputValue()) === "pixel_fan의 블로그", await titleField.inputValue());
-  await titleField.fill("작은 정원");
+  check("1 아이디를 적어도 블로그 이름 칸은 비어 있고 안내만 `pixel_fan의 블로그`", (await titleField.inputValue()) === "" && (await titleHint.innerText()).includes("비워 두면 「pixel_fan의 블로그」"), await titleHint.innerText());
+  await titleField.fill("노을이의 왕국");
   await page.getByLabel("아이디").fill("pixel_fan2");
-  check("1 블로그 이름을 고친 뒤에는 아이디를 따라가지 않음", (await titleField.inputValue()) === "작은 정원", await titleField.inputValue());
-  await titleField.fill("");
-  check("1 블로그 이름을 지우면 다시 아이디를 따라감", (await titleField.inputValue()) === "pixel_fan2의 블로그", await titleField.inputValue());
+  check("1 적은 블로그 이름은 아이디를 따라가지 않음", (await titleField.inputValue()) === "노을이의 왕국", await titleField.inputValue());
+  // 한 글자씩 지워도(Backspace) 마지막에 예전 이름이 다시 채워지지 않는다
+  await titleField.click();
+  await titleField.press("End");
+  for (let i = 0; i < 7; i++) await titleField.press("Backspace");
+  check("1 블로그 이름을 지우면 빈 칸 그대로 (다시 채워지지 않음)", (await titleField.inputValue()) === "", await titleField.inputValue());
+  await page.screenshot({ path: `${outDir}/51-signup-title.png` });
   await page.getByLabel("아이디").fill("");
   check("1 처음엔 남자 주민이 골라져 있음", await page.getByRole("radio", { name: "남자 주민" }).isChecked());
   // 소셜 키가 없는 환경 기준 (.env.local의 소셜 키를 비워 둔다, quickstart 0장)
@@ -163,7 +173,7 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
 const MAIN = `Su${n}`;
 const main = MAIN.toLowerCase();
 // 적은 블로그 이름 (앞뒤 공백은 지워 저장, 이모지 포함 40자 안)
-const MAIN_TITLE = `  ${main}의 도트 정원 🌱  `;
+const MAIN_TITLE = `  노을이의 도트 왕국 🌱  `;
 let mainSession;
 {
   const { ctx, page, errors } = await fresh();
@@ -180,6 +190,9 @@ let mainSession;
   // 가입 직후 광장 화면에서 1일차 자동 출석(🪙 10)이 함께 일어난다 (GAME-04, game plan 남은 문제 1)
   check("2 헤더 코인 110 (가입 100 + 1일차 출석 10)", coinsText.replace(/[^0-9]/g, "") === "110", coinsText);
   await page.screenshot({ path: `${outDir}/52-signup-done.png` });
+  // 블로그 맨 위 이름은 적은 그대로 (뒤에 `의 블로그`를 붙이지 않는다, 2026-10-12)
+  const h1 = (await page.locator("main h1").first().innerText()).trim();
+  check("2 블로그 맨 위 이름 = 적은 그대로", h1 === MAIN_TITLE.trim(), h1);
 
   const u = await one(
     `SELECT u.id, u.username, u.role, u.email, p.nickname, b.slug, b.title, b.description,
@@ -334,7 +347,7 @@ let mainSession;
   check("10 role=admin 칸을 더해도 가입은 됨", r3 === "town", r3);
   check("10 권한은 user", (await userByName(id))?.role === "user");
   const titled = await one("SELECT b.title FROM blogs b JOIN users u ON u.id = b.owner_id WHERE u.username = $1", [id]);
-  check("10 블로그 이름을 고치지 않으면 `{아이디}의 블로그`", titled?.title === `${id}의 블로그`, titled?.title);
+  check("10 블로그 이름을 비워 두면 `{아이디}의 블로그`", titled?.title === `${id}의 블로그`, titled?.title);
   await adm.ctx.close();
 }
 
@@ -432,7 +445,7 @@ let mainSession;
     await page.keyboard.type(PW);
     await page.keyboard.press("Tab");
     await page.keyboard.type(PW);
-    await page.keyboard.press("Tab"); // 블로그 이름 (아이디를 따라 채워져 있다)
+    await page.keyboard.press("Tab"); // 블로그 이름 (빈 칸)
     const titleFocus = await focused();
     ringSeen.push(titleFocus.label === "블로그 이름" && titleFocus.visible);
     await page.keyboard.press("Tab"); // 캐릭터 고르기 (골라진 남자 주민)

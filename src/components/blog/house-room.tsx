@@ -6,7 +6,7 @@ import { useLayoutEffect, useMemo, useRef, useState, useTransition } from "react
 import { chooseRoofColor, saveFurnitureLayout } from "@/app/house/actions";
 import { backgroundDataUri, backgroundSky } from "@/lib/art/backgrounds";
 import { furnitureDataUri } from "@/lib/art/furniture";
-import { floorToScreen, isoRoom, isoRoomDataUri, ROOM_PIXEL, screenToFloor, type IsoRoom } from "@/lib/art/room";
+import { floorToScreen, isoRoom, isoRoomDataUri, ROOM_PIXEL, roomCamera, screenToFloor, type IsoRoom, type RoomCamera } from "@/lib/art/room";
 import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
 import type { RoofColor } from "@/lib/blog";
 import type { AnimalDisplaySize } from "@/lib/farm";
@@ -20,8 +20,6 @@ type Placed = { itemId: number; name: string; assetKey: string; x: number; y: nu
 const FURNITURE_PX = 64;
 /** 창밖 장면을 그릴 너비 (px, 4배 도트로 64칸) */
 const WINDOW_SCENE_WIDTH = 256;
-/** 방이 칸에 다 안 들어가면 줄이는 배율. 4배 도트가 3배·2배가 된다 */
-const FITS = [1, 0.75, 0.5] as const;
 
 /**
  * 블로그의 "우리 집" 구역 (마을 개편 2차, 사용자 요청 2026-10-08): 집 안에 가구를 놓고, 🚪 문으로 마을에 나간다.
@@ -73,21 +71,23 @@ export function HouseRoom({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  // 방이 칸 너비에 안 들어가면 3/4·1/2로 줄인다 (휴대폰). 재기 전에는 CSS 기본값(휴대폰 3/4)
+  // 카메라 (roomCamera, src/lib/art/room.ts): 방이 칸 너비에 안 들어가거나 넓은 방(8×8칸부터)이면 한 걸음 물러나 4배 도트가 3배·2배가 되고,
+  // 가구·주인·동물도 같이 작아진다. 휴대폰(좁은 칸)에서는 주인·동물이 한 단계 더 작다. 재기 전에는 방 크기로 정한 CSS 기본값
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState<number | null>(null);
+  const [camera, setCamera] = useState<RoomCamera | null>(null);
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const measure = () => {
-      const w = el.clientWidth;
-      setFit(FITS.find((k) => room.width * k <= w) ?? FITS[FITS.length - 1]);
+      const next = roomCamera({ grid, width: el.clientWidth, dpr: window.devicePixelRatio || 1 });
+      setCamera((c) => (c && c.fit === next.fit && c.charScale === next.charScale && c.petScale === next.petScale ? c : next));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [room.width]);
+  }, [grid]);
+  const fit = camera?.fit;
 
   const info = useMemo(() => new Map((owned ?? placed.map((p) => ({ id: p.itemId, name: p.name, assetKey: p.assetKey }))).map((f) => [f.id, f])), [owned, placed]);
   const shownSpots: (FurnitureSpot & { name: string; assetKey: string })[] = editing
@@ -192,7 +192,7 @@ export function HouseRoom({
       {/* 방: 아이소메트릭 상자를 가운데에 둔다. 둘레는 어두운 나무색 (밤의 디오라마처럼) */}
       <div
         ref={wrapRef}
-        className="relative flex justify-center overflow-hidden bg-[#3b2a20] bg-[radial-gradient(circle_at_50%_40%,#5a4030_0%,#3b2a20_70%)] py-3 [--fit:1] max-sm:[--fit:0.75]"
+        className={`relative flex justify-center overflow-hidden bg-[#3b2a20] bg-[radial-gradient(circle_at_50%_40%,#5a4030_0%,#3b2a20_70%)] py-3 ${grid >= 8 ? "[--fit:0.75]" : "[--fit:1]"} ${grid >= 7 ? "max-sm:[--fit:0.5]" : "max-sm:[--fit:0.75]"}`}
         style={fit ? ({ "--fit": fit } as React.CSSProperties) : undefined}
       >
         <div style={{ width: `calc(${room.width}px * var(--fit))`, height: `calc(${room.height}px * var(--fit))` }} className="relative shrink-0">
@@ -209,6 +209,7 @@ export function HouseRoom({
             highlightDoor={highlightDoor}
             resident={resident}
             pet={pet}
+            camera={camera}
           />
         </div>
 
@@ -315,6 +316,7 @@ function RoomStage({
   highlightDoor,
   resident,
   pet,
+  camera,
 }: {
   room: IsoRoom;
   spots: Spot[];
@@ -328,6 +330,7 @@ function RoomStage({
   highlightDoor: boolean;
   resident: { characterAsset: string; outfit: string[] };
   pet: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
+  camera: RoomCamera | null;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   // 끄는 중인 가구: 손가락·마우스 아래 칸 (칸이 바뀔 때만 상태가 바뀐다)
@@ -408,6 +411,7 @@ function RoomStage({
       data-room-grid={room.grid}
       data-origin={`${room.origin.x},${room.origin.y}`}
       data-tile-size={`${room.tile.w},${room.tile.h}`}
+      data-room-dot={camera?.dot}
     >
       {/* 창밖: 주인이 고른 배경 장면(꾸미기의 배경)의 지평선 둘레가 기운 창 유리 너머로 보인다. 장면도 방과 같은 4배 도트 */}
       <div
@@ -519,7 +523,7 @@ function RoomStage({
       </ul>
 
       {/* 주인 캐릭터와 전시 동물: 빈 바닥 칸을 걷는다. 가구 놓기 중에는 숨긴다 */}
-      <RoomResident room={room} blocked={blocked} characterAsset={resident.characterAsset} outfit={resident.outfit} pet={pet} hidden={editing} />
+      <RoomResident room={room} blocked={blocked} characterAsset={resident.characterAsset} outfit={resident.outfit} pet={pet} hidden={editing} camera={camera} />
     </div>
   );
 }

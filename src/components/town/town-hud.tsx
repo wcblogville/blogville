@@ -550,7 +550,7 @@ function MailboxPanel({
   const spot = townSpots(data).houses[slot];
   return (
     <div>
-      <p className="px-2 pb-2 text-sm text-ink-soft">{h.title}의 새 글</p>
+      <p className="px-2 pb-2 text-sm text-ink-soft">{h.title} · 새 글</p>
       {h.recentPosts.length === 0 ? (
         <p className="px-2 py-3 text-center text-sm text-ink-soft">아직 공개 글이 없어요.</p>
       ) : (

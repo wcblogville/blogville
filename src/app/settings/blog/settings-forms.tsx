@@ -41,10 +41,16 @@ export function BlogInfoForm({ title, description }: { title: string; descriptio
   const invalid = state.error ? { "aria-invalid": true, "aria-describedby": "blog-info-error" } : {};
   return (
     <form action={action} className="space-y-4 px-[3px]">
-      <label className="block">
-        <span className="mb-2 block font-bold">블로그 이름</span>
-        <input name="title" defaultValue={state.values?.title ?? title} maxLength={40} required className={input} {...invalid} />
-      </label>
+      <div>
+        <label className="block">
+          <span className="mb-2 block font-bold">블로그 이름</span>
+          <input name="title" defaultValue={state.values?.title ?? title} maxLength={40} required placeholder="예: 나의 작은 왕국" className={input} {...invalid} />
+        </label>
+        {/* 2026-10-12 사용자 요청: 이름 전체를 자유롭게 (뒤에 `의 블로그`를 붙이지 않는다) */}
+        <p className="mt-2 text-xs text-ink-soft" data-blog-title-hint>
+          적은 이름 그대로 블로그 맨 위와 마을에 보여요 (40자까지)
+        </p>
+      </div>
       <label className="block">
         <span className="mb-2 block font-bold">소개</span>
         <textarea

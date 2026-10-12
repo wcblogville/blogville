@@ -22,7 +22,7 @@ import { formatCoinsShort } from "../src/lib/format";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
 import { checkLayout, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
-import { floorToScreen, isoRoom, isoRoomDataUri, screenToFloor } from "../src/lib/art/room";
+import { floorToScreen, isoRoom, isoRoomDataUri, roomCamera, screenToFloor } from "../src/lib/art/room";
 
 let failed = 0;
 function expect(name: string, got: unknown, want: unknown) {
@@ -76,6 +76,20 @@ expect(
   expect("화면 → 바닥 되돌리기", [q.x, q.y].map((v) => Math.round(v * 1000) / 1000), [3.25, 1.5]);
   expect("방 그림 크기 = 4배 도트 (가로 6칸 × 64 + 여백)", [room.width % 4, room.height % 4, room.width], [0, 0, 6 * 64 + 16]);
   expect("방 그림은 같은 크기면 한 번만 만든다", isoRoomDataUri(6) === isoRoomDataUri(6) && isoRoomDataUri(6) !== isoRoomDataUri(7), true);
+  // 방 카메라 (2026-10-12): 넓은 방은 한 걸음 물러나고(도트 4 → 3px) 주인·동물도 같이, 휴대폰은 주인·동물이 한 단계 더 작다
+  const cam = (grid: number, width: number, dpr = 1) => {
+    const c = roomCamera({ grid, width, dpr });
+    return [c.dot, +(24 * c.charCss).toFixed(2), +(32 * c.petCss).toFixed(2)];
+  };
+  expect("1280px: 6·7칸 방은 도트 4px, 캐릭터 96px, 동물 칸 96px", [cam(6, 1100), cam(7, 1100)], [[4, 96, 96], [4, 96, 96]]);
+  expect("1280px: 8~10칸 방은 물러나 도트 3px, 캐릭터 72px, 동물 칸 64px", [8, 9, 10].map((g) => cam(g, 1100)), [[3, 72, 64], [3, 72, 64], [3, 72, 64]]);
+  expect("넓은 방도 화면에 보이는 너비가 520px 이하", [6, 7, 8, 9, 10].every((g) => isoRoom(g).width * roomCamera({ grid: g, width: 1100 }).fit <= 520), true);
+  expect("375px(2배 화면): 6칸 방 도트 3px·캐릭터 48px(예전 72), 10칸 방 도트 2px·캐릭터 36px(예전 48)", [cam(6, 343, 2), cam(10, 343, 2)], [[3, 48, 48], [2, 36, 32]]);
+  expect("375px(3배 화면): 캐릭터 도트는 기기 픽셀 정수 (10칸 5점 = 40px)", cam(10, 343, 3), [2, 40, 42.67]);
+  expect("캐릭터·동물 도트는 늘 기기 픽셀 정수", [1, 2, 3].every((dpr) => [6, 8, 10].every((g) => [343, 700, 1100].every((w) => {
+    const c = roomCamera({ grid: g, width: w, dpr });
+    return Number.isInteger(+(c.charCss * dpr).toFixed(6)) && Number.isInteger(+(c.petCss * dpr).toFixed(6));
+  }))), true);
 }
 
 // 도트 그림 (2026-10-09 "도트로 바꾸기"): 글자 줄 길이가 고르고, 광장 크기는 PIXEL의 정수배

@@ -126,6 +126,35 @@ export function isoRoom(grid: number): IsoRoom {
   };
 }
 
+/**
+ * 방을 보는 "카메라" (사용자 요청 2026-10-12 "레벨이 오르면 집이 멀어지면서 넓어 보이는데 캐릭터도 같이 멀어져야",
+ * "모바일은 캐릭터 크기 좀 줄여줘").
+ * - 방 도트 한 칸의 화면 크기 dot(4·3·2px)는 칸 너비에 들어가고 방 너비가 ROOM_VIEW_MAX 이하인 가장 큰 값이다.
+ *   방이 넓어질수록(8×8칸부터) 4px → 3px로 한 걸음 물러나 방 전체가 비슷한 크기 안에 들어오고, 가구·주인·동물도 같은 배율로 함께 작아진다.
+ * - 주인 캐릭터의 도트는 넓은 화면에서 방과 같고(dot), 좁은 칸(휴대폰, 600px 미만)에서는 한 단계 작다(3 → 2px, 2 → 1.5px).
+ *   전시 동물은 캐릭터의 3/4 (예전 4배 : 3배와 같은 비율).
+ * - 모든 도트는 실제 화면 점(기기 픽셀 = CSS px × dpr)으로 정수가 되게 반올림한다. 그래서 늘이거나 줄여도 도트가 고르다.
+ * 돌려주는 값: fit = 방 그림(ROOM_PIXEL배)에 곱할 CSS 배율, charScale·petScale = 방 그림 좌표(4배 기준 px)에서 도트 한 칸 크기,
+ * snap = 방 그림 좌표에서 기기 픽셀 한 칸 (움직이는 그림의 자리를 여기에 맞춘다)
+ */
+export const ROOM_VIEW_MAX = 520;
+export const ROOM_NARROW = 600;
+export function roomCamera({ grid, width, dpr = 1 }: { grid: number; width: number; dpr?: number }) {
+  const dots = geometry(grid).width;
+  const fits = (d: number) => dots * d <= Math.min(width, ROOM_VIEW_MAX);
+  const dot = [4, 3].find(fits) ?? 2;
+  const narrow = width < ROOM_NARROW;
+  const ratio = dpr > 0 ? dpr : 1;
+  const toDevice = (css: number) => Math.max(1, Math.round(css * ratio));
+  const charDevice = toDevice(narrow ? (dot >= 3 ? dot - 1 : 1.5) : dot);
+  const petDevice = Math.max(1, Math.round(charDevice * 0.75));
+  const fit = dot / ROOM_PIXEL;
+  // 방 그림 좌표 1px = 화면 fit px = 기기 fit × ratio 점
+  const perDevice = 1 / (fit * ratio);
+  return { dot, fit, narrow, charScale: charDevice * perDevice, petScale: petDevice * perDevice, snap: perDevice, charCss: charDevice / ratio, petCss: petDevice / ratio };
+}
+export type RoomCamera = ReturnType<typeof roomCamera>;
+
 /** 바닥 위 점(칸 좌표, 0.5 = 칸 가운데) → 방 그림 안 화면 px */
 export function floorToScreen(room: IsoRoom, x: number, y: number) {
   return { x: room.origin.x + ((x - y) * room.tile.w) / 2, y: room.origin.y + ((x + y) * room.tile.h) / 2 };

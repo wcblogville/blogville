@@ -55,11 +55,11 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
   // 처음에는 남자 주민(char_boy)을 골라 둔다. 오류 뒤에는 고른 캐릭터를 그대로 둔다 (FR-005)
   const defaultId = starters.find((s) => s.code === "char_boy")?.id ?? starters[0]?.id;
   const chosen = state.values?.characterId ? Number(state.values.characterId) : defaultId;
-  // 블로그 이름 (2026-10-11 사용자 요청): 직접 고치기 전까지는 아이디를 따라 `{아이디}의 블로그`로 채워 둔다.
-  // 고친 뒤에는 회원이 적은 값을 그대로 둔다 (지우면 다시 따라간다). 오류 뒤에도 적은 값이 남는다 (controlled)
-  const [username, setUsername] = useState("");
-  const [blogTitle, setBlogTitle] = useState<string | null>(null);
-  const shownTitle = blogTitle ?? (username.trim() ? defaultBlogFor(username.trim().toLowerCase()).title : "");
+  // 블로그 이름 (2026-10-11 사용자 요청, 2026-10-12 "예시가 잘 안 지워져요", "~의 블로그 말고 전체를 정하게"):
+  // 칸은 비어 있고 예시는 흐린 안내 글자(placeholder)일 뿐이다. 적은 이름을 그대로 쓰고, 비워 두면 `{아이디}의 블로그`가 된다.
+  // 오류 뒤에도 적은 값이 남는다 (defaultValue)
+  const [username, setUsername] = useState(state.values?.username ?? "");
+  const id = username.trim().toLowerCase();
 
   return (
     <form action={action} className="space-y-4">
@@ -85,18 +85,16 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
       <div>
         <input
           name="blogTitle"
-          value={shownTitle}
-          onChange={(e) => setBlogTitle(e.target.value === "" ? null : e.target.value)}
-          placeholder="블로그 이름 (예: 나의 작은 정원)"
+          defaultValue={state.values?.blogTitle}
+          placeholder="블로그 이름 (예: 나의 작은 왕국)"
           autoComplete="off"
-          required
           maxLength={BLOG_TITLE_MAX}
           className={input}
           aria-label="블로그 이름"
           aria-describedby="signup-blog-title-hint"
         />
-        <p id="signup-blog-title-hint" className={hint}>
-          {BLOG_TITLE_MAX}자까지, 나중에 블로그 관리에서 바꿀 수 있어요
+        <p id="signup-blog-title-hint" className={hint} data-blog-title-hint>
+          적은 이름 그대로 보여요. 비워 두면 「{id ? defaultBlogFor(id).title : "아이디의 블로그"}」로 만들어요. {BLOG_TITLE_MAX}자까지, 나중에 블로그 관리에서 바꿀 수 있어요
         </p>
       </div>
 
