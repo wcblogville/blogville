@@ -46,7 +46,7 @@ export function AttendanceWindow({
           // 창 바깥(어두운 배경)을 누르면 닫는다
           if (e.target === e.currentTarget) e.currentTarget.close();
         }}
-        className="pixel-panel m-auto max-h-[92dvh] w-[min(94vw,34rem)] overflow-y-auto p-0 text-ink backdrop:bg-black/50"
+        className="pixel-dialog max-h-[92dvh] w-[min(94vw,34rem)] overflow-y-auto"
       >
         <div className="pixel-wood sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2">
           <h2 id="attendance-window-title" className="font-display text-xl">
@@ -60,7 +60,7 @@ export function AttendanceWindow({
         </div>
         <div className="grid gap-4 p-4 sm:p-5">{children}</div>
         <form method="dialog" className="px-4 pb-5 sm:px-5">
-          <button className="pixel-btn min-h-11 w-full bg-leaf text-white">📋 마을 소식 보러 가기</button>
+          <button className="pixel-btn min-h-11 w-full bg-leaf-dark text-white">📋 마을 소식 보러 가기</button>
         </form>
       </dialog>
     </>
