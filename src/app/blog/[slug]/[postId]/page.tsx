@@ -20,6 +20,7 @@ import { getViewer } from "@/server/dal";
 import { getPublishNotice, hasViewedToday } from "@/server/posts";
 import { getCommentThread } from "@/server/social";
 import { readVisitorId } from "@/server/visitor";
+import "@/app/pixel-blog.css";
 
 async function load(props: PageProps<"/blog/[slug]/[postId]">) {
   const { slug, postId } = await props.params;
@@ -69,19 +70,20 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
       {!isOwner && <RecordVisit blogId={blog.id} />}
       {notice && viewerId && <PublishNotice kind={notice} userId={viewerId} />}
 
-      <Link href={`/@${blog.slug}`} className="mb-4 inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
+      {/* 블로그로 돌아가는 나무 간판 */}
+      <Link href={`/@${blog.slug}`} className="pixel-wood mb-6 inline-flex min-h-11 max-w-full items-center gap-2 px-3 py-1 text-sm hover:brightness-105">
         <CharacterBadge asset={blog.characterAsset} size={28} />
-        <b className="text-ink">{blog.title}</b>
-        <span>· {blog.nickname}</span>
+        <b className="truncate font-display text-base">{blog.title}</b>
+        <span className="shrink-0 text-[#fff3d6]">· {blog.nickname}</span>
       </Link>
 
-      <article className="card p-6 sm:p-10">
-        <header className="border-b-2 border-dashed border-line pb-5">
+      <article className="pb-card px-5 py-6 sm:p-10">
+        <header className="pb-5">
           <div className="mb-2 flex flex-wrap gap-2 text-xs font-bold">
             {/* 배지 `대분류 › 소분류`, 누르면 그 카테고리 글 목록 (FR-033, R16). 누르는 영역 44px (R21) */}
             {post.categoryName && (
-              <Link href={categoryHref} className="inline-flex min-h-11 items-center">
-                <span className="rounded-full bg-[#fff3d6] px-2 py-0.5 text-sun-dark">
+              <Link href={categoryHref} className="inline-flex min-h-11 min-w-11 items-center">
+                <span className="pb-chip">
                   {post.categoryName}
                   {post.subcategoryName && ` › ${post.subcategoryName}`}
                 </span>
@@ -89,23 +91,24 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
             )}
             {post.visibility === "private" && (
               <span className="inline-flex min-h-11 items-center">
-                <span className="rounded-full bg-ink/10 px-2 py-0.5 text-ink-soft">🔒 비공개</span>
+                <span className="pb-chip pb-chip-muted">🔒 비공개</span>
               </span>
             )}
           </div>
-          <h1 className="font-display text-3xl leading-snug sm:text-4xl">{post.title}</h1>
+          <h1 className="pb-title font-display text-3xl leading-snug break-words sm:text-4xl">{post.title}</h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-soft">
             <span>{formatDateTime(post.createdAt)}</span>
             <ViewCount postId={post.id} initial={post.viewCount + (viewed ? 0 : 1)} count={!isOwner} />
             {isOwner && (
-              <span className="ml-auto flex gap-1">
-                <Link href={`/write/${post.id}`} className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap hover:text-ink">
+              <span className="ml-auto flex gap-3 p-[3px]">
+                <Link href={`/write/${post.id}`} className="pixel-btn min-h-11 min-w-11 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-ink">
                   수정
                 </Link>
                 <DeletePostButton postId={post.id} />
               </span>
             )}
           </div>
+          <div className="pb-dash mt-5" aria-hidden />
         </header>
 
         {/* 저장할 때 sanitize-html로 정화한 HTML만 넣는다 */}
@@ -117,7 +120,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
               <li key={t}>
                 <Link
                   href={`/tags/${encodeURIComponent(t)}`}
-                  className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-cream px-3 text-sm text-ink-soft hover:text-ink"
+                  className="pb-slot inline-flex min-h-11 items-center whitespace-nowrap px-3 text-sm text-ink-soft hover:bg-[#fff3d6] hover:text-ink"
                 >
                   #{t}
                 </Link>
@@ -134,18 +137,18 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
       </article>
 
       {/* grid-cols-1: 긴 제목(truncate)이 휴대폰 화면 폭을 넘지 않게 칸 최소 폭을 0으로 둔다 */}
-      <nav className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="이전 글, 다음 글">
+      <nav className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2" aria-label="이전 글, 다음 글">
         {adjacent.prev ? (
-          <Link href={`/@${blog.slug}/${adjacent.prev.id}`} className="card min-w-0 p-4 hover:-translate-y-0.5">
-            <span className="text-xs text-ink-soft">← 이전 글</span>
+          <Link href={`/@${blog.slug}/${adjacent.prev.id}`} className="pb-card pb-card-hover min-w-0 p-4">
+            <span className="font-display text-sm text-[#8a5a14]">◀ 이전 글</span>
             <span className="block truncate font-bold">{adjacent.prev.title}</span>
           </Link>
         ) : (
           <span className="hidden sm:block" />
         )}
         {adjacent.next && (
-          <Link href={`/@${blog.slug}/${adjacent.next.id}`} className="card min-w-0 p-4 text-right hover:-translate-y-0.5">
-            <span className="text-xs text-ink-soft">다음 글 →</span>
+          <Link href={`/@${blog.slug}/${adjacent.next.id}`} className="pb-card pb-card-hover min-w-0 p-4 text-right">
+            <span className="font-display text-sm text-[#8a5a14]">다음 글 ▶</span>
             <span className="block truncate font-bold">{adjacent.next.title}</span>
           </Link>
         )}

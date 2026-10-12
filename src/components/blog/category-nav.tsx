@@ -19,15 +19,16 @@ export function CategoryNav({
   publicCount: number;
   selected: { kind: "all" } | { kind: "category"; id: number } | { kind: "sub"; id: number } | null;
 }) {
-  const line = (on: boolean) => `flex min-h-11 items-center gap-1 rounded-lg px-2 ${on ? "bg-[#fff3d6] font-bold" : "hover:bg-cream"}`;
+  // 고른 줄은 aria-current로 표시한다 (pixel-blog.css .pb-row)
+  const line = "pb-row flex min-h-11 items-center gap-1 px-2";
   return (
-    <nav className="card overflow-hidden" aria-label="카테고리" data-widget="categories">
+    <nav className="pb-card" aria-label="카테고리" data-widget="categories">
       {/* 옆 칸 위젯과 같은 이름표 제목 (blog-sidebar.tsx Widget) */}
-      <h2 className="border-b-2 border-line bg-[#fff3d6] px-4 py-2 font-display text-lg">🗂 카테고리</h2>
+      <h2 className="pb-plank px-4 py-2 font-display text-lg">🗂 카테고리</h2>
       {/* 카테고리 링크는 누르는 영역 44px 이상 (FR-059, research R-24) */}
       <ul className="space-y-0.5 p-3 text-sm">
         <li>
-          <Link href={base} className={line(selected?.kind === "all")} aria-current={selected?.kind === "all" ? "page" : undefined}>
+          <Link href={base} className={line} aria-current={selected?.kind === "all" ? "page" : undefined}>
             전체 글 <span className="text-ink-soft">({publicCount})</span>
           </Link>
         </li>
@@ -35,7 +36,7 @@ export function CategoryNav({
           const on = selected?.kind === "category" && selected.id === c.id;
           return (
             <li key={c.id}>
-              <Link href={`${base}?category=${c.id}`} className={line(on)} aria-current={on ? "page" : undefined}>
+              <Link href={`${base}?category=${c.id}`} className={line} aria-current={on ? "page" : undefined}>
                 <span className="min-w-0 break-words">{c.name}</span> <span className="text-ink-soft">({c.postCount})</span>
               </Link>
               {c.subcategories.length > 0 && (
@@ -44,7 +45,7 @@ export function CategoryNav({
                     const subOn = selected?.kind === "sub" && selected.id === s.id;
                     return (
                       <li key={s.id}>
-                        <Link href={`${base}?sub=${s.id}`} className={`${line(subOn)} pl-4`} aria-current={subOn ? "page" : undefined}>
+                        <Link href={`${base}?sub=${s.id}`} className={`${line} pl-4`} aria-current={subOn ? "page" : undefined}>
                           <span className="min-w-0 break-words">└ {s.name}</span>
                           {s.postCount !== null && <span className="text-ink-soft">({s.postCount})</span>}
                         </Link>

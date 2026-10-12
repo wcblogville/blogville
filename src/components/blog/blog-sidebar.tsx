@@ -12,29 +12,29 @@ import { VisitWidget } from "./visit-widget";
 /** 위젯 한 칸: 나무 이름표 제목 + 내용 */
 export function Widget({ title, children, label, ...rest }: { title: React.ReactNode; children: React.ReactNode; label: string } & React.HTMLAttributes<HTMLElement>) {
   return (
-    <section className="card overflow-hidden" aria-label={label} {...rest}>
-      <h2 className="border-b-2 border-line bg-[#fff3d6] px-4 py-2 font-display text-lg">{title}</h2>
+    <section className="pb-card" aria-label={label} {...rest}>
+      <h2 className="pb-plank px-4 py-2 font-display text-lg">{title}</h2>
       <div className="p-3">{children}</div>
     </section>
   );
 }
 
-const itemLink = "flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-cream";
+const itemLink = "pb-row flex min-h-11 min-w-0 items-center gap-2 px-2 py-1 text-sm";
 
 /** 블로그 안 검색 (모두에게): GET ?s= */
 export function BlogFindBox({ base, s }: { base: string; s: string }) {
   return (
     <Widget title="🔍 블로그 검색" label="블로그 검색" data-widget="search">
-      <Form action={base} className="flex gap-2" role="search" aria-label="블로그 내 검색">
+      <Form action={base} className="flex gap-3 p-[3px]" role="search" aria-label="블로그 내 검색">
         <input
           name="s"
           defaultValue={s}
           maxLength={SEARCH_QUERY_MAX}
           aria-label="이 블로그에서 찾을 말"
           placeholder="이 블로그의 글 찾기"
-          className="min-h-11 w-full min-w-0 rounded-xl border-2 border-line bg-white px-3 text-sm outline-none focus:border-sun"
+          className="pixel-input min-w-0 text-sm"
         />
-        <button className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-sm text-cream">찾기</button>
+        <button className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 pt-1.5 pb-2 text-sm text-cream">찾기</button>
       </Form>
     </Widget>
   );
@@ -50,7 +50,7 @@ function PostLines({ base, posts, empty, rank = false }: { base: string; posts: 
         <li key={p.id}>
           <Link href={`${base}/${p.id}`} className={itemLink}>
             {rank && (
-              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md font-display text-xs ${i === 0 ? "bg-sun text-ink" : "bg-cream text-ink-soft"}`}>
+              <span className={`grid h-6 w-6 shrink-0 place-items-center font-display text-xs ${i === 0 ? "pixel-wood" : "pb-slot text-ink-soft"}`}>
                 {i + 1}
               </span>
             )}
@@ -89,7 +89,7 @@ export function RecentCommentsWidget({ base, comments }: { base: string; comment
         <ul className="space-y-0.5">
           {comments.map((c) => (
             <li key={`${c.kind}-${c.id}`}>
-              <Link href={`${base}/${c.postId}#${c.kind}-${c.id}`} className="block min-h-11 rounded-lg px-2 py-1.5 text-sm hover:bg-cream">
+              <Link href={`${base}/${c.postId}#${c.kind}-${c.id}`} className="pb-row block min-h-11 px-2 py-1.5 text-sm">
                 <span className="line-clamp-1">
                   {c.kind === "reply" && <span className="text-ink-soft">↳ </span>}
                   {c.content}
@@ -112,7 +112,7 @@ export function TagsWidget({ base, tags, current }: { base: string; tags: BlogSi
   return (
     <Widget title="🏷 태그" label="태그 목록" data-widget="tags">
       {tags.length ? (
-        <ul className="flex flex-wrap gap-1.5">
+        <ul className="flex flex-wrap gap-2">
           {tags.map((t) => {
             const on = t.name === current;
             return (
@@ -120,8 +120,8 @@ export function TagsWidget({ base, tags, current }: { base: string; tags: BlogSi
                 <Link
                   href={`${base}?tag=${encodeURIComponent(t.name)}`}
                   aria-current={on ? "page" : undefined}
-                  className={`inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-full border-2 px-2.5 text-sm ${
-                    on ? "border-sun bg-[#fff3d6] font-bold" : "border-transparent bg-cream hover:text-leaf-dark"
+                  className={`inline-flex min-h-11 items-center gap-1 whitespace-nowrap px-2.5 text-sm ${
+                    on ? "bg-[#ffe7a3] font-bold shadow-[inset_0_0_0_3px_#d99a36]" : "pb-slot hover:bg-[#fff3d6] hover:text-leaf-dark"
                   }`}
                 >
                   #{t.name} <span className="text-ink-soft">{t.count}</span>

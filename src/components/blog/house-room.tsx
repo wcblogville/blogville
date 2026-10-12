@@ -79,18 +79,18 @@ export function HouseRoom({
     });
 
   return (
-    <section className={`card flex flex-col overflow-hidden ${className}`} aria-labelledby="house-title" data-house-room>
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-3">
+    <section className={`pb-card flex flex-col overflow-hidden ${className}`} aria-labelledby="house-title" data-house-room>
+      <div className="pb-plank relative z-[1] flex flex-wrap items-center justify-between gap-x-2 gap-y-2.5 px-4 pt-2.5 pb-3">
         <h2 id="house-title" className="font-display text-xl">
-          🏠 우리 집 <span className="text-base text-ink-soft">· {house.stage}단계 {house.name}</span>
+          🏠 우리 집 <span className="text-base text-[#fff3d6]">· {house.stage}단계 {house.name}</span>
         </h2>
         {/* 휴대폰: 제목 → 버튼 한 줄 → 칸 안내 순서 (안내가 버튼 사이에 끼지 않게 맨 아래로) */}
-        <p className="order-last w-full text-sm text-ink-soft sm:order-none sm:w-auto">
+        <p className="order-last w-full text-sm text-[#fff3d6] sm:order-none sm:w-auto">
           가구 {placed.filter((p) => p.slot < house.slots).length}/{house.slots}칸
           {house.nextLevel && ` · Lv.${house.nextLevel}에 집이 커져요`}
         </p>
         {/* 버튼 셋은 375px 폰에서도 한 줄 (좁으면 여백·간격을 줄인다) */}
-        <div className="flex w-full flex-nowrap gap-1.5 sm:w-auto sm:gap-2 [&>button]:whitespace-nowrap max-sm:[&>button]:px-2.5">
+        <div className="flex w-full flex-nowrap gap-2 px-[3px] [text-shadow:none] sm:w-auto sm:gap-2.5 [&>button]:whitespace-nowrap max-sm:[&>button]:px-2">
           {collection}
           {owned && roof && (
             <button
@@ -102,7 +102,7 @@ export function HouseRoom({
                 setError(null);
               }}
               aria-pressed={roofOpen}
-              className={`btn min-h-11 text-sm ${roofOpen ? "bg-leaf text-white" : "bg-white text-ink"}`}
+              className={`pixel-btn min-h-11 pt-1.5 pb-2 text-sm ${roofOpen ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
             >
               {roofOpen ? "✓ 다 골랐어요" : "🏠 지붕 색"}
             </button>
@@ -117,7 +117,7 @@ export function HouseRoom({
                 setError(null);
               }}
               aria-pressed={editing}
-              className={`btn min-h-11 text-sm ${editing ? "bg-leaf text-white" : "bg-white text-ink"}`}
+              className={`pixel-btn min-h-11 pt-1.5 pb-2 text-sm ${editing ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
             >
               {editing ? "✓ 다 놓았어요" : "🛋 가구 놓기"}
             </button>
@@ -125,13 +125,13 @@ export function HouseRoom({
         </div>
       </div>
       {error && (
-        <p role="alert" className="mx-4 mt-2 rounded-xl bg-[#ffe4e4] px-3 py-2 text-sm text-berry">
+        <p role="alert" className="mx-4 mt-3 bg-[#ffe4e4] px-3 py-2 text-sm text-berry shadow-[inset_0_0_0_2px_#e7a3a3]">
           {error}
         </p>
       )}
 
       {/* 방: 블로그 위쪽 너비를 다 쓴다 (프로필 카드를 없앰, 2026-10-11). 휴대폰은 조금 낮게 */}
-      <div className="relative mt-3 h-72 border-t-2 border-line sm:h-80">
+      <div className="relative h-72 sm:h-80">
         {/* 벽: 도트 줄무늬 벽지와 창문 (src/lib/art/room.ts, 모두 4배 도트) */}
         <div
           className="pixelated absolute inset-x-0 top-0 h-[62%]"
@@ -175,7 +175,7 @@ export function HouseRoom({
             highlightDoor ? "ring-4 ring-sun ring-offset-2 motion-safe:animate-pulse" : ""
           }`}
         >
-          <span className="whitespace-nowrap rounded-full bg-white/90 px-1.5 py-0.5 text-[11px] font-bold text-ink shadow-sm">🚪 밖으로</span>
+          <span className="pixel-wood whitespace-nowrap px-1.5 py-0.5 font-display text-xs">🚪 밖으로</span>
         </Link>
 
         {/* 가구 칸: 바닥 위에 한 줄 (휴대폰에서 6·8칸은 두 줄) */}
@@ -203,7 +203,7 @@ export function HouseRoom({
                   onClick={() => setPicking(picking === slot ? null : slot)}
                   aria-label={item ? `${slot + 1}번 칸: ${item.name} 바꾸기` : `${slot + 1}번 칸에 가구 놓기`}
                   data-slot={slot}
-                  className={`box-content grid place-items-center rounded-xl border-2 border-dashed border-white/90 bg-white/30 hover:bg-white/60 ${furnitureBox}`}
+                  className={`box-content grid place-items-center border-2 border-dashed border-white/90 bg-white/30 hover:bg-white/60 ${furnitureBox}`}
                 >
                   {item ? (
                     // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
@@ -227,7 +227,7 @@ export function HouseRoom({
             role="dialog"
             aria-label="지붕 색 고르기"
             data-roof-picker
-            className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white p-3 shadow-lg"
+            className="pixel-panel absolute inset-x-4 top-4 z-10 max-h-[calc(100%-2rem)] overflow-y-auto p-3"
           >
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
@@ -251,7 +251,7 @@ export function HouseRoom({
                       aria-label={`${ROOF_LABELS[color]} 지붕`}
                       title={ROOF_LABELS[color]}
                       data-roof={color}
-                      className={`grid h-11 w-11 place-items-center rounded-full border-[3px] text-sm font-bold text-white ${color === roof.current ? "border-ink" : "border-white shadow"}`}
+                      className={`grid h-11 w-11 place-items-center border-[3px] text-sm font-bold text-white ${color === roof.current ? "border-ink shadow-[0_0_0_3px_#ffd36e]" : "border-[#4a3426]"}`}
                       style={{ background: ROOF_HEX[color] }}
                     >
                       {color === roof.current ? "✓" : ""}
@@ -261,7 +261,7 @@ export function HouseRoom({
                   <li
                     key={color}
                     title={`Lv.${i * HOUSE_STAGE_LEVELS}에 열려요`}
-                    className="grid h-11 w-11 place-items-center rounded-full border-2 border-dashed border-line bg-cream text-[10px] leading-tight text-ink-soft"
+                    className="pb-slot grid h-11 w-11 place-items-center text-[10px] leading-tight text-ink-soft"
                   >
                     🔒
                     <br />
@@ -278,7 +278,7 @@ export function HouseRoom({
             role="dialog"
             aria-label={`${picking + 1}번 칸에 놓을 가구`}
             // 가구가 많으면 방 높이를 넘어 잘리므로 창 안에서 스크롤한다
-            className="absolute inset-x-3 top-3 z-10 max-h-[calc(100%-1.5rem)] overflow-y-auto rounded-2xl bg-white p-3 shadow-lg"
+            className="pixel-panel absolute inset-x-4 top-4 z-10 max-h-[calc(100%-2rem)] overflow-y-auto p-3"
           >
             <p className="mb-2 text-sm font-bold">{picking + 1}번 칸에 놓을 가구를 골라 주세요</p>
             <ul className="flex flex-wrap gap-2">
@@ -290,7 +290,7 @@ export function HouseRoom({
                       type="button"
                       disabled={pending || here}
                       onClick={() => choose(picking, f.id)}
-                      className={`flex w-20 flex-col items-center rounded-xl border-2 p-1 text-xs hover:bg-cream ${here ? "border-sun bg-[#fff3d6]" : "border-line"}`}
+                      className={`flex w-20 flex-col items-center p-1 text-xs hover:bg-[#fff3d6] ${here ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pb-slot"}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
                       <img src={furnitureDataUri(f.assetKey, 64)} alt="" className="pixelated h-16 w-16" />
@@ -301,7 +301,7 @@ export function HouseRoom({
               })}
               {bySlot.has(picking) && (
                 <li>
-                  <button type="button" disabled={pending} onClick={() => choose(picking, null)} className="flex h-full w-20 flex-col items-center justify-center rounded-xl border-2 border-line p-1 text-xs hover:bg-cream">
+                  <button type="button" disabled={pending} onClick={() => choose(picking, null)} className="pb-slot flex h-full w-20 flex-col items-center justify-center p-1 text-xs hover:bg-[#fff3d6]">
                     <span className="text-2xl" aria-hidden>
                       🧹
                     </span>

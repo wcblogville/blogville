@@ -35,6 +35,7 @@ import {
 import { getViewer } from "@/server/dal";
 import { getOwnedFurniture, getPlacedFurniture } from "@/server/house";
 import { getWallet } from "@/server/points";
+import "@/app/pixel-blog.css";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
   const { slug } = await props.params;
@@ -126,7 +127,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       {welcome && (
-        <div className="card mb-4 flex items-start gap-3 border-sun bg-[#fff3d6] p-4" data-welcome>
+        <div className="pixel-panel mb-6 flex items-start gap-3 bg-[#fff3d6] p-4" data-welcome>
           <span className="text-3xl" aria-hidden>
             🎉
           </span>
@@ -166,14 +167,14 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
 
       {isOwner && <OwnerToolbar postCount={blog.postCount} privateCount={side.privateCount} />}
 
-      <div className="mt-6 grid gap-6 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="mt-8 grid gap-7 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="min-w-0" aria-label="글 목록">
           {search ? (
             <BlogSearchResults q={search.q} empty={search.empty} blogs={found} posts={list?.items ?? []} total={list?.total ?? 0} />
           ) : (
             <>
-              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                <h2 className="font-display text-xl break-words" data-list-heading>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                <h2 className="pixel-wood px-3 pt-1 pb-1.5 font-display text-xl break-words" data-list-heading>
                   {find ? (
                     <>🔍 &apos;{find.q}&apos; 블로그 검색</>
                   ) : tag ? (
@@ -185,7 +186,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
                   ) : (
                     "전체 글"
                   )}{" "}
-                  {!(find?.empty) && <span className="text-base text-ink-soft">{list?.total ?? 0}개</span>}
+                  {!(find?.empty) && <span className="text-base text-[#fff3d6]">{list?.total ?? 0}개</span>}
                 </h2>
                 {(find || tag) && (
                   <Link href={base} className="inline-flex min-h-11 items-center text-sm text-ink-soft hover:text-ink">
@@ -194,21 +195,21 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
                 )}
               </div>
               {find?.empty ? (
-                <p className="card p-10 text-center text-ink-soft">찾을 말을 적어 주세요</p>
+                <p className="pb-card p-10 text-center text-ink-soft">찾을 말을 적어 주세요</p>
               ) : list?.items.length ? (
-                <div className="grid gap-4">
+                <div className="grid gap-5">
                   {list.items.map((p) => (
                     <PostCard key={p.id} post={p} />
                   ))}
                 </div>
               ) : find || tag ? (
-                <p className="card p-10 text-center text-ink-soft">이 블로그에서 찾은 글이 없어요</p>
+                <p className="pb-card p-10 text-center text-ink-soft">이 블로그에서 찾은 글이 없어요</p>
               ) : (
-                <div className="card p-10 text-center text-ink-soft">
+                <div className="pb-card p-10 text-center text-ink-soft">
                   <p className="text-4xl">🌱</p>
                   <p className="mt-2">아직 글이 없어요.</p>
                   {isOwner && (
-                    <Link href="/write" className="btn mt-4 min-h-11 min-w-11 whitespace-nowrap bg-leaf text-white">
+                    <Link href="/write" className="pixel-btn mt-5 min-h-11 min-w-11 whitespace-nowrap bg-leaf px-5 text-white">
                       첫 글 쓰기
                     </Link>
                   )}
@@ -220,7 +221,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         </section>
 
         {/* 옆 칸 위젯 (티스토리처럼). 검색 → 카테고리 → 최근 글 → 인기 글 → 최근 댓글 → 태그 → 방문자 */}
-        <aside className="grid min-w-0 content-start gap-4" aria-label="블로그 옆 칸" data-blog-sidebar>
+        <aside className="grid min-w-0 content-start gap-6" aria-label="블로그 옆 칸" data-blog-sidebar>
           <BlogFindBox base={base} s={find?.q ?? ""} />
           {/* 마을의 글·블로그 검색은 주인에게만 (FR-050) */}
           {isOwner && <BlogSearchBox base={base} q={search?.q ?? ""} />}

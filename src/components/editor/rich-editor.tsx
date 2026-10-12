@@ -166,11 +166,11 @@ export function RichEditor({
   });
 
   return (
-    <div data-rich-editor className="overflow-hidden rounded-2xl border-2 border-line bg-white focus-within:border-sun">
-      <div className="flex flex-wrap items-center gap-1 border-b-2 border-line bg-cream/60 p-2" role="toolbar" aria-label="글꼴 도구">
+    <div data-rich-editor className="pb-card overflow-hidden bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
+      <div className="pb-plank flex flex-wrap items-center gap-1 p-2 [text-shadow:none]" role="toolbar" aria-label="글꼴 도구">
         {TOOLS.map((tool, i) =>
           tool === "sep" ? (
-            <span key={i} className="mx-1 h-5 w-px bg-line" />
+            <span key={i} className="mx-1 h-6 w-[3px] bg-[#ad7445]" aria-hidden />
           ) : (
             <button
               key={tool.title}
@@ -180,21 +180,21 @@ export function RichEditor({
               disabled={!editor}
               onMouseDown={(e) => e.preventDefault()} // 버튼이 포커스를 가져가 커서 위치를 잃지 않게
               onClick={() => editor && tool.run(editor)}
-              className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-sm font-bold transition ${
-                active?.[i] ? "bg-ink text-cream" : "text-ink-soft hover:bg-white hover:text-ink"
+              className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap px-2.5 text-sm font-bold ${
+                active?.[i] ? "pb-tab-on" : "bg-[#fff3d6] text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white"
               }`}
             >
               {tool.label}
             </button>
           ),
         )}
-        <span className="mx-1 h-5 w-px bg-line" />
+        <span className="mx-1 h-6 w-[3px] bg-[#ad7445]" aria-hidden />
         <button
           type="button"
           title="사진 올리기 (PNG·JPG·GIF·WEBP, 10MB까지)"
           disabled={!editor || !!progress}
           onClick={() => imageInput.current?.click()}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-sm font-bold text-ink-soft transition hover:bg-white hover:text-ink disabled:opacity-40"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap bg-[#fff3d6] px-2.5 text-sm font-bold text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white disabled:opacity-40"
         >
           🖼 사진
         </button>
@@ -203,7 +203,7 @@ export function RichEditor({
           title="파일 올리기 (PDF·한글·오피스·ZIP 등, 30MB까지)"
           disabled={!editor || !!progress}
           onClick={() => fileInput.current?.click()}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2.5 text-sm font-bold text-ink-soft transition hover:bg-white hover:text-ink disabled:opacity-40"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap bg-[#fff3d6] px-2.5 text-sm font-bold text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white disabled:opacity-40"
         >
           📎 파일
         </button>
@@ -211,7 +211,7 @@ export function RichEditor({
         <input ref={fileInput} type="file" accept={FILE_ACCEPT} multiple hidden aria-label="파일 고르기" onChange={(e) => pick(e.currentTarget)} />
       </div>
       {(progress || errors.length > 0) && (
-        <div className="border-b-2 border-line bg-cream/40 px-4 py-2 text-sm" role="status" aria-live="polite">
+        <div className="border-b-2 border-dashed border-[#e2c9a0] bg-[#fff8ec] px-4 py-2 text-sm" role="status" aria-live="polite">
           {progress && (
             <p className="font-bold text-ink-soft">
               {progress.total ? `올리는 중... (${progress.done + 1}/${progress.total})` : "붙여 넣는 중..."}

@@ -22,7 +22,7 @@ export default async function FollowingFeedPage(props: PageProps<"/feed/followin
         <>
           아직 이웃이 없거나 이웃의 새 글이 없어요.
           <br />
-          <Link href="/feed" className="font-bold text-leaf-dark underline">마을 소식</Link>에서 마음에 드는 블로그를 이웃으로 추가해 보세요.
+          <Link href="/feed" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline">마을 소식</Link>에서 마음에 드는 블로그를 이웃으로 추가해 보세요.
         </>
       }
     />

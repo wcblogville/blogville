@@ -8,6 +8,7 @@ import { getSocialLogins } from "@/server/account";
 import { requireMember } from "@/server/dal";
 import { DeleteAccountForm, LinkSocialButton, UnlinkSocialButton } from "./account-forms";
 import { NicknameForm } from "./nickname-form";
+import "@/app/pixel-blog.css";
 
 export const metadata = { title: "내 정보" };
 
@@ -31,21 +32,21 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-display text-3xl">🙂 내 정보</h1>
+      <h1 className="pixel-wood inline-block px-4 pt-1 pb-1.5 font-display text-2xl sm:text-3xl">🙂 내 정보</h1>
 
-      <section className="card mt-6 p-6" aria-labelledby="login-title" data-section="logins">
-        <h2 id="login-title" className="font-display text-xl">
+      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="login-title" data-section="logins">
+        <h2 id="login-title" className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">
           로그인 수단
         </h2>
         {notice && (
           <p
             role={notice.ok ? "status" : "alert"}
-            className={`mt-3 rounded-xl px-3 py-2 text-sm font-bold ${notice.ok ? "bg-[#e3f5e1] text-leaf-dark" : "bg-[#fde8e8] text-berry"}`}
+            className={`mt-3 px-3 py-2 text-sm font-bold ${notice.ok ? "bg-[#e3f5e1] text-leaf-dark shadow-[inset_0_0_0_2px_#9fd39a]" : "bg-[#fde8e8] text-berry shadow-[inset_0_0_0_2px_#e7a3a3]"}`}
           >
             {notice.text}
           </p>
         )}
-        <ul className="mt-4 divide-y-2 divide-line">
+        <ul className="mt-2 divide-y-2 divide-dashed divide-[#e2c9a0]">
           {/* 아이디 로그인은 늘 남는다. 해제 버튼이 없다 (FR-041) */}
           <li className="flex min-h-14 items-center py-2" data-provider="credential">
             <span className="min-w-0 break-all font-bold">아이디 로그인 · {viewer.user.username}</span>
@@ -71,16 +72,16 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
       </section>
 
       {/* 닉네임: blog가 올린 변경 칸 (BLOG-03 / FR-019, research R-29) */}
-      <section className="card mt-6 p-6" aria-labelledby="nickname-title" data-section="nickname">
-        <h2 id="nickname-title" className="font-display text-xl">
+      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="nickname-title" data-section="nickname">
+        <h2 id="nickname-title" className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">
           닉네임
         </h2>
         <NicknameForm nickname={viewer.profile.nickname} />
       </section>
 
       {/* 회원 탈퇴 (AUTH-06). 안내·버튼 문구는 spec에 없음 — 제안 (plan 남은 문제 1) */}
-      <section className="card mt-6 p-6" aria-labelledby="withdraw-title" data-section="withdraw">
-        <h2 id="withdraw-title" className="font-display text-xl">
+      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="withdraw-title" data-section="withdraw">
+        <h2 id="withdraw-title" className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">
           회원 탈퇴
         </h2>
         <p className="mt-2 text-sm">

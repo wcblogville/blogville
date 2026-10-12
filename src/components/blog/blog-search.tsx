@@ -12,16 +12,16 @@ import { SEARCH_QUERY_MAX } from "@/lib/blog";
 export function BlogSearchBox({ base, q }: { base: string; q: string }) {
   return (
     <Widget title="🏘 마을 검색" label="마을 검색" data-widget="village-search">
-      <Form action={base} className="flex gap-2" role="search" aria-label="마을 검색">
+      <Form action={base} className="flex gap-3 p-[3px]" role="search" aria-label="마을 검색">
         <input
           name="q"
           defaultValue={q}
           maxLength={SEARCH_QUERY_MAX}
           aria-label="검색어"
           placeholder="마을의 글·블로그 검색"
-          className="min-h-11 w-full min-w-0 rounded-xl border-2 border-line bg-white px-3 text-sm outline-none focus:border-sun"
+          className="pixel-input min-w-0 text-sm"
         />
-        <button className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-cream">검색</button>
+        <button className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 pt-1.5 pb-2 text-sm text-cream">검색</button>
       </Form>
     </Widget>
   );
@@ -43,21 +43,21 @@ export function BlogSearchResults({
   posts: PostCardData[];
   total: number;
 }) {
-  if (empty) return <p className="card p-10 text-center text-ink-soft">검색어를 적어 주세요</p>;
+  if (empty) return <p className="pb-card p-10 text-center text-ink-soft">검색어를 적어 주세요</p>;
   return (
     <div>
-      <h2 className="mb-3 font-display text-xl break-words">🔍 &apos;{q}&apos; 검색 결과</h2>
+      <h2 className="pb-title mb-4 font-display text-xl break-words">🔍 &apos;{q}&apos; 검색 결과</h2>
       {blogs.length === 0 && total === 0 ? (
-        <p className="card p-10 text-center text-ink-soft">검색 결과가 없어요</p>
+        <p className="pb-card p-10 text-center text-ink-soft">검색 결과가 없어요</p>
       ) : (
         <>
           {blogs.length > 0 && (
             <section aria-labelledby="found-blogs" className="mb-5">
-              <h3 id="found-blogs" className="mb-2 font-display text-lg">블로그</h3>
-              <ul className="card divide-y-2 divide-line/60">
+              <h3 id="found-blogs" className="pb-title mb-3 font-display text-lg">블로그</h3>
+              <ul className="pb-card divide-y-2 divide-dashed divide-[#e2c9a0]">
                 {blogs.map((b) => (
                   <li key={b.slug}>
-                    <Link href={`/@${b.slug}`} className="flex min-h-11 items-center gap-3 px-4 py-2 hover:bg-cream">
+                    <Link href={`/@${b.slug}`} className="pb-row flex min-h-11 items-center gap-3 px-4 py-2">
                       <OwnerAvatar photoKey={b.photoKey} characterAsset={b.characterAsset} nickname={b.nickname} size={36} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">
@@ -72,8 +72,8 @@ export function BlogSearchResults({
             </section>
           )}
           <section aria-labelledby="found-posts">
-            <h3 id="found-posts" className="mb-2 font-display text-lg">글 {total}개</h3>
-            <div className="grid gap-4">
+            <h3 id="found-posts" className="pb-title mb-3 font-display text-lg">글 {total}개</h3>
+            <div className="grid gap-5">
               {posts.map((p) => (
                 <PostCard key={p.id} post={p} showAuthor />
               ))}

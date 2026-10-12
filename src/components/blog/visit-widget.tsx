@@ -41,7 +41,7 @@ export function VisitWidget({ blogId, initial, isOwner }: { blogId: number; init
         ["어제", stats.yesterday],
         ["전체", stats.total],
       ].map(([label, value]) => (
-        <div key={label} className={`rounded-xl px-1 py-2 ${label === "오늘" ? "bg-[#fff3d6]" : "bg-cream"}`}>
+        <div key={label} className={`px-1 pt-2 pb-2.5 ${label === "오늘" ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pb-slot"}`}>
           <dt className="text-xs text-ink-soft">{label}</dt>
           <dd className="font-display text-xl" data-visit={label}>
             {n(value as number)}

@@ -3,17 +3,17 @@
 // 주인 버튼은 여기 한 곳이다 (프로필 카드의 [✏️ 글쓰기] [🎨 꾸미기] [⚙️ 관리]는 카드와 함께 없앰, 2026-10-11)
 import Link from "next/link";
 
-const tool = "btn min-h-11 min-w-11 gap-1 whitespace-nowrap bg-white px-3 text-sm text-ink";
+const tool = "pixel-btn min-h-11 min-w-11 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-ink";
 
 export function OwnerToolbar({ postCount, privateCount }: { postCount: number; privateCount: number }) {
   return (
-    <nav className="pixel-panel mt-6 flex flex-col gap-3 p-3 sm:flex-row sm:items-center" aria-label="내 블로그 관리" data-owner-toolbar>
+    <nav className="pixel-panel mt-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center" aria-label="내 블로그 관리" data-owner-toolbar>
       <Link href="/write" className="pixel-btn min-h-12 shrink-0 bg-leaf px-6 text-white">
         ✏️ 새 글 쓰기
       </Link>
-      <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-3.5 sm:flex sm:flex-wrap sm:items-center">
         <Link href="/settings/posts" className={tool}>
-          📝 글 관리 <span className="text-xs font-normal text-ink-soft">{postCount + privateCount}</span>
+          📝 글 관리 <span className="pb-chip-muted px-1 font-sans text-xs">{postCount + privateCount}</span>
         </Link>
         <Link href="/settings/blog#categories" className={tool}>
           🗂 카테고리 관리
