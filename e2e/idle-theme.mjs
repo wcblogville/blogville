@@ -60,8 +60,8 @@ await db.query("INSERT INTO posts (blog_id, title, content_html, content_text, v
 async function showcase(user, species, { skin = null, size = "normal" } = {}) {
   const uid = await userId(user);
   const a = await one(
-    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at, display_size)
-     VALUES ($1, (SELECT id FROM animal_species WHERE code = $2), 'grown', 0, 'shop', now(), now(), $3) RETURNING id`,
+    `INSERT INTO user_animals (user_id, sex, species_id, status, growth, source, hatched_at, grown_at, display_size)
+     VALUES ($1, 'female', (SELECT id FROM animal_species WHERE code = $2), 'grown', 0, 'shop', now(), now(), $3) RETURNING id`,
     [uid, species, size],
   );
   if (skin) {
