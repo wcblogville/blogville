@@ -2,6 +2,7 @@
 // 실행: npm run test:sanitize
 import { htmlToText, sanitizePostHtml } from "../src/server/sanitize";
 import { RELEASE_NOTES, releaseNoteHtml, releaseNoteText, releaseNoteTitle } from "../src/content/release-notes";
+import { TECH_NOTICE_HTML, TECH_NOTICE_TEXT, TECH_NOTICE_TITLE } from "../src/content/tech-notice";
 import { WELCOME_NOTICE_HTML, WELCOME_NOTICE_TEXT, WELCOME_NOTICE_TITLE } from "../src/lib/welcome-notice";
 // 글쓰기 화면 글자 수가 서버 보상 판단과 같은지도 함께 확인한다 (#18)
 import "./test-text-length";
@@ -123,6 +124,15 @@ if (failed) process.exit(1);
     if (!text) console.log(JSON.stringify(htmlToText(WELCOME_NOTICE_HTML)).slice(0, 300), "\n", JSON.stringify(WELCOME_NOTICE_TEXT).slice(0, 300));
     process.exit(1);
   }
+}
+
+// 기술 소개 공지 (사용자 요청 2026-10-12): 첫 공지와 같이 정화해도 그대로·요약 글자 = htmlToText·제목 100자 이내
+{
+  const same = sanitizePostHtml(TECH_NOTICE_HTML) === TECH_NOTICE_HTML;
+  const text = htmlToText(TECH_NOTICE_HTML) === TECH_NOTICE_TEXT;
+  const title = [...TECH_NOTICE_TITLE].length <= 100;
+  console.log(`${same && text && title ? "✅" : "❌"} 기술 소개 공지 (정화 그대로 ${same}, 요약 ${text}, 제목 ${title})`);
+  if (!same || !text || !title) process.exit(1);
 }
 
 // 릴리스 노트 (src/content/release-notes.ts): 버전마다 정화해도 그대로·요약 글자 = htmlToText·제목 100자 이내·버전과 날짜 형식·버전 겹침 없음
