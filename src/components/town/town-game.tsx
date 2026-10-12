@@ -72,10 +72,7 @@ export function TownGame({
       await Promise.all([
         document.fonts.ready,
         ...townTextures(data).map(async ({ key, uri }) => {
-          const img = new Image();
-          img.src = uri;
-          await img.decode();
-          images.set(key, img);
+          images.set(key, await rasterize(uri));
         }),
       ]);
       starting = false;
@@ -124,4 +121,29 @@ export function TownGame({
       aria-label={`${data.host ? `${data.host.nickname}님의 마을` : "중앙 광장"}. 방향키나 WASD로 움직이고 Space로 건물에 들어갑니다.`}
     />
   );
+}
+
+/**
+ * SVG 그림을 그 크기(width·height) 그대로 PNG로 굽는다.
+ * 브라우저에 따라 SVG를 Phaser 텍스처로 올릴 때 작게 그려 왼쪽 위로 쏠리는 일이 있어
+ * (2026-10-12 사용자 제보: 마을의 내 집이 작아지고 그림자·이름표에서 떨어져 보임) 크기를 못 박은 PNG로 넘긴다.
+ */
+async function rasterize(uri: string): Promise<HTMLImageElement> {
+  const svg = new Image();
+  svg.src = uri;
+  await svg.decode();
+  const size = /<svg[^>]*?\swidth='(\d+)'[^>]*?\sheight='(\d+)'/.exec(decodeURIComponent(uri));
+  const w = size ? Number(size[1]) : svg.naturalWidth;
+  const h = size ? Number(size[2]) : svg.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !w || !h) return svg;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(svg, 0, 0, w, h);
+  const png = new Image();
+  png.src = canvas.toDataURL("image/png");
+  await png.decode();
+  return png;
 }
