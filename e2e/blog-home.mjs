@@ -159,7 +159,7 @@ async function viewOf(page) {
   return {
     // 주인 버튼은 주인 도구 막대 (프로필 카드는 없앰, 2026-10-11)
     write: await has("link", "✏️ 새 글 쓰기"),
-    closet: await has("link", "🪞 옷장 꾸미기"),
+    closet: await has("link", "🎨 꾸미기"),
     manage: await has("link", "⚙️ 블로그 설정"),
     follow: (await has("button", "+ 이웃 추가")) || (await has("button", "✓ 이웃")),
     privatePost: (await main.getByText("비밀 일기").count()) > 0,
@@ -176,7 +176,7 @@ async function viewOf(page) {
 const vOwner = await viewOf(own.page);
 const vOther = await viewOf(oth.page);
 const vGuest = await viewOf(guest.page);
-check("US2-1 주인: [✏️ 새 글 쓰기] [🪞 옷장 꾸미기] [⚙️ 블로그 설정], 이웃 버튼 없음", vOwner.write && vOwner.closet && vOwner.manage && !vOwner.follow, JSON.stringify(vOwner));
+check("US2-1 주인: [✏️ 새 글 쓰기] [🎨 꾸미기] [⚙️ 블로그 설정], 이웃 버튼 없음", vOwner.write && vOwner.closet && vOwner.manage && !vOwner.follow, JSON.stringify(vOwner));
 check("US2-1 다른 회원: 이웃 버튼만", vOther.follow && !vOther.write && !vOther.closet && !vOther.manage);
 check("US2-1 방문자: 버튼 없음", !vGuest.follow && !vGuest.write && !vGuest.closet && !vGuest.manage);
 check("US2-3 비공개 글은 주인에게만 + `🔒 비공개` 배지", vOwner.privatePost && vOwner.badge && !vOther.privatePost && !vGuest.privatePost && !vGuest.badge);
@@ -260,7 +260,7 @@ await own.page.screenshot({ path: `${outDir}/bh-02-owner.png`, fullPage: true })
   const overflow = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check("US2-8 375px 블로그 홈 가로 스크롤 0", overflow <= 0, `${overflow}px`);
   const main = p.locator("main");
-  for (const name of ["✏️ 새 글 쓰기", "🪞 옷장 꾸미기", "⚙️ 블로그 설정"]) {
+  for (const name of ["✏️ 새 글 쓰기", "🎨 꾸미기", "⚙️ 블로그 설정"]) {
     const b = await size(main.getByRole("link", { name }));
     check(`US2-8 375px 주인 버튼 ${name} 한 줄·44×44px 이상`, big(b) && b.h < 60, `${b.w}×${b.h}`);
   }

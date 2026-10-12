@@ -167,7 +167,7 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
     manage: await hrefOf(/📝 글 관리/),
     cats: await hrefOf("🗂 카테고리 관리"),
     settings: await hrefOf("⚙️ 블로그 설정"),
-    closet: await hrefOf("🪞 옷장 꾸미기"),
+    closet: await hrefOf("🎨 꾸미기"),
   };
   check("주인 도구 막대: 새 글 쓰기·글 관리·카테고리 관리·블로그 설정·꾸미기", JSON.stringify(tools) === JSON.stringify({ write: "/write", manage: "/settings/posts", cats: "/settings/blog#categories", settings: "/settings/blog", closet: "/closet" }), JSON.stringify(tools));
   const writeBox = await bar.getByRole("link", { name: "✏️ 새 글 쓰기" }).boundingBox();

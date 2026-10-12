@@ -24,30 +24,41 @@ const PostImage = Image.extend({
   },
 });
 
+// 사용자 요청 2026-10-12 "h2 h3 b i u s 이런 것들 가독성 좋게 알기 쉽게 써 놔 줘, 마우스 올리면 어떤 기능인지":
+// 짧은 기호 버튼은 아래에 한글 이름(caption)을 늘 보여 주고, 마우스를 올리거나 키보드로 고르면 바로 설명 말풍선(hint)이 뜬다.
 type ToolButton = {
   label: string;
   title: string;
+  /** 기호 아래에 늘 보이는 한글 이름 (기호만 있는 버튼) */
+  caption?: string;
+  /** 말풍선 설명 */
+  hint: string;
+  /** 단축키 */
+  keys?: string;
+  /** 기호를 그 기능 모양으로 보이게 (굵게는 굵게, 밑줄은 밑줄) */
+  glyph?: string;
   run: (e: Editor) => void;
   active?: (e: Editor) => boolean;
 };
 
 const TOOLS: (ToolButton | "sep")[] = [
-  { label: "H2", title: "큰 제목", run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(), active: (e) => e.isActive("heading", { level: 2 }) },
-  { label: "H3", title: "작은 제목", run: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(), active: (e) => e.isActive("heading", { level: 3 }) },
+  { label: "H2", title: "큰 제목", caption: "큰 제목", hint: "줄을 큰 소제목으로 바꿔요", keys: "Ctrl(⌘)+Alt+2", glyph: "text-base", run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(), active: (e) => e.isActive("heading", { level: 2 }) },
+  { label: "H3", title: "작은 제목", caption: "작은 제목", hint: "줄을 작은 소제목으로 바꿔요", keys: "Ctrl(⌘)+Alt+3", run: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(), active: (e) => e.isActive("heading", { level: 3 }) },
   "sep",
-  { label: "B", title: "굵게", run: (e) => e.chain().focus().toggleBold().run(), active: (e) => e.isActive("bold") },
-  { label: "I", title: "기울임", run: (e) => e.chain().focus().toggleItalic().run(), active: (e) => e.isActive("italic") },
-  { label: "U", title: "밑줄", run: (e) => e.chain().focus().toggleUnderline().run(), active: (e) => e.isActive("underline") },
-  { label: "S", title: "취소선", run: (e) => e.chain().focus().toggleStrike().run(), active: (e) => e.isActive("strike") },
+  { label: "B", title: "굵게", caption: "굵게", hint: "고른 글자를 굵게 해요", keys: "Ctrl(⌘)+B", glyph: "font-black", run: (e) => e.chain().focus().toggleBold().run(), active: (e) => e.isActive("bold") },
+  { label: "I", title: "기울임", caption: "기울임", hint: "고른 글자를 비스듬히 기울여요", keys: "Ctrl(⌘)+I", glyph: "italic font-serif", run: (e) => e.chain().focus().toggleItalic().run(), active: (e) => e.isActive("italic") },
+  { label: "U", title: "밑줄", caption: "밑줄", hint: "고른 글자 아래에 줄을 그어요", keys: "Ctrl(⌘)+U", glyph: "underline underline-offset-2", run: (e) => e.chain().focus().toggleUnderline().run(), active: (e) => e.isActive("underline") },
+  { label: "S", title: "취소선", caption: "취소선", hint: "고른 글자 가운데에 줄을 그어요", keys: "Ctrl(⌘)+Shift+S", glyph: "line-through", run: (e) => e.chain().focus().toggleStrike().run(), active: (e) => e.isActive("strike") },
   "sep",
-  { label: "• 목록", title: "글머리 목록", run: (e) => e.chain().focus().toggleBulletList().run(), active: (e) => e.isActive("bulletList") },
-  { label: "1. 목록", title: "번호 목록", run: (e) => e.chain().focus().toggleOrderedList().run(), active: (e) => e.isActive("orderedList") },
-  { label: "❝ 인용", title: "인용", run: (e) => e.chain().focus().toggleBlockquote().run(), active: (e) => e.isActive("blockquote") },
-  { label: "</> 코드", title: "코드 블록", run: (e) => e.chain().focus().toggleCodeBlock().run(), active: (e) => e.isActive("codeBlock") },
-  { label: "― 구분선", title: "구분선", run: (e) => e.chain().focus().setHorizontalRule().run() },
+  { label: "• 목록", title: "글머리 목록", hint: "점(•)으로 시작하는 목록을 만들어요", keys: "Ctrl(⌘)+Shift+8", run: (e) => e.chain().focus().toggleBulletList().run(), active: (e) => e.isActive("bulletList") },
+  { label: "1. 목록", title: "번호 목록", hint: "1, 2, 3 번호가 붙는 목록을 만들어요", keys: "Ctrl(⌘)+Shift+7", run: (e) => e.chain().focus().toggleOrderedList().run(), active: (e) => e.isActive("orderedList") },
+  { label: "❝ 인용", title: "인용", hint: "다른 사람 말이나 글을 옮길 때 쓰는 인용 상자", keys: "Ctrl(⌘)+Shift+B", run: (e) => e.chain().focus().toggleBlockquote().run(), active: (e) => e.isActive("blockquote") },
+  { label: "</> 코드", title: "코드 블록", hint: "프로그램 코드를 고정폭 글씨 상자에 넣어요", keys: "Ctrl(⌘)+Alt+C", run: (e) => e.chain().focus().toggleCodeBlock().run(), active: (e) => e.isActive("codeBlock") },
+  { label: "― 구분선", title: "구분선", hint: "가로줄을 넣어 내용을 나눠요", run: (e) => e.chain().focus().setHorizontalRule().run() },
   {
     label: "🔗 링크",
     title: "링크",
+    hint: "고른 글자에 인터넷 주소를 걸어요 (비우면 해제)",
     run: (e) => {
       const prev = e.getAttributes("link").href as string | undefined;
       const url = window.prompt("링크 주소 (비우면 링크 해제)", prev ?? "https://");
@@ -58,9 +69,22 @@ const TOOLS: (ToolButton | "sep")[] = [
     active: (e) => e.isActive("link"),
   },
   "sep",
-  { label: "↶", title: "되돌리기", run: (e) => e.chain().focus().undo().run() },
-  { label: "↷", title: "다시 실행", run: (e) => e.chain().focus().redo().run() },
+  { label: "↶", title: "되돌리기", caption: "되돌리기", hint: "방금 한 일을 취소해요", keys: "Ctrl(⌘)+Z", glyph: "text-lg", run: (e) => e.chain().focus().undo().run() },
+  { label: "↷", title: "다시 실행", caption: "다시 실행", hint: "취소한 일을 다시 해요", keys: "Ctrl(⌘)+Shift+Z", glyph: "text-lg", run: (e) => e.chain().focus().redo().run() },
 ];
+
+/** 마우스를 올리거나 키보드로 고르면 곧바로 뜨는 말풍선 (브라우저 title 말풍선은 늦게 뜨고 휴대폰에 없다) */
+function ToolTip({ title, hint, keys }: { title: string; hint: string; keys?: string }) {
+  return (
+    <span
+      role="tooltip"
+      className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 hidden w-max max-w-56 whitespace-normal bg-ink px-2.5 py-1.5 text-left text-xs font-normal leading-snug text-white shadow-[3px_3px_0_0_#0000003d] group-hover:block group-focus-visible:block"
+    >
+      <b className="font-bold text-[#ffd36e]">{title}</b> · {hint}
+      {keys && <span className="mt-0.5 block font-mono text-[11px] text-white/70">{keys}</span>}
+    </span>
+  );
+}
 
 /** 붙여 넣는 HTML 안의 이 사이트 첨부 주소 (/files/키) */
 const ATTACHMENT_IN_HTML = /\/files\/[a-f0-9]{32}/;
@@ -166,7 +190,7 @@ export function RichEditor({
   });
 
   return (
-    <div data-rich-editor className="pixel-card overflow-hidden bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
+    <div data-rich-editor className="pixel-card bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
       <div className="pb-plank flex flex-wrap items-center gap-1 p-2 [text-shadow:none]" role="toolbar" aria-label="글꼴 도구">
         {TOOLS.map((tool, i) =>
           tool === "sep" ? (
@@ -175,16 +199,25 @@ export function RichEditor({
             <button
               key={tool.title}
               type="button"
-              title={tool.title}
+              aria-label={tool.title}
               aria-pressed={active?.[i] ?? false}
               disabled={!editor}
               onMouseDown={(e) => e.preventDefault()} // 버튼이 포커스를 가져가 커서 위치를 잃지 않게
               onClick={() => editor && tool.run(editor)}
-              className={`inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap px-2.5 text-sm font-bold ${
+              data-tool={tool.title}
+              className={`group relative inline-flex min-h-11 min-w-11 flex-col items-center justify-center whitespace-nowrap px-2.5 text-sm font-bold ${
                 active?.[i] ? "pb-tab-on" : "bg-[#fff3d6] text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white"
               }`}
             >
-              {tool.label}
+              <span className={`leading-none ${tool.glyph ?? ""}`} aria-hidden>
+                {tool.label}
+              </span>
+              {tool.caption && (
+                <span className="mt-1 text-[10px] font-semibold leading-none opacity-75" aria-hidden>
+                  {tool.caption}
+                </span>
+              )}
+              <ToolTip title={tool.title} hint={tool.hint} keys={tool.keys} />
             </button>
           ),
         )}
