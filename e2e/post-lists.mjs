@@ -90,6 +90,16 @@ check("US4 수정 뒤 작성 시각 그대로", (await one("SELECT created_at FR
 
 // 작성자 줄: 마을 소식에는 있고 블로그 홈에는 없음
 check("US4 블로그 홈 카드에 작성자 줄 없음", (await a.locator(`article a[href="/@${idA}"]`).count()) === 0);
+// 마을 소식 [🏘 마을 전체]는 ⭐ 즐겨찾는 이웃의 글만 (2026-10-12): A가 즐겨찾는 이웃 하나를 만든다
+{
+  const favId = `plf${n}`;
+  const ctxF = await browser.newContext();
+  await loginDev(await ctxF.newPage(), favId);
+  await ctxF.close();
+  const fav = await one("SELECT u.id, b.id AS blog_id FROM users u JOIN blogs b ON b.owner_id = u.id WHERE u.username = $1", [favId]);
+  await db.query("INSERT INTO posts (blog_id, title, content_html, content_text) VALUES ($1, '즐겨찾는 이웃 글', '<p>x</p>', 'x')", [fav.blog_id]);
+  await db.query("INSERT INTO follows (follower_id, followee_id, is_favorite) SELECT id, $2, true FROM users WHERE username = $1", [idA, fav.id]);
+}
 await a.goto(`${BASE}/feed`);
 // 다른 시험이 만든 더 새 글이 1페이지를 채울 수 있어 카드마다 작성자 줄(→ 블로그 홈)이 있는지만 본다
 const feedCards = await a.locator("article").count();
