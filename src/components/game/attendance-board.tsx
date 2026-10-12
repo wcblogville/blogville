@@ -20,8 +20,8 @@ export function AttendanceToday({ data, compact = false }: { data: AttendanceBoa
     <div className={`flex items-center gap-4 ${compact ? "" : "flex-col text-center"}`} data-attendance-today>
       <span
         aria-hidden
-        className={`grid shrink-0 place-items-center rounded-full border-4 border-dashed border-berry/70 bg-[#fff1ee] font-display text-berry ${
-          compact ? "h-16 w-16 rotate-[-8deg] text-sm leading-tight" : "h-24 w-24 rotate-[-8deg] text-lg leading-tight"
+        className={`grid shrink-0 place-items-center bg-[#fff1ee] font-display text-berry shadow-[inset_0_0_0_3px_#fff1ee,inset_0_0_0_6px_#c62828,0_0_0_3px_#c6282833] [clip-path:polygon(9px_0,calc(100%-9px)_0,100%_9px,100%_calc(100%-9px),calc(100%-9px)_100%,9px_100%,0_calc(100%-9px),0_9px)] ${
+          compact ? "h-16 w-16 rotate-[-6deg] text-sm leading-tight" : "h-24 w-24 rotate-[-6deg] text-lg leading-tight"
         }`}
       >
         출석
@@ -57,8 +57,14 @@ export function AttendanceRewards({ data }: { data: AttendanceBoardData }) {
               key={r.day}
               aria-current={isToday ? "true" : undefined}
               data-reward-day={r.day}
-              className={`relative flex min-w-0 flex-col items-center gap-0.5 rounded-xl border-2 px-0.5 py-2 ${
-                isToday ? "border-sun bg-[#fff8e1] font-bold" : done ? "border-line bg-cream text-ink-soft" : isNext ? "border-leaf border-dashed bg-white" : "border-line bg-white"
+              className={`relative flex min-w-0 flex-col items-center gap-0.5 px-0.5 py-2 ${
+                isToday
+                  ? "bg-[#fff3d6] font-bold shadow-[inset_0_0_0_3px_#d99a36]"
+                  : done
+                    ? "bg-[#f3e8d4] text-ink-soft shadow-[inset_0_0_0_3px_#e2cfae]"
+                    : isNext
+                      ? "bg-white shadow-[inset_0_0_0_3px_#64b85a]"
+                      : "bg-white shadow-[inset_0_0_0_3px_#ead9c0]"
               }`}
             >
               <span>{r.day}일차</span>
@@ -90,7 +96,7 @@ export function AttendanceCalendar({ data, compact = false }: { data: Attendance
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
-        <h2 className={`font-display ${compact ? "text-lg" : "text-xl"}`}>
+        <h2 className={`pixel-heading ${compact ? "text-lg" : "text-xl"}`}>
           {y}년 {m}월
         </h2>
         <p className="text-sm text-ink-soft">
@@ -112,8 +118,8 @@ export function AttendanceCalendar({ data, compact = false }: { data: Attendance
             <span
               key={key}
               data-date={key}
-              className={`grid place-items-center rounded-xl border-2 ${compact ? "h-9" : "aspect-square"} ${done ? "bg-[#e8f5e9] font-bold" : "bg-cream"} ${
-                isToday ? "border-sun" : done ? "border-leaf" : "border-transparent"
+              className={`grid place-items-center ${compact ? "h-9" : "aspect-square"} ${done ? "bg-[#e8f5e9] font-bold" : "bg-[#fbf0dc]"} ${
+                isToday ? "shadow-[inset_0_0_0_3px_#d99a36]" : done ? "shadow-[inset_0_0_0_3px_#64b85a]" : ""
               }`}
               title={done ? `${d}일 출석` : undefined}
             >

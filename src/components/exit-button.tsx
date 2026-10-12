@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { PixelIcon } from "@/components/pixel-icon";
 import { isTownPath } from "@/components/town/layout";
 import { titleDataUri, TITLE_SIZE } from "@/lib/art/landing";
 
@@ -29,9 +30,9 @@ export function ExitButton({ member = false }: { member?: boolean }) {
 /**
  * 헤더 로고. 좁은 화면에서 나가기 버튼이 보일 때는 숨긴다.
  * 둘 다 광장으로 가는데, 자리가 모자라 나가기 버튼이 코인과 겹쳐 보였다 (이슈 #5).
- * 휴대폰의 회원은 나가기가 없으니 로고를 그대로 둔다
+ * 휴대폰의 회원은 나가기가 없으니 로고를 그대로 둔다. compact(관리자)는 휴대폰에서 로고 글자 대신 집 그림
  */
-export function HomeLogo({ href, member = false }: { href: string; member?: boolean }) {
+export function HomeLogo({ href, member = false, compact = false }: { href: string; member?: boolean; compact?: boolean }) {
   const pathname = usePathname();
   const exitShown = !HIDDEN_ON.has(pathname) && !isTownPath(pathname) && !member;
   // 로고는 첫 화면 제목과 같은 도트 글자 그림 (2026-10-12): 막대에서는 2배(휴대폰)·3배, 광장 위에서는 3배 (휴대폰 ☰ 메뉴는 2배)
@@ -41,8 +42,13 @@ export function HomeLogo({ href, member = false }: { href: string; member?: bool
       aria-label="Blogville"
       className={`grid min-h-11 shrink-0 place-items-center ${exitShown ? "max-sm:hidden" : ""} group-data-[town]:pointer-events-auto focus-visible:outline-2 focus-visible:outline-sky`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-      <img src={titleDataUri(2)} alt="" width={TITLE_SIZE.w * 2} height={TITLE_SIZE.h * 2} className="pixelated sm:hidden group-data-[town]:hidden group-data-[town]:phone:block" />
+      {compact ? (
+        // 관리자는 휴대폰 헤더에 👑 칸이 하나 더 있어 로고 대신 도트 집 그림만 (375px에서 넘치지 않게)
+        <PixelIcon name="house" scale={2} className="sm:hidden group-data-[town]:hidden group-data-[town]:phone:block" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
+        <img src={titleDataUri(2)} alt="" width={TITLE_SIZE.w * 2} height={TITLE_SIZE.h * 2} className="pixelated sm:hidden group-data-[town]:hidden group-data-[town]:phone:block" />
+      )}
       {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
       <img src={titleDataUri(3)} alt="" width={TITLE_SIZE.w * 3} height={TITLE_SIZE.h * 3} className="pixelated max-sm:hidden group-data-[town]:block group-data-[town]:phone:hidden" />
     </Link>

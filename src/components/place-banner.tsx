@@ -234,6 +234,7 @@ const SCENES: Record<PlaceKey, Scene> = {
       furniture("furniture.monstera", 210),
       furniture("furniture.rug", -32, 28),
       furniture("furniture.lamp", 300, 2),
+      person("char.girl", -24, 40, ["outfit.hanbok", "hat.ribbon"]),
     ],
   },
   admin: {
@@ -252,11 +253,10 @@ const SCENES: Record<PlaceKey, Scene> = {
 
 const SKY = "linear-gradient(#7cc6f5 0 24px, #8ccff7 24px 48px, #9dd7f8 48px 72px, #b0e0fa 72px 92px, #c6e9fb 92px 108px, #dbf1fb 108px)";
 
-/** 장소 그림 띠. character를 주면(꾸미기 방) 가운데에 내 캐릭터가 선다 */
-export function PlaceBanner({ place, character }: { place: PlaceKey; character?: { asset: string; outfit: string[] } }) {
+/** 장소 그림 띠 */
+export function PlaceBanner({ place }: { place: PlaceKey }) {
   const scene = SCENES[place];
   const props = scene.props();
-  if (character) props.push(person(character.asset, -24, 40, character.outfit));
   props.sort((a, b) => a.y - b.y);
   const hills = { w: HILLS_SIZE.w * S, h: HILLS_SIZE.h * S };
 
@@ -348,7 +348,6 @@ export function PlaceHeader({
   title,
   children,
   aside,
-  character,
 }: {
   place: PlaceKey;
   icon: IconName;
@@ -357,17 +356,17 @@ export function PlaceHeader({
   children?: React.ReactNode;
   /** 간판 오른쪽 (코인·레벨 칩, 버튼) */
   aside?: React.ReactNode;
-  character?: { asset: string; outfit: string[] };
 }) {
   return (
     <header className="mb-2">
-      <PlaceBanner place={place} character={character} />
-      <div className="relative -mt-7 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 px-2 sm:px-4">
-        <h1 className="pixel-sign max-w-full text-2xl sm:text-3xl">
+      <PlaceBanner place={place} />
+      {/* 간판은 그림 띠 아래 끝에 걸치고(-mt-7), 오른쪽 칸은 띠 아래에 붙는다 */}
+      <div className="relative flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-2 sm:px-4">
+        <h1 className="pixel-sign -mt-7 max-w-full text-2xl sm:text-3xl">
           <PixelIcon name={icon} scale={2} />
           <span className="min-w-0 break-keep">{title}</span>
         </h1>
-        {aside && <div className="flex flex-wrap items-center gap-3 pb-1">{aside}</div>}
+        {aside && <div className="flex flex-wrap items-center gap-3 pt-3">{aside}</div>}
       </div>
       {children && <div className="mt-4 px-1 text-ink-soft sm:px-2">{children}</div>}
     </header>

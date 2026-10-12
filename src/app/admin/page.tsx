@@ -10,6 +10,9 @@ import { todayKST } from "@/lib/game";
 import { requireAdmin } from "@/server/dal";
 import { startOfTodayKST } from "@/server/points";
 import { countLiveComments } from "@/server/social";
+import { PixelIcon } from "@/components/pixel-icon";
+import { PlaceHeader } from "@/components/place-banner";
+import type { IconName } from "@/lib/art/icons";
 import { AdminDeletePostButton } from "./delete-button";
 import { AdminGrantForm } from "./grant-form";
 
@@ -61,41 +64,52 @@ export default async function AdminPage() {
       .limit(30),
   ]);
 
-  const cards = [
-    { label: "가입 계정", value: stats.users },
-    { label: "전체 글", value: stats.posts },
-    { label: "댓글", value: commentCount },
-    { label: "오늘 새 글", value: stats.postsToday },
-    { label: "오늘 출석", value: stats.attendToday },
+  const cards: { label: string; value: number; icon: IconName }[] = [
+    { label: "가입 계정", value: stats.users, icon: "people" },
+    { label: "전체 글", value: stats.posts, icon: "pencil" },
+    { label: "댓글", value: commentCount, icon: "chat" },
+    { label: "오늘 새 글", value: stats.postsToday, icon: "star" },
+    { label: "오늘 출석", value: stats.attendToday, icon: "post" },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <h1 className="font-display text-3xl">👑 관리자</h1>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="admin" icon="crown" title="관리자" />
 
-      <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" aria-label="통계">
+      <section className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5" aria-label="통계">
         {cards.map((c) => (
-          <div key={c.label} className="card p-4" data-stat-card>
-            <p className="text-sm text-ink-soft">{c.label}</p>
-            <p className="font-display text-3xl">{c.value.toLocaleString()}</p>
+          <div key={c.label} className="pixel-card flex items-center gap-3 p-4" data-stat-card>
+            <span className="pixel-slot grid size-11 shrink-0 place-items-center">
+              <PixelIcon name={c.icon} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm text-ink-soft">{c.label}</p>
+              <p className="font-display text-3xl">{c.value.toLocaleString()}</p>
+            </div>
           </div>
         ))}
       </section>
 
-      <section className="card mt-8 p-5" aria-labelledby="admin-grant-title">
-        <h2 id="admin-grant-title" className="font-display text-xl">🧪 테스트 지급</h2>
+      <section className="pixel-card mt-8 p-5" aria-labelledby="admin-grant-title">
+        <h2 id="admin-grant-title" className="pixel-heading text-xl">
+          <PixelIcon name="flask" />
+          테스트 지급
+        </h2>
         <p className="mb-4 mt-1 text-sm text-ink-soft">기능을 시험해 볼 때 쓰는 관리자 전용 도구예요. 회원에게 코인·경험치를 바로 넣어 줍니다 (AUTH-10).</p>
         <AdminGrantForm adminUsername={admin.user.username ?? "admin"} />
       </section>
 
-      <section className="card mt-8 p-5">
-        <h2 className="mb-3 font-display text-xl">최근 가입 (20명)</h2>
+      <section className="pixel-card mt-8 p-5">
+        <h2 className="pixel-heading mb-3 text-xl">
+          <PixelIcon name="people" />
+          최근 가입 (20명)
+        </h2>
         {/* PC: 표 */}
         <table className="hidden w-full text-left text-sm md:table">
           <thead className="text-ink-soft">
             <tr><th className="py-2">아이디 (로그인 방식)</th><th>닉네임</th><th>블로그</th><th>권한</th><th>가입</th></tr>
           </thead>
-          <tbody className="divide-y-2 divide-line/60">
+          <tbody className="pixel-rows">
             {recentUsers.map((u) => (
               <tr key={u.id}>
                 <td className="py-2">{u.username ?? "-"} <span className="text-ink-soft">({providerLabels(u.providers)})</span></td>
@@ -108,7 +122,7 @@ export default async function AdminPage() {
           </tbody>
         </table>
         {/* 휴대폰: 행을 쌓은 목록 */}
-        <ul className="divide-y-2 divide-line/60 md:hidden">
+        <ul className="pixel-rows md:hidden">
           {recentUsers.map((u) => (
             <li key={u.id} className="py-2 text-sm">
               <p className="break-all font-bold">
@@ -126,15 +140,18 @@ export default async function AdminPage() {
         </ul>
       </section>
 
-      <section className="card mt-8 p-5">
-        <h2 className="mb-3 font-display text-xl">최근 30일 글</h2>
+      <section className="pixel-card mt-8 p-5">
+        <h2 className="pixel-heading mb-3 text-xl">
+          <PixelIcon name="pencil" />
+          최근 30일 글
+        </h2>
         {recentPosts.length ? (
           <>
             <table className="hidden w-full text-left text-sm md:table">
               <thead className="text-ink-soft">
                 <tr><th className="py-2">제목</th><th>작성자</th><th>공개</th><th>작성</th><th /></tr>
               </thead>
-              <tbody className="divide-y-2 divide-line/60">
+              <tbody className="pixel-rows">
                 {recentPosts.map((p) => (
                   <tr key={p.id}>
                     <td className="py-1"><PostTitle post={p} className={`${linkTap} hover:underline`} /></td>
@@ -146,7 +163,7 @@ export default async function AdminPage() {
                 ))}
               </tbody>
             </table>
-            <ul className="divide-y-2 divide-line/60 md:hidden">
+            <ul className="pixel-rows md:hidden">
               {recentPosts.map((p) => (
                 <li key={p.id} className="flex items-start gap-2 py-2 text-sm">
                   <div className="min-w-0 flex-1">

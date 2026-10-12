@@ -23,7 +23,7 @@ export async function SiteHeader() {
   return (
     <HeaderFrame>
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-1.5 px-2.5 group-data-[town]:justify-center sm:gap-3 sm:px-4">
-        <HomeLogo href={member ? "/town" : "/"} member={Boolean(member)} />
+        <HomeLogo href={member ? "/town" : "/"} member={Boolean(member)} compact={member?.user.role === "admin"} />
 
         <div className="flex min-w-0 flex-1 group-data-[town]:hidden">
           <ExitButton member={Boolean(member)} />

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CharacterArt } from "@/components/character";
+import { PixelIcon } from "@/components/pixel-icon";
 import { AVATAR_PARTS, type AvatarSlot } from "@/lib/art/avatar";
 import { HAIR_COLORS as HAIR_HEX } from "@/lib/art/hair";
 import { walkSheetDataUri, WALK_DIRS, type WalkDir } from "@/lib/art/walk";
@@ -133,12 +134,15 @@ export function StyleStudio({
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,22rem)_1fr]" data-style-studio={place}>
       {/* 거울: 고른 모습이 걷는다 */}
       <section className="lg:sticky lg:top-20 lg:self-start" aria-label="거울 미리보기">
-        <div className="overflow-hidden rounded-2xl border-4 border-[#4a3426] bg-white shadow-[0_6px_0_0_#4a3426]">
-          <div className="h-5 border-b-4 border-[#4a3426]" style={{ background: theme.awning }} aria-hidden />
+        <div className="pixel-banner bg-white">
+          <div className="h-5 border-b-[3px] border-[#4a3426]" style={{ background: theme.awning }} aria-hidden />
           <div className="relative grid h-64 place-items-center" style={{ background: theme.wall }}>
-            {/* 나무 거울 틀 */}
-            <div className="absolute inset-x-10 top-4 bottom-14 rounded-t-[999px] border-[6px] border-[#ad7445] bg-[#effbff]/70 shadow-[inset_0_0_0_3px_#dba46a]" aria-hidden />
-            <div className="absolute inset-x-0 bottom-0 h-14 border-t-4 border-[#4a3426]" style={{ background: theme.floor }} aria-hidden />
+            {/* 나무 거울 틀: 모서리가 한 칸 깎인 도트 틀 */}
+            <div
+              className="absolute inset-x-12 top-5 bottom-16 bg-[#effbff]/75 shadow-[inset_0_0_0_3px_#dba46a,inset_6px_6px_0_0_#ffffffaa,0_-6px_0_0_#ad7445,0_6px_0_0_#ad7445,-6px_0_0_0_#ad7445,6px_0_0_0_#ad7445,0_-9px_0_0_#4a3426,0_9px_0_0_#4a3426,-9px_0_0_0_#4a3426,9px_0_0_0_#4a3426]"
+              aria-hidden
+            />
+            <div className="absolute inset-x-0 bottom-0 h-14 border-t-[3px] border-[#4a3426]" style={{ background: theme.floor }} aria-hidden />
             <div
               data-mirror
               data-look={look.join("+")}
@@ -157,36 +161,39 @@ export function StyleStudio({
               aria-label="고른 모습 미리보기"
             />
           </div>
-          <div className="flex items-center justify-between gap-2 border-t-4 border-[#4a3426] bg-[#fff3d6] px-3 py-2">
-            <div className="flex gap-1" role="group" aria-label="돌려 보기">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-3 border-t-[3px] border-[#4a3426] bg-[#fff3d6] px-3 py-3">
+            <div className="flex gap-2" role="group" aria-label="돌려 보기">
               {(["down", "left", "up", "right"] as const).map((d) => (
                 <button
                   key={d}
                   type="button"
                   aria-pressed={dir === d}
                   onClick={() => setDir(d)}
-                  className={`min-h-9 rounded-lg border-2 border-[#4a3426] px-2 text-xs font-bold ${dir === d ? "bg-sun" : "bg-white"}`}
+                  className="pixel-tab px-2 font-sans text-xs font-bold"
                 >
                   {DIR_LABEL[d]}
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setWalking((w) => !w)} aria-pressed={walking} className="min-h-9 rounded-lg border-2 border-[#4a3426] bg-white px-2 text-xs font-bold">
+            <button type="button" onClick={() => setWalking((w) => !w)} aria-pressed={walking} className="pixel-tab px-2 font-sans text-xs font-bold">
               {walking ? "🚶 걷는 중" : "🧍 서 있기"}
             </button>
           </div>
         </div>
 
         {place === "salon" && !hairVisible && (
-          <p className="mt-3 rounded-xl border-2 border-dashed border-[#d9a0b8] bg-[#fff0f6] p-3 text-sm" data-hair-hidden>
+          <p className="pixel-paper mt-4 bg-[#fff0f6] p-3 text-sm shadow-[inset_0_0_0_3px_#f0c3d6]" data-hair-hidden>
             🐾 지금 캐릭터는 털이라 머리가 보이지 않아요. 사람 주민(남자·여자 주민, 모험가)일 때 보여요. 골라 둔 머리는 그대로 남아요.
           </p>
         )}
 
         {/* 계산서 */}
-        <div className="card mt-4 p-4" data-style-bill>
+        <div className="pixel-card mt-6 p-4" data-style-bill>
           <div className="flex items-center justify-between text-sm">
-            <span className="font-bold">🧾 계산서</span>
+            <span className="pixel-heading text-lg">
+              <PixelIcon name="book" />
+              계산서
+            </span>
             <span>
               내 코인 🪙 <b data-style-coins>{coins.toLocaleString()}</b>
             </span>
@@ -205,7 +212,7 @@ export function StyleStudio({
           ) : (
             <p className="mt-2 text-sm text-ink-soft">{state === "same" ? "마음에 드는 걸 골라 보세요." : "가진 것만 골랐어요. 코인이 들지 않아요."}</p>
           )}
-          <div className="mt-3 flex gap-2">
+          <div className="mt-4 flex gap-3">
             <button
               type="button"
               onClick={() => {
@@ -213,7 +220,7 @@ export function StyleStudio({
                 setMessage(null);
               }}
               disabled={state === "same" || pending}
-              className="btn min-h-11 bg-white px-3 text-sm text-ink"
+              className="pixel-btn pixel-btn-sm bg-white text-ink"
             >
               되돌리기
             </button>
@@ -222,7 +229,7 @@ export function StyleStudio({
               data-style-apply={state}
               onClick={apply}
               disabled={(state !== "buy" && state !== "apply") || pending}
-              className="btn min-h-11 flex-1 bg-sun text-sm text-ink"
+              className="pixel-btn pixel-btn-sm flex-1 bg-sun text-ink"
             >
               {pending ? "적용하는 중…" : button}
             </button>
@@ -235,7 +242,7 @@ export function StyleStudio({
 
       {/* 진열대 */}
       <section aria-label="고르기">
-        <div className="flex flex-wrap gap-2" role="tablist">
+        <div className="flex flex-wrap gap-3" role="tablist">
           {slots.map((s) => (
             <button
               key={s}
@@ -243,14 +250,14 @@ export function StyleStudio({
               role="tab"
               aria-selected={tab === s}
               onClick={() => setTab(s)}
-              className={`min-h-11 rounded-xl border-[3px] border-[#4a3426] px-4 font-display text-lg shadow-[0_3px_0_0_#4a3426] transition active:translate-y-0.5 active:shadow-none ${tab === s ? "bg-sun" : "bg-white hover:bg-cream"}`}
+              className="pixel-tab px-4 text-lg"
             >
               {SLOT_LABELS[s]}
             </button>
           ))}
         </div>
 
-        <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4" data-style-grid={tab}>
+        <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 xl:grid-cols-4" data-style-grid={tab}>
           <OptionCard
             label={NONE_LABEL[tab]}
             sub={worn[tab] == null ? "지금 모습" : "무료"}
@@ -319,16 +326,14 @@ function OptionCard({
         title={title}
         data-style-option={dataId}
         data-owned={owned || undefined}
-        className={`relative flex w-full flex-col items-center rounded-2xl border-[3px] p-2 pb-2.5 text-center transition hover:-translate-y-0.5 ${
-          selected ? "border-sun-dark bg-[#fff3d6] shadow-[0_4px_0_0_#e08a00]" : "border-[#4a3426]/25 bg-white shadow-[0_4px_0_0_#ead9c0]"
-        } ${locked ? "opacity-60" : ""}`}
+        className={`pixel-card relative flex w-full flex-col items-center p-2 pb-2.5 text-center transition hover:-translate-y-0.5 ${locked ? "opacity-60" : ""}`}
       >
         {selected && (
-          <span className="absolute -top-2 -right-2 grid size-7 place-items-center rounded-full border-2 border-[#4a3426] bg-sun text-sm" aria-hidden>
+          <span className="absolute -top-2 -right-2 grid size-7 place-items-center bg-sun text-sm font-bold shadow-[0_0_0_3px_#4a3426]" aria-hidden>
             ✓
           </span>
         )}
-        <span className="grid w-full place-items-center rounded-xl bg-cream py-1">
+        <span className="pixel-slot grid w-full place-items-center py-1">
           <CharacterArt asset={character} outfit={outfit} size={96} />
         </span>
         <span className="mt-1.5 flex items-center gap-1.5 font-display text-base leading-tight">
@@ -344,5 +349,5 @@ function OptionCard({
 /** 머리 색 동그라미 */
 function HairSwatch({ assetKey }: { assetKey: string }) {
   const hex = HAIR_HEX[assetKey];
-  return hex ? <span className="inline-block size-3.5 rounded-full border-2 border-[#4a3426]" style={{ background: hex }} aria-hidden /> : null;
+  return hex ? <span className="inline-block size-3.5 shadow-[0_0_0_2px_#4a3426]" style={{ background: hex }} aria-hidden /> : null;
 }

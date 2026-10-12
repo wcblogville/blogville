@@ -1,6 +1,8 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { fishingCatches } from "@/db/schema";
+import { PixelIcon } from "@/components/pixel-icon";
+import { PlaceHeader } from "@/components/place-banner";
 import { CATCHES } from "@/lib/fishing";
 import { todayKST } from "@/lib/game";
 import { requireMember } from "@/server/dal";
@@ -24,17 +26,21 @@ export default async function FishingPage() {
     .limit(7);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="font-display text-3xl">🎣 연못 낚시터</h1>
-      <p className="mt-1 text-sm text-ink-soft">하루에 한 번 낚싯대를 던질 수 있어요. 물고기를 낚으면 코인을, 먹이 꾸러미를 건지면 동물 농장에서 쓸 먹이를 받아요.</p>
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="fishing" icon="rod" title="연못 낚시터">
+        <p className="text-sm">하루에 한 번 낚싯대를 던질 수 있어요. 물고기를 낚으면 코인을, 먹이 꾸러미를 건지면 동물 농장에서 쓸 먹이를 받아요.</p>
+      </PlaceHeader>
       <FishingView todayKey={todayRow?.catchKey ?? null} />
 
-      <section className="mt-8">
-        <h2 className="mb-2 font-display text-xl">🐟 낚을 수 있는 것</h2>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <section className="mt-10">
+        <h2 className="pixel-heading mb-4 text-xl">
+          <PixelIcon name="fish" />
+          낚을 수 있는 것
+        </h2>
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
           {CATCHES.map((c) => (
-            <li key={c.key} className="card flex items-center gap-2 p-2 text-sm">
-              <span className="text-2xl" aria-hidden>
+            <li key={c.key} className="pixel-card flex items-center gap-3 p-2 text-sm">
+              <span className="pixel-slot grid size-11 shrink-0 place-items-center text-2xl" aria-hidden>
                 {c.emoji}
               </span>
               <span>
@@ -47,9 +53,12 @@ export default async function FishingPage() {
       </section>
 
       {recent.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-2 font-display text-xl">📒 최근 낚시 기록</h2>
-          <ul className="card divide-y-2 divide-line text-sm" data-fishing-log>
+        <section className="mt-10">
+          <h2 className="pixel-heading mb-4 text-xl">
+            <PixelIcon name="book" />
+            최근 낚시 기록
+          </h2>
+          <ul className="pixel-card pixel-rows text-sm" data-fishing-log>
             {recent.map((r) => {
               const c = CATCHES.find((x) => x.key === r.catchKey);
               return (

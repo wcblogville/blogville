@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { Pagination, parsePage } from "@/components/pagination";
+import { PixelIcon } from "@/components/pixel-icon";
+import { PlaceHeader } from "@/components/place-banner";
 import { formatDateTime } from "@/lib/format";
 import { requireMember } from "@/server/dal";
 import { getWallet, type LedgerReason, listLedger } from "@/server/points";
@@ -32,30 +34,32 @@ export default async function WalletPage(props: PageProps<"/wallet">) {
   const [wallet, ledger] = await Promise.all([getWallet(viewer.userId), listLedger(viewer.userId, page)]);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="font-display text-3xl">📒 경험치·코인 내역</h1>
+    <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="wallet" icon="book" title="경험치·코인 내역" />
 
-      <section className="card mt-6 grid grid-cols-3 gap-2 p-5 text-center">
-        <div>
-          <p className="text-sm text-ink-soft">레벨</p>
-          <p className="font-display text-3xl">Lv.{wallet.level}</p>
-        </div>
-        <div>
-          <p className="text-sm text-ink-soft">누적 경험치</p>
-          <p className="font-display text-3xl">✨ {wallet.exp.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-sm text-ink-soft">코인</p>
-          <p className="font-display text-3xl">🪙 {wallet.coins.toLocaleString()}</p>
-        </div>
+      <section className="mt-6 grid grid-cols-3 gap-3 text-center sm:gap-5">
+        {[
+          { icon: "medal" as const, label: "레벨", value: `Lv.${wallet.level}` },
+          { icon: "star" as const, label: "누적 경험치", value: `✨ ${wallet.exp.toLocaleString()}` },
+          { icon: "coin" as const, label: "코인", value: `🪙 ${wallet.coins.toLocaleString()}` },
+        ].map((stat) => (
+          <div key={stat.label} className="pixel-card flex min-w-0 flex-col items-center px-1 py-3 sm:p-4">
+            <p className="flex items-center gap-1 text-xs font-bold text-ink-soft sm:text-sm">
+              <PixelIcon name={stat.icon} scale={1} />
+              {stat.label}
+            </p>
+            <p className="mt-1 break-all font-display text-xl sm:text-3xl">{stat.value}</p>
+          </div>
+        ))}
       </section>
 
-      <section className="card mt-6 p-5">
-        <h2 className="mb-2 font-display text-xl">
-          기록 <span className="text-base text-ink-soft">{ledger.total}개</span>
+      <section className="pixel-card mt-8 p-4 sm:p-5">
+        <h2 className="pixel-heading mb-2 text-xl">
+          <PixelIcon name="book" />
+          기록 <span className="pixel-badge text-sm">{ledger.total}개</span>
         </h2>
         {ledger.rows.length ? (
-          <ul className="divide-y-2 divide-line/60">
+          <ul className="pixel-rows">
             {ledger.rows.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-3">
                 <span className="min-w-0 flex-1">
@@ -78,7 +82,7 @@ export default async function WalletPage(props: PageProps<"/wallet">) {
         <Pagination page={ledger.page} pageCount={ledger.pageCount} hrefFor={(n) => `/wallet?page=${n}`} />
       </section>
 
-      <p className="mt-6 text-center text-sm text-ink-soft">
+      <p className="pixel-paper mt-8 p-3 text-center text-sm">
         코인은 <Link href="/shop" className="font-bold text-leaf-dark underline">상점</Link>에서 쓸 수 있어요.
       </p>
     </div>

@@ -64,7 +64,8 @@ let grantAction = null;
   await page.waitForURL(/town/, { timeout: 20000 }).catch(() => {});
   await page.goto(`${BASE}/admin`);
   const form = page.locator("[data-admin-grant]");
-  check("2 관리자 화면에 `🧪 테스트 지급`", await page.getByRole("heading", { name: "🧪 테스트 지급" }).isVisible());
+  // 제목 앞 🧪는 도트 시험관 그림이 되었다 (2026-10-12 도트 화면)
+  check("2 관리자 화면에 `🧪 테스트 지급`", await page.getByRole("heading", { name: "테스트 지급", exact: true }).isVisible());
   check("2 시험용이라는 한 줄 설명", await page.getByText("기능을 시험해 볼 때 쓰는 관리자 전용 도구예요").isVisible());
   await page.locator("section", { has: form }).screenshot({ path: `${outDir}/admin-grant-form.png` });
 

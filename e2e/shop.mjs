@@ -27,7 +27,8 @@ await page.goto(`${BASE}/shop`);
 const sections = await page.locator("[data-shop-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-shop-section")));
 check("상점 구역 4개 순서 (광장 장식은 2026-10-11에 뺐다)", sections.join(",") === "avatar,furniture,background,growth", sections.join(","));
 const main = await page.locator("main").innerText();
-check("상점 제목·안내", main.includes("🏪 마을 상점") && main.includes("내 캐릭터와 우리 집을 꾸며 보세요"));
+// 제목 앞 🏪는 도트 가게 그림이 되었다 (2026-10-12 도트 화면)
+check("상점 제목·안내", (await page.getByRole("heading", { level: 1 }).innerText()).trim() === "마을 상점" && main.includes("내 캐릭터와 우리 집을 꾸며 보세요"));
 // 카드 제목으로 확인 (아이템 이름에 "고양이 귀 머리띠"처럼 같은 낱말이 들어갈 수 있다)
 const titles = await page.locator("article h3").allInnerTexts();
 check("상점에 캐릭터·기본 아이템 없음", !["고양이", "나무 의자", "남자 주민"].some((n) => titles.includes(n)));

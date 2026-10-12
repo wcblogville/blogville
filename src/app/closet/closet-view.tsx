@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { MiniRoom } from "@/components/character";
 import { ItemArt } from "@/components/item-art";
+import { PixelIcon } from "@/components/pixel-icon";
 import { orderOutfit } from "@/lib/assets";
 import { withJosa } from "@/lib/josa";
 import { CLOSET_ERRORS, equipMessage } from "@/lib/shop";
@@ -67,7 +68,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
   }
 
   const grid = (list: OwnedItem[], clickable = true) => (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+    <div className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 sm:gap-x-4 lg:grid-cols-6">
       {list.map((item) => {
         const on = clickable && isOn(item);
         const art = (
@@ -88,12 +89,12 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
             aria-pressed={on}
             data-closet-item={item.id}
             onClick={() => toggle(item)}
-            className={`card p-2 text-center transition hover:-translate-y-0.5 ${on ? "border-sun! bg-[#fff3d6]" : ""}`}
+            className="pixel-card p-2 text-center transition hover:-translate-y-0.5"
           >
             {art}
           </button>
         ) : (
-          <div key={item.id} className="card p-2 text-center" data-closet-item={item.id}>
+          <div key={item.id} className="pixel-card p-2 text-center" data-closet-item={item.id}>
             {art}
           </div>
         );
@@ -114,16 +115,19 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         backgroundAsset={background?.assetKey ?? ""}
         outfit={outfit}
         nickname={nickname}
-        className="h-60 rounded-2xl border-2 border-line shadow-[0_4px_0_0_var(--color-line)]"
+        className="pixel-banner mt-4 h-60"
       />
       <p role="status" aria-live="polite" className={`mt-3 min-h-6 text-center font-bold ${message?.ok ? "text-leaf-dark" : "text-berry"}`}>
         {message?.text}
       </p>
 
-      <section className="mt-8" data-closet-section="avatar">
-        <h2 className="mb-3 font-display text-2xl">👕 아바타 꾸미기</h2>
+      <section className="mt-10" data-closet-section="avatar">
+        <h2 className="pixel-heading mb-4">
+          <PixelIcon name="shirt" />
+          아바타 꾸미기
+        </h2>
         {avatars.length === 0 ? (
-          <p className="card p-4 text-center text-sm text-ink-soft">
+          <p className="pixel-paper p-4 text-center text-sm">
             아직 아바타 아이템이 없어요. <Link href="/shop" className="font-bold underline">상점</Link>에서 모자·옷·소품을 사 보세요.
           </p>
         ) : (
@@ -134,14 +138,20 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         )}
       </section>
 
-      <section className="mt-8" data-closet-section="background">
-        <h2 className="mb-3 font-display text-2xl">🖼 내 배경</h2>
+      <section className="mt-10" data-closet-section="background">
+        <h2 className="pixel-heading mb-4">
+          <PixelIcon name="frame" />
+          내 배경
+        </h2>
         {grid(of("background"))}
       </section>
 
       {furniture.length > 0 && (
-        <section className="mt-8" data-closet-section="furniture">
-          <h2 className="mb-3 font-display text-2xl">🪑 가구</h2>
+        <section className="mt-10" data-closet-section="furniture">
+          <h2 className="pixel-heading mb-4">
+          <PixelIcon name="chair" />
+          가구
+        </h2>
           <p className="-mt-2 mb-3 text-sm text-ink-soft">
             가구는 <Link href={`/@${slug}`} className="font-bold underline">내 블로그의 우리 집</Link>에서 [가구 놓기]로 놓아요.
           </p>
@@ -150,8 +160,11 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
       )}
 
       {decos.length > 0 && (
-        <section className="mt-8" data-closet-section="deco">
-          <h2 className="mb-3 font-display text-2xl">🌷 광장 장식</h2>
+        <section className="mt-10" data-closet-section="deco">
+          <h2 className="pixel-heading mb-4">
+          <PixelIcon name="flower" />
+          광장 장식
+        </h2>
           <p className="-mt-2 mb-3 text-sm text-ink-soft">
             광장 꾸미기는 지금 쉬고 있어요. 이미 산 장식은 이곳에 그대로 남아 있어요.
           </p>
@@ -161,8 +174,11 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
 
       {/* 캐릭터는 이제 상점에서 팔지 않는다. 예전에 산 캐릭터가 있어 2마리 이상일 때만 고를 수 있게 보여 준다 */}
       {characters.length >= 2 && (
-        <section className="mt-8" data-closet-section="character">
-          <h2 className="mb-3 font-display text-2xl">🐾 내 캐릭터</h2>
+        <section className="mt-10" data-closet-section="character">
+          <h2 className="pixel-heading mb-4">
+          <PixelIcon name="paw" />
+          내 캐릭터
+        </h2>
           {grid(characters)}
         </section>
       )}
