@@ -22,7 +22,7 @@ export function OwnerToolbar({ postCount, privateCount }: { postCount: number; p
           ⚙️ 블로그 설정
         </Link>
         <Link href="/closet" className={tool}>
-          🪞 옷장 꾸미기
+          🎨 꾸미기
         </Link>
       </div>
     </nav>
