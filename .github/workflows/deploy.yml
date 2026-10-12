@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  APP_PORT: "8420" # 서버에서 앱이 쓰는 포트 (nginx proxy_pass와 같게)
+  APP_PORT: "8420" # 강사님 nginx proxy_pass가 가리키는 포트. 여기서 우리 nginx 컨테이너가 듣고, 앱은 8421(파랑)·8422(초록)
+  PROXY_IMAGE: nginx:1.27.5-alpine # 우리 nginx 이미지 (무중단 배포, scripts/deploy.sh)
   APP_URL: https://wcblogville.java21.net # 사이트 주소 (BETTER_AUTH_URL)
 
 jobs:
@@ -28,6 +29,12 @@ jobs:
         run: |
           docker build -t blogville:latest .
           docker save blogville:latest | gzip > blogville.tar.gz
+
+      # 서버가 Docker Hub에서 못 받을 수 있어 nginx 이미지도 파일로 보낸다 (서버에 이미 있으면 불러오지 않는다)
+      - name: nginx 이미지 준비
+        run: |
+          docker pull "$PROXY_IMAGE"
+          docker save "$PROXY_IMAGE" | gzip > blogville-proxy.tar.gz
 
       - name: DB 접속 주소 만들기
         env:
@@ -53,7 +60,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_ID }}
           password: ${{ secrets.SSH_PASSWORD }}
-          source: "blogville.tar.gz,scripts/deploy.sh"
+          source: "blogville.tar.gz,blogville-proxy.tar.gz,scripts/deploy.sh"
           target: blogville # 서버의 홈 폴더 아래 ~/blogville
           command_timeout: 30m
 
@@ -72,7 +79,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_ID }}
           password: ${{ secrets.SSH_PASSWORD }}
-          envs: APP_PORT,DATABASE_URL,DB_SCHEMA,BETTER_AUTH_URL,BETTER_AUTH_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD
+          envs: APP_PORT,PROXY_IMAGE,DATABASE_URL,DB_SCHEMA,BETTER_AUTH_URL,BETTER_AUTH_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD
           command_timeout: 20m
           script: |
             cd ~/blogville
@@ -85,4 +92,4 @@ jobs:
               [ -z "$ADMIN_USERNAME" ] || echo "ADMIN_USERNAME=$ADMIN_USERNAME"
               [ -z "$ADMIN_PASSWORD" ] || echo "ADMIN_PASSWORD=$ADMIN_PASSWORD"
             } > .env
-            APP_PORT="$APP_PORT" bash scripts/deploy.sh
+            APP_PORT="$APP_PORT" PROXY_IMAGE="$PROXY_IMAGE" bash scripts/deploy.sh
