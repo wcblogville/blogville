@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { accounts, blogs, categories, houseFurniture, items, loginAttempts, profiles, userItems, users } from "@/db/schema";
 import { newAuthId } from "@/lib/auth-id";
 import { defaultBlogFor } from "@/lib/blog";
-import { furnitureSlots } from "@/lib/house";
+import { DEFAULT_TILES, furnitureSlots } from "@/lib/house";
 import { isReservedName } from "@/lib/names";
 import { uniqueViolation } from "@/server/db-errors";
 import { findNameConflict, hasNameConflict, lockName } from "@/server/names";
@@ -89,8 +89,10 @@ export async function createMember(input: CreateMemberInput): Promise<CreateMemb
         { userId, itemId: background.id },
         ...starterFurniture.map((f) => ({ userId, itemId: f.id })),
       ]);
-      // 기본 가구는 우리 집 앞 칸부터 놓아 둔다. 안 놓으면 첫 집이 빈 방(0/4칸)이었다
-      const firstSlots = starterFurniture.slice(0, furnitureSlots(1)).map((f, slot) => ({ userId, slot, itemId: f.id }));
+      // 기본 가구는 우리 집 바닥의 기본 자리(DEFAULT_TILES)에 놓아 둔다. 안 놓으면 첫 집이 빈 방(0/4개)이었다
+      const firstSlots = starterFurniture
+        .slice(0, furnitureSlots(1))
+        .map((f, i) => ({ userId, itemId: f.id, tileX: DEFAULT_TILES[i][0], tileY: DEFAULT_TILES[i][1] }));
       if (firstSlots.length) await tx.insert(houseFurniture).values(firstSlots);
       // 5) 프로필: 닉네임 = 아이디 (나중에 blog의 내 정보에서 바꾼다)
       await tx.insert(profiles).values({ userId, nickname: username, characterItemId: character.id });
