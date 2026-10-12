@@ -8,16 +8,14 @@ export function Pagination({ page, pageCount, hrefFor }: { page: number; pageCou
     (n) => n === 1 || n === pageCount || Math.abs(n - page) <= 2,
   );
   return (
-    <nav className="mt-6 flex flex-wrap justify-center gap-1.5" aria-label="페이지">
+    <nav className="mt-6 flex flex-wrap justify-center gap-3" aria-label="페이지">
       {pages.map((n, i) => (
-        <span key={n} className="flex items-center gap-1.5">
+        <span key={n} className="flex items-center gap-3">
           {i > 0 && pages[i - 1] !== n - 1 && <span className="text-ink-soft">…</span>}
           <Link
             href={hrefFor(n)}
             aria-current={n === page ? "page" : undefined}
-            className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border-2 px-2.5 text-center font-bold ${
-              n === page ? "border-ink bg-ink text-cream" : "border-line bg-white hover:border-sun"
-            }`}
+            className="pixel-tab min-w-11 px-2.5"
           >
             {n}
           </Link>

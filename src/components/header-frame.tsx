@@ -19,7 +19,8 @@ export function HeaderFrame({ children }: { children: React.ReactNode }) {
       className={
         town
           ? "group pointer-events-none fixed inset-x-0 top-0 z-30"
-          : "group sticky top-0 z-20 border-b-2 border-line bg-cream/95 backdrop-blur"
+          : // 도트 막대: 크림색 판 + 아래 갈색 선 한 칸(2px) + 딱 끊긴 그늘 (2026-10-12 도트 화면)
+            "group sticky top-0 z-20 border-b-2 border-[#4a3426] bg-[#fff6e4] shadow-[inset_0_-3px_0_0_#f2dfbf,0_3px_0_0_#3a2a1e26]"
       }
     >
       {children}
