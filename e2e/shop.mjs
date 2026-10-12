@@ -46,6 +46,8 @@ await card("밀짚모자").getByRole("button", { name: "사기" }).click();
 await page.getByRole("status").filter({ hasText: "샀어요" }).waitFor({ timeout: 10000 });
 check("산 안내: 꾸미기에서 장착", (await page.getByRole("status").innerText()).includes("꾸미기"));
 await page.waitForLoadState("networkidle");
+// 산 뒤 화면 새로 그리기(revalidatePath)가 안내보다 늦게 올 수 있어 버튼이 바뀔 때까지 기다린다
+await card("밀짚모자").getByRole("button", { name: "보유 중" }).waitFor({ timeout: 10000 }).catch(() => {});
 check("밀짚모자 보유 중", (await btn("밀짚모자")) === "보유 중");
 check("코인 −50", (await coins(page)) === before - 50, `${before} → ${await coins(page)}`);
 const ledger = await one("SELECT coin_delta FROM point_ledger WHERE user_id = $1 AND reason = 'purchase' ORDER BY id DESC LIMIT 1", [uid]);

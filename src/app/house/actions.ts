@@ -1,54 +1,48 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { blogs, houseFurniture, items, userItems } from "@/db/schema";
 import { isRoofColor } from "@/lib/blog";
-import { houseInfo, MAX_FURNITURE_SLOTS, unlockedRoofs } from "@/lib/house";
-import { parseId } from "@/lib/ids";
-import { withJosa } from "@/lib/josa";
+import { checkLayout, houseInfo, parseLayout, roomGrid, unlockedRoofs } from "@/lib/house";
 import { requireMember } from "@/server/dal";
 import { getWallet, lockUser } from "@/server/points";
 
 export type FurnitureResult = { ok: true } | { ok: false; error: string };
 
 /**
- * 우리 집 칸에 가구를 놓거나(itemId) 비운다(null). 다른 칸에 있던 같은 가구는 이 칸으로 옮긴다.
- * 칸 수는 집 단계(주인 레벨)를 서버에서 다시 계산해 확인한다. 가진 가구만 놓을 수 있다 (house_furniture_owned_fk도 막는다)
+ * 우리 집 가구 배치 저장 (사용자 요청 2026-10-12 "편집 들어가서 위치 조정도 마음대로 하고 저장하면 그자리에 놓게").
+ * 편집 화면의 배치 전체를 받아 한 트랜잭션에서 내 집 가구를 통째로 바꾼다. 늘 내 집만 바꾼다 (남의 집은 고칠 수 없다).
+ * 서버에서 다시 확인: 집 단계(주인 레벨)의 개수·방 크기, 같은 가구 두 번, 같은 칸 두 개(checkLayout), 가진 가구인지.
+ * DB도 막는다: 가진 가구(house_furniture_owned_fk), 한 칸 하나(house_furniture_tile_uq), 방 크기 0~9(tile_check)
  */
-export async function placeFurniture(slot: unknown, itemId: unknown): Promise<FurnitureResult> {
+export async function saveFurnitureLayout(input: unknown): Promise<FurnitureResult> {
   const viewer = await requireMember();
-  if (typeof slot !== "number" || !Number.isInteger(slot) || slot < 0 || slot >= MAX_FURNITURE_SLOTS) {
-    return { ok: false, error: "놓을 수 없는 자리예요." };
-  }
-  const id = itemId === null ? null : parseId(itemId);
-  if (itemId !== null && id === null) return { ok: false, error: "가진 가구만 놓을 수 있어요." };
+  const spots = parseLayout(input);
+  if (!spots) return { ok: false, error: "가구 배치를 읽지 못했어요. 다시 시도해 주세요." };
 
   const result = await db.transaction(async (tx): Promise<FurnitureResult> => {
     await lockUser(tx, viewer.userId);
     const { level } = await getWallet(viewer.userId, tx);
-    const { slots, nextLevel } = houseInfo(level);
-    if (slot >= slots) {
-      return { ok: false, error: nextLevel ? `${withJosa(`Lv.${nextLevel}`, "이/가")} 되면 집이 커져서 이 자리를 쓸 수 있어요.` : "놓을 수 없는 자리예요." };
+    const { stage, slots } = houseInfo(level);
+    const bad = checkLayout(spots, { grid: roomGrid(stage), limit: slots });
+    if (bad) return { ok: false, error: bad };
+    if (spots.length) {
+      const ids = spots.map((s) => s.itemId);
+      const owned = await tx
+        .select({ id: items.id })
+        .from(userItems)
+        .innerJoin(items, eq(items.id, userItems.itemId))
+        .where(and(eq(userItems.userId, viewer.userId), inArray(userItems.itemId, ids), eq(items.type, "furniture")));
+      if (owned.length !== ids.length) return { ok: false, error: "가진 가구만 놓을 수 있어요." };
     }
-    const mySlot = and(eq(houseFurniture.userId, viewer.userId), eq(houseFurniture.slot, slot));
-    if (id === null) {
-      await tx.delete(houseFurniture).where(mySlot);
-      return { ok: true };
+    await tx.delete(houseFurniture).where(eq(houseFurniture.userId, viewer.userId));
+    if (spots.length) {
+      await tx
+        .insert(houseFurniture)
+        .values(spots.map((s) => ({ userId: viewer.userId, itemId: s.itemId, tileX: s.x, tileY: s.y, flipped: s.flip })));
     }
-    const [owned] = await tx
-      .select({ id: items.id })
-      .from(userItems)
-      .innerJoin(items, eq(items.id, userItems.itemId))
-      .where(and(eq(userItems.userId, viewer.userId), eq(userItems.itemId, id), eq(items.type, "furniture")));
-    if (!owned) return { ok: false, error: "가진 가구만 놓을 수 있어요." };
-
-    await tx.delete(houseFurniture).where(and(eq(houseFurniture.userId, viewer.userId), eq(houseFurniture.itemId, id)));
-    await tx
-      .insert(houseFurniture)
-      .values({ userId: viewer.userId, slot, itemId: id })
-      .onConflictDoUpdate({ target: [houseFurniture.userId, houseFurniture.slot], set: { itemId: id, placedAt: new Date() } });
     return { ok: true };
   });
 
