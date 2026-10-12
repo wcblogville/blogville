@@ -29,6 +29,17 @@ export const ANIMAL_SIZE: Record<string, { tier: AnimalTier; r: number }> = {
   "animal.puppy": { tier: "medium", r: 7 },
   "animal.lamb": { tier: "medium", r: 8 },
   "animal.pony": { tier: "large", r: 11 },
+  // 야생 동물 (2026-10-12 "동물 가짓수 더"): 여우·거북이는 작은, 늑대·치타·표범·독수리는 중간, 곰·호랑이·사자·사슴은 큰
+  "animal.fox": { tier: "small", r: 6 },
+  "animal.turtle": { tier: "small", r: 6 },
+  "animal.eagle": { tier: "medium", r: 7 },
+  "animal.wolf": { tier: "medium", r: 8 },
+  "animal.cheetah": { tier: "medium", r: 8 },
+  "animal.leopard": { tier: "medium", r: 8 },
+  "animal.deer": { tier: "large", r: 10 },
+  "animal.bear": { tier: "large", r: 10 },
+  "animal.tiger": { tier: "large", r: 10 },
+  "animal.lion": { tier: "large", r: 10 },
 };
 const DEFAULT_SIZE = ANIMAL_SIZE["animal.piglet"];
 const FEET = 29;
@@ -55,7 +66,7 @@ export function animalRadius(assetKey: string, stage: AnimalStage, size: AnimalD
 const MATURITY: Record<AnimalStage, number> = { baby: 0, teen: 0.5, adult: 1 };
 
 /** 그리는 기준: u = 크기 단위(칸), t = 성숙도 (0 아기 ~ 1 어른), sex = 암수 (어른 모습에만 드러난다, 없으면 예전 모습) */
-type G = { u: number; t: number; sex?: AnimalSex | null };
+type G = { u: number; t: number; sex?: AnimalSex | null; pose?: FlyPose | null };
 /** 다 자란 암컷·수컷인지 (아기·청소년은 암수 모습 차이가 없다, 2026-10-12 "암/수 별로 성장했을 때 모습") */
 const isFemale = (g: G) => g.t === 1 && g.sex === "female";
 const isMale = (g: G) => g.t === 1 && g.sex === "male";
@@ -171,7 +182,8 @@ function shine(p: Pix, geo: Geo) {
   p.ellipse(geo.bx - geo.bw * 0.15, geo.by - geo.bh * 0.55, geo.bw * 0.45, Math.max(0.8, geo.bh * 0.28), "4");
 }
 
-const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: string) => Geo }> = {
+/** fly = 따라다닐 때 걷지 않고 날갯짓한다 (독수리, 그림판 걷기 칸을 pose로 다시 그린다) */
+const ANIMALS: Record<string, { colors: Colors; fly?: boolean; draw: (p: Pix, g: G, eyeC: string) => Geo }> = {
   // 병아리 → 닭: 아기는 노란 털 공(머리가 몸의 반), 어른은 몸이 길어지고 목·다리가 생기고 볏·꽁지깃이 난다
   "animal.chick": {
     colors: { 4: "#fff1a0", 5: "#ffd84d", 6: "#e9ac2c", o: "#f08a24" },
@@ -511,7 +523,470 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
         },
       }),
   },
+  // ===== 야생 동물 열 종류 (사용자 요청 2026-10-12 "곰, 여우, 늑대, 호랑이, 사자, 독수리, 거북이, 치타, 표범, 사슴") =====
+  // 모두 옆모습(오른쪽을 본다), 아기 → 어른 비율은 위 동물들과 같은 방법(Span [아기, 어른])으로 잰다.
+  // 곰: 통통한 몸에 짧고 굵은 다리, 동그란 귀, 밝은 주둥이. 아기는 동글 공, 수곰은 어깨 혹이 솟는다
+  "animal.bear": {
+    colors: { 4: "#bb8b5f", 5: "#8f6243", 6: "#6b4530", o: "#e8c99e", D: "#3e2a20" },
+    draw: (p, g, eyeC) =>
+      quad(p, g, { bw: [0.85, 0.92], bh: [0.7, 0.64], leg: [0.22, 0.36], legW: [0.42, 0.36], head: [0.74, 0.5], rise: [0.3, 0.38], fwd: [-0.22, 0.0], neck: 0.95 }, {
+        back: (geo) => p.ellipse(geo.bx - geo.bw, geo.by - geo.bh * 0.35, Math.max(1, g.u * 0.14), Math.max(1, g.u * 0.14), "5"),
+        body: (geo) => {
+          const { bx, by, bw, bh } = geo;
+          p.ellipse(bx, by, bw + 0.3, bh, "5");
+          // 수곰: 어깨 혹 (불곰처럼 등 앞이 솟는다)
+          if (isMale(g)) {
+            p.ellipse(bx + bw * 0.3, by - bh * 0.7, bw * 0.42, bh * 0.55, "5");
+            p.ellipse(bx + bw * 0.3, by - bh * 0.95, bw * 0.25, Math.max(0.8, bh * 0.2), "4");
+          }
+        },
+        front: (geo) => {
+          const { hx, hy, hr } = geo;
+          shine(p, geo);
+          // 동그란 귀 둘 (뒤쪽은 그늘), 안쪽은 밝게
+          const er = Math.max(1, hr * 0.32);
+          for (const [dx, c] of [[-0.55, "6"], [0.05, "5"]] as const) {
+            p.ellipse(hx + hr * dx, hy - hr * 0.82, er, er, c);
+            if (c === "5" && er >= 1.4) p.px(Math.round(hx + hr * dx), Math.round(hy - hr * 0.82), "o");
+          }
+          // 밝은 주둥이와 까만 코
+          p.ellipse(hx + hr * 0.72, hy + hr * 0.32, Math.max(1.3, hr * 0.5), Math.max(1, hr * 0.4), "o");
+          p.rect(Math.round(hx + hr * 1.08), Math.round(hy + hr * 0.08), hr >= 4 ? 2 : 1, 1, "D");
+          eye(p, hx + hr * 0.18, hy - hr * 0.22, hr, eyeC, true, isFemale(g));
+        },
+      }),
+  },
+  // 여우: 날씬한 몸, 뾰족하고 큰 귀(끝이 까맣다), 길쭉한 주둥이와 흰 볼, 끝이 하얀 복슬 꼬리, 까만 발. 수여우는 꼬리와 가슴 털이 더 풍성하다
+  "animal.fox": {
+    colors: { 4: "#ffbf80", 5: "#f28b3c", 6: "#c9682a", D: "#5a3a2a", W: "#fffaf0" },
+    draw: (p, g, eyeC) => canid(p, g, eyeC, "fox"),
+  },
+  // 늑대: 회색 털에 등은 짙고 배·주둥이는 밝다, 쫑긋한 귀, 아래로 늘어진 복슬 꼬리. 수늑대는 목 갈기가 풍성하다
+  "animal.wolf": {
+    colors: { 4: "#dfe3e8", 5: "#a1a9b3", 6: "#767f8a", D: "#525a64", W: "#f4f6f8" },
+    draw: (p, g, eyeC) => canid(p, g, eyeC, "wolf"),
+  },
+  // 호랑이: 주황 몸에 까만 줄무늬(다리·꼬리까지), 흰 볼·배, 동그란 귀. 아기는 머리가 크고 줄이 성기다. 수호랑이는 볼 털이 옆으로 뻗는다
+  "animal.tiger": {
+    colors: { 4: "#ffd29c", 5: "#f59a3e", 6: "#d0772a", K: "#3a2a2a", W: "#fffaf0", o: "#ff9fb8" },
+    draw: (p, g, eyeC) =>
+      quad(p, g, { bw: [0.85, 0.92], bh: [0.64, 0.54], leg: [0.26, 0.45], legW: [0.38, 0.3], head: [0.76, 0.48], rise: [0.42, 0.55], fwd: [-0.22, -0.1], neck: 0.85 }, {
+        back: (geo) => {
+          // 긴 꼬리: 뒤로 내려갔다가 끝이 살짝 올라간다
+          const len = sz([0.5, 0.9], g);
+          const x = geo.bx - geo.bw * 0.9;
+          const y = geo.by - geo.bh * 0.3;
+          curve(p, [[x, y], [x - len * 0.25, y + len * 0.45], [x - len * 0.38, y + len * 0.7], [x - len * 0.5, y + len * 0.6]], Math.max(0.6, g.u * 0.12), "5");
+        },
+        front: (geo) => {
+          const { hx, hy, hr, by, bh } = geo;
+          shine(p, geo);
+          // 줄무늬: 비스듬한 세로 줄 (얼굴 앞은 빼고), 아기는 성기게. 배는 하얗게
+          const gap = g.t === 0 ? 5 : 4;
+          const { bx, bw } = geo;
+          paintBody(p, (x, y) => {
+            if (inFace(geo, x, y)) return null;
+            const [ex, ey] = [(x + 0.5 - bx) / bw, (y + 0.5 - by) / bh];
+            if (ey > 0.5 && ex * ex + ey * ey <= 1) return "W";
+            return (x + Math.floor(y / 2)) % gap === 0 && (y * 3 + x) % 7 !== 0 ? "K" : null;
+          });
+          // 동그란 귀 (가운데 흰 점)
+          const er = Math.max(1, hr * 0.3);
+          p.ellipse(hx - hr * 0.55, hy - hr * 0.82, er, er, "6");
+          p.ellipse(hx + hr * 0.05, hy - hr * 0.85, er, er, "5");
+          if (er >= 1.4) p.px(Math.round(hx + hr * 0.05), Math.round(hy - hr * 0.85), "W");
+          // 이마 줄무늬
+          const ty = Math.round(hy - hr * 0.6);
+          p.px(Math.round(hx - hr * 0.15), ty, "K").px(Math.round(hx + hr * 0.25), ty, "K");
+          if (hr >= 3.5) p.px(Math.round(hx + hr * 0.05), ty - 1, "K");
+          // 수호랑이: 볼 털이 머리 뒤로 뻗는다
+          if (isMale(g)) {
+            p.ellipse(hx - hr * 0.45, hy + hr * 0.4, hr * 0.55, hr * 0.42, "W");
+            p.px(Math.round(hx - hr * 1.05), Math.round(hy + hr * 0.25), "W").px(Math.round(hx - hr * 0.95), Math.round(hy + hr * 0.7), "W");
+          }
+          // 흰 볼과 분홍 코
+          p.ellipse(hx + hr * 0.62, hy + hr * 0.4, Math.max(1, hr * 0.42), Math.max(1, hr * 0.32), "W");
+          p.px(Math.round(hx + hr * 1.02), Math.round(hy + hr * 0.08), "o");
+          eye(p, hx + hr * 0.22, hy - hr * 0.2, hr, eyeC, false, isFemale(g));
+        },
+      }),
+  },
+  // 사자: 모래색 몸, 끝에 털뭉치가 달린 꼬리. 수사자는 머리를 둘러싼 큰 갈기, 암사자는 갈기가 없다.
+  // 아기는 몸에 옅은 점무늬, 청소년은 갈기가 아직 없다 (암수를 모르는 미리보기 어른은 작은 갈기)
+  "animal.lion": {
+    colors: { 4: "#f7d793", 5: "#dcab5e", 6: "#b8873f", J: "#b8692e", j: "#8a4a22", D: "#5a3a2a", o: "#f7e7c4" },
+    draw: (p, g, eyeC) =>
+      quad(p, g, { bw: [0.85, 0.9], bh: [0.6, 0.52], leg: [0.28, 0.48], legW: [0.36, 0.3], head: [0.72, 0.46], rise: [0.42, 0.58], fwd: [-0.2, 0.08], neck: 0.85 }, {
+        back: (geo) => {
+          const len = sz([0.45, 0.95], g);
+          const x = geo.bx - geo.bw * 0.9;
+          const y = geo.by - geo.bh * 0.45;
+          const end: [number, number] = [x - len * 0.3, y + len * 0.8];
+          curve(p, [[x, y], [x - len * 0.25, y + len * 0.25], end], Math.max(0.5, g.u * 0.08), "5");
+          if (g.t > 0) p.ellipse(end[0], end[1], Math.max(1, g.u * 0.13), Math.max(1, g.u * 0.13), "J");
+        },
+        front: (geo) => {
+          const { hx, hy, hr } = geo;
+          shine(p, geo);
+          // 아기·청소년: 옅은 점무늬 (자라면 사라진다)
+          if (g.t < 1) paintBody(p, (x, y) => ((x * 5 + y * 3) % (g.t === 0 ? 7 : 11) === 0 && Math.hypot(x + 0.5 - hx, y + 0.5 - hy) > hr ? "6" : null));
+          const maned = g.t === 1 && g.sex !== "female";
+          if (maned) {
+            // 갈기: 머리 뒤를 크게 둘러싼다 (수컷은 바깥 짙은 털까지 두 겹)
+            const big = isMale(g);
+            const mr = hr * (big ? 1.5 : 1.22);
+            if (big) p.ellipse(hx - hr * 0.3, hy + hr * 0.15, mr + 0.8, mr + 0.5, "j");
+            p.ellipse(hx - hr * 0.25, hy + hr * 0.12, mr, mr * 0.95, "J");
+            p.ellipse(hx + hr * 0.08, hy, hr * 0.92, hr * 0.92, "5");
+          } else {
+            // 동그란 귀
+            const er = Math.max(1, hr * 0.28);
+            p.ellipse(hx - hr * 0.5, hy - hr * 0.85, er, er, "6");
+            p.ellipse(hx + hr * 0.05, hy - hr * 0.88, er, er, "5");
+          }
+          // 밝은 주둥이와 코
+          p.ellipse(hx + hr * 0.6, hy + hr * 0.38, Math.max(1.2, hr * 0.48), Math.max(1, hr * 0.36), "o");
+          p.px(Math.round(hx + hr * 1.0), Math.round(hy + hr * 0.1), "D");
+          eye(p, hx + hr * 0.25, hy - hr * 0.2, hr, eyeC, false, isFemale(g));
+        },
+      }),
+  },
+  // 독수리: 서 있는 옆모습. 아기는 회색 솜털 공, 청소년은 온몸이 갈색, 어른은 흰 머리·흰 꽁지에 노란 부리·발.
+  // 날 때(pose)는 다리를 접고 날개를 펼친다 (따라다닐 때 날갯짓, petSheetSvg)
+  "animal.eagle": {
+    colors: { 4: "#a87b52", 5: "#7b5135", 6: "#5a3a26", W: "#fffaf0", o: "#ffd36e", O: "#d99a36" },
+    fly: true,
+    draw: (p, g, eyeC) => eagle(p, g, eyeC),
+  },
+  // 거북이: 둥근 등딱지(무늬 칸), 짧은 다리, 앞으로 내민 머리. 아기는 머리가 크고 등딱지가 동글. 수컷은 꼬리가 길다
+  "animal.turtle": {
+    colors: { 4: "#a6d77e", 5: "#5fa65a", 6: "#3f7d48", D: "#2f5c38", o: "#d6e3a2", O: "#a9bd76" },
+    draw: (p, g, eyeC) => turtle(p, g, eyeC),
+  },
+  // 치타: 아주 긴 다리와 날씬한 몸, 작은 머리, 까만 점무늬, 눈에서 입으로 내려오는 눈물 줄, 끝이 흰 긴 꼬리.
+  // 아기는 등에 은회색 털(망토)이 있다. 수치타는 목덜미 털이 조금 선다
+  "animal.cheetah": {
+    colors: { 4: "#ffe3ab", 5: "#f0bf6a", 6: "#cf9b4a", K: "#3a2a22", W: "#fffaf0", Y: "#e8e6e1", o: "#ff9fb8" },
+    draw: (p, g, eyeC) =>
+      quad(p, g, { bw: [0.75, 1.0], bh: [0.56, 0.4], leg: [0.32, 0.64], legW: [0.32, 0.22], head: [0.72, 0.42], rise: [0.48, 0.62], fwd: [-0.15, 0.1], neck: 0.7 }, {
+        back: (geo) => {
+          const len = sz([0.5, 1.35], g);
+          const x = geo.bx - geo.bw * 0.9;
+          const y = geo.by - geo.bh * 0.2;
+          const pts: [number, number][] = [[x, y], [x - len * 0.3, y + len * 0.55], [x - len * 0.62, y + len * 0.4]];
+          curve(p, pts, Math.max(0.5, g.u * 0.09), "5");
+          if (g.t > 0) p.px(Math.round(pts[2][0]), Math.round(pts[2][1]), "W");
+        },
+        front: (geo) => {
+          const { hx, hy, hr, bx, bw } = geo;
+          shine(p, geo);
+          // 점무늬 (얼굴 앞은 빼고)
+          spots(p, geo, 6);
+          // 아기: 등에 은회색 털 망토 (청소년은 얇게)
+          if (g.t < 1) for (let x = Math.round(bx - bw * 0.8); x <= Math.round(bx + bw * 0.35); x++) {
+            const y = bodyTop(p, x);
+            if (y > 0) for (let k = 0; k < (g.t === 0 ? 2 : 1); k++) if (BODY.has(p.get(x, y + k)) || p.get(x, y + k) === "K") p.px(x, y + k, "Y");
+          }
+          if (isMale(g)) bristles(p, bx + bw * 0.35, bx + bw * 0.85, "6");
+          // 작은 동그란 귀
+          const er = Math.max(1, hr * 0.28);
+          p.ellipse(hx - hr * 0.6, hy - hr * 0.8, er, er, "6");
+          p.ellipse(hx - hr * 0.05, hy - hr * 0.88, er, er, "5");
+          // 주둥이·코
+          p.ellipse(hx + hr * 0.62, hy + hr * 0.35, Math.max(1, hr * 0.42), Math.max(1, hr * 0.32), "W");
+          p.px(Math.round(hx + hr * 1.0), Math.round(hy + hr * 0.08), "#");
+          const ex = hx + hr * 0.25;
+          const ey = hy - hr * 0.2;
+          eye(p, ex, ey, hr, eyeC, false, isFemale(g));
+          // 눈물 줄 (눈 앞 아래에서 입가로)
+          thin(p, Math.round(ex) + 1, Math.round(ey) + 1, Math.round(ex + hr * 0.3) + 1, Math.round(hy + hr * 0.75), "K");
+        },
+      }),
+  },
+  // 표범: 치타보다 다리가 짧고 몸이 단단하다. 꽃 모양 무늬(가운데가 짙은 고리), 끝이 위로 말리는 긴 꼬리. 수표범은 머리·목이 굵다
+  "animal.leopard": {
+    colors: { 4: "#ffe0a0", 5: "#e9b55e", 6: "#c58e3e", K: "#4a3426", C: "#b8742e", W: "#fffaf0", o: "#ff9fb8" },
+    draw: (p, g, eyeC) =>
+      quad(
+        p,
+        g,
+        { bw: [0.82, 0.98], bh: [0.6, 0.48], leg: [0.28, 0.44], legW: [0.36, 0.28], head: [0.74, isMale(g) ? 0.52 : 0.46], rise: [0.45, 0.55], fwd: [-0.2, 0.06], neck: isMale(g) ? 1.0 : 0.8 },
+        {
+          back: (geo) => {
+            const len = sz([0.5, 1.2], g);
+            const x = geo.bx - geo.bw * 0.9;
+            const y = geo.by - geo.bh * 0.3;
+            curve(p, [[x, y], [x - len * 0.3, y + len * 0.5], [x - len * 0.55, y + len * 0.3], [x - len * 0.5, y + len * 0.05]], Math.max(0.6, g.u * 0.11), "5");
+          },
+          front: (geo) => {
+            const { hx, hy, hr } = geo;
+            shine(p, geo);
+            rosettes(p, geo, g);
+            const er = Math.max(1, hr * 0.28);
+            p.ellipse(hx - hr * 0.5, hy - hr * 0.85, er, er, "6");
+            p.ellipse(hx + hr * 0.05, hy - hr * 0.88, er, er, "5");
+            p.ellipse(hx + hr * 0.6, hy + hr * 0.38, Math.max(1.1, hr * 0.46), Math.max(1, hr * 0.34), "W");
+            p.px(Math.round(hx + hr * 1.0), Math.round(hy + hr * 0.1), "o");
+            eye(p, hx + hr * 0.25, hy - hr * 0.2, hr, eyeC, false, isFemale(g));
+          },
+        },
+      ),
+  },
+  // 사슴: 가는 긴 다리와 긴 목, 흰 꼬리, 큰 귀. 아기(꽃사슴 새끼)는 등에 흰 점, 자라면 사라진다.
+  // 수사슴은 가지 친 큰 뿔, 암사슴은 뿔이 없다 (암수를 모르는 미리보기 어른은 작은 뿔)
+  "animal.deer": {
+    colors: { 4: "#e8b47c", 5: "#c98a52", 6: "#a46a3a", W: "#fffaf0", D: "#4a3426", o: "#f2d2b0" },
+    draw: (p, g, eyeC) =>
+      quad(p, g, { bw: [0.66, 0.74], bh: [0.48, 0.38], leg: [0.5, 0.64], legW: [0.26, 0.2], head: [0.55, 0.36], rise: [0.55, 0.62], fwd: [0.0, 0.42], neck: 0.45, hoof: "D" }, {
+        back: (geo) => {
+          // 짧게 선 흰 꼬리
+          const x = Math.round(geo.bx - geo.bw - 0.5);
+          const y = Math.round(geo.by - geo.bh * 0.65);
+          p.rect(x - 1, y - 1, 2, 1, "5").rect(x - 1, y, 2, g.u >= 6 ? 2 : 1, "W");
+        },
+        front: (geo) => {
+          const { hx, hy, hr, bx, bw, by, bh } = geo;
+          shine(p, geo);
+          // 아기 흰 점 (청소년은 몇 개만)
+          if (g.t < 1) paintBody(p, (x, y) => (y + 0.5 < by - bh * 0.05 && Math.abs(x + 0.5 - bx) < bw * 0.85 && (x * 3 + y * 5) % (g.t === 0 ? 7 : 13) === 0 ? "W" : null));
+          // 큰 귀 (옆으로)
+          p.ellipse(hx - hr * 0.75, hy - hr * 0.75, Math.max(1.2, hr * 0.55), Math.max(0.8, hr * 0.3), "6");
+          // 주둥이·코
+          p.ellipse(hx + hr * 0.85, hy + hr * 0.42, Math.max(1.2, hr * 0.5), Math.max(1, hr * 0.42), "o");
+          p.px(Math.round(hx + hr * 1.25), Math.round(hy + hr * 0.25), "D");
+          eye(p, hx + hr * 0.15, hy - hr * 0.15, hr, eyeC, false, isFemale(g));
+          // 뿔: 수사슴은 크게 가지 치고, 암수를 모르면 작게, 암사슴·아기·청소년은 없다
+          if (g.t === 1 && g.sex !== "female") antlers(p, geo, g, isMale(g) ? "big" : "small", "b", "n");
+        },
+      }),
+  },
 };
+
+// ===== 야생 동물 그리기 도구 (2026-10-12 "동물 가짓수 더") =====
+/** 여러 점을 잇는 굵은 선 (꼬리): 반지름 r */
+function curve(p: Pix, pts: readonly (readonly [number, number])[], r: number, c: string) {
+  for (let i = 1; i < pts.length; i++) thick(p, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], r, c);
+}
+/** 머리 둘레 (얼굴 앞쪽): 무늬를 그리지 않는 곳 */
+const inFace = (geo: Geo, x: number, y: number) => Math.hypot(x + 0.5 - geo.hx, y + 0.5 - geo.hy) < geo.hr * 0.9 && x + 0.5 > geo.hx - geo.hr * 0.3;
+/** 칸마다 정해진 0 ~ n-1 (무늬를 줄 맞춰 늘어서지 않게 흩뿌린다. 같은 칸은 늘 같은 값이라 그림이 바뀌지 않는다) */
+function cellHash(x: number, y: number, n: number) {
+  const h = Math.imul(x * 73 + 11, 0x9e3779b1) ^ Math.imul(y * 151 + 7, 0x85ebca6b);
+  return ((h ^ (h >>> 15)) >>> 0) % n;
+}
+/** 점무늬 (치타): 몸 칸에 한 칸 점, 이웃한 점은 붙지 않게. every가 클수록 성기다 */
+function spots(p: Pix, geo: Geo, every: number) {
+  paintBody(p, (x, y) => (!inFace(geo, x, y) && cellHash(x, y, every) === 0 && p.get(x - 1, y) !== "K" && p.get(x, y - 1) !== "K" && p.get(x - 1, y - 1) !== "K" ? "K" : null));
+}
+/** 꽃 모양 무늬 (표범): 4칸마다 짙은 모서리 고리와 가운데 갈색. 아기는 작은 점 */
+function rosettes(p: Pix, geo: Geo, g: G) {
+  if (g.u < 5) {
+    spots(p, geo, 4);
+    return;
+  }
+  paintBody(p, (x, y) => {
+    if (inFace(geo, x, y)) return null;
+    const row = Math.floor(y / 4);
+    const gx = (x + (row % 2) * 2) % 4;
+    const gy = y % 4;
+    if (gx === 1 && gy === 1) return "C";
+    if ((gx === 0 || gx === 2) && (gy === 0 || gy === 2) && !(gx === 2 && gy === 0)) return "K";
+    return null;
+  });
+}
+/** 뿔 그림 (머리 위 가운데 아래가 뿌리, n = 뒤쪽 뿔 그늘, b = 앞쪽 뿔). 큰 것부터, 도화지에 들어가는 가장 큰 것을 쓴다 */
+const ANTLERS: Record<"small" | "big" | "grand", Sprite[]> = {
+  small: [["n...b", ".n.b.", ".n.b."], ["n.b", "n.b"]],
+  big: [
+    ["n.......b", "n..n.b..b", ".n.n.b.b.", "..nn.bb..", "...n.b..."],
+    ["n.....b", "n.n.b.b", ".nn.bb.", "..n.b.."],
+    ["n...b", ".n.b.", ".n.b."],
+  ],
+  grand: [
+    ["nn.......bb", ".n.n...b.b.", ".n.n...b.b.", "..nn...bb..", "...n...b...", "....n.b...."],
+    ["n.......b", "n..n.b..b", ".n.n.b.b.", "..nn.bb..", "...n.b..."],
+    ["n...b", ".n.b.", ".n.b."],
+  ],
+};
+/** 뿔 (사슴·순록): 머리 위에 앞에서 본 듯 두 갈래로 벌어진 뿔. 도화지 맨 위(둘째 줄)를 넘지 않는 가장 큰 그림 */
+function antlers(p: Pix, geo: Geo, g: G, kind: keyof typeof ANTLERS, near: string, far: string) {
+  const x0 = Math.round(geo.hx - geo.hr * 0.15);
+  const y0 = Math.round(geo.hy - geo.hr) + 1;
+  const list = ANTLERS[kind].filter((sp) => g.u >= 7 || sp[0].length <= 5);
+  const sp = list.find((r) => y0 - r.length >= 1) ?? list[list.length - 1];
+  const left = x0 - Math.floor(sp[0].length / 2);
+  sp.forEach((row, j) => {
+    for (let i = 0; i < row.length; i++) if (row[i] !== ".") p.px(left + i, Math.max(1, y0 - sp.length + j), row[i] === "b" ? near : far);
+  });
+}
+
+/** 뾰족 귀: 아래(base 줄)에서 위로 좁아지는 세모, 끝(tip)은 다른 색일 수 있다 */
+function pointEar(p: Pix, x: number, base: number, h: number, w: number, c: string, tip: string | null) {
+  for (let i = 0; i < h; i++) {
+    const width = Math.max(1, Math.round(w * (1 - i / h)));
+    p.rect(x + (w - width), base - i, width, 1, i === h - 1 && tip ? tip : c);
+  }
+}
+
+/** 여우·늑대 (개과): 주둥이가 길고 귀가 쫑긋, 복슬 꼬리 */
+function canid(p: Pix, g: G, eyeC: string, kind: "fox" | "wolf"): Geo {
+  const fox = kind === "fox";
+  const q: Quad = fox
+    ? { bw: [0.78, 1.0], bh: [0.58, 0.44], leg: [0.28, 0.5], legW: [0.32, 0.24], head: [0.76, 0.48], rise: [0.5, 0.68], fwd: [-0.18, 0.1], hoof: "D" }
+    : { bw: [0.8, 1.05], bh: [0.6, 0.48], leg: [0.3, 0.58], legW: [0.34, 0.26], head: [0.74, 0.46], rise: [0.5, 0.68], fwd: [-0.18, 0.12], neck: 0.8 };
+  return quad(p, g, q, {
+    back: (geo) => {
+      // 복슬 꼬리: 여우는 뒤로 길게 뻗다가 끝이 살짝 들리고 끝이 하얗다, 늑대는 아래로 늘어진다
+      const len = sz([0.45, fox ? 1.15 : 0.95], g);
+      const x = geo.bx - geo.bw * 0.85;
+      const y = geo.by - geo.bh * 0.25;
+      const w = Math.max(0.8, g.u * (isMale(g) ? 0.27 : 0.22) * (fox ? 1 : 0.85));
+      const end: [number, number] = fox ? [x - len * 0.85, y + len * 0.1] : [x - len * 0.35, y + len * 0.85];
+      const mid: [number, number] = fox ? [x - len * 0.45, y + len * 0.3] : [x - len * 0.3, y + len * 0.4];
+      thick(p, x, y, mid[0], mid[1], w * 0.7, "5");
+      thick(p, mid[0], mid[1], end[0], end[1], w, "5");
+      p.ellipse(end[0] + (fox ? -0.3 : 0), end[1] + (fox ? 0 : 0.4), w * 0.85, w * 0.85, fox ? "W" : "D");
+    },
+    front: (geo) => {
+      const { hx, hy, hr, bx, bw, by, bh } = geo;
+      shine(p, geo);
+      // 늑대: 등은 짙고 배는 밝다
+      if (!fox) paintBody(p, (x, y) => (inFace(geo, x, y) ? null : y + 0.5 < by - bh * 0.45 && Math.abs(x + 0.5 - bx) < bw * 0.8 ? "D" : y + 0.5 > by + bh * 0.5 ? "4" : null));
+      // 가슴 흰 털 (수컷은 목 갈기까지 풍성하게)
+      const chest = isMale(g) ? 0.6 : 0.42;
+      p.ellipse(bx + bw * 0.8, by - bh * 0.05, Math.max(1, hr * chest), Math.max(1, hr * (chest + 0.15)), fox ? "W" : "4");
+      if (isMale(g)) p.ellipse(hx - hr * 0.6, hy + hr * 0.55, hr * 0.6, hr * 0.5, fox ? "W" : "4");
+      // 귀: 아기는 작고, 어른은 크고 뾰족 (여우는 끝이 까맣다)
+      const tall = Math.max(2, Math.round(sz([0.4, fox ? 0.75 : 0.62], g)));
+      const base = Math.round(hy - hr * 0.55);
+      pointEar(p, Math.round(hx - hr * 0.62), base, tall, hr >= 3 ? 3 : 2, "6", fox && g.t > 0 ? "D" : null);
+      pointEar(p, Math.round(hx - hr * 0.05), base, tall, hr >= 3 ? 3 : 2, "5", fox && g.t > 0 ? "D" : null);
+      // 길쭉한 주둥이 (여우는 흰 볼), 까만 코
+      const len = Math.max(1, Math.round(sz([0.15, fox ? 0.48 : 0.42], g)));
+      const sh = Math.max(2, Math.round(hr * 0.6));
+      const sx = Math.round(hx + hr * 0.55);
+      const sy = Math.round(hy + hr * 0.05);
+      p.rect(sx, sy, len + 1, sh, "5").rect(sx, sy + Math.floor(sh / 2), len + 1, Math.ceil(sh / 2), fox ? "W" : "4");
+      if (fox) p.ellipse(hx + hr * 0.15, hy + hr * 0.45, hr * 0.5, hr * 0.35, "W");
+      p.rect(sx + len, sy, 1, 1, "#");
+      eye(p, hx + hr * 0.22, hy - hr * 0.22, hr, eyeC, false, isFemale(g));
+    },
+  });
+}
+
+/** 독수리 날 때 날개 모양 (따라다니는 그림판의 걷기 칸 = 날갯짓) */
+export type FlyPose = "up" | "glide" | "down";
+
+/** 독수리: 서 있으면 날개를 접고, pose가 있으면 다리를 접고 날개를 펼친다 */
+function eagle(p: Pix, g: G, eyeC: string): Geo {
+  const { t, u } = g;
+  const flying = !!g.pose;
+  const bw = sz([0.8, 0.72], g);
+  const bh = sz([0.85, 0.95], g);
+  const leg = flying ? 0 : Math.max(1, Math.round(sz([0.2, 0.32], g)));
+  const hr = sz([0.62, 0.42], g);
+  // 날 때는 몸을 조금 눕히고 위로 띄운다
+  const by = FEET - leg - bh + 1 - (flying ? Math.round(u * 0.35) : 0);
+  const bx = CX - hr * 0.3;
+  const geo: Geo = { bx, by, bw, bh, hx: bx + bw * lerp(0.35, 0.55, t), hy: by - bh * lerp(0.6, 0.8, t), hr };
+  // 아기는 솜털(Y), 청소년은 온몸 갈색, 어른은 흰 머리·흰 꽁지
+  const fluff = t === 0;
+  const headC = fluff ? "Y" : t === 1 ? "W" : "4";
+  const tailC = t === 1 ? "W" : "6";
+  const bodyC = fluff ? "Y" : "5";
+  // 꽁지깃 (뒤 아래로, 날 때는 뒤로 수평)
+  if (!fluff) {
+    const tl = sz([0.3, 0.7], g);
+    const [tx, ty] = flying ? [bx - bw - tl, by + bh * 0.2] : [bx - bw * 0.7 - tl * 0.5, Math.min(FEET - 1, by + bh * 0.6 + tl * 0.6)];
+    thick(p, bx - bw * 0.4, by + bh * 0.35, tx, ty, Math.max(1, u * 0.18), tailC);
+  }
+  // 다리 (노란 발과 발톱)
+  if (!flying) {
+    for (const [x, c] of [[Math.round(bx + bw * 0.2), "o"], [Math.round(bx - bw * 0.25), "O"]] as const) {
+      p.vline(x, Math.round(by + bh * 0.6), FEET, c).px(x + 1, FEET, c);
+      if (u >= 5) p.px(x + 2, FEET, "#");
+    }
+  } else p.px(Math.round(bx), Math.round(by + bh), "O");
+  p.ellipse(bx, by, bw + 0.3, bh, bodyC);
+  if (!fluff) {
+    // 다리 깃털 바지
+    if (!flying) p.ellipse(bx, by + bh * 0.65, bw * 0.6, bh * 0.35, "6");
+    shine(p, geo);
+  } else p.ellipse(bx - bw * 0.2, by - bh * 0.2, bw * 0.5, bh * 0.4, "w");
+  // 머리 (목 없이 몸에 붙는다)
+  thick(p, bx + bw * 0.2, by - bh * 0.4, geo.hx, geo.hy, Math.max(1, hr * 0.75), headC);
+  p.ellipse(geo.hx, geo.hy, hr + 0.3, hr, headC);
+  // 수컷: 뒤통수 깃 두 가닥
+  if (isMale(g)) p.px(Math.round(geo.hx - hr - 0.5), Math.round(geo.hy - hr * 0.3), headC).px(Math.round(geo.hx - hr - 1.5), Math.round(geo.hy - hr * 0.1), headC);
+  // 날개
+  const rootX = bx + bw * 0.1;
+  const rootY = by - bh * 0.35;
+  const wingC = fluff ? "y" : "6";
+  if (!flying) {
+    // 접은 날개: 옆구리에 붙어 뒤 아래로 끝이 뾰족
+    p.ellipse(bx - bw * 0.1, by + bh * 0.05, bw * 0.75, bh * 0.68, wingC);
+    if (!fluff) {
+      thick(p, bx - bw * 0.3, by + bh * 0.3, bx - bw * 1.05, by + bh * 0.75, Math.max(0.6, u * 0.1), wingC);
+      // 날개 윗선 (밝은 깃)
+      p.map((c, x, y) => (c === wingC && "45".includes(p.get(x, y - 1)) && x + 0.5 < bx + bw * 0.5 ? "4" : c));
+    }
+  } else {
+    // 펼친 날개: 위·수평·아래 (위로는 도화지 둘째 줄까지만)
+    const reach = u * (fluff ? 0.7 : 1.15);
+    const dir = g.pose === "up" ? [[-0.35, -1], [-0.75, -0.8], [-1, -0.45]] : g.pose === "glide" ? [[-0.4, -0.55], [-0.85, -0.35], [-1.05, -0.05]] : [[-0.4, 0.55], [-0.75, 0.75], [-1, 0.45]];
+    const r = Math.max(0.8, u * 0.13);
+    for (const [kx, ky] of dir) thick(p, rootX, rootY, rootX + reach * kx, Math.max(2 + r, rootY + reach * ky), r, wingC);
+    if (!fluff) for (const [kx, ky] of dir) p.px(Math.round(rootX + reach * kx), Math.round(Math.max(2 + r, rootY + reach * ky)), "D");
+  }
+  // 갈고리 부리
+  const bkx = Math.round(geo.hx + hr);
+  const bky = Math.round(geo.hy);
+  p.rect(bkx - 1, bky - 1, t === 1 ? 3 : 2, 2, "o").px(bkx + (t === 1 ? 1 : 0), bky + 1, "O");
+  eye(p, geo.hx + hr * 0.2, geo.hy - hr * 0.2, hr, eyeC, false, isFemale(g));
+  return geo;
+}
+
+/** 거북이: 둥근 등딱지 + 짧은 다리 + 앞으로 내민 머리 */
+function turtle(p: Pix, g: G, eyeC: string): Geo {
+  const { t, u } = g;
+  const bw = sz([0.95, 1.15], g);
+  const bh = sz([0.95, 0.72], g);
+  const legH = Math.max(1, Math.round(sz([0.22, 0.3], g)));
+  const hr = sz([0.62, 0.4], g);
+  const rim = FEET - legH;
+  const bx = CX - hr * 0.6;
+  const geo: Geo = { bx, by: rim - bh * 0.5, bw, bh: bh * 0.55, hx: bx + bw + hr * lerp(0.5, 0.9, t), hy: rim - hr * lerp(0.9, 1.2, t), hr };
+  const lw = Math.max(1, Math.round(u * 0.32));
+  // 뒤쪽 다리 (그늘)
+  for (const x of [bx - bw * 0.55, bx + bw * 0.45]) p.rect(Math.round(x) + lw, rim, lw, legH + 1, "O");
+  // 꼬리 (수컷은 길다)
+  const tl = Math.max(1, Math.round(sz([0.15, isMale(g) ? 0.42 : 0.22], g)));
+  thin(p, Math.round(bx - bw), rim - 1, Math.round(bx - bw) - tl, rim, "o");
+  // 목과 머리
+  thick(p, bx + bw * 0.7, rim - 1, geo.hx, geo.hy, Math.max(1, hr * 0.62), "o");
+  p.ellipse(geo.hx, geo.hy, hr + 0.3, hr, "o");
+  // 등딱지: 반달 모양
+  for (let y = Math.floor(rim - bh); y <= rim; y++) {
+    const k = (rim - y) / bh;
+    const half = bw * Math.sqrt(Math.max(0, 1 - k * k));
+    if (half > 0.3) p.hline(Math.round(bx - half), Math.round(bx + half) - 1, y, "5");
+  }
+  shine(p, { ...geo, by: rim - bh * 0.45, bh: bh * 0.6 });
+  // 등딱지 무늬 (가운데 큰 칸 + 양옆 줄)와 아래 테두리
+  if (u >= 3) {
+    const cx = Math.round(bx);
+    const top = Math.round(rim - bh * 0.62);
+    const side = Math.max(1, Math.round(bw * 0.45));
+    p.map((c, x, y) => (BODY.has(c) && ((y === top && Math.abs(x - cx) <= side) || (Math.abs(Math.abs(x - cx) - side) < 0.5 && y > top && y < rim)) ? "D" : c));
+  }
+  p.hline(Math.round(bx - bw), Math.round(bx + bw) - 1, rim, "6");
+  // 앞쪽 다리
+  for (const x of [bx - bw * 0.55, bx + bw * 0.45]) p.rect(Math.round(x), rim, lw, legH + 1, "o");
+  // 웃는 입
+  p.px(Math.round(geo.hx + hr * 0.6), Math.round(geo.hy + hr * 0.45), "O");
+  eye(p, geo.hx + hr * 0.25, geo.hy - hr * 0.2, hr, eyeC, true, isFemale(g));
+  return geo;
+}
 
 // 어른이 되면 목에 다는 작은 리본 (얼굴을 가리지 않게 납작하게). 작은 동물은 더 작은 리본
 // 암컷은 분홍 리본, 수컷은 파란 나비넥타이 (2026-10-12 암수), 암수를 모르면(미리보기) 분홍 리본
@@ -581,6 +1056,47 @@ export const ANIMAL_SKINS: Record<string, Skin> = {
       p.map((c, x) => (BODY.has(c) && x % 3 === 0 && x < hx + hr * 0.3 ? "K" : c));
     },
   },
+  // 야생 동물 스킨 (2026-10-12): 종류마다 둘. 이름이 특별 진화(판다곰·은여우·백호…)와 겹치지 않는 색·무늬
+  "skin.bear.moon": {
+    species: "animal.bear",
+    colors: { 4: "#5a5260", 5: "#3b3540", 6: "#2a252e", o: "#c9a98a", W: "#fffaf0" },
+    eye: "w",
+    // 반달가슴곰: 가슴에 흰 반달
+    pattern: (p, { bx, by, bw, bh }) => paintBody(p, (x, y) => (Math.abs(y + 0.5 - (by - bh * 0.05) - Math.abs(x + 0.5 - (bx + bw * 0.78)) * 0.6) < 0.8 && Math.abs(x + 0.5 - (bx + bw * 0.78)) < bw * 0.28 ? "W" : null)),
+  },
+  "skin.bear.honey": { species: "animal.bear", colors: { 4: "#f2c67e", 5: "#d79a4a", 6: "#ad7432", o: "#fbe2b4" } },
+  "skin.fox.arctic": { species: "animal.fox", colors: { 4: "#ffffff", 5: "#f2f2f4", 6: "#cfd2da", D: "#8a8f9c" } },
+  "skin.fox.fennec": { species: "animal.fox", colors: { 4: "#fff1d6", 5: "#f2d3a2", 6: "#d4ae76", D: "#b4865a" } },
+  "skin.wolf.black": { species: "animal.wolf", colors: { 4: "#6c6a74", 5: "#4a4852", 6: "#35333c", D: "#26242c", W: "#9a98a3" }, eye: "z" },
+  "skin.wolf.red": { species: "animal.wolf", colors: { 4: "#f3cfa8", 5: "#c98a5a", 6: "#a2683e", D: "#7a4a2e" } },
+  "skin.tiger.golden": { species: "animal.tiger", colors: { 4: "#fff0c8", 5: "#f6d38a", 6: "#dcae5e", K: "#c0803e" } },
+  "skin.tiger.blossom": { species: "animal.tiger", colors: { 4: "#ffe6ef", 5: "#ffbcd2", 6: "#ec93b2", K: "#b0507a" } },
+  "skin.lion.dark": { species: "animal.lion", colors: { J: "#4a3426", j: "#2c1e16" } },
+  "skin.lion.cream": { species: "animal.lion", colors: { 4: "#fff3d8", 5: "#f2dcae", 6: "#d4ba86", J: "#e8b870", j: "#c08a4a" } },
+  "skin.eagle.gray": { species: "animal.eagle", colors: { 4: "#b9bec8", 5: "#868c99", 6: "#636874" } },
+  "skin.eagle.red": { species: "animal.eagle", colors: { 4: "#d8895e", 5: "#a85536", 6: "#7c3a26", W: "#ffe6cf" } },
+  "skin.turtle.star": {
+    species: "animal.turtle",
+    colors: { 4: "#5e5a4e", 5: "#3f3b33", 6: "#2c2924", D: "#f2c94c" },
+    // 별 거북: 짙은 등딱지에 노란 무늬 줄
+  },
+  "skin.turtle.pink": { species: "animal.turtle", colors: { 4: "#ffe0ec", 5: "#f7a8c4", 6: "#d97a9e", D: "#b85a80" } },
+  "skin.cheetah.cream": { species: "animal.cheetah", colors: { 4: "#fff6e4", 5: "#f6e2bc", 6: "#d9c08e", K: "#9a7a52" } },
+  "skin.cheetah.silver": { species: "animal.cheetah", colors: { 4: "#f0f1f4", 5: "#c9ccd4", 6: "#a2a7b2", K: "#3d3f48" } },
+  "skin.leopard.amber": { species: "animal.leopard", colors: { 4: "#ffd08a", 5: "#e8963e", 6: "#c0702a", C: "#9a4a1e" } },
+  "skin.leopard.cloud": {
+    species: "animal.leopard",
+    colors: { 4: "#e9e2cf", 5: "#c9bb98", 6: "#a8996f", K: "#4a4434", C: "#8a7a58" },
+    // 구름표범: 무늬 위에 큰 구름 얼룩을 더한다
+    pattern: (p, geo) => paintBody(p, (x, y) => (!inFace(geo, x, y) && cellHash(Math.floor(x / 3), Math.floor(y / 3), 3) === 0 && (x + y) % 3 !== 0 ? "C" : null)),
+  },
+  "skin.deer.sika": {
+    species: "animal.deer",
+    colors: { 4: "#e9a874", 5: "#c77a44", 6: "#9e5a30" },
+    // 꽃사슴: 다 자라도 등에 흰 점
+    pattern: (p, { bx, by, bw, bh }) => paintBody(p, (x, y) => (y + 0.5 < by && Math.abs(x + 0.5 - bx) < bw * 0.85 && y + 0.5 > by - bh && (x * 3 + y * 5) % 6 === 0 ? "W" : null)),
+  },
+  "skin.deer.red": { species: "animal.deer", colors: { 4: "#c98a6a", 5: "#9a5a3e", 6: "#74402a", o: "#e6c2a8" } },
 };
 
 /** 이 스킨을 이 동물에 입힐 수 있는지 (그림이 있고 종류가 맞는지) */
@@ -720,6 +1236,151 @@ export const ANIMAL_VARIANT_ART: Record<string, VariantArt> = {
     colors: { 4: "#ffffff", 5: "#f1f7ff", 6: "#cbdcf0", D: "#7fb6ea" },
     extra: (p, geo, g) => wing(p, geo, g, true),
   },
+  // ===== 야생 동물 특별 진화 (2026-10-12) =====
+  // 판다곰: 흰 몸에 까만 다리·귀·눈가·어깨띠
+  panda_bear: {
+    species: "animal.bear",
+    colors: { 4: "#ffffff", 5: "#f5f3f0", 6: "#d8d4cf", K: "#2f2a33", o: "#f5f3f0", D: "#2f2a33" },
+    eye: "w",
+    pattern: (p, { bx, by, bw, bh, hx, hy, hr }) => {
+      paintBody(p, (x, y) => {
+        // 다리 (몸 아래)·어깨띠·귀
+        if (y + 0.5 > by + bh * 0.55) return "K";
+        if (Math.abs(x + 0.5 - (bx + bw * 0.45)) < bw * 0.22 && y + 0.5 > by - bh * 0.9) return "K";
+        if (y + 0.5 < hy - hr * 0.8 && Math.abs(x + 0.5 - hx) < hr * 1.2) return "K";
+        return null;
+      });
+      patch(p, hx + hr * 0.2, hy - hr * 0.2, Math.max(1, hr * 0.32), Math.max(1, hr * 0.32), "K");
+    },
+  },
+  // 북극곰: 새하얀 털에 얼음빛 그늘
+  polar_bear: {
+    species: "animal.bear",
+    colors: { 4: "#ffffff", 5: "#f4f6f8", 6: "#c9d9e6", o: "#ffffff", D: "#2f2a33" },
+  },
+  // 은여우: 은빛이 섞인 까만 털, 끝이 하얀 꼬리
+  silver_fox: {
+    species: "animal.fox",
+    colors: { 4: "#7c7887", 5: "#4f4b5a", 6: "#3a3744", D: "#26232e" },
+    eye: "z",
+    pattern: (p) => paintBody(p, (x, y) => (cellHash(x, y, 5) === 0 ? "Y" : null)),
+  },
+  // 구미호: 하얀 털, 여러 갈래 꼬리, 푸른 여우불
+  nine_tailed: {
+    species: "animal.fox",
+    colors: { 4: "#ffffff", 5: "#fbf6ee", 6: "#e4d6c2", D: "#f2a65a" },
+    extra: (p, { bx, by, bw, bh }, g) => {
+      const len = sz([0.45, 1.05], g);
+      const x = bx - bw * 0.85;
+      const y = by - bh * 0.25;
+      const w = Math.max(0.7, g.u * 0.17);
+      // 위로 부채처럼 펼친 꼬리 셋 (본래 꼬리까지 넷), 끝은 금빛
+      for (const a of [0.5, 0.95, 1.4]) {
+        const ex = x - Math.cos(a) * len;
+        const ey = Math.max(2 + w, y - Math.sin(a) * len);
+        thick(p, x, y, ex, ey, w, "5");
+        p.ellipse(ex, ey, w * 0.8, w * 0.8, "z");
+      }
+      // 여우불
+      const fx = Math.round(x - len * 0.2);
+      const fy = Math.max(1, Math.round(y - len * 1.05));
+      p.px(fx, fy, "I").px(fx, fy + 1, "i").px(fx - 1, fy + 1, "v");
+    },
+  },
+  // 설원 늑대: 눈처럼 하얀 털, 얼음빛 눈
+  snow_wolf: {
+    species: "animal.wolf",
+    colors: { 4: "#ffffff", 5: "#eef3f8", 6: "#c3d2e2", D: "#b4c6da", W: "#ffffff" },
+    eye: "v",
+  },
+  // 백호: 하얀 몸에 짙은 줄무늬, 파란 눈
+  white_tiger: {
+    species: "animal.tiger",
+    colors: { 4: "#ffffff", 5: "#f5f2ec", 6: "#d4d0ca", K: "#3d3a46" },
+    eye: "v",
+  },
+  // 백사자: 크림빛 하얀 몸과 갈기
+  white_lion: {
+    species: "animal.lion",
+    colors: { 4: "#ffffff", 5: "#f4ecdc", 6: "#d6c8ae", J: "#f0d9a8", j: "#c9a874", o: "#ffffff" },
+    eye: "v",
+  },
+  // 황금 독수리: 금빛 깃털에 반짝이 무늬
+  golden_eagle: {
+    species: "animal.eagle",
+    colors: { 4: "#ffe28e", 5: "#eeb23e", 6: "#bb7c1e", W: "#fff4c8", Y: "#fff4c8", y: "#f2d488", o: "#fff0a8", O: "#d99a36" },
+    pattern: (p, { bx, by, bw, bh }) => paintBody(p, (x, y) => ((x * 3 + y * 5) % 9 === 0 && Math.abs(x + 0.5 - bx) < bw * 0.8 && Math.abs(y + 0.5 - by) < bh * 0.8 ? "Z" : null)),
+  },
+  // 불사조: 불꽃빛 몸, 머리 위 불꽃 볏, 길게 늘어진 꼬리 깃
+  phoenix: {
+    species: "animal.eagle",
+    colors: { 4: "#ffc46a", 5: "#f2643a", 6: "#b83a2a", W: "#ffd36e", Y: "#ffd0a0", y: "#f59a6a", D: "#ffd36e" },
+    extra: (p, { bx, by, bw, bh, hx, hy, hr }, g) => {
+      // 꼬리 깃 (불꽃 세 가닥)
+      const len = sz([0.4, 1.1], g);
+      const x = bx - bw * 0.6;
+      const y = by + bh * 0.4;
+      for (const [dy, c] of [[-0.35, "z"], [0, "N"], [0.25, "K"]] as const) thick(p, x, y, x - len, Math.min(FEET - 1, y + len * (0.15 + dy)), Math.max(0.5, g.u * 0.08), c);
+      // 불꽃 볏
+      const top = Math.round(hy - hr);
+      const cx = Math.round(hx - hr * 0.2);
+      p.px(cx, top - 1, "N").px(cx - 1, top - 2, "z").px(cx + 1, top - 2, "N");
+      if (g.u >= 5) p.px(cx, top - 3, "z").px(cx - 2, top - 1, "N");
+    },
+  },
+  // 황금 거북: 금빛 등딱지에 반짝이
+  golden_turtle: {
+    species: "animal.turtle",
+    colors: { 4: "#fff1a0", 5: "#f6bf2e", 6: "#c47e16", D: "#a8640f", o: "#ffe8a8", O: "#e0b464" },
+    pattern: (p) => paintBody(p, (x, y) => ((x * 3 + y * 5) % 7 === 0 ? "Z" : null)),
+  },
+  // 킹치타: 점이 이어져 굵은 얼룩과 등줄무늬
+  king_cheetah: {
+    species: "animal.cheetah",
+    colors: { 4: "#ffe0a0", 5: "#eeb557", 6: "#c98f3c" },
+    pattern: (p, geo) => {
+      paintBody(p, (x, y) => (!inFace(geo, x, y) && cellHash(Math.floor(x / 2), Math.floor(y / 2), 3) === 0 ? "K" : null));
+      for (let x = Math.round(geo.bx - geo.bw * 0.9); x <= Math.round(geo.bx + geo.bw * 0.6); x++) {
+        const y = bodyTop(p, x);
+        if (y > 0) p.px(x, y, "K");
+      }
+    },
+  },
+  // 흑표범: 까만 털에 희미한 무늬, 노란 눈
+  black_panther: {
+    species: "animal.leopard",
+    colors: { 4: "#5d5868", 5: "#3b3644", 6: "#2a2631", K: "#221e28", C: "#332e3b", W: "#4a4552", o: "#8a6a7a" },
+    eye: "z",
+  },
+  // 눈표범: 하얀 털에 회색 꽃무늬
+  snow_leopard: {
+    species: "animal.leopard",
+    colors: { 4: "#ffffff", 5: "#ebeae6", 6: "#c9c6c0", K: "#5a5560", C: "#b6b2ac" },
+    eye: "v",
+  },
+  // 은빛 사슴: 은빛 털, 수정처럼 빛나는 하늘색 뿔
+  silver_deer: {
+    species: "animal.deer",
+    colors: { 4: "#ffffff", 5: "#e3e8f0", 6: "#b4bdcc", b: "#a9def5", n: "#6db2d6", o: "#ffffff" },
+    pattern: (p) => paintBody(p, (x, y) => ((x * 5 + y * 3) % 11 === 0 ? "I" : null)),
+  },
+  // 빛나는 순록: 크고 넓은 뿔, 하얀 목털, 빨갛게 빛나는 코 (암수 모두 뿔이 있다)
+  glowing_reindeer: {
+    species: "animal.deer",
+    colors: { 4: "#c9a27e", 5: "#9a7452", 6: "#76563a", b: "#e8d4b0", n: "#bfa47e", W: "#ffffff" },
+    extra: (p, geo, g) => {
+      const { hx, hy, hr, bx, bw, by, bh } = geo;
+      // 하얀 목털
+      p.ellipse(bx + bw * 0.85, by - bh * 0.6, Math.max(1, hr * 0.6), Math.max(1, hr * 0.7), "W");
+      // 큰 뿔 (아기는 작게, 원래 뿔은 덮는다)
+      if (g.t === 1) antlers(p, geo, g, "grand", "b", "n");
+      else antlers(p, geo, g, "small", "b", "n");
+      // 빨간 코 (빛)
+      const nx = Math.round(hx + hr * 1.25);
+      const ny = Math.round(hy + hr * 0.25);
+      p.rect(nx - 1, ny - 1, 2, 2, "N").px(nx - 1, ny - 1, "K");
+    },
+  },
 };
 
 /** 특별한 동물 반짝이 (도화지 32칸에 잘라 낸 뒤, 빈 칸에만): 가운데 밝은 노랑 + 십자 금빛 */
@@ -831,16 +1492,16 @@ export function displaySizeChoices(assetKey: string, form: AnimalForm = "adult")
 
 type Rows = { rows: string[]; colors: Colors; mid: number };
 const rowsCache = new Map<string, Rows>();
-function animalRows(assetKey: string, stage: AnimalStage, skinKey?: string | null, size: AnimalDisplaySize = "normal", look: AnimalLook = {}): Rows {
+function animalRows(assetKey: string, stage: AnimalStage, skinKey?: string | null, size: AnimalDisplaySize = "normal", look: AnimalLook = {}, pose: FlyPose | null = null): Rows {
   const variantKey = variantFits(look.variant, assetKey) ? look.variant! : null;
   const sex = look.sex ?? null;
-  const key = `${assetKey}|${stage}|${skinKey ?? ""}|${size}|${sex ?? ""}|${variantKey ?? ""}`;
+  const key = `${assetKey}|${stage}|${skinKey ?? ""}|${size}|${sex ?? ""}|${variantKey ?? ""}|${pose ?? ""}`;
   const hit = rowsCache.get(key);
   if (hit) return hit;
   const variant = variantKey ? ANIMAL_VARIANT_ART[variantKey] : null;
   // 특별한 동물은 스킨을 입지 않는다
   const skin = !variant && skinKey && skinFits(skinKey, assetKey) ? ANIMAL_SKINS[skinKey] : null;
-  const { p, geo, l, r, colors } = drawArt(assetKey, { u: animalRadius(assetKey, stage, size), t: MATURITY[stage], sex }, skin, stage === "adult", variant);
+  const { p, geo, l, r, colors } = drawArt(assetKey, { u: animalRadius(assetKey, stage, size), t: MATURITY[stage], sex, pose }, skin, stage === "adult", variant);
   // 그린 칸의 가운데를 32칸 도화지 가운데로
   const start = Math.max(0, Math.min(W - 32, Math.round((l + r) / 2 - 16)));
   const out32 = new Pix(32, 32).stamp(
@@ -928,12 +1589,39 @@ function petFrame(rows: string[], mid: number, frame: number): string[] {
   return [...out, ...ground];
 }
 
-/** 따라다니는 동물 그림판 SVG (가로 5칸 × 세로 2줄, 한 칸 32칸 × scale) */
+/** 나는 동물(독수리)의 걷기 칸 = 날갯짓: 2 날개 위, 3 펼침, 4 날개 아래 (PET_WALK_FRAMES 2·3·4·3 순서로 퍼덕인다) */
+const FLY_POSES: Record<number, FlyPose> = { 2: "up", 3: "glide", 4: "down" };
+
+/** 이 동물이 따라다닐 때 나는지 (독수리) */
+export function animalFlies(assetKey: string): boolean {
+  return !!ANIMALS[assetKey]?.fly;
+}
+
+/**
+ * 따라다니는 걸음새 (2026-10-12 "독수리는 날고 거북이는 느리게"). 광장 scene.ts와 우리 집 room-resident.tsx가 같이 쓴다.
+ * stride = 걷기 그림 한 칸에 걷는 거리(시간)의 배수 (클수록 다리를 천천히 놀린다), lift = 걷기 칸마다 띄우는 높이(도트 칸, PET_WALK_FRAMES 순서),
+ * speed = 가장 빠른 걸음의 배수 (작으면 주인보다 느려서 조금씩 뒤처졌다가 주인이 서면 따라붙는다)
+ */
+export type PetGait = { stride: number; lift: readonly number[]; speed: number };
+const GAITS: Record<string, PetGait> = {
+  // 거북이: 통통 뛰지 않고 느릿느릿 (주인보다 조금 느리다)
+  "animal.turtle": { stride: 2.2, lift: [0, 0, 0, 0], speed: 0.6 },
+  // 독수리: 날개를 퍼덕이며 주인 머리 높이쯤 떠서 날아온다
+  "animal.eagle": { stride: 1.4, lift: [4, 5, 4, 3], speed: 1.2 },
+};
+const WALK_GAIT: PetGait = { stride: 1, lift: PET_WALK_LIFT, speed: 1 };
+/** 이 동물의 걸음새 (늘 같은 객체를 돌려준다: 화면 쪽 의존성 목록에 넣어도 된다) */
+export function petGait(assetKey: string): PetGait {
+  return GAITS[assetKey] ?? WALK_GAIT;
+}
+
+/** 따라다니는 동물 그림판 SVG (가로 5칸 × 세로 2줄, 한 칸 32칸 × scale). 나는 동물은 걷기 칸이 날갯짓 그림이다 */
 export function petSheetSvg(assetKey: string, skinKey: string | null | undefined, scale: number, size: AnimalDisplaySize = "normal", look: PetLook = {}): string {
   const { rows, colors, mid } = animalRows(assetKey, petStage(look), skinKey, size, look);
+  const fly = animalFlies(assetKey);
   let body = "";
   for (let f = 0; f < PET_SHEET_FRAMES; f++) {
-    const right = petFrame(rows, mid, f);
+    const right = fly && FLY_POSES[f] ? animalRows(assetKey, petStage(look), skinKey, size, look, FLY_POSES[f]).rows : petFrame(rows, mid, f);
     body += spriteRects(right, colors, f * 32, 0) + spriteRects(flipX(right), colors, f * 32, 32);
   }
   const w = 32 * PET_SHEET_FRAMES;

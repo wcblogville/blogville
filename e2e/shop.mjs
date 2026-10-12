@@ -35,10 +35,10 @@ check("상점에 캐릭터·기본 아이템 없음", !["고양이", "나무 의
 
 // ── 버튼 상태 (FR-006): 가입 110코인, Lv.1 ──
 const btn = async (name) => (await card(name).getByRole("button").innerText()).trim();
-check("Lv.2 털모자는 🔒 Lv.2", (await btn("털모자")) === "🔒 Lv.2", await btn("털모자"));
+check("Lv.2 털모자는 🔒 Lv.2", (await btn("털모자")) === "Lv.2", await btn("털모자"));
 check("Lv.2+ 표시", (await card("털모자").innerText()).includes("Lv.2+"));
 check("Lv.1은 Lv 표시 없음", !(await card("밀짚모자").innerText()).includes("Lv.1+"));
-check("코인 모자라면 코인 부족 (멜빵바지 100은 사기)", (await btn("멜빵바지")) === "사기" && (await btn("목도리")).startsWith("🔒"));
+check("코인 모자라면 코인 부족 (멜빵바지 100은 사기)", (await btn("멜빵바지")) === "사기" && (await btn("목도리")).startsWith("Lv."));
 
 // ── 사기: 밀짚모자 50 → 보유 중, 코인 차감, 원장 ──
 const before = await coins(page);

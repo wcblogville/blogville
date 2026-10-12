@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { CharacterArt } from "@/components/character";
-import { PixelIcon } from "@/components/pixel-icon";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
 import { AVATAR_PARTS, type AvatarSlot } from "@/lib/art/avatar";
 import { HAIR_COLORS as HAIR_HEX } from "@/lib/art/hair";
 import { walkSheetDataUri, WALK_DIRS, type WalkDir } from "@/lib/art/walk";
@@ -123,12 +123,12 @@ export function StyleStudio({
     state === "same"
       ? "지금 모습이에요"
       : state === "locked"
-        ? `🔒 Lv.${bill.lockedLevel}부터 살 수 있어요`
+        ? <IconText icon="lock">Lv.{bill.lockedLevel}부터 살 수 있어요</IconText>
         : state === "short"
           ? `코인이 ${bill.short}개 부족해요`
           : state === "buy"
-            ? `🪙 ${bill.cost.toLocaleString()} 내고 적용하기`
-            : "✨ 적용하기";
+            ? <IconText icon="coin">{bill.cost.toLocaleString()} 내고 적용하기</IconText>
+            : <IconText icon="sparkle">적용하기</IconText>;
 
   const list = items.filter((i) => i.slot === tab);
 
@@ -178,14 +178,15 @@ export function StyleStudio({
               ))}
             </div>
             <button type="button" onClick={() => setWalking((w) => !w)} aria-pressed={walking} className="pixel-tab px-2 font-sans text-xs font-bold">
-              {walking ? "🚶 걷는 중" : "🧍 서 있기"}
+              <IconText icon={walking ? "foot" : "user"}>{walking ? "걷는 중" : "서 있기"}</IconText>
             </button>
           </div>
         </div>
 
         {place === "salon" && !hairVisible && (
           <p className="pixel-paper mt-4 bg-[#fff0f6] p-3 text-sm shadow-[inset_0_0_0_3px_#f0c3d6]" data-hair-hidden>
-            🐾 지금 캐릭터는 털이라 머리와 얼굴형이 보이지 않아요. 사람 주민(남자·여자 주민, 모험가)일 때 보여요. 골라 둔 머리와 얼굴형은 그대로 남아요.
+            <PixelIcon name="paw" scale={1} className="mr-1 align-[-1px]" />
+            지금 캐릭터는 털이라 머리와 얼굴형이 보이지 않아요. 사람 주민(남자·여자 주민, 모험가)일 때 보여요. 골라 둔 머리와 얼굴형은 그대로 남아요.
           </p>
         )}
 
@@ -197,7 +198,7 @@ export function StyleStudio({
               계산서
             </span>
             <span>
-              내 코인 🪙 <b data-style-coins>{coins.toLocaleString()}</b>
+              내 코인 <PixelIcon name="coin" scale={1} className="align-[-1px]" /> <b data-style-coins>{coins.toLocaleString()}</b>
             </span>
           </div>
           {bill.toBuy.length ? (
@@ -207,7 +208,7 @@ export function StyleStudio({
                   <span className="truncate">
                     {SLOT_LABELS[i.slot]} · {i.name}
                   </span>
-                  <span className="shrink-0 font-bold">{i.price ? `🪙 ${i.price.toLocaleString()}` : "무료"}</span>
+                  <span className="shrink-0 font-bold">{i.price ? <IconText icon="coin">{i.price.toLocaleString()}</IconText> : "무료"}</span>
                 </li>
               ))}
             </ul>
@@ -237,6 +238,7 @@ export function StyleStudio({
             </button>
           </div>
           <p role="status" aria-live="polite" className={`mt-2 min-h-5 text-center text-sm font-bold ${message?.ok ? "text-leaf-dark" : "text-berry"}`}>
+            {message?.ok && <PixelIcon name="party" scale={1} className="mr-1.5 align-[-1px]" />}
             {message?.text}
           </p>
         </div>
@@ -275,7 +277,14 @@ export function StyleStudio({
               <OptionCard
                 key={item.id}
                 label={item.name}
-                sub={item.owned ? (worn[tab] === item.id ? "입는 중 ✓" : "보유 ✓") : locked ? `🔒 Lv.${item.requiredLevel}` : item.price ? `🪙 ${item.price.toLocaleString()}` : "무료"}
+                sub={item.owned ? (worn[tab] === item.id ? "입는 중 ✓" : "보유 ✓") : locked ? (
+                    <IconText icon="lock">Lv.{item.requiredLevel}</IconText>
+                  ) : item.price ? (
+                    <IconText icon="coin">{item.price.toLocaleString()}</IconText>
+                  ) : (
+                    "무료"
+                  )
+                }
                 title={item.description ?? undefined}
                 selected={picked[tab] === item.id}
                 onClick={() => choose(tab, item.id)}
@@ -308,7 +317,7 @@ function OptionCard({
   swatch,
 }: {
   label: string;
-  sub: string;
+  sub: ReactNode;
   title?: string;
   selected: boolean;
   onClick: () => void;

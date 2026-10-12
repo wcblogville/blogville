@@ -71,7 +71,7 @@ const forceContent = (page, html) => page.locator('input[name="contentHtml"]').e
 async function publish(page, { title, html, visibility = "public", force }) {
   await openWrite(page);
   await page.getByPlaceholder("제목").fill(title);
-  if (visibility === "private") await page.getByRole("radio", { name: "🔒 비공개" }).click();
+  if (visibility === "private") await page.getByRole("radio", { name: "비공개" }).click();
   await page.locator(".ProseMirror").click();
   await page.keyboard.type(`${title} 본문`);
   if (html) await paste(page, html);

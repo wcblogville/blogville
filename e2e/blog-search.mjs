@@ -76,7 +76,7 @@ const titles = () => page.locator("main article h3").allInnerTexts();
   await input.fill(KEY);
   await box.getByRole("button", { name: "검색" }).click();
   await page.waitForURL(/\?q=/);
-  await page.getByRole("heading", { name: `🔍 '${KEY}' 검색 결과` }).waitFor();
+  await page.getByRole("heading", { name: `'${KEY}' 검색 결과` }).waitFor();
   const url = new URL(page.url());
   check("US6-1 GET 주소 /@{내 주소}?q=검색어", url.pathname === `/@${OWNER}` && url.searchParams.get("q") === KEY, page.url());
   const t1 = await titles();

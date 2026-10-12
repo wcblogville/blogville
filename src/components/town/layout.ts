@@ -7,6 +7,7 @@
 //   광장 동쪽 문 → 상점 길 → 정원 계단 → 아치 문 하나로만 들어가고, 걸어 다니는 이웃(NPC)은 들어오지 않는다.
 // - 이웃 집 10채(1~10번)는 북쪽 언덕 마을(1~5)과 남쪽 들판 마을(6~10)에 모여 있다.
 import type { TownData, TownHouse } from "./types";
+import type { IconName } from "@/lib/art/icons";
 
 export const WORLD = { width: 2600, height: 2600 };
 export const CENTER = { x: WORLD.width / 2, y: WORLD.height / 2 };
@@ -213,7 +214,7 @@ export function houseAt(data: TownData, i: number): TownHouse | null {
   return i === 0 ? data.myHouse : (data.neighbors.find((h) => h.lot === i) ?? null);
 }
 
-export type TownSpot = { key: string; label: string; emoji: string; x: number; y: number; href: string | null; empty?: boolean };
+export type TownSpot = { key: string; label: string; icon: IconName; x: number; y: number; href: string | null; empty?: boolean };
 
 /** 마을 게시판 입구: 마을 소식 + 출석 체크 창을 먼저 연다 (?board=1, 사용자 요청 2026-10-11) */
 export const BOARD_HREF = "/feed?board=1";
@@ -221,13 +222,13 @@ export const BOARD_HREF = "/feed?board=1";
 /** 텔레포트할 수 있는 곳. 좌표는 캐릭터가 설 자리(문 앞) */
 export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpot[] } {
   const places: TownSpot[] = [
-    { key: "plaza", label: "광장 분수", emoji: "⛲", x: CENTER.x, y: CENTER.y + 140, href: "/town" },
-    { key: "board", label: "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: BOARD_HREF },
-    { key: "shop", label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 40, href: "/shop" },
-    { key: "farm", label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 40, href: "/farm" },
-    { key: "fishing", label: "낚시터", emoji: "🎣", x: FISHING_POS.x + 40, y: FISHING_POS.y + 40, href: "/fishing" },
-    { key: "salon", label: "미용실", emoji: "💇", x: SALON_POS.x + 30, y: SALON_POS.y + 40, href: "/salon" },
-    { key: "clothes", label: "옷가게", emoji: "👗", x: CLOTHES_POS.x + 30, y: CLOTHES_POS.y + 40, href: "/clothes" },
+    { key: "plaza", label: "광장 분수", icon: "fountain", x: CENTER.x, y: CENTER.y + 140, href: "/town" },
+    { key: "board", label: "마을 게시판", icon: "board", x: BOARD_POS.x, y: BOARD_POS.y + 40, href: BOARD_HREF },
+    { key: "shop", label: "상점", icon: "shop", x: SHOP_POS.x + 40, y: SHOP_POS.y + 40, href: "/shop" },
+    { key: "farm", label: "동물 농장", icon: "cow", x: FARM_POS.x, y: FARM_POS.y + 40, href: "/farm" },
+    { key: "fishing", label: "낚시터", icon: "rod", x: FISHING_POS.x + 40, y: FISHING_POS.y + 40, href: "/fishing" },
+    { key: "salon", label: "미용실", icon: "scissors", x: SALON_POS.x + 30, y: SALON_POS.y + 40, href: "/salon" },
+    { key: "clothes", label: "옷가게", icon: "shirt", x: CLOTHES_POS.x + 30, y: CLOTHES_POS.y + 40, href: "/clothes" },
   ];
   const houses: TownSpot[] = [];
   for (let i = 0; i < HOUSE_SLOTS; i++) {
@@ -235,7 +236,7 @@ export function townSpots(data: TownData): { places: TownSpot[]; houses: TownSpo
     const p = houseSlot(i);
     // 다른 회원의 마을(host)에서는 0번 집도 그 주인의 집이다
     const label = i === 0 && !data.host ? (h ? "내 집" : "내 집 자리") : h ? `${h.nickname}의 집` : `빈 집터 ${i}`;
-    houses.push({ key: `house:${i}`, label, emoji: h ? "🏠" : "🪧", x: p.x, y: p.y + 46, href: h ? `/@${h.slug}` : null, empty: !h });
+    houses.push({ key: `house:${i}`, label, icon: h ? "house" : "sign", x: p.x, y: p.y + 46, href: h ? `/@${h.slug}` : null, empty: !h });
   }
   return { places, houses };
 }

@@ -150,7 +150,7 @@ let grantAction = null;
   }
   // 내 내역에 `👑 관리자 테스트 지급`
   await page.goto(`${BASE}/wallet`);
-  check("3 내역에 `👑 관리자 테스트 지급`", (await page.getByText("👑 관리자 테스트 지급").count()) > 0);
+  check("3 내역에 `👑 관리자 테스트 지급`", (await page.getByText("관리자 테스트 지급").count()) > 0);
   await ctx.close();
 }
 

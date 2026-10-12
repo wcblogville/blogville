@@ -41,7 +41,7 @@ export async function toggleFavorite(followeeId: unknown): Promise<FavoriteResul
             sql`NOT EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${follows.followeeId} AND ${users.role} = 'admin')`,
           ),
         );
-      if (n >= FAVORITE_LIMIT) return { ok: false, error: `즐겨찾기는 ${FAVORITE_LIMIT}명까지예요. 다른 이웃의 ⭐를 먼저 꺼 주세요.` };
+      if (n >= FAVORITE_LIMIT) return { ok: false, error: `즐겨찾기는 ${FAVORITE_LIMIT}명까지예요. 다른 이웃의 즐겨찾기(별)를 먼저 꺼 주세요.` };
     }
     // 즐겨찾기를 끄면 골라 둔 집 자리도 비운다 (TOWN-18)
     await tx.update(follows).set(row.isFavorite ? { isFavorite: false, townLot: null } : { isFavorite: true }).where(mine);
@@ -83,7 +83,7 @@ export async function setTownLot(followeeId: unknown, lot: unknown): Promise<Tow
       .limit(FAVORITE_LIMIT);
     const placed = assignLots(favorites);
     const me = placed.find((f) => f.followeeId === followeeId);
-    if (!me) return { ok: false, error: "⭐ 즐겨찾기한 이웃만 집 자리를 고를 수 있어요." };
+    if (!me) return { ok: false, error: "즐겨찾기한 이웃만 집 자리를 고를 수 있어요." };
     if (me.lot === lot) return { ok: true };
     const other = placed.find((f) => f.lot === lot);
     const of = (id: string) => and(eq(follows.followerId, viewer.userId), eq(follows.followeeId, id));

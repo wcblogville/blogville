@@ -10,7 +10,7 @@ import { todayKST } from "@/lib/game";
 import { requireAdmin } from "@/server/dal";
 import { startOfTodayKST } from "@/server/points";
 import { countLiveComments } from "@/server/social";
-import { PixelIcon } from "@/components/pixel-icon";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
 import { PlaceHeader } from "@/components/place-banner";
 import type { IconName } from "@/lib/art/icons";
 import { AdminDeletePostButton } from "./delete-button";
@@ -115,7 +115,7 @@ export default async function AdminPage() {
                 <td className="py-2">{u.username ?? "-"} <span className="text-ink-soft">({providerLabels(u.providers)})</span></td>
                 <td>{u.nickname ?? "-"}</td>
                 <td>{u.slug ? <Link href={`/@${u.slug}`} className={`${linkTap} text-sky underline`}>@{u.slug}</Link> : "-"}</td>
-                <td>{u.role === "admin" ? "👑 관리자" : "회원"}</td>
+                <td>{u.role === "admin" ? <IconText icon="crown">관리자</IconText> : "회원"}</td>
                 <td className="whitespace-nowrap text-ink-soft">{formatDateTime(u.createdAt)}</td>
               </tr>
             ))}
@@ -129,7 +129,7 @@ export default async function AdminPage() {
                 {u.username ?? "-"} <span className="font-normal text-ink-soft">({providerLabels(u.providers)})</span>
               </p>
               <p className="break-all">
-                {u.nickname ?? "-"} · {u.role === "admin" ? "👑 관리자" : "회원"}
+                {u.nickname ?? "-"} · {u.role === "admin" ? <IconText icon="crown">관리자</IconText> : "회원"}
               </p>
               <div className="flex flex-wrap items-center gap-x-3">
                 {u.slug ? <Link href={`/@${u.slug}`} className={`${linkTap} break-all text-sky underline`}>@{u.slug}</Link> : "-"}
@@ -156,7 +156,7 @@ export default async function AdminPage() {
                   <tr key={p.id}>
                     <td className="py-1"><PostTitle post={p} className={`${linkTap} hover:underline`} /></td>
                     <td>{p.nickname}</td>
-                    <td>{ADMIN_VIS[p.visibility]}</td>
+                    <td><AdminVis visibility={p.visibility} /></td>
                     <td className="whitespace-nowrap text-ink-soft">{formatDateTime(p.createdAt)}</td>
                     <td className="text-right"><AdminDeletePostButton postId={p.id} title={p.title} /></td>
                   </tr>
@@ -169,7 +169,7 @@ export default async function AdminPage() {
                   <div className="min-w-0 flex-1">
                     <PostTitle post={p} className={`${linkTap} break-all font-bold hover:underline`} />
                     <p className="text-ink-soft">
-                      <span className="break-all">{p.nickname}</span> · {ADMIN_VIS[p.visibility]} ·{" "}
+                      <span className="break-all">{p.nickname}</span> · <AdminVis visibility={p.visibility} /> ·{" "}
                       <span className="whitespace-nowrap">{formatDateTime(p.createdAt)}</span>
                     </p>
                   </div>
@@ -187,8 +187,12 @@ export default async function AdminPage() {
 }
 
 /** 글 제목. 비공개 글은 주인만 열 수 있어(관리자도 404) 링크 없이 글자만 둔다 */
-/** "공개" 열: 공개 / 👥(이웃 공개) / 🔒(비공개) */
-const ADMIN_VIS = { public: "공개", neighbors: "👥", private: "🔒" } as const;
+/** "공개" 열: 공개 / 사람 둘(이웃 공개) / 자물쇠(비공개) 도트 아이콘 */
+function AdminVis({ visibility }: { visibility: string }) {
+  if (visibility === "neighbors") return <PixelIcon name="people" scale={1} label="이웃 공개" className="align-[-1px]" />;
+  if (visibility === "private") return <PixelIcon name="lock" scale={1} label="비공개" className="align-[-1px]" />;
+  return <>공개</>;
+}
 
 function PostTitle({ post, className }: { post: { id: number; slug: string; title: string; visibility: string }; className: string }) {
   if (post.visibility !== "public") return <span title="비공개·이웃 공개 글은 관리자가 열 수 없어요" className="break-all">{post.title}</span>;

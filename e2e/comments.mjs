@@ -54,7 +54,7 @@ const commentLine = (page, text) => section(page).locator('[id^="comment-"]', { 
 // US2-1 B가 A의 글에 댓글 → 맨 아래, 입력칸 빔, 💬 +1, B 코인 +5
 await B.page.goto(url(P));
 const coinsBefore = await coins(B.page);
-check("US2 처음 `💬 댓글 0`·빈 목록 문구 없음", (await heading(B.page)) === "💬 댓글 0");
+check("US2 처음 `💬 댓글 0`·빈 목록 문구 없음", (await heading(B.page)) === "댓글 0");
 const pendingSeen = (async () => {
   const btn = mainForm(B.page).getByRole("button", { name: "등록 중..." });
   return btn.waitFor({ timeout: 3000 }).then(async () => btn.isDisabled()).catch(() => null);
@@ -64,7 +64,7 @@ const pending = await pendingSeen;
 await commentLine(B.page, "첫 댓글이에요").waitFor();
 check("US2-1 등록 → 목록에 보임(앞뒤 공백 정리)", (await commentLine(B.page, "첫 댓글이에요").locator("p").nth(1).innerText()) === "첫 댓글이에요");
 check("US2-1 입력칸 비워짐", (await mainForm(B.page).locator("textarea").inputValue()) === "");
-check("US2-1 `💬 댓글 1`", (await heading(B.page)) === "💬 댓글 1");
+check("US2-1 `💬 댓글 1`", (await heading(B.page)) === "댓글 1");
 await B.page.reload();
 check("US2-1 B 코인 +5", (await coins(B.page)) === coinsBefore + 5, `${coinsBefore} → ${await coins(B.page)}`);
 check("US2-9 처리 중 `등록 중...` 비활성", pending !== false, String(pending));
@@ -142,7 +142,7 @@ await commentLine(C.page, "<b>굵게</b>").getByRole("button", { name: "삭제" 
 await section(C.page).getByText("삭제된 댓글이에요").waitFor();
 check("US2-11 작성자 삭제 → `삭제된 댓글이에요`·버튼 없음",
   (await section(C.page).locator(`#comment-${cRow.id}`).getByRole("button").count()) === 0);
-check("US2-11 `💬 댓글 1`", (await heading(C.page)) === "💬 댓글 1");
+check("US2-11 `💬 댓글 1`", (await heading(C.page)) === "댓글 1");
 const deleted = await one("SELECT content, deleted_at IS NOT NULL AS d FROM comments WHERE id = $1", [cRow.id]);
 check("US2-11 DB 내용 빈 글자", deleted.content === "" && deleted.d);
 // SC-006 HTML·RSC 응답에 지운 내용·작성자 회원 ID 0건
@@ -154,7 +154,7 @@ check("SC-006 HTML·RSC에 댓글 작성자 회원 ID 없음", ![uid.B, uid.C].s
 // US2-12 블로그 주인 삭제
 await A.page.goto(url(P));
 await commentLine(A.page, "첫 댓글이에요").getByRole("button", { name: "삭제" }).click();
-await A.page.waitForFunction(() => document.querySelector("#comments h2")?.textContent?.includes("💬 댓글 0"));
+await A.page.waitForFunction(() => document.querySelector("#comments h2")?.textContent?.includes("댓글 0"));
 check("US2-12 블로그 주인이 남의 댓글 삭제", (await count("SELECT count(*)::int AS n FROM comments WHERE post_id = $1 AND deleted_at IS NULL", [P])) === 0);
 
 // SC-005 권한 없는 삭제·이미 삭제·범위 밖 → 변화 0, HTTP 200
@@ -188,7 +188,7 @@ check("SC-005 남의 댓글·이미 삭제·범위 밖 삭제 요청 → 변화 
   const admin = await member(ADMIN.username, ADMIN.password);
   await admin.page.goto(url(P));
   await commentLine(admin.page, "B 댓글(조작").getByRole("button", { name: "삭제" }).click();
-  await admin.page.waitForFunction(() => document.querySelector("#comments h2")?.textContent?.includes("💬 댓글 0"));
+  await admin.page.waitForFunction(() => document.querySelector("#comments h2")?.textContent?.includes("댓글 0"));
   check("US2-13 관리자가 남의 댓글 삭제", (await one("SELECT deleted_at FROM comments WHERE id = $1", [bComment.id])).deleted_at !== null);
 }
 
@@ -230,7 +230,7 @@ check("US5-3 답글 2개 오래된 순", replyTexts.join("|") === "첫 답글|�
 check("US5-3 들여쓰기·왼쪽 선", (await section(B.page).locator('[id^="reply-"]').first().getAttribute("class")).includes("border-l-2"));
 check("US5-3 등록 뒤 입력칸 닫히고 [답글]", (await rootLine(B.page).getByRole("button", { name: "답글", exact: true }).count()) === 1);
 check("US5-4 답글 줄에 [답글] 없음", (await section(B.page).locator('[id^="reply-"]').getByRole("button", { name: "답글", exact: true }).count()) === 0);
-check("US5 `💬 댓글 3`(댓글 1 + 답글 2)", (await heading(B.page)) === "💬 댓글 3");
+check("US5 `💬 댓글 3`(댓글 1 + 답글 2)", (await heading(B.page)) === "댓글 3");
 await B.page.reload();
 check("US5 B 코인 +10(답글 2개)", (await coins(B.page)) === bCoins + 10);
 await C.page.goto(url(P));
@@ -242,7 +242,7 @@ await replyForm(C.page).locator("textarea").fill("늦은 답글");
 await A.page.goto(url(P));
 await rootLine(A.page).getByRole("button", { name: "삭제", exact: true }).first().click();
 await rootLine(A.page).getByText("삭제된 댓글이에요").waitFor();
-check("US5-5 `💬 댓글 2`", (await heading(A.page)) === "💬 댓글 2", await heading(A.page));
+check("US5-5 `💬 댓글 2`", (await heading(A.page)) === "댓글 2", await heading(A.page));
 check("US5-5 원댓글 삭제 뒤 답글 2개 그대로", (await section(A.page).locator('[id^="reply-"]').count()) === 2);
 check("US5-5 지운 원댓글에 [답글] 없음", (await rootLine(A.page).getByRole("button", { name: "답글", exact: true }).count()) === 0);
 const repliesBefore = await count("SELECT count(*)::int AS n FROM replies");
@@ -294,7 +294,7 @@ await A.page.goto(url(P));
 const countBefore = await heading(A.page);
 await section(A.page).locator('[id^="reply-"]', { hasText: "첫 답글" }).getByRole("button", { name: "삭제" }).click();
 await section(A.page).locator('[id^="reply-"]', { hasText: "삭제된 댓글이에요" }).waitFor();
-check("US5-10 블로그 주인이 답글 삭제 → 자리·💬 −1", (await heading(A.page)) === `💬 댓글 ${Number(countBefore.replace(/\D/g, "")) - 1}`, `${countBefore} → ${await heading(A.page)}`);
+check("US5-10 블로그 주인이 답글 삭제 → 자리·💬 −1", (await heading(A.page)) === `댓글 ${Number(countBefore.replace(/\D/g, "")) - 1}`, `${countBefore} → ${await heading(A.page)}`);
 check("US5-10 지운 답글 DB 내용 빈 글자", (await one("SELECT content FROM replies WHERE content = '' AND deleted_at IS NOT NULL AND author_id = $1 LIMIT 1", [uid.B]))?.content === "");
 
 // US5-11 A가 자기 글에 단 답글 보상 없음

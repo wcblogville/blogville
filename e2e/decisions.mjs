@@ -63,7 +63,7 @@ const walletText = await page.locator("main").innerText();
 check("GAME-07 헤더 코인을 누르면 내역 화면", page.url().endsWith("/wallet"));
 check("GAME-07 구매 기록에 아이템 이름", /아이템 구매 · 바닷가/.test(walletText) && walletText.includes("−120"));
 check("GAME-07 가입 축하·출석·옛 연속 출석 보너스 기록", ["가입 축하", "출석", "연속 출석 보너스"].every((t) => walletText.includes(t)));
-const walletCoins = Number(walletText.match(/🪙 ([\d,]+)/)[1].replace(/,/g, ""));
+const walletCoins = Number((await page.locator('[data-wallet-stat="coin"]').innerText()).replace(/,/g, ""));
 check("GAME-07 내역 화면 코인 = 헤더 코인", walletCoins === (await coins(page)), `${walletCoins}`);
 await page.screenshot({ path: `${outDir}/52-wallet.png`, fullPage: true });
 

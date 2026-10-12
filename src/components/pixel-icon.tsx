@@ -19,3 +19,28 @@ export function PixelIcon({ name, scale = 2, label, className = "" }: { name: Ic
     />
   );
 }
+
+/**
+ * 도트 아이콘 + 글자 한 줄 (그림 글자 "🪙 120" 대신, 2026-10-12 "선물이나 코인이나 다 도트로").
+ * 아이콘은 꾸밈이라 화면 읽기에는 글자만 읽힌다. 글자가 없는 숫자 옆이면 label로 뜻을 준다 (예: label="코인")
+ */
+export function IconText({
+  icon,
+  children,
+  scale = 1,
+  label,
+  className = "",
+}: {
+  icon: IconName;
+  children?: React.ReactNode;
+  scale?: number;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-1 align-middle ${className}`}>
+      <PixelIcon name={icon} scale={scale} label={label} />
+      {children}
+    </span>
+  );
+}

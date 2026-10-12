@@ -142,8 +142,8 @@ let deleteAction = null;
   check("7 관리자 로그인 → 광장", page.url().includes("/town"));
   // 마을에는 헤더 막대가 없어서 ☰ 메뉴 아래에 있다 (사용자 요청 2026-10-08)
   await page.getByRole("button", { name: /메뉴/ }).click();
-  check("7 ☰ 메뉴에 [👑 관리자]", await page.getByRole("link", { name: "👑 관리자" }).isVisible());
-  await page.getByRole("link", { name: "👑 관리자" }).click();
+  check("7 ☰ 메뉴에 [👑 관리자]", await page.getByRole("link", { name: "관리자" }).isVisible());
+  await page.getByRole("link", { name: "관리자" }).click();
   await page.waitForURL(/admin/);
   await page.getByText("최근 가입").waitFor();
   await page.screenshot({ path: `${outDir}/41-admin.png`, fullPage: true });
@@ -180,7 +180,7 @@ let deleteAction = null;
 {
   const { ctx, page } = await fresh();
   await loginDev(page, "normal01");
-  check("6 일반 회원 헤더에 [👑 관리자] 없음", (await page.getByRole("link", { name: "👑 관리자" }).count()) === 0);
+  check("6 일반 회원 헤더에 [👑 관리자] 없음", (await page.getByRole("link", { name: "관리자" }).count()) === 0);
   const res = await page.goto(`${BASE}/admin`);
   check("6 일반 회원 /admin → 404", res?.status() === 404 && (await page.getByText("최근 가입").count()) === 0);
   if (deleteAction) {

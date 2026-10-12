@@ -8,12 +8,17 @@ import { SEARCH_QUERY_MAX } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
 import type { BlogSidebar } from "@/server/blog";
 import { VisitWidget } from "./visit-widget";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
+import type { IconName } from "@/lib/art/icons";
 
 /** 위젯 한 칸: 나무 이름표 제목 + 내용 */
-export function Widget({ title, children, label, ...rest }: { title: React.ReactNode; children: React.ReactNode; label: string } & React.HTMLAttributes<HTMLElement>) {
+export function Widget({ title, icon, children, label, ...rest }: { title: React.ReactNode; icon?: IconName; children: React.ReactNode; label: string } & React.HTMLAttributes<HTMLElement>) {
   return (
     <section className="pixel-card" aria-label={label} {...rest}>
-      <h2 className="pb-plank px-4 py-2 font-display text-lg">{title}</h2>
+      <h2 className="pb-plank flex items-center gap-2 px-4 py-2 font-display text-lg">
+        {icon && <PixelIcon name={icon} scale={2} />}
+        {title}
+      </h2>
       <div className="p-3">{children}</div>
     </section>
   );
@@ -24,7 +29,7 @@ const itemLink = "pb-row flex min-h-11 min-w-0 items-center gap-2 px-2 py-1 text
 /** 블로그 안 검색 (모두에게): GET ?s= */
 export function BlogFindBox({ base, s }: { base: string; s: string }) {
   return (
-    <Widget title="🔍 블로그 검색" label="블로그 검색" data-widget="search">
+    <Widget icon="search" title="블로그 검색" label="블로그 검색" data-widget="search">
       <Form action={base} className="flex gap-3 p-[3px]" role="search" aria-label="블로그 내 검색">
         <input
           name="s"
@@ -55,11 +60,11 @@ function PostLines({ base, posts, empty, rank = false }: { base: string; posts: 
               </span>
             )}
             <span className="min-w-0 flex-1 truncate">
-              {p.visibility === "private" && <span aria-label="비공개">🔒 </span>}
-              {p.visibility === "neighbors" && <span aria-label="이웃 공개">👥 </span>}
+              {p.visibility === "private" && <PixelIcon name="lock" scale={1} label="비공개" className="mr-1 align-[-1px]" />}
+              {p.visibility === "neighbors" && <PixelIcon name="people" scale={1} label="이웃 공개" className="mr-1 align-[-1px]" />}
               {p.title}
             </span>
-            <span className="shrink-0 text-xs text-ink-soft">{rank ? `👀 ${p.viewCount.toLocaleString("ko-KR")}` : formatDate(p.createdAt)}</span>
+            <span className="shrink-0 text-xs text-ink-soft">{rank ? <IconText icon="eye" label="조회수">{p.viewCount.toLocaleString("ko-KR")}</IconText> : formatDate(p.createdAt)}</span>
           </Link>
         </li>
       ))}
@@ -69,7 +74,7 @@ function PostLines({ base, posts, empty, rank = false }: { base: string; posts: 
 
 export function RecentPostsWidget({ base, posts }: { base: string; posts: Post[] }) {
   return (
-    <Widget title="📝 최근 글" label="최근 글" data-widget="recent">
+    <Widget icon="file" title="최근 글" label="최근 글" data-widget="recent">
       <PostLines base={base} posts={posts} empty="아직 글이 없어요" />
     </Widget>
   );
@@ -77,7 +82,7 @@ export function RecentPostsWidget({ base, posts }: { base: string; posts: Post[]
 
 export function PopularPostsWidget({ base, posts }: { base: string; posts: Post[] }) {
   return (
-    <Widget title="🔥 인기 글" label="인기 글" data-widget="popular">
+    <Widget icon="fire" title="인기 글" label="인기 글" data-widget="popular">
       <PostLines base={base} posts={posts} empty="아직 읽힌 글이 없어요" rank />
     </Widget>
   );
@@ -85,7 +90,7 @@ export function PopularPostsWidget({ base, posts }: { base: string; posts: Post[
 
 export function RecentCommentsWidget({ base, comments }: { base: string; comments: BlogSidebar["comments"] }) {
   return (
-    <Widget title="💬 최근 댓글" label="최근 댓글" data-widget="comments">
+    <Widget icon="chat" title="최근 댓글" label="최근 댓글" data-widget="comments">
       {comments.length ? (
         <ul className="space-y-0.5">
           {comments.map((c) => (
@@ -111,7 +116,7 @@ export function RecentCommentsWidget({ base, comments }: { base: string; comment
 
 export function TagsWidget({ base, tags, current }: { base: string; tags: BlogSidebar["tags"]; current: string | null }) {
   return (
-    <Widget title="🏷 태그" label="태그 목록" data-widget="tags">
+    <Widget icon="tag" title="태그" label="태그 목록" data-widget="tags">
       {tags.length ? (
         <ul className="flex flex-wrap gap-2">
           {tags.map((t) => {
@@ -140,7 +145,7 @@ export function TagsWidget({ base, tags, current }: { base: string; tags: BlogSi
 
 export function VisitorsWidget({ blogId, initial, isOwner }: { blogId: number; initial: { today: number; yesterday: number; total: number }; isOwner: boolean }) {
   return (
-    <Widget title="👣 방문자" label="방문자 수" data-widget="visitors">
+    <Widget icon="foot" title="방문자" label="방문자 수" data-widget="visitors">
       <VisitWidget blogId={blogId} initial={initial} isOwner={isOwner} />
     </Widget>
   );

@@ -44,6 +44,7 @@ import {
 } from "./layout";
 import { boxWalkable, hash, terrain, type Box } from "./terrain";
 import { PIXEL } from "@/lib/art/pixel";
+import type { IconName } from "@/lib/art/icons";
 import type { TownData, TownHouse, TownTarget } from "./types";
 
 /** 광장에 놓는 그림 하나. (x, y) = 아랫변 가운데 (발 닿는 곳) */
@@ -65,7 +66,7 @@ export type Structure = {
 /** 들어갈 수 있는 곳: 문 앞 좌표에서 Space / 클릭 */
 export type Entrance = {
   label: string;
-  emoji: string;
+  icon: IconName;
   x: number;
   y: number;
   target: TownTarget;
@@ -98,26 +99,26 @@ export function townLayout(data: TownData) {
   const bw = BOARD_SIZE.width, bh = BOARD_SIZE.height;
   structures.push({ texture: "board", ...BOARD_POS, w: bw, h: bh, solid: { w: bw * 0.92, h: 22 }, shadow: bw, label: "마을 게시판" });
   entrances.push({
-    label: data.attendanceDay ? `마을 게시판 (출석 ${data.attendanceDay}일차 ✅)` : "마을 게시판", emoji: "📋", x: BOARD_POS.x, y: BOARD_POS.y + 26,
+    label: data.attendanceDay ? `마을 게시판 (출석 ${data.attendanceDay}일차)` : "마을 게시판", icon: "board", x: BOARD_POS.x, y: BOARD_POS.y + 26,
     target: { kind: "link", href: BOARD_HREF }, area: { x: BOARD_POS.x - bw / 2, y: BOARD_POS.y - bh, w: bw, h: bh }, promptY: BOARD_POS.y - bh - 6,
   });
 
   // 상점
   structures.push({ texture: "shop", ...SHOP_POS, w: SHOP_SIZE.width, h: SHOP_SIZE.height, solid: { w: SHOP_SIZE.width * 0.86, h: 60 }, shadow: SHOP_SIZE.width, label: "상점" });
   entrances.push({
-    label: "상점", emoji: "🏪", x: SHOP_POS.x + 40, y: SHOP_POS.y + 24, target: need("/shop"),
+    label: "상점", icon: "shop", x: SHOP_POS.x + 40, y: SHOP_POS.y + 24, target: need("/shop"),
     area: { x: SHOP_POS.x - SHOP_SIZE.width / 2, y: SHOP_POS.y - SHOP_SIZE.height, w: SHOP_SIZE.width, h: SHOP_SIZE.height },
     promptY: SHOP_POS.y - SHOP_SIZE.height - 6,
   });
 
   // 미용실·옷가게 (SHOP-07·08): 문은 건물 오른쪽에 있다
   for (const b of [
-    { texture: "salon", pos: SALON_POS, size: SALON_SIZE, label: "미용실", emoji: "💇", href: "/salon" },
-    { texture: "clothes", pos: CLOTHES_POS, size: CLOTHES_SIZE, label: "옷가게", emoji: "👗", href: "/clothes" },
-  ]) {
+    { texture: "salon", pos: SALON_POS, size: SALON_SIZE, label: "미용실", icon: "scissors", href: "/salon" },
+    { texture: "clothes", pos: CLOTHES_POS, size: CLOTHES_SIZE, label: "옷가게", icon: "shirt", href: "/clothes" },
+  ] as const) {
     structures.push({ texture: b.texture, ...b.pos, w: b.size.width, h: b.size.height, solid: { w: b.size.width * 0.86, h: 54 }, shadow: b.size.width, label: b.label });
     entrances.push({
-      label: b.label, emoji: b.emoji, x: b.pos.x + 30, y: b.pos.y + 24, target: need(b.href),
+      label: b.label, icon: b.icon, x: b.pos.x + 30, y: b.pos.y + 24, target: need(b.href),
       area: { x: b.pos.x - b.size.width / 2, y: b.pos.y - b.size.height, w: b.size.width, h: b.size.height },
       promptY: b.pos.y - b.size.height - 6,
     });
@@ -129,7 +130,7 @@ export function townLayout(data: TownData) {
     label: "낚시터",
   });
   entrances.push({
-    label: "낚시터", emoji: "🎣", x: FISHING_POS.x, y: FISHING_POS.y + 24, target: need("/fishing"),
+    label: "낚시터", icon: "rod", x: FISHING_POS.x, y: FISHING_POS.y + 24, target: need("/fishing"),
     area: { x: FISHING_POS.x - FISHING_SIZE.width / 2, y: FISHING_POS.y - FISHING_SIZE.height, w: FISHING_SIZE.width, h: FISHING_SIZE.height },
     promptY: FISHING_POS.y - FISHING_SIZE.height - 6,
   });
@@ -140,7 +141,7 @@ export function townLayout(data: TownData) {
     label: "동물 농장",
   });
   entrances.push({
-    label: "동물 농장", emoji: "🐮", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
+    label: "동물 농장", icon: "cow", x: FARM_POS.x, y: FARM_POS.y + 24, target: need("/farm"),
     area: { x: FARM_POS.x - FARM_SIZE.width / 2, y: FARM_POS.y - FARM_SIZE.height, w: FARM_SIZE.width, h: FARM_SIZE.height },
     promptY: FARM_POS.y - FARM_SIZE.height - 6,
   });
@@ -156,7 +157,7 @@ export function townLayout(data: TownData) {
       // 내 마을의 빈 집터: 그 자리에 살 즐겨찾기 이웃을 고른다 (TOWN-18)
       if (i > 0 && mineTown) {
         entrances.push({
-          label: `빈 집터 ${i}번`, emoji: "🪧", x: pos.x, y: pos.y + 22, target: { kind: "lot", slot: i }, verb: "이웃 집 고르기",
+          label: `빈 집터 ${i}번`, icon: "sign", x: pos.x, y: pos.y + 22, target: { kind: "lot", slot: i }, verb: "이웃 집 고르기",
           area: { x: pos.x - LOT_SIZE.width / 2, y: pos.y - LOT_SIZE.height, w: LOT_SIZE.width, h: LOT_SIZE.height }, promptY: pos.y - LOT_SIZE.height - 4,
         });
       }
@@ -171,14 +172,14 @@ export function townLayout(data: TownData) {
       label: mine ? "내 집" : `${h.nickname}의 집`,
     });
     entrances.push({
-      label: mine ? "내 집" : `${h.nickname}의 집`, emoji: "🏠", x: pos.x, y: pos.y + 22, target: { kind: "link", href: `/@${h.slug}` },
+      label: mine ? "내 집" : `${h.nickname}의 집`, icon: "house", x: pos.x, y: pos.y + 22, target: { kind: "link", href: `/@${h.slug}` },
       area: { x: pos.x - w / 2, y: pos.y - hh, w, h: hh }, promptY: pos.y - hh - 4,
     });
     // 집 앞 우체통: 내 집은 내 소식(알림), 이웃집은 그 집 새 글
     const mb = { x: pos.x + w / 2 + 6, y: pos.y + 14 };
     structures.push({ texture: mine ? "mailbox:mine" : "mailbox", ...mb, w: MAILBOX_SIZE.width, h: MAILBOX_SIZE.height, solid: { w: 14, h: 10 } });
     entrances.push({
-      label: mine ? "내 우체통" : `${h.nickname}의 우체통`, emoji: "📬", x: mb.x, y: mb.y + 22, target: { kind: "mailbox", slot: i }, verb: "소식 보기",
+      label: mine ? "내 우체통" : `${h.nickname}의 우체통`, icon: "post", x: mb.x, y: mb.y + 22, target: { kind: "mailbox", slot: i }, verb: "소식 보기",
       area: { x: mb.x - MAILBOX_SIZE.width / 2, y: mb.y - MAILBOX_SIZE.height, w: MAILBOX_SIZE.width, h: MAILBOX_SIZE.height }, promptY: mb.y - MAILBOX_SIZE.height - 4,
     });
   }

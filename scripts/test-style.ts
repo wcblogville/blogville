@@ -223,11 +223,11 @@ const SHADOW = PALETTE[":"];
   expect("고른 값 검사: 옷가게에서 얼굴형은 거절", parseSelection("clothes", { face_shape: 7 }), null);
   expect("고른 값 검사: 이상한 id는 거절", [parseSelection("clothes", { hat: -1 }), parseSelection("clothes", { hat: 1.5 }), parseSelection("clothes", { hat: "x" }), parseSelection("clothes", [])], [null, null, null, null]);
   expect("고른 값 검사: 빈 값은 거절", parseSelection("clothes", {}), null);
-  expect("산 뒤 안내", styleMessage("salon", ["포니테일"], 60), "🎉 포니테일을 🪙 60에 샀어요. 새 머리가 잘 어울려요!");
-  expect("가진 것만 입은 안내", styleMessage("clothes", [], 0), "✨ 새 옷이 잘 어울려요!");
-  expect("얼굴형을 산 뒤 안내", styleMessage("salon", ["동그란 얼굴"], 60, ["face_shape"]), "🎉 동그란 얼굴을 🪙 60에 샀어요. 새 얼굴형이 잘 어울려요!");
-  expect("가진 얼굴형으로 바꾼 안내", styleMessage("salon", [], 0, ["face_shape"]), "✨ 새 얼굴형이 잘 어울려요!");
-  expect("얼굴형과 머리를 같이 바꾸면 머리 안내", styleMessage("salon", [], 0, ["hair", "face_shape"]), "✨ 새 머리가 잘 어울려요!");
+  expect("산 뒤 안내", styleMessage("salon", ["포니테일"], 60), "포니테일을 60코인에 샀어요. 새 머리가 잘 어울려요!");
+  expect("가진 것만 입은 안내", styleMessage("clothes", [], 0), "새 옷이 잘 어울려요!");
+  expect("얼굴형을 산 뒤 안내", styleMessage("salon", ["동그란 얼굴"], 60, ["face_shape"]), "동그란 얼굴을 60코인에 샀어요. 새 얼굴형이 잘 어울려요!");
+  expect("가진 얼굴형으로 바꾼 안내", styleMessage("salon", [], 0, ["face_shape"]), "새 얼굴형이 잘 어울려요!");
+  expect("얼굴형과 머리를 같이 바꾸면 머리 안내", styleMessage("salon", [], 0, ["hair", "face_shape"]), "새 머리가 잘 어울려요!");
 }
 
 if (failed) {

@@ -7,6 +7,7 @@ import { startTransition, useActionState, useEffect, useState } from "react";
 import { addComment, addReply, deleteComment, deleteReply, type CommentState } from "@/app/blog/actions";
 import { CharacterBadge } from "@/components/character";
 import type { CommentAuthor, CommentThread, CommentView, ReplyView } from "@/server/social";
+import { PixelIcon } from "@/components/pixel-icon";
 
 // 누르는 영역 44px, 글자 한 줄, 키보드 선택 표시 (FR-004, FR-005)
 const smallButton =
@@ -56,7 +57,7 @@ function Form({
         maxLength={1000}
         rows={reply ? 2 : 3}
         aria-label={reply ? "답글" : "댓글"}
-        placeholder={reply ? "답글을 남겨 주세요" : "따뜻한 댓글을 남겨 주세요 💬"}
+        placeholder={reply ? "답글을 남겨 주세요" : "따뜻한 댓글을 남겨 주세요"}
         className="pixel-input resize-y"
       />
       <div className="flex flex-wrap items-center justify-end gap-3">
@@ -174,7 +175,9 @@ function CommentLine({ c, postId }: { c: CommentView; postId: number }) {
 export function CommentSection({ postId, thread, isMember }: { postId: number; thread: CommentThread; isMember: boolean }) {
   return (
     <section id="comments" className="mt-10 scroll-mt-20" aria-label="댓글">
-      <h2 className="pixel-wood mb-3 inline-block px-3 pt-1 pb-1.5 font-display text-xl">💬 댓글 {thread.count}</h2>
+      <h2 className="pixel-wood mb-3 inline-flex items-center gap-2 px-3 pt-1 pb-1.5 font-display text-xl">
+        <PixelIcon name="chat" scale={2} />댓글 {thread.count}
+      </h2>
       <div className="divide-y-2 divide-dashed divide-[#e2c9a0]">
         {thread.comments.map((c) => (
           <CommentLine key={c.id} c={c} postId={postId} />

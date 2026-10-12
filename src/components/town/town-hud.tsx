@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { setTownLot, toggleFavorite } from "@/app/town/actions";
 import { openNotification } from "@/app/notifications/actions";
 import { OwnerAvatar } from "@/components/blog/blog-header";
 import { CharacterBadge } from "@/components/character";
 import { SignOutButton } from "@/components/sign-out-button";
-import { notificationText, notificationTime, unreadBadge, type NotificationRow } from "@/lib/notifications";
+import { GreetingQuickEdit } from "./greeting-quick-edit";
+import { NOTIFICATION_ICON, notificationText, notificationTime, unreadBadge, type NotificationRow } from "@/lib/notifications";
 import { townBus } from "./bus";
 import { houseAt, LOT_AREAS, townSpots, type TownSpot } from "./layout";
 import type { TownData, TownFriend } from "./types";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
+import type { IconName } from "@/lib/art/icons";
 
 /** 메뉴에 필요한 회원 정보 (방문자는 null) */
 export type TownHudMember = {
@@ -21,6 +24,8 @@ export type TownHudMember = {
   /** ☰ 내 프로필에 보일 사진·블로그 제목 (헤더 상태창 TOWN-10 대신, 사용자 결정 2026-10-09) */
   photoKey: string | null;
   blogTitle: string;
+  /** 마을 한마디 (친구 마을에서 나를 누르면 말풍선, 내 프로필에서 바로 고친다) */
+  greeting: string | null;
   wallet: { coins: number; level: number; current: number; needed: number; isMax: boolean };
   unread: number;
   notifications: (NotificationRow & { id: number; createdAt: Date; readAt: Date | null })[];
@@ -78,9 +83,12 @@ export function TownHud({
           className="pointer-events-auto absolute left-1/2 top-16 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/95 py-1 pl-4 pr-1 shadow-md"
           data-host-banner
         >
-          <span className="font-display text-lg">🏘 {data.host.nickname}님의 마을</span>
+          <span className="inline-flex items-center gap-2 font-display text-lg">
+            <PixelIcon name="house" scale={2} />
+            {data.host.nickname}님의 마을
+          </span>
           <Link href="/town" className="btn min-h-10 bg-leaf py-1 text-sm text-white">
-            🏠 내 마을로
+            <IconText icon="house">내 마을로</IconText>
           </Link>
         </div>
       )}
@@ -92,7 +100,7 @@ export function TownHud({
           aria-haspopup="dialog"
           className="relative flex min-h-11 items-center gap-2 rounded-full bg-white/95 px-4 font-display text-lg shadow-md hover:bg-cream focus-visible:outline-2 focus-visible:outline-sky"
         >
-          <span aria-hidden>☰</span> 메뉴
+          <PixelIcon name="menu" scale={2} /> 메뉴
           {badge && (
             <span aria-label={`알림 ${badge}개 안 읽음`} className="absolute -right-1 -top-1 min-w-5 rounded-full bg-berry px-1 text-center text-xs font-bold leading-5 text-white">
               {badge}
@@ -113,7 +121,10 @@ export function TownHud({
                   ‹
                 </button>
               )}
-              <h2 className="flex-1 font-display text-lg">{panel.kind === "mailbox" ? mailboxTitle(data, panel.slot) : PANEL_TITLE[panel.kind]}</h2>
+              <h2 className="flex flex-1 items-center gap-2 font-display text-lg">
+                {PANEL_ICON[panel.kind] && <PixelIcon name={PANEL_ICON[panel.kind]!} scale={2} />}
+                {panel.kind === "mailbox" ? mailboxTitle(data, panel.slot) : PANEL_TITLE[panel.kind]}
+              </h2>
               <button type="button" onClick={() => setPanel(null)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-cream" aria-label="닫기">
                 ✕
               </button>
@@ -140,17 +151,28 @@ export function TownHud({
 
 const PANEL_TITLE: Record<Panel["kind"], string> = {
   menu: "메뉴",
-  profile: "👤 내 프로필",
-  notifications: "🔔 알림",
-  teleport: "✨ 텔레포트",
-  friends: "👫 친구 목록",
-  lots: "🏡 이웃 집 자리",
-  mailbox: "📮 우체통",
+  profile: "내 프로필",
+  notifications: "알림",
+  teleport: "텔레포트",
+  friends: "친구 목록",
+  lots: "이웃 집 자리",
+  mailbox: "우체통",
+};
+
+/** 창 제목 옆 도트 아이콘 (그림 글자 대신, 2026-10-12) */
+const PANEL_ICON: Record<Panel["kind"], IconName | null> = {
+  menu: null,
+  profile: "user",
+  notifications: "bell",
+  teleport: "sparkle",
+  friends: "people",
+  lots: "house",
+  mailbox: "post",
 };
 
 function mailboxTitle(data: TownData, slot: number) {
   const h = houseAt(data, slot);
-  return slot === 0 && !data.host ? "📮 내 우체통" : h ? `📮 ${h.nickname}님의 우체통` : "📮 우체통";
+  return slot === 0 && !data.host ? "내 우체통" : h ? `${h.nickname}님의 우체통` : "우체통";
 }
 
 const itemClass =
@@ -173,23 +195,32 @@ function MenuPanel({
       <ul className="space-y-1">
         <li>
           <button type="button" className={itemClass} onClick={() => open({ kind: "teleport" })}>
-            <span className="text-2xl" aria-hidden>✨</span> 텔레포트
+            <PixelIcon name="sparkle" scale={2} /> 텔레포트
           </button>
         </li>
         <li>
           <Link href="/" className={itemClass}>
-            <span className="text-2xl" aria-hidden>🔑</span> 로그인하고 내 집 만들기
+            <PixelIcon name="key" scale={2} /> 로그인하고 내 집 만들기
           </Link>
         </li>
       </ul>
     );
   }
-  const items: { kind: Panel["kind"]; emoji: string; label: string; sub: string }[] = [
-    { kind: "profile", emoji: "👤", label: "내 프로필", sub: `Lv.${member.wallet.level} · 🪙 ${member.wallet.coins.toLocaleString()}` },
-    { kind: "notifications", emoji: "🔔", label: "알림", sub: badge ? `안 읽은 알림 ${badge}개` : "새 알림 없음" },
-    { kind: "teleport", emoji: "✨", label: "텔레포트", sub: "상점·농장·이웃집 앞으로" },
-    { kind: "friends", emoji: "👫", label: "친구 목록", sub: `이웃 ${member.friends.length}명` },
-    ...(ownTown ? [{ kind: "lots" as const, emoji: "🏡", label: "이웃 집 자리", sub: "즐겨찾기 이웃이 살 곳 고르기" }] : []),
+  const items: { kind: Panel["kind"]; icon: IconName; label: string; sub: ReactNode }[] = [
+    {
+      kind: "profile",
+      icon: "user",
+      label: "내 프로필",
+      sub: (
+        <>
+          Lv.{member.wallet.level} · <IconText icon="coin" label="코인">{member.wallet.coins.toLocaleString()}</IconText>
+        </>
+      ),
+    },
+    { kind: "notifications", icon: "bell", label: "알림", sub: badge ? `안 읽은 알림 ${badge}개` : "새 알림 없음" },
+    { kind: "teleport", icon: "sparkle", label: "텔레포트", sub: "상점·농장·이웃집 앞으로" },
+    { kind: "friends", icon: "people", label: "친구 목록", sub: `이웃 ${member.friends.length}명` },
+    ...(ownTown ? [{ kind: "lots" as const, icon: "house" as const, label: "이웃 집 자리", sub: "즐겨찾기 이웃이 살 곳 고르기" }] : []),
   ];
   return (
     <ul className="grid grid-cols-2 gap-2">
@@ -201,7 +232,7 @@ function MenuPanel({
             onClick={() => open((it.kind === "lots" ? { kind: "lots", slot: null } : { kind: it.kind }) as Panel)}
             className="card flex h-full min-h-24 w-full flex-col items-center justify-center gap-0.5 p-2 text-center hover:bg-cream focus-visible:outline-2 focus-visible:outline-sky"
           >
-            <span className="text-3xl" aria-hidden>{it.emoji}</span>
+            <PixelIcon name={it.icon} scale={3} />
             <span className="font-bold">{it.label}</span>
             <span className="line-clamp-1 text-xs text-ink-soft">{it.sub}</span>
           </button>
@@ -219,11 +250,11 @@ export function AccountLinks({ member }: { member: TownHudMember }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-1 border-t-2 border-line pt-2 text-sm" data-account-links>
       <Link href="/settings/account" className="inline-flex min-h-11 items-center rounded-lg px-2 hover:bg-cream">
-        ⚙️ 회원정보 수정
+        <IconText icon="gear">회원정보 수정</IconText>
       </Link>
       {member.isAdmin && (
         <Link href="/admin" className="inline-flex min-h-11 items-center rounded-lg px-2 hover:bg-cream">
-          👑 관리자
+          <IconText icon="crown">관리자</IconText>
         </Link>
       )}
       <SignOutButton userId={member.userId} />
@@ -246,15 +277,20 @@ export function ProfilePanel({ data, member, links = true }: { data: TownData; m
         <div className="min-w-0">
           <p className="truncate font-display text-xl">{data.player!.nickname}</p>
           <p className="truncate text-sm text-ink-soft" data-profile-blog>
-            📖 {member.blogTitle}
+            <PixelIcon name="book" scale={1} className="mr-1 align-[-1px]" />
+            {member.blogTitle}
           </p>
           <p className="text-sm text-ink-soft">Lv.{wallet.level}</p>
         </div>
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
-        <dt className="font-bold">🪙 코인</dt>
+        <dt className="font-bold">
+          <IconText icon="coin">코인</IconText>
+        </dt>
         <dd data-profile-coins>{wallet.coins.toLocaleString()}</dd>
-        <dt className="font-bold">✨ 경험치</dt>
+        <dt className="font-bold">
+          <IconText icon="star">경험치</IconText>
+        </dt>
         <dd>
           <span data-profile-exp>{wallet.isMax ? "최고 레벨" : `${wallet.current.toLocaleString()} / ${wallet.needed.toLocaleString()}`}</span>
           <span className="mt-1 block h-2 overflow-hidden rounded-full bg-cream" aria-hidden>
@@ -262,12 +298,19 @@ export function ProfilePanel({ data, member, links = true }: { data: TownData; m
           </span>
         </dd>
       </dl>
+      <GreetingQuickEdit greeting={member.greeting} editable={links} />
       {/* 꾸미기(옷·배경·가구)로 가는 길이 블로그 🎨 하나뿐이라 여기에도 둔다 */}
       {links && (
       <div className="flex flex-wrap gap-2 text-sm">
-        <Link href={`/@${member.slug}`} className="btn flex-1 whitespace-nowrap text-center">🏠 내 블로그</Link>
-        <Link href="/closet" className="btn flex-1 whitespace-nowrap text-center">🎨 꾸미기</Link>
-        <Link href="/wallet" className="btn flex-1 whitespace-nowrap text-center">📒 지갑</Link>
+        <Link href={`/@${member.slug}`} className="btn flex-1 whitespace-nowrap text-center">
+          <IconText icon="house">내 블로그</IconText>
+        </Link>
+        <Link href="/closet" className="btn flex-1 whitespace-nowrap text-center">
+          <IconText icon="palette">꾸미기</IconText>
+        </Link>
+        <Link href="/wallet" className="btn flex-1 whitespace-nowrap text-center">
+          <IconText icon="book">지갑</IconText>
+        </Link>
       </div>
       )}
     </div>
@@ -287,7 +330,10 @@ function NotificationsPanel({ member }: { member: TownHudMember }) {
                 <input type="hidden" name="id" value={n.id} />
                 <button type="submit" className={`${itemClass} ${n.readAt ? "text-ink-soft" : "font-bold"}`}>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm">{notificationText(n)}</span>
+                    <span className="flex items-center gap-1.5 text-sm">
+                      <PixelIcon name={NOTIFICATION_ICON[n.kind]} scale={1} />
+                      <span className="min-w-0">{notificationText(n)}</span>
+                    </span>
                     <span className="block text-xs font-normal text-ink-soft">{notificationTime(new Date(n.createdAt))}</span>
                   </span>
                 </button>
@@ -306,7 +352,7 @@ function NotificationsPanel({ member }: { member: TownHudMember }) {
 function SpotButton({ spot, onPick, sub }: { spot: TownSpot; onPick: (s: TownSpot) => void; sub?: string }) {
   return (
     <button type="button" className={itemClass} disabled={spot.empty} onClick={() => onPick(spot)} data-spot={spot.key}>
-      <span className="text-2xl" aria-hidden>{spot.emoji}</span>
+      <PixelIcon name={spot.icon} scale={2} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-bold">{spot.label}</span>
         {sub && <span className="block truncate text-xs text-ink-soft">{sub}</span>}
@@ -337,7 +383,7 @@ function TeleportPanel({ data, withPlaces = false, onPick }: { data: TownData; w
       <ol>
         {houses.map((h, i) => (
           <li key={h.key}>
-            <SpotButton spot={h} onPick={onPick} sub={houseAt(data, i)?.title ?? (i === 0 || data.host ? undefined : "친구 목록에서 ⭐를 누르면 집이 생겨요")} />
+            <SpotButton spot={h} onPick={onPick} sub={houseAt(data, i)?.title ?? (i === 0 || data.host ? undefined : "친구 목록에서 별을 누르면 집이 생겨요")} />
           </li>
         ))}
       </ol>
@@ -358,7 +404,9 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
   }
   return (
     <div>
-      <p className="px-2 pb-2 text-xs text-ink-soft">⭐ 즐겨찾기한 이웃의 집이 마을에 생겨요 ({favorites}/10)</p>
+      <p className="px-2 pb-2 text-xs text-ink-soft">
+        <IconText icon="star">즐겨찾기한 이웃의 집이 마을에 생겨요 ({favorites}/10)</IconText>
+      </p>
       {error && (
         <p role="alert" className="mb-2 rounded-xl bg-[#ffe4e4] px-3 py-2 text-sm text-berry">
           {error}
@@ -379,7 +427,7 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
               </Link>
               {spot && onPick && (
                 <button type="button" onClick={() => onPick(spot)} className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg hover:bg-cream" aria-label={`${f.nickname}의 집 앞으로 텔레포트`}>
-                  ✨
+                  <PixelIcon name="sparkle" scale={2} />
                 </button>
               )}
               {/* 친구의 마을 구경 (사용자 요청 2026-10-09). 광장이 있는 화면(onPick)에서만, 공지 블로그는 마을이 없다 */}
@@ -390,13 +438,13 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
                   aria-label={`${f.nickname}의 마을 구경`}
                   title="마을 구경"
                 >
-                  🏘
+                  <PixelIcon name="house" scale={2} />
                 </Link>
               )}
               {f.isNotice && !f.isFavorite ? (
                 // 공지 블로그는 마을에 집이 없어 ⭐ 대신 표시만 (이미 켜 둔 ⭐는 끌 수 있게 버튼을 남긴다)
                 <span className="inline-flex min-h-11 min-w-11 items-center justify-center text-lg" title="공지사항 블로그는 마을에 집이 없어요" aria-label="공지사항 블로그">
-                  📢
+                  <PixelIcon name="board" scale={2} />
                 </span>
               ) : (
                 <button
@@ -412,7 +460,7 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
                   }
                   className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg hover:bg-cream disabled:opacity-50"
                 >
-                  {f.isFavorite ? "⭐" : "☆"}
+                  <PixelIcon name={f.isFavorite ? "star" : "starEmpty"} scale={2} />
                 </button>
               )}
             </li>
@@ -458,7 +506,7 @@ function LotsPanel({
           </p>
         )}
         {favorites.length === 0 ? (
-          <p className="px-2 py-4 text-center text-sm text-ink-soft">⭐ 즐겨찾기한 이웃이 없어요. 친구 목록에서 ⭐를 눌러 보세요.</p>
+          <p className="px-2 py-4 text-center text-sm text-ink-soft">즐겨찾기한 이웃이 없어요. 친구 목록에서 별을 눌러 보세요.</p>
         ) : (
           <ul className="divide-y-2 divide-line">
             {favorites.map((f) => {
@@ -500,7 +548,7 @@ function LotsPanel({
   }
   return (
     <div>
-      <p className="px-2 pb-2 text-xs text-ink-soft">자리를 누르면 그곳에 살 ⭐ 즐겨찾기 이웃을 고를 수 있어요. 안 고른 이웃은 남은 자리에 차례로 살아요.</p>
+      <p className="px-2 pb-2 text-xs text-ink-soft">자리를 누르면 그곳에 살 즐겨찾기 이웃을 고를 수 있어요. 안 고른 이웃은 남은 자리에 차례로 살아요.</p>
       <ol>
         {houses.slice(1).map((spot, k) => {
           const i = k + 1;
@@ -508,7 +556,7 @@ function LotsPanel({
           return (
             <li key={spot.key} className="flex items-center gap-1">
               <button type="button" className={itemClass} onClick={() => choose(i)} data-lot={i}>
-                <span className="text-2xl" aria-hidden>{h ? "🏠" : "🪧"}</span>
+                <PixelIcon name={h ? "house" : "sign"} scale={2} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold">
                     {i}번 · {h ? `${h.nickname}의 집` : "빈 집터"}
@@ -522,7 +570,7 @@ function LotsPanel({
                 className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg text-lg hover:bg-cream"
                 aria-label={`${i}번 자리로 텔레포트`}
               >
-                ✨
+                <PixelIcon name="sparkle" scale={2} />
               </button>
             </li>
           );
@@ -558,7 +606,7 @@ function MailboxPanel({
           {h.recentPosts.map((p) => (
             <li key={p.id}>
               <Link href={`/@${h.slug}/${p.id}`} className={itemClass}>
-                <span aria-hidden>✉️</span>
+                <PixelIcon name="mail" scale={1} />
                 <span className="min-w-0 flex-1 truncate text-sm">{p.title}</span>
               </Link>
             </li>
@@ -566,17 +614,19 @@ function MailboxPanel({
         </ul>
       )}
       <div className="mt-2 flex gap-2 text-sm">
-        <Link href={`/@${h.slug}`} className="btn flex-1 text-center">🏠 집에 들어가기</Link>
+        <Link href={`/@${h.slug}`} className="btn flex-1 text-center">
+          <IconText icon="door">집에 들어가기</IconText>
+        </Link>
         {spot && (
           <button type="button" onClick={() => onPick(spot)} className="btn flex-1">
-            ✨ 집 앞으로
+            <IconText icon="sparkle">집 앞으로</IconText>
           </button>
         )}
       </div>
       {/* 이웃의 마을 구경 (회원만). 지금 구경하는 마을의 주인 집과 내 집은 빼고 */}
       {member && h.slug !== member.slug && !(slot === 0 && data.host) && (
         <Link href={`/town/${h.slug}`} className="btn mt-2 block w-full text-center text-sm">
-          🏘 {h.nickname}님의 마을 구경
+          <IconText icon="house">{h.nickname}님의 마을 구경</IconText>
         </Link>
       )}
     </div>

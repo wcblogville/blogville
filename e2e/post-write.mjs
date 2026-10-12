@@ -28,7 +28,9 @@ await loginDev(a, idA);
 await loginDev(b, idB);
 const userA = (await one("SELECT id FROM users WHERE username = $1", [idA])).id;
 
-const status = (page) => page.locator("p", { hasText: /\d+자 ·/ }).innerText();
+const status = async (page) => (await page.locator("p", { hasText: /\d+자 ·/ }).innerText()).replace(/\s+/g, " ").trim();
+// 발행 안내 상자 전체 (제목 글자는 아이콘 옆 span에 있어 getByText만으론 그 span만 잡힌다)
+const notice = (page) => page.getByRole("status").filter({ hasText: "글을 발행했어요!" });
 const postIdOf = (page) => Number(new URL(page.url()).pathname.match(/\/(\d+)$/)[1]);
 
 async function openWrite(page) {
@@ -40,7 +42,7 @@ async function openWrite(page) {
 async function publish(page, { title, body, visibility = "public" }) {
   await openWrite(page);
   await page.getByPlaceholder("제목").fill(title);
-  if (visibility === "private") await page.getByRole("radio", { name: "🔒 비공개" }).click();
+  if (visibility === "private") await page.getByRole("radio", { name: "비공개" }).click();
   await page.locator(".ProseMirror").click();
   await page.keyboard.type(body);
   await page.getByRole("button", { name: "발행하기" }).click();
@@ -50,17 +52,17 @@ async function publish(page, { title, body, visibility = "public" }) {
 
 // ── US1 글쓰기·발행 ──
 await openWrite(a);
-check("US1 본문 안내 문구", (await a.locator(".ProseMirror p[data-placeholder]").getAttribute("data-placeholder")) === "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️");
-check("US3-1 기본 공개", (await a.getByRole("radio", { name: "🌍 공개" }).getAttribute("aria-checked")) === "true");
+check("US1 본문 안내 문구", (await a.locator(".ProseMirror p[data-placeholder]").getAttribute("data-placeholder")) === "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요");
+check("US3-1 기본 공개", (await a.getByRole("radio", { name: "공개", exact: true }).getAttribute("aria-checked")) === "true");
 // 49자 + Enter + 50자 = 100자 → 보상 안내
 await a.locator(".ProseMirror").click();
 await a.keyboard.type("가".repeat(49));
 await a.keyboard.press("Enter");
 await a.keyboard.type("나".repeat(50));
-check("US1 100자 안내", (await status(a)) === "100자 · 저장하면 ✨ 경험치 30 · 🪙 30 보상 (하루 3번까지)", await status(a));
-await a.getByRole("radio", { name: "🔒 비공개" }).click();
+check("US1 100자 안내", (await status(a)) === "100자 · 저장하면 경험치 30 · 30 보상 (하루 3번까지)", await status(a));
+await a.getByRole("radio", { name: "비공개" }).click();
 check("US3-2 비공개 안내", (await status(a)) === "100자 · 비공개 글은 보상이 없어요", await status(a));
-await a.getByRole("radio", { name: "🌍 공개" }).click();
+await a.getByRole("radio", { name: "공개", exact: true }).click();
 // 빈 제목 → 오류, 입력값 유지
 await a.getByLabel("태그", { exact: true }).fill("남는 태그");
 await a.getByRole("button", { name: "발행하기" }).click();
@@ -88,20 +90,20 @@ check("US1 99자 안내", (await status(a)) === "99자 · 100자 이상 쓰면 �
 
 // 보상 받는 글 발행 → 안내, 새로고침하면 사라짐
 const rewardPost = await publish(a, { title: "보상 글", body: "오늘 배운 것을 정리합니다. ".repeat(8) });
-await a.getByText("🎉 글을 발행했어요!").waitFor();
-check("US1 보상 안내", (await a.getByText("🎉 글을 발행했어요!").innerText()).includes("✨ 경험치 30 · 🪙 30 코인을 받았어요"));
+await a.getByText("글을 발행했어요!").waitFor();
+check("US1 보상 안내", (await notice(a).innerText()).replace(/\s+/g, " ").includes("경험치 30 · 30 코인을 받았어요"));
 await a.waitForFunction(() => !location.search.includes("new"));
 check("US1 주소에서 ?new 지움", !a.url().includes("new"));
 await a.screenshot({ path: `${outDir}/post-write-notice.png` });
 await a.reload();
-check("US1 새로고침하면 안내 없음", !(await a.getByText("🎉 글을 발행했어요!").isVisible()));
+check("US1 새로고침하면 안내 없음", !(await a.getByText("글을 발행했어요!").isVisible()));
 // 다른 회원이 ?new=1로 열어도 안내 없음
 await b.goto(`${BASE}/@${idA}/${rewardPost}?new=1`);
-check("US1 다른 회원에게 안내 없음", !(await b.getByText("🎉 글을 발행했어요!").isVisible()));
+check("US1 다른 회원에게 안내 없음", !(await b.getByText("글을 발행했어요!").isVisible()));
 
 // 짧은 글 → 보상 없음 안내
 await publish(a, { title: "짧은 글", body: "짧다" });
-check("US1 보상 없음 안내", (await a.getByText("🎉 글을 발행했어요!").innerText()).includes("보상은 없어요"));
+check("US1 보상 없음 안내", (await notice(a).innerText()).includes("보상은 없어요"));
 
 // 서식 보존·위험 본문 제거 (서버 정화)
 await openWrite(a);
@@ -138,7 +140,7 @@ const before = await one("SELECT created_at FROM posts WHERE id = $1", [rewardPo
 await a.getByPlaceholder("제목").fill("보상 글 (고침)");
 await a.getByRole("button", { name: "수정 완료" }).click();
 await a.waitForURL(new RegExp(`/@${idA}/${rewardPost}$`));
-check("US2 수정 뒤 안내 없음", !(await a.getByText("🎉 글을 발행했어요!").isVisible()) && (await a.locator("h1").innerText()) === "보상 글 (고침)");
+check("US2 수정 뒤 안내 없음", !(await a.getByText("글을 발행했어요!").isVisible()) && (await a.locator("h1").innerText()) === "보상 글 (고침)");
 const after = await one("SELECT created_at FROM posts WHERE id = $1", [rewardPost]);
 check("US2 작성 시각 그대로", before.created_at.getTime() === after.created_at.getTime());
 
@@ -188,7 +190,7 @@ check("US2 삭제 뒤 경험치·코인 그대로", walletBefore.c === walletAft
 await publish(a, { title: "보상 글 2", body: "오늘 배운 것을 정리합니다. ".repeat(8) });
 await publish(a, { title: "보상 글 3", body: "오늘 배운 것을 정리합니다. ".repeat(8) });
 await publish(a, { title: "보상 글 4", body: "오늘 배운 것을 정리합니다. ".repeat(8) });
-check("US2 지운 글도 하루 3번에 포함", (await a.getByText("🎉 글을 발행했어요!").innerText()).includes("보상은 없어요"));
+check("US2 지운 글도 하루 3번에 포함", (await notice(a).innerText()).includes("보상은 없어요"));
 
 // ── US3 공개 범위 ──
 const privatePost = await publish(a, { title: "비밀 글", body: "주인만 보는 글입니다", visibility: "private" });
@@ -218,7 +220,7 @@ check("US3 비공개로 바뀐 글에 댓글 → '글을 찾을 수 없어요'",
 const ledgerBefore = (await one("SELECT COUNT(*)::int AS n FROM point_ledger WHERE user_id = $1 AND reason = 'post'", [userA])).n;
 await a.goto(`${BASE}/write/${privatePost}`);
 await a.locator(".ProseMirror").waitFor();
-await a.getByRole("radio", { name: "🌍 공개" }).click();
+await a.getByRole("radio", { name: "공개", exact: true }).click();
 await a.getByRole("button", { name: "수정 완료" }).click();
 await a.waitForURL(new RegExp(`/@${idA}/${privatePost}$`));
 const ledgerAfter = (await one("SELECT COUNT(*)::int AS n FROM point_ledger WHERE user_id = $1 AND reason = 'post'", [userA])).n;

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { REWARD_RULES } from "@/lib/game";
 import { clearDraft } from "@/lib/draft";
+import { IconText } from "@/components/pixel-icon";
 
 /**
  * 발행 안내 (POST-01·GAME-05 / FR-013, research R13). 주인에게만, 발행 직후 한 번.
@@ -20,10 +21,10 @@ export function PublishNotice({ kind, userId }: { kind: "reward" | "noReward"; u
 
   return (
     <div className="pixel-panel mb-8 bg-[#fff3d6] p-4 text-center" role="status">
-      🎉 글을 발행했어요!{" "}
+      <IconText icon="party">글을 발행했어요!</IconText>{" "}
       {kind === "reward" ? (
         <b>
-          ✨ 경험치 {REWARD_RULES.post.exp} · 🪙 {REWARD_RULES.post.coins} 코인을 받았어요
+          <IconText icon="star">경험치 {REWARD_RULES.post.exp}</IconText> · <IconText icon="coin">{REWARD_RULES.post.coins}</IconText> 코인을 받았어요
         </b>
       ) : (
         <span className="text-ink-soft">(비공개 글, 짧은 글, 또는 오늘 글쓰기 보상 {REWARD_RULES.post.dailyLimit}번을 다 받아서 보상은 없어요)</span>

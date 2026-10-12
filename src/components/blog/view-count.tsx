@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { recordPostView } from "@/app/blog/[slug]/[postId]/actions";
+import { IconText } from "@/components/pixel-icon";
 
 /**
  * 글 조회수 `👀 N` (POST-06 / FR-046, research R2). 처음 값은 서버가 정한다(오늘 이 브라우저로 처음이면 저장값 + 1).
@@ -15,5 +16,9 @@ export function ViewCount({ postId, initial, count }: { postId: number; initial:
       .then((r) => r && setValue(r.viewCount))
       .catch(() => {});
   }, [postId, count]);
-  return <span>👀 {value}</span>;
+  return (
+    <span data-view-count>
+      <IconText icon="eye" label="조회수">{value}</IconText>
+    </span>
+  );
 }

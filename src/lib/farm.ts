@@ -1,5 +1,7 @@
 // 동물 농장 규칙 (TOWN-09). DB를 쓰지 않는 순수 계산만 둔다
 // 종류별 숫자(성장치, 보상)는 animal_species 테이블에 있다 (scripts/seed.ts)
+import type { IconName } from "./art/icons";
+
 
 /** 한 번에 키울 수 있는 알·동물 수 (다 키운 동물은 세지 않는다) */
 export const MAX_ACTIVE_ANIMALS = 5;
@@ -11,10 +13,10 @@ export const EGG_PRICE = 100;
 export const POST_GROWTH = 10;
 
 export type CareAction = "feed" | "water" | "pet";
-export const CARE_ACTIONS: { action: CareAction; label: string; emoji: string; growth: number }[] = [
-  { action: "feed", label: "밥 주기", emoji: "🥕", growth: 10 },
-  { action: "water", label: "물 주기", emoji: "💧", growth: 10 },
-  { action: "pet", label: "쓰다듬기", emoji: "🤲", growth: 5 },
+export const CARE_ACTIONS: { action: CareAction; label: string; icon: IconName; growth: number }[] = [
+  { action: "feed", label: "밥 주기", icon: "carrot", growth: 10 },
+  { action: "water", label: "물 주기", icon: "drop", growth: 10 },
+  { action: "pet", label: "쓰다듬기", icon: "hand", growth: 5 },
 ];
 
 export type AnimalStage = "baby" | "teen" | "adult";
@@ -67,24 +69,44 @@ export function subject(name: string): string {
 // "낮은 확률로 망아지가 유니콘이나 페가수스 … 진화") =====
 // 숫자는 모두 여기 한 곳에서 정한다. 농장 ⓘ 안내 창도 이 표를 그대로 보여 준다. 실제 뽑기는 서버가 node:crypto로 한다
 
-/** 알에서 나오는 등급 */
-export type HatchRarity = "common" | "rare" | "epic";
-export const RARITY_LABEL: Record<HatchRarity, string> = { common: "일반", rare: "희귀", epic: "아주 희귀" };
+/**
+ * 알에서 나오는 등급 (2026-10-12 "희귀 매우 희귀 이런식으로", 야생 동물 열 종류를 더하며 네 등급으로 다시 짰다).
+ * 보통(농장 동물) 50% · 희귀(집·숲 동물) 30% · 매우 희귀(큰 숲 동물) 15% · 전설(맹수의 왕들) 5%.
+ * 키(common·rare·epic)는 예전 그대로 두고 이름만 바꿨다 (예전 "일반"·"아주 희귀")
+ */
+export type HatchRarity = "common" | "rare" | "epic" | "legend";
+export const RARITY_LABEL: Record<HatchRarity, string> = { common: "보통", rare: "희귀", epic: "매우 희귀", legend: "전설" };
+/** 등급 도트 아이콘 (src/lib/art/icons.ts, 그림 글자 대신: 2026-10-12 도트 아이콘) */
+export const RARITY_ICON: Record<HatchRarity, IconName> = { common: "egg", rare: "star", epic: "sparkle", legend: "crown" };
 /** 등급마다 알에서 나올 확률 (%), 모두 더하면 100. 같은 등급 안의 동물들은 똑같이 나눈다 */
-export const RARITY_ODDS: Record<HatchRarity, number> = { common: 60, rare: 32, epic: 8 };
-/** 동물 종류(animal_species.code)마다 등급. 알에서는 아홉 종류가 모두 나온다 (분양은 값을 내고 바로 고른다) */
+export const RARITY_ODDS: Record<HatchRarity, number> = { common: 50, rare: 30, epic: 15, legend: 5 };
+/** 동물 종류(animal_species.code)마다 등급. 알에서는 열아홉 종류가 모두 나온다 (분양은 값을 내고 바로 고른다) */
 export const HATCH_RARITY: Record<string, HatchRarity> = {
+  // 보통 50% (다섯 종류, 하나에 10%): 농장에서 흔한 동물
   chick: "common",
   bunny: "common",
   hamster: "common",
-  piglet: "rare",
+  piglet: "common",
+  lamb: "common",
+  // 희귀 30% (여섯 종류, 하나에 5%): 집에서 키우는 동물과 순한 숲 동물
   kitten: "rare",
   puppy: "rare",
-  lamb: "rare",
-  calf: "epic",
+  calf: "rare",
+  turtle: "rare",
+  fox: "rare",
+  deer: "rare",
+  // 매우 희귀 15% (네 종류, 하나에 3.75%): 크고 빠른 동물
   pony: "epic",
+  bear: "epic",
+  wolf: "epic",
+  cheetah: "epic",
+  // 전설 5% (네 종류, 하나에 1.25%): 맹수의 왕들
+  tiger: "legend",
+  lion: "legend",
+  leopard: "legend",
+  eagle: "legend",
 };
-export const RARITY_ORDER: HatchRarity[] = ["common", "rare", "epic"];
+export const RARITY_ORDER: HatchRarity[] = ["common", "rare", "epic", "legend"];
 /** 알 확률 비중의 합 (만분율: 1 = 0.01%) */
 export const HATCH_WEIGHT_TOTAL = 10_000;
 
@@ -119,6 +141,16 @@ export const SEX_LOOKS: Record<string, { female: string; male: string }> = {
   lamb: { female: "뿔 없는 암양", male: "돌돌 말린 뿔의 숫양" },
   calf: { female: "작은 뿔의 암소", male: "큰 뿔과 코뚜레의 황소" },
   pony: { female: "땋은 갈기의 암말", male: "길게 휘날리는 갈기의 수말" },
+  bear: { female: "긴 속눈썹", male: "어깨에 불룩한 혹" },
+  fox: { female: "긴 속눈썹", male: "더 풍성한 꼬리와 가슴 털" },
+  wolf: { female: "긴 속눈썹", male: "목에 풍성한 갈기 털" },
+  tiger: { female: "긴 속눈썹", male: "볼 털이 옆으로 뻗은 수호랑이" },
+  lion: { female: "갈기 없는 암사자", male: "머리를 감싼 큰 갈기의 수사자" },
+  eagle: { female: "긴 속눈썹", male: "뒤통수에 깃 두 가닥" },
+  turtle: { female: "긴 속눈썹", male: "길쭉한 꼬리" },
+  cheetah: { female: "긴 속눈썹", male: "목덜미 털이 쭈뼛" },
+  leopard: { female: "긴 속눈썹", male: "굵은 목과 큰 머리" },
+  deer: { female: "뿔 없는 암사슴", male: "가지 친 뿔의 수사슴" },
 };
 
 /**
@@ -148,6 +180,22 @@ export const SPECIAL_VARIANTS: SpecialVariant[] = [
   { key: "strawberry_calf", species: "calf", name: "딸기우유 송아지", chance: 4, look: "분홍 몸에 딸기 무늬" },
   { key: "unicorn", species: "pony", name: "유니콘", chance: 3, look: "금빛 뿔과 무지개 갈기" },
   { key: "pegasus", species: "pony", name: "페가수스", chance: 3, look: "하늘색 갈기와 커다란 날개" },
+  // 야생 동물 (2026-10-12): 한 가지면 4%, 두 가지면 3% + 3% (구미호·불사조는 더 드물게 2%)
+  { key: "panda_bear", species: "bear", name: "판다곰", chance: 3, look: "흰 몸에 까만 눈가·귀·다리" },
+  { key: "polar_bear", species: "bear", name: "북극곰", chance: 3, look: "새하얀 털" },
+  { key: "silver_fox", species: "fox", name: "은여우", chance: 3, look: "은빛이 섞인 까만 털" },
+  { key: "nine_tailed", species: "fox", name: "구미호", chance: 2, look: "하얀 털, 여러 갈래 꼬리와 푸른 여우불" },
+  { key: "snow_wolf", species: "wolf", name: "설원 늑대", chance: 4, look: "눈처럼 하얀 털과 얼음빛 눈" },
+  { key: "white_tiger", species: "tiger", name: "백호", chance: 4, look: "하얀 몸에 짙은 줄무늬, 파란 눈" },
+  { key: "white_lion", species: "lion", name: "백사자", chance: 4, look: "크림빛 하얀 몸과 갈기" },
+  { key: "golden_eagle", species: "eagle", name: "황금 독수리", chance: 3, look: "금빛으로 반짝이는 깃털" },
+  { key: "phoenix", species: "eagle", name: "불사조", chance: 2, look: "불꽃빛 몸과 불꽃 볏·꼬리 깃" },
+  { key: "golden_turtle", species: "turtle", name: "황금 거북", chance: 4, look: "금빛으로 반짝이는 등딱지" },
+  { key: "king_cheetah", species: "cheetah", name: "킹치타", chance: 4, look: "점이 이어진 굵은 얼룩과 등줄무늬" },
+  { key: "black_panther", species: "leopard", name: "흑표범", chance: 3, look: "까만 털에 희미한 꽃무늬" },
+  { key: "snow_leopard", species: "leopard", name: "눈표범", chance: 3, look: "하얀 털에 회색 꽃무늬" },
+  { key: "silver_deer", species: "deer", name: "은빛 사슴", chance: 3, look: "은빛 털과 수정처럼 빛나는 뿔" },
+  { key: "glowing_reindeer", species: "deer", name: "빛나는 순록", chance: 3, look: "크고 넓은 뿔, 하얀 목털, 빨갛게 빛나는 코" },
 ];
 export function variantOf(key: string | null | undefined): SpecialVariant | null {
   return (key && SPECIAL_VARIANTS.find((v) => v.key === key)) || null;

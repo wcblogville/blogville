@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { PixelIcon } from "@/components/pixel-icon";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
 import { useState, useTransition } from "react";
 import { SexMark } from "@/components/game/sex-mark";
 import { ANIMAL_SIZE, type AnimalTier, animalSvg, displaySizeChoices, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
 import { growthDataUri } from "@/lib/art/growth";
-import { ANIMAL_FORMS, animalName, animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, FORM_LABEL, HATCH_RARITY, RARITY_LABEL, STAGE_LABEL } from "@/lib/farm";
+import { ANIMAL_FORMS, animalName, animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, FORM_LABEL, HATCH_RARITY, RARITY_ICON, RARITY_LABEL, STAGE_LABEL } from "@/lib/farm";
 import type { AdoptableSpecies, FarmAnimal, FarmSkin } from "@/server/farm";
 import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalForm, setAnimalSize, wearSkin } from "./actions";
 
@@ -70,6 +70,7 @@ export function FarmView({
   return (
     <>
       <p role="status" aria-live="polite" className={`mt-4 min-h-6 text-center font-bold ${message?.ok ? "text-leaf-dark" : "text-berry"}`}>
+        {message?.ok && message.icon && <PixelIcon name={message.icon} scale={2} className="mr-2 align-middle" />}
         {message?.text}
       </p>
 
@@ -86,7 +87,8 @@ export function FarmView({
             onClick={() => run(() => claimEgg(egg.kind, egg.kind === "level" ? egg.level : undefined))}
             className="pixel-btn pixel-btn-sm bg-sun text-ink"
           >
-            🎁 {egg.label} (무료)
+            <PixelIcon name="gift" scale={1} />
+            {egg.label} (무료)
           </button>
         ))}
         <button
@@ -95,7 +97,8 @@ export function FarmView({
           onClick={() => run(buyEgg)}
           className="pixel-btn pixel-btn-sm bg-white text-ink"
         >
-          🪙 {eggPrice}으로 알 사기
+          <PixelIcon name="coin" scale={1} />
+          {eggPrice}으로 알 사기
         </button>
         <span className="text-xs text-ink-soft">
           {slotsLeft <= 0 ? "자리가 꽉 찼어요. 다 키운 뒤에 받을 수 있어요" : `레벨 ${eggEvery}마다 무료 알을 하나씩 받아요`}
@@ -110,7 +113,7 @@ export function FarmView({
             성장 아이템
           </h2>
           <Link href="/shop#growth" className="inline-flex min-h-11 items-center text-sm text-ink-soft underline">
-            🛒 상점에서 더 사기
+            <IconText icon="cart">상점에서 더 사기</IconText>
           </Link>
         </div>
         {growthItems.length === 0 ? (
@@ -134,7 +137,7 @@ export function FarmView({
             </ul>
             <p className="mt-2 text-xs text-ink-soft">
               {growing.length > 0
-                ? "아래 동물 카드의 🌱 버튼을 누르면 하나를 써요. 하루 횟수 제한 없이 가진 만큼 쓸 수 있어요."
+                ? "아래 동물 카드의 성장 아이템 버튼을 누르면 하나를 써요. 하루 횟수 제한 없이 가진 만큼 쓸 수 있어요."
                 : "알을 부화시키면 키우는 동물에게 쓸 수 있어요."}
             </p>
           </>
@@ -149,12 +152,17 @@ export function FarmView({
             동물 분양
           </h2>
           <p className="mb-3 text-sm text-ink-soft">알 없이 아기를 바로 데려와요. 키우는 자리를 함께 써요.</p>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
             {adoptable.map((sp) => (
               <li key={sp.id} className="pixel-card flex flex-col items-center p-3 text-center" data-adopt={sp.code}>
                 <AdultImage assetKey={sp.assetKey} size={96} />
                 <span className="font-display text-lg">{sp.name}</span>
                 <span className="text-xs text-ink-soft">
+                  {HATCH_RARITY[sp.code] && (
+                    <>
+                      <IconText icon={RARITY_ICON[HATCH_RARITY[sp.code]]}>{RARITY_LABEL[HATCH_RARITY[sp.code]]}</IconText> ·{" "}
+                    </>
+                  )}
                   {TIER_LABEL[ANIMAL_SIZE[sp.assetKey]?.tier ?? "medium"]} · 성장 {sp.growExp}
                 </span>
                 <button
@@ -163,7 +171,8 @@ export function FarmView({
                   onClick={() => run(() => adoptAnimal(sp.id))}
                   className="pixel-btn pixel-btn-sm mt-3 bg-sun text-ink"
                 >
-                  🪙 {sp.price} 데려오기
+                  <PixelIcon name="coin" scale={1} />
+                  {sp.price} 데려오기
                 </button>
               </li>
             ))}
@@ -191,7 +200,8 @@ export function FarmView({
                     <h3 className="font-display text-lg">알</h3>
                     <p className="text-xs text-ink-soft">무엇이 나올지 몰라요 (확률은 위 ⓘ)</p>
                     <button type="button" disabled={pending} onClick={() => run(() => hatchEgg(a.id))} className="pixel-btn pixel-btn-sm mt-3 bg-leaf-dark text-white">
-                      🐣 부화시키기
+                      <PixelIcon name="chick" scale={1} />
+                      부화시키기
                     </button>
                   </>
                 ) : (
@@ -201,15 +211,16 @@ export function FarmView({
                       <span className="text-sm text-ink-soft">· {STAGE_LABEL[animalStage(a.growth, a.growExp!)]}</span>
                     </h3>
                     {a.code && HATCH_RARITY[a.code] && HATCH_RARITY[a.code] !== "common" && (
-                      <span className="pixel-badge bg-[#fff0c2] text-xs">
-                        {HATCH_RARITY[a.code] === "epic" ? "🌟" : "⭐"} {RARITY_LABEL[HATCH_RARITY[a.code]]}
+                      <span className="pixel-badge bg-[#fff0c2] text-xs" data-rarity-badge={HATCH_RARITY[a.code]}>
+                        <IconText icon={RARITY_ICON[HATCH_RARITY[a.code]]}>{RARITY_LABEL[HATCH_RARITY[a.code]]}</IconText>
                       </span>
                     )}
                     <div className="pixel-bar mt-3 w-full" role="progressbar" aria-valuenow={a.growth} aria-valuemax={a.growExp!} aria-label="성장">
                       <div className="pixel-bar-fill" style={{ width: `${Math.min(100, (a.growth / a.growExp!) * 100)}%` }} />
                     </div>
                     <p className="mt-2 text-xs text-ink-soft">
-                      성장 {a.growth} / {a.growExp} · 다 키우면 ✨ {a.rewardExp} · 🪙 {a.rewardCoins}
+                      성장 {a.growth} / {a.growExp} · 다 키우면 <IconText icon="star" label="경험치">{a.rewardExp}</IconText> ·{" "}
+                      <IconText icon="coin" label="코인">{a.rewardCoins}</IconText>
                     </p>
                     <div className="mt-4 flex flex-wrap justify-center gap-3">
                       {CARE_ACTIONS.map((c) => {
@@ -223,7 +234,8 @@ export function FarmView({
                             className="pixel-btn pixel-btn-sm bg-white px-2.5 font-sans text-xs font-bold text-ink"
                             title={done ? "오늘은 했어요" : `성장 +${c.growth}`}
                           >
-                            {c.emoji} {done ? "완료" : c.label}
+                            <PixelIcon name={c.icon} scale={1} />
+                            {done ? "완료" : c.label}
                           </button>
                         );
                       })}
@@ -246,8 +258,8 @@ export function FarmView({
                             >
                               {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
                               <img src={growthDataUri(g.assetKey, 32)} alt="" width={32} height={32} className="pixelated" />
-                              🌱 {g.name} ×{g.quantity}
-                              <span className="font-bold text-leaf-dark">{finishes ? "🎉 다 자라요" : `+${value}`}</span>
+                              {g.name} ×{g.quantity}
+                              <span className="font-bold text-leaf-dark">{finishes ? "다 자라요!" : `+${value}`}</span>
                             </button>
                           );
                         })}
@@ -268,7 +280,7 @@ export function FarmView({
             <PixelIcon name="palette" />
             스킨 입히기
           </h2>
-          <p className="mb-3 text-sm text-ink-soft">한 번 산 스킨은 같은 종류의 내 동물 모두에게 입힐 수 있어요. 광장·우리 집에서도 그 색으로 보여요. ✨ 특별 진화한 동물은 제 모습 그대로라 스킨을 입지 않아요.</p>
+          <p className="mb-3 text-sm text-ink-soft">한 번 산 스킨은 같은 종류의 내 동물 모두에게 입힐 수 있어요. 광장·우리 집에서도 그 색으로 보여요. 특별 진화한 동물은 제 모습 그대로라 스킨을 입지 않아요.</p>
           <div className="pixel-card p-3">
             <ul className="flex gap-3 overflow-x-auto p-1 pb-2" aria-label="스킨을 입힐 동물">
               {dressable.map((a) => (
@@ -299,7 +311,7 @@ export function FarmView({
                       onClick={() => run(() => wearSkin(dressing.id, k.id))}
                       className={`pixel-btn pixel-btn-sm mt-2 px-2 font-sans text-xs font-bold ${k.owned ? "bg-white text-ink" : "bg-sun text-ink"}`}
                     >
-                      {wearing ? "✓ 입는 중" : k.owned ? "입히기" : `🪙 ${k.price} 사서 입히기`}
+                      {wearing ? "✓ 입는 중" : k.owned ? "입히기" : <IconText icon="coin">{k.price} 사서 입히기</IconText>}
                     </button>
                   </li>
                 );
@@ -331,7 +343,7 @@ export function FarmView({
                 data-variant={a.variant ?? undefined}
               >
                 <AnimalImage animal={a} size={96} />
-                {a.variant && <span className="pixel-badge bg-[#fff0a8] text-[11px] font-bold">✨ 특별 진화</span>}
+                {a.variant && <span className="pixel-badge bg-[#fff0a8] text-[11px] font-bold"><IconText icon="sparkle">특별 진화</IconText></span>}
                 <span className="font-display">
                   {animalName(a.name!, a.variant)} <SexMark sex={a.sex} />
                 </span>
@@ -348,7 +360,7 @@ export function FarmView({
                       data-form-choice={f}
                       className={`pixel-btn pixel-btn-sm px-1 py-0.5 font-sans text-[11px] ${a.displayForm === f ? "bg-leaf font-bold text-white" : "bg-white text-ink"}`}
                     >
-                      {f === "baby" ? "🍼 " : ""}
+                      {f === "baby" && <PixelIcon name="bottle" scale={1} className="mr-0.5 align-[-1px]" />}
                       {FORM_LABEL[f]}
                     </button>
                   ))}

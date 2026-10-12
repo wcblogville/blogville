@@ -18,7 +18,7 @@ export function TownMenu({ data, member: hud, className = "" }: { data: TownData
   const places: Place[] = member
     ? [
         { icon: "pencil", label: "글쓰기", sub: "새 글 쓰기", href: "/write" },
-        { icon: "post", label: "출석 체크", sub: data.attendanceDay ? `오늘 ${data.attendanceDay}일차 ✅` : undefined, href: "/attendance" },
+        { icon: "post", label: "출석 체크", sub: data.attendanceDay ? `오늘 ${data.attendanceDay}일차 출석 완료` : undefined, href: "/attendance" },
         { icon: "palette", label: "꾸미기", sub: "옷·배경·가구 바꾸기", href: "/closet" },
         { icon: "book", label: "지갑", sub: "코인·경험치 기록", href: "/wallet" },
         { icon: "paw", label: "동물 농장", sub: "알 부화 · 동물 키우기", href: "/farm" },

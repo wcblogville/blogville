@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { ItemArt } from "@/components/item-art";
-import { PixelIcon } from "@/components/pixel-icon";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
+import type { IconName } from "@/lib/art/icons";
 import { withJosa } from "@/lib/josa";
 import { buttonState, purchaseMessage, type ShopItem } from "@/lib/shop";
 import { buyItem } from "./actions";
 
 /** 산 뒤 안내. link: 산 것을 쓰러 가는 곳 (꾸미기·우리 집·동물 농장). pcOnly: 휴대폰에는 광장이 없어 숨기는 링크 */
-export type ShopMessage = { ok: boolean; text: string; link?: { href: string; label: string; pcOnly?: boolean } };
+export type ShopMessage = { ok: boolean; text: string; link?: { href: string; label: string; icon?: IconName; pcOnly?: boolean } };
 
 export function ShopGrid({
   items,
@@ -60,18 +61,18 @@ export function ShopGrid({
                   if (!r.ok) return onMessage({ ok: false, text: r.error });
                   onMessage(
                     item.type === "furniture"
-                      ? { ok: true, text: `🎉 ${withJosa(r.name, "을/를")} 샀어요! 내 블로그의 우리 집에 놓아 보세요.`, link: { href: `/@${blogSlug}`, label: "🏠 우리 집으로" } }
+                      ? { ok: true, text: `${withJosa(r.name, "을/를")} 샀어요! 내 블로그의 우리 집에 놓아 보세요.`, link: { href: `/@${blogSlug}`, label: "우리 집으로", icon: "house" } }
                       : {
                           ok: true,
                           text: purchaseMessage(r.kind, r.name),
-                          link: r.kind === "growth" ? { href: "/farm", label: "🐮 동물 농장으로" } : { href: "/closet", label: "🎨 꾸미기로" },
+                          link: r.kind === "growth" ? { href: "/farm", label: "동물 농장으로", icon: "cow" } : { href: "/closet", label: "꾸미기로", icon: "palette" },
                         },
                   );
                 })
               }
               className={`pixel-btn pixel-btn-sm mt-4 ${state === "buy" ? "bg-sun" : "bg-[#f1ebe2]"} text-ink`}
             >
-              {state === "owned" ? "보유 중" : state === "locked" ? `🔒 Lv.${item.requiredLevel}` : state === "short" ? "코인 부족" : "사기"}
+              {state === "owned" ? "보유 중" : state === "locked" ? <IconText icon="lock">Lv.{item.requiredLevel}</IconText> : state === "short" ? "코인 부족" : "사기"}
             </button>
           </article>
         );

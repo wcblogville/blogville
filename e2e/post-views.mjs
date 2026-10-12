@@ -33,7 +33,7 @@ const postA = await newPost("조회 글 A");
 const postB = await newPost("조회 글 B");
 const secret = await newPost("비공개", "private");
 const stored = async (id) => (await one("SELECT view_count, updated_at FROM posts WHERE id = $1", [id]));
-const shown = async (page) => Number((await page.getByText(/^👀 \d+$/).innerText()).replace(/\D/g, ""));
+const shown = async (page) => Number((await page.locator("[data-view-count]").innerText()).replace(/\D/g, ""));
 
 /** 글 상세를 열고 기록 요청이 끝날 때까지 기다린다 */
 async function open(page, id) {

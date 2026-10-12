@@ -54,6 +54,7 @@ const menu = p.locator("[data-town-menu]");
 await menu.waitFor();
 check("☰ 메뉴: 광장으로 옮기지 않고 메뉴", new URL(p.url()).search === "?menu=1" && (await menu.isVisible()));
 check("☰ 메뉴: 내 프로필 (블로그 이름·코인·경험치)", (await menu.locator("[data-profile-blog]").isVisible()) && (await menu.locator("[data-profile-coins]").isVisible()) && (await menu.locator("[data-profile-exp]").isVisible()));
+check("☰ 메뉴: 마을 한마디는 보기만 (고치기 버튼 없음)", (await menu.locator("[data-greeting-quick]").isVisible()) && (await menu.getByRole("button", { name: "마을 한마디 고치기" }).count()) === 0);
 for (const name of ["글쓰기", "출석 체크", "꾸미기", "지갑", "동물 농장", "낚시터"]) {
   check(`☰ 메뉴: '${name}' 버튼`, await menu.getByRole("link", { name: new RegExp(name) }).isVisible());
 }
