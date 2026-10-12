@@ -5,7 +5,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { animalCares, animalSkins, animalSpecies, pointLedger, userAnimalSkins, userAnimals } from "@/db/schema";
-import { CARE_ACTIONS, type CareAction, EGG_PRICE, levelEggLevels, MAX_ACTIVE_ANIMALS, pickWeighted, subject } from "@/lib/farm";
+import { CARE_ACTIONS, type CareAction, DISPLAY_SIZE_LABEL, EGG_PRICE, isDisplaySize, levelEggLevels, MAX_ACTIVE_ANIMALS, pickWeighted, subject } from "@/lib/farm";
 import { todayKST } from "@/lib/game";
 import { parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
@@ -206,4 +206,23 @@ export async function wearSkin(animalId: unknown, skinId: unknown): Promise<Farm
   // 코인·광장 동물·블로그 방 동물이 바뀐다
   if (result.ok) revalidatePath("/", "layout");
   return result;
+}
+
+/**
+ * 다 키운 동물 크기 바꾸기 (사용자 요청 2026-10-12 "햄스터는 완전 작게 데리고 다니고 싶을 수 있잖아"). 무료, 언제든 바꾼다.
+ * 내 동물이고 다 자란 동물만. 광장에서 따라다니는 동물·우리 집 방 동물·농장 카드가 이 크기로 그려진다
+ */
+export async function setAnimalSize(animalId: unknown, size: unknown): Promise<FarmResult> {
+  const viewer = await requireMember();
+  const id = parseId(animalId);
+  if (id === null || !isDisplaySize(size)) return { ok: false, text: "잘못된 요청이에요" };
+  const [row] = await db
+    .update(userAnimals)
+    .set({ displaySize: size })
+    .where(and(eq(userAnimals.id, id), eq(userAnimals.userId, viewer.userId), eq(userAnimals.status, "grown")))
+    .returning({ id: userAnimals.id });
+  if (!row) return { ok: false, text: "다 키운 내 동물만 크기를 바꿀 수 있어요" };
+  // 광장 동물·블로그 방 동물이 바뀐다
+  revalidatePath("/", "layout");
+  return { ok: true, text: `크기를 ${size === "normal" ? "보통으로" : DISPLAY_SIZE_LABEL[size]} 바꿨어요` };
 }

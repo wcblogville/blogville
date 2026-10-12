@@ -12,10 +12,12 @@ import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
 import { AVATAR_PARTS } from "../src/lib/art/avatar";
 import { fitSvg, PIXEL } from "../src/lib/art/pixel";
 import { FURNITURE_KEYS, furnitureRows } from "../src/lib/art/furniture";
-import { ANIMAL_SIZE, ANIMAL_SKINS, animalRadius, animalSvg, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits } from "../src/lib/art/animals";
+import { ANIMAL_SIZE, ANIMAL_SKINS, animalHalfWidth, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits } from "../src/lib/art/animals";
+import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, RIPPLE, SPLASH } from "../src/lib/art/catches";
+import { CATCHES, pickCatch } from "../src/lib/fishing";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
-import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
+import { ANIMAL_DISPLAY_SIZES, animalStage, isDisplaySize, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
 import { formatCoinsShort } from "../src/lib/format";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
@@ -282,6 +284,43 @@ expect("병아리 < 아기 돼지 < 송아지 (어른 반지름)", [animalRadius
 expect("스킨은 모두 있는 동물 종류에 붙고 기본 그림과 다르다", Object.entries(ANIMAL_SKINS).filter(([k, v]) => !hasAnimalArt(v.species) || animalSvg(v.species, "adult", 96, k) === animalSvg(v.species, "adult", 96)), []);
 expect("다른 종류의 스킨은 입지 않는다 (기본 그림)", animalSvg("animal.chick", "adult", 96, "skin.pony.zebra") === animalSvg("animal.chick", "adult", 96) && !skinFits("skin.pony.zebra", "animal.chick"), true);
 expect("따라다니는 그림판: 5칸 × 2줄(오른쪽·왼쪽), 32칸 × 3배", petSheetSvg("animal.bunny", null, 3).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [32 * PET_SHEET_FRAMES, 64, 96 * PET_SHEET_FRAMES, 192]);
+// 다 키운 동물 크기 (2026-10-12 "햄스터는 완전 작게"): 반지름을 바꿔 다시 그린다 (정수 도트), 도화지 32칸 안에 다 들어간다
+expect("햄스터 크기: 아주 작게 < 작게 < 보통 < 크게", (["tiny", "small", "normal", "large"] as const).map((z) => animalRadius("animal.hamster", "adult", z)), [3, 4, 5, 6]);
+expect("작게 그리면 반폭·키도 작다 (따라오는 거리)", animalHalfWidth("animal.hamster", "tiny") < animalHalfWidth("animal.hamster") && animalHeight("animal.pony", "small") < animalHeight("animal.pony"), true);
+expect("조랑말은 이미 가장 커서 크게가 없다", displaySizeChoices("animal.pony"), ["tiny", "small", "normal"]);
+expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), isDisplaySize(1), ANIMAL_DISPLAY_SIZES.length], [true, false, false, 4]);
+{
+  // 모든 동물·단계·크기가 32칸 안에 잘리지 않고(좌우 끝 칸·맨 위 줄이 비었다) 그려진다
+  const clipped: string[] = [];
+  for (const k of Object.keys(ANIMAL_SIZE))
+    for (const z of ANIMAL_DISPLAY_SIZES)
+      for (const st of ["baby", "teen", "adult"] as const) {
+        const svg = animalSvg(k, st, 32, null, z);
+        const cells = [...svg.matchAll(/fill="([^"]+)"(?: fill-opacity="[^"]+")? d="([^"]+)"/g)].filter(([, c]) => c !== "#3a2a1e");
+        for (const [, , d] of cells)
+          for (const m of d.matchAll(/M(\d+) (\d+)h(\d+)/g)) {
+            const [x, y, w] = [+m[1], +m[2], +m[3]];
+            if (x === 0 || x + w >= 32 || y === 0) clipped.push(`${k}:${st}:${z}`);
+          }
+      }
+  expect("모든 동물·단계·크기가 도화지 안에 들어간다", [...new Set(clipped)], []);
+}
+// 자라는 비율 (2026-10-12 "대가리가 커지는 게 아니라 그 동물에 맞는 비율로"): 어른은 아기보다 길쭉하다 (키보다 몸길이가 더 자란다)
+{
+  const box = (k: string, st: "baby" | "adult") => {
+    const xs: number[] = [];
+    const ys: number[] = [];
+    for (const m of animalSvg(k, st, 32).matchAll(/M(\d+) (\d+)h(\d+)/g)) if (+m[2] < 30) xs.push(+m[1], +m[1] + +m[3]), ys.push(+m[2]);
+    return (Math.max(...xs) - Math.min(...xs)) / (30 - Math.min(...ys));
+  };
+  // (조랑말은 다리·목·몸이 함께 길어져 폭/키 비율은 비슷하다. 머리가 작아지는 것은 그림으로 확인)
+  expect("네발 동물은 어른이 아기보다 길쭉하거나 다리가 길다 (폭/키 비율이 다르다)", ["animal.piglet", "animal.puppy", "animal.kitten", "animal.calf", "animal.lamb"].filter((k) => Math.abs(box(k, "adult") - box(k, "baby")) < 0.05), []);
+}
+// 낚시터 도트 그림 (2026-10-12 "낚을 수 있는 것들도 도트로"): 낚을 것마다 20×20칸 그림, 연출 그림은 줄 길이가 고르다
+expect("낚을 것마다 20×20 도트 그림", CATCHES.filter((c) => { const r = catchRows(c.key); return !r || r.length !== CATCH_CELLS || r.some((x) => x.length !== CATCH_CELLS); }).map((c) => c.key), []);
+expect("낚을 것 그림은 정수배 SVG", CATCHES.every((c) => catchDataUri(c.key, 2)!.includes("width='40' height='40'")), true);
+expect("찌·물보라·물결 줄 길이가 고르다", [BOBBER, SPLASH, RIPPLE].map((r) => new Set(r.map((x) => x.length)).size), [1, 1, 1]);
+expect("낚을 것 무게 합 100, 0~99가 모두 무언가를 낚는다", [CATCHES.reduce((a, c) => a + c.weight, 0), pickCatch(0).key, pickCatch(99).key], [100, "minnow", "boot"]);
 expect("걷기 칸과 뛰는 높이 수가 같다", PET_WALK_FRAMES.length === PET_WALK_LIFT.length && PET_IDLE_FRAMES.length === 2, true);
 expect("배경 1280px × 5배 → 256칸, 높이 60칸 × 5", backgroundSvg("bg.meadow", 1280, 5).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [256, BG_ROWS, 1280, BG_ROWS * 5]);
 

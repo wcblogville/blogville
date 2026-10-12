@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { PixelIcon } from "@/components/pixel-icon";
 import { useState, useTransition } from "react";
-import { ANIMAL_SIZE, type AnimalTier, animalSvg, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
+import { ANIMAL_SIZE, type AnimalTier, animalSvg, displaySizeChoices, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
 import { growthDataUri } from "@/lib/art/growth";
-import { animalStage, CARE_ACTIONS, STAGE_LABEL } from "@/lib/farm";
+import { animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, STAGE_LABEL } from "@/lib/farm";
 import type { AdoptableSpecies, FarmAnimal, FarmSkin } from "@/server/farm";
-import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, wearSkin } from "./actions";
+import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalSize, wearSkin } from "./actions";
 
 const TIER_LABEL: Record<AnimalTier, string> = { small: "작은 동물", medium: "중간 동물", large: "큰 동물" };
 
@@ -18,7 +18,7 @@ function AnimalImage({ animal, size }: { animal: FarmAnimal; size: number }) {
   const svg =
     animal.status === "egg" || !animal.assetKey || !animal.growExp
       ? eggSvg(size)
-      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size, animal.skinKey);
+      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size, animal.skinKey, animal.status === "grown" ? animal.displaySize : "normal");
   return <img src={toAnimalDataUri(svg)} alt="" width={size} height={size} className="pixelated" aria-hidden />;
 }
 
@@ -309,10 +309,28 @@ export function FarmView({
         ) : (
           <ul className="flex flex-wrap gap-4 p-1">
             {grown.map((a) => (
-              <li key={a.id} className="pixel-card flex w-28 flex-col items-center p-2 text-center" data-selected>
-                <AnimalImage animal={a} size={64} />
+              <li key={a.id} className="pixel-card flex w-36 flex-col items-center p-2 text-center" data-selected data-grown={a.id} data-display-size={a.displaySize}>
+                <AnimalImage animal={a} size={96} />
                 <span className="font-display">{a.name}</span>
                 <span className="text-[11px] text-ink-soft">{a.grownAt ? new Date(a.grownAt).toLocaleDateString("ko-KR") : ""}</span>
+                {/* 크기 고르기 (2026-10-12): 광장·우리 집에서 이 크기로 데리고 다닌다. 이미 가장 큰 동물은 "크게"가 없다 */}
+                {a.assetKey && (
+                  <div className="mt-2 grid w-full grid-cols-2 gap-1" role="group" aria-label={`${a.name} 크기`}>
+                    {displaySizeChoices(a.assetKey).map((z) => (
+                      <button
+                        key={z}
+                        type="button"
+                        disabled={pending || a.displaySize === z}
+                        aria-pressed={a.displaySize === z}
+                        onClick={() => run(() => setAnimalSize(a.id, z))}
+                        data-size-choice={z}
+                        className={`pixel-btn pixel-btn-sm px-1 py-0.5 font-sans text-[11px] ${a.displaySize === z ? "bg-sun font-bold text-ink" : "bg-white text-ink"}`}
+                      >
+                        {DISPLAY_SIZE_LABEL[z]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -152,7 +152,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         resident={{ characterAsset: blog.characterAsset, outfit: blog.outfit }}
         // 꾸미기에서 고른 배경은 창밖 풍경으로 보인다
         view={blog.backgroundAsset}
-        pet={shown && { assetKey: shown.assetKey, name: shown.name, skinKey: shown.skinKey }}
+        pet={shown && { assetKey: shown.assetKey, name: shown.name, skinKey: shown.skinKey, size: shown.size }}
         collection={
           // 도감: [🏅 도감] 버튼 → 다 키운 동물 창 (FR-029, research R-20). 누구에게나, 전시 버튼은 주인에게만
           <AnimalCollection

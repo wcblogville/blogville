@@ -696,11 +696,14 @@ export const userAnimals = pgTable(
     grownAt: timestamp("grown_at", { withTimezone: true }),
     // 입힌 스킨 (NULL = 기본 색). 그 종류의 스킨이고 주인이 산 것만 (복합 FK 두 개)
     skinId: integer("skin_id"),
+    // 다 키운 동물의 크기 (사용자 요청 2026-10-12, 주인이 농장에서 고른다). 목록은 src/lib/farm.ts ANIMAL_DISPLAY_SIZES
+    displaySize: text("display_size").notNull().default("normal"),
   },
   (t) => [
     check("user_animals_species_check", sql`(${t.status} = 'egg') = (${t.speciesId} IS NULL)`),
     check("user_animals_growth_check", sql`${t.growth} >= 0`),
     check("user_animals_level_check", sql`(${t.source} = 'level') = (${t.sourceLevel} IS NOT NULL)`),
+    check("user_animals_display_size_check", sql`${t.displaySize} IN ('tiny', 'small', 'normal', 'large')`),
     // 첫 알은 한 번, 레벨 보상 알은 레벨마다 한 번만
     uniqueIndex("user_animals_starter_uq").on(t.userId).where(sql`${t.source} = 'starter'`),
     uniqueIndex("user_animals_level_uq").on(t.userId, t.sourceLevel).where(sql`${t.source} = 'level'`),

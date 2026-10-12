@@ -18,6 +18,7 @@ import {
   petSheetDataUri,
 } from "@/lib/art/animals";
 import { WALK_FPS, WALK_FRAMES, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
+import type { AnimalDisplaySize } from "@/lib/farm";
 
 const SCALE = 4;
 const BOX = 24 * SCALE; // 걷기 그림판 한 칸 (96px)
@@ -26,7 +27,7 @@ const ROWS: Record<WalkDir, number> = { down: 0, left: 1, right: 2, up: 3 };
 /** 걷는 빠르기 (px/초), 통통 뛰는 높이 (동물 도트 3배의 정수배) */
 const SPEED = 46;
 /** 동물이 서는 거리 = 주인 반폭(8칸 × 4) + 동물 반폭(칸 × 3) + 여백 */
-const petGap = (assetKey: string) => 8 * SCALE + animalHalfWidth(assetKey) * 3 + 6;
+const petGap = (assetKey: string, size?: AnimalDisplaySize) => 8 * SCALE + animalHalfWidth(assetKey, size) * 3 + 6;
 /** 걷기 그림 한 칸 시간, 숨쉬기 한 칸 시간 (ms). 뛰는 높이는 PET_WALK_LIFT × 동물 도트 3배 */
 const PET_HOP_MS = 100;
 const PET_BREATH_MS = 600;
@@ -42,7 +43,7 @@ export function RoomResident({
   characterAsset: string;
   outfit: string[];
   /** 전시 동물 (없거나 그림이 없으면 혼자) */
-  pet: { assetKey: string; name: string; skinKey?: string | null } | null;
+  pet: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
   /** 가구 놓기 중에는 칸을 가리지 않게 숨긴다 */
   hidden?: boolean;
 }) {
@@ -51,7 +52,7 @@ export function RoomResident({
   const petRef = useRef<HTMLSpanElement>(null);
   const shown = pet && hasAnimalArt(pet.assetKey) ? pet : null;
   const sheet = walkSheetDataUri(characterAsset, outfit, SCALE);
-  const gap = shown ? petGap(shown.assetKey) : 0;
+  const gap = shown ? petGap(shown.assetKey, shown.size) : 0;
 
   useEffect(() => {
     const track = trackRef.current;
@@ -156,6 +157,7 @@ export function RoomResident({
           data-showcase
           data-size={ANIMAL_SIZE[shown.assetKey]?.tier}
           data-skin={shown.skinKey ?? ""}
+          data-display-size={shown.size ?? "normal"}
           data-walk="idle-right"
           title={shown.name}
           className="pixelated absolute bottom-0 block drop-shadow-sm"
@@ -163,7 +165,7 @@ export function RoomResident({
             left: `calc(30% + ${gap}px)`,
             width: PET_BOX,
             height: PET_BOX,
-            backgroundImage: `url("${petSheetDataUri(shown.assetKey, shown.skinKey, PET_SCALE)}")`,
+            backgroundImage: `url("${petSheetDataUri(shown.assetKey, shown.skinKey, PET_SCALE, shown.size)}")`,
             backgroundSize: `${PET_BOX * PET_SHEET_FRAMES}px ${PET_BOX * 2}px`,
             backgroundRepeat: "no-repeat",
             backgroundPosition: "0 0",

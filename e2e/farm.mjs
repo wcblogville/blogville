@@ -1,5 +1,6 @@
 // TOWN-09 동물 농장 1차: 첫 알 → 부화 → 돌보기(하루 한 번) → 다 자라면 보상, 알 사기, 5마리 제한, 글쓰기 연동
 // 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨": 동물 분양(코인), 스킨 사서 입히기, 우리 집·광장에서 스킨과 움직임
+// 2026-10-12 다 키운 동물 크기 고르기 (아주 작게~크게): 농장 카드 → 방·광장
 // 사용: 개발 서버를 띄운 상태에서 node e2e/farm.mjs <스크린샷 폴더> (실행마다 새 회원)
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
@@ -189,6 +190,29 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
   }
   check("걷는 동안 그림 칸이 바뀐다 (그림판 칸 2개 이상)", positions.size >= 2, [...positions].join(" | "));
   await page.screenshot({ path: `${outDir}/95-room-skin-pet.png` });
+
+  // 다 키운 동물 크기 (2026-10-12 "햄스터는 완전 작게 데리고 다니고 싶을 수 있잖아"): 농장 카드에서 고르면 방·광장에 그 크기로
+  await page.goto(`${BASE}/farm`);
+  const card = page.locator(`[data-grown="${adopted.id}"]`);
+  check("다 키운 동물 카드에 크기 고르기 (기본 보통)", (await card.getAttribute("data-display-size")) === "normal" && (await card.locator("[data-size-choice]").count()) >= 3);
+  check("키우는 중인 동물에는 크기 고르기가 없다", (await page.locator("[data-size-choice]").count()) === (await page.locator("[data-grown] [data-size-choice]").count()));
+  await card.locator('[data-size-choice="tiny"]').click();
+  await page.getByText(/크기를 아주 작게 바꿨어요/).waitFor();
+  check("아주 작게 → DB display_size = tiny", (await one("SELECT display_size FROM user_animals WHERE id = $1", [adopted.id])).display_size === "tiny");
+  const badSize = await db.query("UPDATE user_animals SET display_size = 'huge' WHERE id = $1", [adopted.id]).then(() => "ok", (e) => e.constraint ?? e.message);
+  check("정해진 크기만 (CHECK)", badSize === "user_animals_display_size_check", badSize);
+  await page.screenshot({ path: `${outDir}/96-farm-size.png`, fullPage: true });
+  await page.goto(`${BASE}/@${devId}`);
+  await pet.waitFor();
+  check("우리 집 방 동물도 아주 작게 (data-display-size)", (await pet.getAttribute("data-display-size")) === "tiny");
+  await page.goto(`${BASE}/town`);
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 20000 });
+  check("광장에서 따라오는 동물도 아주 작게 (data-pet-display-size)", (await page.locator("canvas").getAttribute("data-pet-display-size")) === "tiny");
+  await page.screenshot({ path: `${outDir}/97-town-tiny-pet.png` });
+  await page.goto(`${BASE}/farm`);
+  await page.locator(`[data-grown="${adopted.id}"] [data-size-choice="normal"]`).click();
+  await page.getByText(/보통으로 바꿨어요/).waitFor();
+  check("보통으로 되돌리기", (await one("SELECT display_size FROM user_animals WHERE id = $1", [adopted.id])).display_size === "normal");
 }
 
 console.log(results.join("\n"));

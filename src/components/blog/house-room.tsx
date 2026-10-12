@@ -9,6 +9,7 @@ import { furnitureDataUri } from "@/lib/art/furniture";
 import { ROOM_ART } from "@/lib/art/room";
 import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
 import type { RoofColor } from "@/lib/blog";
+import type { AnimalDisplaySize } from "@/lib/farm";
 import { ROOF_LABELS } from "@/lib/house";
 import { RoomResident } from "./room-resident";
 
@@ -50,7 +51,7 @@ export function HouseRoom({
   /** 창밖 풍경: 주인이 고른 배경 장면 (blogs.background_item_id의 asset_key) */
   view: string;
   /** 전시 동물: 주인을 따라 걷는다 */
-  pet?: { assetKey: string; name: string; skinKey?: string | null } | null;
+  pet?: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
   /** [🏅 도감] 버튼 (다 키운 동물 창). 누구에게나 */
   collection: React.ReactNode;
   className?: string;

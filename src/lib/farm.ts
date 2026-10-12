@@ -20,6 +20,18 @@ export const CARE_ACTIONS: { action: CareAction; label: string; emoji: string; g
 export type AnimalStage = "baby" | "teen" | "adult";
 export const STAGE_LABEL: Record<AnimalStage, string> = { baby: "아기", teen: "청소년", adult: "어른" };
 
+/**
+ * 다 키운 동물의 크기 (사용자 요청 2026-10-12 "햄스터는 완전 작게 데리고 다니고 싶을 수 있잖아").
+ * 주인이 농장에서 마음대로 바꾼다 (무료). DB user_animals.display_size (CHECK가 이 목록과 같다).
+ * 늘이거나 줄이지 않고 몸 반지름을 바꿔 다시 그려서 도트가 흐려지지 않는다 (animals.ts animalRadius)
+ */
+export const ANIMAL_DISPLAY_SIZES = ["tiny", "small", "normal", "large"] as const;
+export type AnimalDisplaySize = (typeof ANIMAL_DISPLAY_SIZES)[number];
+export const DISPLAY_SIZE_LABEL: Record<AnimalDisplaySize, string> = { tiny: "아주 작게", small: "작게", normal: "보통", large: "크게" };
+export function isDisplaySize(v: unknown): v is AnimalDisplaySize {
+  return typeof v === "string" && (ANIMAL_DISPLAY_SIZES as readonly string[]).includes(v);
+}
+
 /** 성장치로 단계 계산: 1/3 미만 아기, 다 자라기 전까지 청소년, 다 자라면 어른 */
 export function animalStage(growth: number, growExp: number): AnimalStage {
   if (growth >= growExp) return "adult";

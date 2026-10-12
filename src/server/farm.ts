@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { animalCares, animalSkins, animalSpecies, userAnimalSkins, userAnimals } from "@/db/schema";
-import { type CareAction, levelEggLevels, MAX_ACTIVE_ANIMALS, POST_GROWTH } from "@/lib/farm";
+import { type AnimalDisplaySize, type CareAction, levelEggLevels, MAX_ACTIVE_ANIMALS, POST_GROWTH } from "@/lib/farm";
 import { todayKST } from "@/lib/game";
 import { addLedgerEntry, type Tx } from "@/server/points";
 
@@ -14,6 +14,8 @@ export type FarmAnimal = {
   /** 입힌 스킨 (animal_skins.id·asset_key, 없으면 기본 색) */
   skinId: number | null;
   skinKey: string | null;
+  /** 다 키운 동물 크기 (주인이 고른다, 2026-10-12) */
+  displaySize: AnimalDisplaySize;
   name: string | null;
   assetKey: string | null;
   growExp: number | null;
@@ -36,6 +38,7 @@ export async function getFarm(userId: string, level: number) {
       speciesId: userAnimals.speciesId,
       skinId: userAnimals.skinId,
       skinKey: animalSkins.assetKey,
+      displaySize: sql<AnimalDisplaySize>`${userAnimals.displaySize}`,
       name: animalSpecies.name,
       assetKey: animalSpecies.assetKey,
       growExp: animalSpecies.growExp,
