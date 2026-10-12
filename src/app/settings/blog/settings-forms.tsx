@@ -59,7 +59,7 @@ export function BlogInfoForm({ title, description }: { title: string; descriptio
       </label>
       <div className="flex items-center justify-end gap-3">
         <FormResult state={state} id="blog-info-error" />
-        <button disabled={pending} className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 pt-1.5 pb-2 text-sm text-white">
+        <button disabled={pending} className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 text-white">
           저장
         </button>
       </div>
@@ -98,7 +98,7 @@ export function BlogSlugForm({ slug }: { slug: string }) {
       </div>
       <div className="flex items-center justify-end gap-3">
         <FormResult state={state} id="blog-slug-error" />
-        <button disabled={pending} className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-4 pt-1.5 pb-2 text-sm text-cream">
+        <button disabled={pending} className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-4 text-cream">
           주소 바꾸기
         </button>
       </div>
@@ -222,7 +222,7 @@ function AddForm({ action: serverAction, placeholder, label, autoFocus = false }
           aria-invalid={state.error ? true : undefined}
           autoFocus={autoFocus}
         />
-        <button disabled={pending} className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-4 pt-1.5 pb-2 text-sm text-cream">추가</button>
+        <button disabled={pending} className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-4 text-cream">추가</button>
       </form>
       {state.error && <p role="alert" className="mt-1 text-sm text-berry">{state.error}</p>}
     </div>

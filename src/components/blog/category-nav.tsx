@@ -22,7 +22,7 @@ export function CategoryNav({
   // 고른 줄은 aria-current로 표시한다 (pixel-blog.css .pb-row)
   const line = "pb-row flex min-h-11 items-center gap-1 px-2";
   return (
-    <nav className="pb-card" aria-label="카테고리" data-widget="categories">
+    <nav className="pixel-card" aria-label="카테고리" data-widget="categories">
       {/* 옆 칸 위젯과 같은 이름표 제목 (blog-sidebar.tsx Widget) */}
       <h2 className="pb-plank px-4 py-2 font-display text-lg">🗂 카테고리</h2>
       {/* 카테고리 링크는 누르는 영역 44px 이상 (FR-059, research R-24) */}

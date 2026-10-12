@@ -48,13 +48,13 @@ export default async function FeedPage(props: PageProps<"/feed">) {
               </>
             }
           >
-            <section className="pb-card p-4" aria-label="오늘 출석">
+            <section className="pixel-card p-4" aria-label="오늘 출석">
               <AttendanceToday data={board} compact />
             </section>
             <section aria-label="일차별 출석 보상">
               <AttendanceRewards data={board} />
             </section>
-            <section className="pb-card p-4" aria-label="이번 달 출석">
+            <section className="pixel-card p-4" aria-label="이번 달 출석">
               <AttendanceCalendar data={board} compact />
             </section>
           </AttendanceWindow>

@@ -184,7 +184,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
             edit(setCategoryId)(e.target.value);
             setSubcategoryId("");
           }}
-          className="pixel-input w-auto max-w-full py-2 pr-8"
+          className="pixel-select max-w-full"
           aria-label="대분류"
         >
           <option value="">카테고리 없음</option>
@@ -199,7 +199,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
           value={subcategoryId}
           onChange={(e) => edit(setSubcategoryId)(e.target.value)}
           disabled={!categoryId}
-          className="pixel-input w-auto max-w-full py-2 pr-8 disabled:opacity-50"
+          className="pixel-select max-w-full disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="소분류"
         >
           <option value="">소분류 없음</option>

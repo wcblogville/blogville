@@ -79,7 +79,7 @@ export function HouseRoom({
     });
 
   return (
-    <section className={`pb-card flex flex-col overflow-hidden ${className}`} aria-labelledby="house-title" data-house-room>
+    <section className={`pixel-card flex flex-col overflow-hidden ${className}`} aria-labelledby="house-title" data-house-room>
       <div className="pb-plank relative z-[1] flex flex-wrap items-center justify-between gap-x-2 gap-y-2.5 px-4 pt-2.5 pb-3">
         <h2 id="house-title" className="font-display text-xl">
           🏠 우리 집 <span className="text-base text-[#fff3d6]">· {house.stage}단계 {house.name}</span>
@@ -102,7 +102,7 @@ export function HouseRoom({
                 setError(null);
               }}
               aria-pressed={roofOpen}
-              className={`pixel-btn min-h-11 pt-1.5 pb-2 text-sm ${roofOpen ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
+              className={`pixel-btn pixel-btn-sm ${roofOpen ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
             >
               {roofOpen ? "✓ 다 골랐어요" : "🏠 지붕 색"}
             </button>
@@ -117,7 +117,7 @@ export function HouseRoom({
                 setError(null);
               }}
               aria-pressed={editing}
-              className={`pixel-btn min-h-11 pt-1.5 pb-2 text-sm ${editing ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
+              className={`pixel-btn pixel-btn-sm ${editing ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
             >
               {editing ? "✓ 다 놓았어요" : "🛋 가구 놓기"}
             </button>
@@ -261,7 +261,7 @@ export function HouseRoom({
                   <li
                     key={color}
                     title={`Lv.${i * HOUSE_STAGE_LEVELS}에 열려요`}
-                    className="pb-slot grid h-11 w-11 place-items-center text-[10px] leading-tight text-ink-soft"
+                    className="pixel-slot grid h-11 w-11 place-items-center text-[10px] leading-tight text-ink-soft"
                   >
                     🔒
                     <br />
@@ -290,7 +290,7 @@ export function HouseRoom({
                       type="button"
                       disabled={pending || here}
                       onClick={() => choose(picking, f.id)}
-                      className={`flex w-20 flex-col items-center p-1 text-xs hover:bg-[#fff3d6] ${here ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pb-slot"}`}
+                      className={`flex w-20 flex-col items-center p-1 text-xs hover:bg-[#fff3d6] ${here ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
                       <img src={furnitureDataUri(f.assetKey, 64)} alt="" className="pixelated h-16 w-16" />
@@ -301,7 +301,7 @@ export function HouseRoom({
               })}
               {bySlot.has(picking) && (
                 <li>
-                  <button type="button" disabled={pending} onClick={() => choose(picking, null)} className="pb-slot flex h-full w-20 flex-col items-center justify-center p-1 text-xs hover:bg-[#fff3d6]">
+                  <button type="button" disabled={pending} onClick={() => choose(picking, null)} className="pixel-slot flex h-full w-20 flex-col items-center justify-center p-1 text-xs hover:bg-[#fff3d6]">
                     <span className="text-2xl" aria-hidden>
                       🧹
                     </span>

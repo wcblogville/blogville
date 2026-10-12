@@ -1,37 +1,10 @@
-/* ===== 블로그·글쓰기 화면 도트 틀 (사용자 요청 2026-10-12 "들어갔을 때 나오는 화면들을 다 도트감성으로") =====
-   첫 화면의 pixel-panel·pixel-wood·pixel-btn·pixel-input(globals.css)과 같은 색·같은 3px 칸으로,
-   블로그 화면에만 쓰는 조각을 여기에 둔다. 공용 틀은 globals.css가 원본이다 (다른 화면과 함께 고친다).
+/* ===== 블로그·글쓰기 화면에만 쓰는 도트 조각 (사용자 요청 2026-10-12 "들어갔을 때 나오는 화면들을 다 도트감성으로") =====
+   판·버튼·입력·탭·간판 같은 공용 부품은 globals.css의 도트 UI 키트(pixel-card·pixel-btn·pixel-tab·pixel-sign …)를 쓰고,
+   여기에는 블로그에서만 쓰는 것만 둔다. 색과 3px 칸은 키트와 같다.
    @layer components에 두어 Tailwind 유틸리티(여백·글자 크기 등)가 이 값을 덮어쓸 수 있다.
    글 본문(prose-blog)은 읽기 편한 글꼴 그대로 두고, 둘레(틀·제목·버튼)만 도트로 바꾼다 */
 @layer components {
-  /* 양피지 판: 글 카드·설정 칸·글 본문 바탕. 모서리가 한 칸 깎인 진한 갈색 테두리 + 아래 그늘 */
-  .pb-card {
-    background: #fffdf6;
-    box-shadow:
-      inset 0 -4px 0 0 #f2dfbf,
-      0 -3px 0 0 #4a3426,
-      0 3px 0 0 #4a3426,
-      -3px 0 0 0 #4a3426,
-      3px 0 0 0 #4a3426,
-      0 9px 0 0 #3a2a1e2e;
-  }
-  /* 눌리는 카드(글 목록·이전/다음 글): 올리면 한 칸 떠오르고 금색 테두리 */
-  .pb-card-hover {
-    transition: transform 0.06s steps(1);
-  }
-  .pb-card-hover:hover,
-  .pb-card-hover:focus-within {
-    transform: translateY(-3px);
-    box-shadow:
-      inset 0 -4px 0 0 #f2dfbf,
-      0 -3px 0 0 #b0702a,
-      0 3px 0 0 #b0702a,
-      -3px 0 0 0 #b0702a,
-      3px 0 0 0 #b0702a,
-      0 12px 0 0 #3a2a1e2e;
-  }
-
-  /* 나무 이름표 띠: 위젯·설정 칸의 제목. 판자 결(가는 줄)과 위 밝은 면·아래 그늘 */
+  /* 나무 이름표 띠: 위젯·설정 칸·우리 집·에디터 도구 줄의 머리. 판자 결(가는 줄)과 위 밝은 면·아래 그늘 */
   .pb-plank {
     background-color: #dba46a;
     background-image: repeating-linear-gradient(180deg, transparent 0 9px, #c98d55 9px 12px);
@@ -46,14 +19,13 @@
       0 3px 0 0 #4a3426;
   }
 
-  /* 큰 화면 제목 (블로그 이름·글 제목·화면 이름): 아래로 한 칸 떨어진 그림자 글자 */
+  /* 글 제목 (글 카드·글 화면): 아래로 한 칸 떨어진 그림자 글자. 글자 크기는 쓰는 쪽이 정한다 */
   .pb-title {
     color: #3a2a1e;
     text-shadow: 0 2px 0 #efd9b0;
-    letter-spacing: 0.01em;
   }
 
-  /* 작은 이름표 배지 (카테고리·비공개·태그). 둥근 알약 대신 칸 테두리 */
+  /* 카테고리·비공개 배지: pixel-badge보다 옅은 금색 칸 (글 카드에서 제목보다 튀지 않게) */
   .pb-chip {
     display: inline-flex;
     align-items: center;
@@ -69,15 +41,7 @@
     box-shadow: inset 0 0 0 2px #cdbda6;
   }
 
-  /* 가방 칸처럼 안으로 들어간 칸 (숫자판·순위·빈 안내) */
-  .pb-slot {
-    background: #f6e6c8;
-    box-shadow:
-      inset 0 0 0 3px #dcbc8c,
-      inset 0 6px 0 0 #e9cfa2;
-  }
-
-  /* 목록 한 줄: 올리면 연한 금색, 고른 줄(aria-current)은 왼쪽 금색 막대 */
+  /* 옆 칸 목록 한 줄: 올리면 연한 금색, 고른 줄(aria-current)은 왼쪽 금색 막대 */
   .pb-row {
     transition: background-color 0.06s steps(1);
   }
@@ -96,36 +60,34 @@
     background-image: repeating-linear-gradient(90deg, #d9b98a 0 6px, transparent 6px 12px);
   }
 
-  /* 경험치 막대: 안으로 들어간 칸 + 칸 단위로 끊어지는 금색 */
-  .pb-bar {
-    background: #3a2a1e;
-    box-shadow: 0 0 0 2px #4a3426;
-  }
-  .pb-bar > span {
-    background-color: #ffb93b;
-    background-image: repeating-linear-gradient(90deg, transparent 0 6px, #e08a0066 6px 8px);
-    box-shadow: inset 0 2px 0 0 #ffe08a;
-  }
-
-  /* 눌린(고른) 탭·토글: 아래로 한 칸 들어간 진한 칸 */
+  /* 라디오처럼 고른 칸 (글쓰기 공개/비공개, 에디터 도구의 켜진 글꼴): 아래로 한 칸 들어간 진한 칸.
+     pixel-tab은 aria-selected/pressed/current만 보아서 role="radio"(aria-checked)와 에디터 버튼은 이것을 쓴다 */
   .pb-tab-on {
     background: #4a3426;
     color: #fff8ec;
-    box-shadow:
-      inset 0 3px 0 0 #00000055,
-      0 -3px 0 0 #4a3426,
-      0 3px 0 0 #4a3426,
-      -3px 0 0 0 #4a3426,
-      3px 0 0 0 #4a3426;
+    box-shadow: inset 0 3px 0 0 #00000055;
   }
+}
 
-  /* 도감 창 같은 <dialog>: 양피지 틀 */
-  .pb-dialog {
-    background: #fff8ec;
-    box-shadow:
-      inset 0 3px 0 0 #fffdf6,
-      inset 0 -6px 0 0 #f2dfbf,
-      0 0 0 4px #4a3426,
-      0 14px 0 0 #00000040;
+/* 눌리는 카드(글 목록·이전/다음 글): 올리면 한 칸 떠오르고 금색 테두리.
+   pixel-card(유틸리티 층)의 테두리를 바꿔야 해서 층 밖에 둔다 */
+.pb-card-hover {
+  transition: transform 0.06s steps(1);
+}
+.pb-card-hover:hover,
+.pb-card-hover:focus-within {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 -4px 0 0 #f2e4cc,
+    0 -3px 0 0 #b0702a,
+    0 3px 0 0 #b0702a,
+    -3px 0 0 0 #b0702a,
+    3px 0 0 0 #b0702a,
+    0 12px 0 0 #3a2a1e2e;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pb-card-hover:hover,
+  .pb-card-hover:focus-within {
+    transform: none;
   }
 }

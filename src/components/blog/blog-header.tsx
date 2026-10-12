@@ -59,7 +59,7 @@ export function BlogTitleBar({
   const isOwner = viewerId === blog.ownerId;
   const exp = wallet.isMax ? "최고 레벨" : `경험치 ${wallet.current.toLocaleString()} / ${wallet.needed.toLocaleString()}`;
   return (
-    <section className={`pb-card flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3 ${className}`} aria-label="블로그 이름과 주인" data-blog-title-bar>
+    <section className={`pixel-card flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3 ${className}`} aria-label="블로그 이름과 주인" data-blog-title-bar>
       <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-3">
         {/* 주인 프로필: 사진 또는 캐릭터 얼굴 (FR-028). 누구에게나 같다 (US4-10) */}
         <OwnerAvatar photoKey={blog.photoKey} characterAsset={blog.characterAsset} nickname={blog.nickname} />
@@ -80,9 +80,9 @@ export function BlogTitleBar({
         <span className="pixel-wood shrink-0 px-2.5 py-0.5 font-display text-base" title={exp}>
           Lv.{wallet.level}
         </span>
-        <span className="grid w-28 gap-0.5">
-          <span className="pb-bar block h-2.5 overflow-hidden" aria-hidden>
-            <span className="block h-full" style={{ width: `${Math.round(wallet.ratio * 100)}%` }} />
+        <span className="grid w-28 gap-1.5 px-[3px] pt-[3px]">
+          <span className="pixel-bar block h-3" aria-hidden>
+            <span className="pixel-bar-fill block bg-sun" style={{ width: `${Math.round(wallet.ratio * 100)}%` }} />
           </span>
           <span className="text-xs text-ink-soft">{wallet.isMax ? "최고 레벨" : `${wallet.current.toLocaleString()} / ${wallet.needed.toLocaleString()}`}</span>
         </span>
@@ -96,12 +96,12 @@ export function BlogTitleBar({
         <div className="flex flex-[1_1_100%] gap-2 sm:ml-auto sm:flex-none">
           {/* 이 회원의 마을 구경 (사용자 요청 2026-10-09). 휴대폰에는 광장이 없어 숨긴다 */}
           {!blog.isNotice && (
-            <Link href={`/town/${blog.slug}`} className="pixel-btn min-h-11 flex-1 whitespace-nowrap bg-[#fffaf0] px-4 pt-1.5 pb-2 text-sm text-ink phone:hidden" data-visit-town>
+            <Link href={`/town/${blog.slug}`} className="pixel-btn pixel-btn-sm flex-1 whitespace-nowrap bg-[#fffaf0] px-4 text-ink phone:hidden" data-visit-town>
               🏘 마을 구경
             </Link>
           )}
           <form action={toggleFollow.bind(null, blog.ownerId)} className="flex flex-1">
-            <button className={`pixel-btn min-h-11 w-full flex-1 whitespace-nowrap px-4 pt-1.5 pb-2 text-sm ${following ? "bg-[#fffaf0] text-ink" : "bg-sky text-white"}`}>
+            <button className={`pixel-btn pixel-btn-sm w-full flex-1 whitespace-nowrap px-4 ${following ? "bg-[#fffaf0] text-ink" : "bg-sky text-white"}`}>
               {following ? "✓ 이웃" : "+ 이웃 추가"}
             </button>
           </form>

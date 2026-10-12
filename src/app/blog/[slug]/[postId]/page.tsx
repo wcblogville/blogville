@@ -77,7 +77,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
         <span className="shrink-0 text-[#fff3d6]">· {blog.nickname}</span>
       </Link>
 
-      <article className="pb-card px-5 py-6 sm:p-10">
+      <article className="pixel-card px-5 py-6 sm:p-10">
         <header className="pb-5">
           <div className="mb-2 flex flex-wrap gap-2 text-xs font-bold">
             {/* 배지 `대분류 › 소분류`, 누르면 그 카테고리 글 목록 (FR-033, R16). 누르는 영역 44px (R21) */}
@@ -101,7 +101,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
             <ViewCount postId={post.id} initial={post.viewCount + (viewed ? 0 : 1)} count={!isOwner} />
             {isOwner && (
               <span className="ml-auto flex gap-3 p-[3px]">
-                <Link href={`/write/${post.id}`} className="pixel-btn min-h-11 min-w-11 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-ink">
+                <Link href={`/write/${post.id}`} className="pixel-btn pixel-btn-sm min-w-11 whitespace-nowrap bg-[#fffaf0] px-3 text-ink">
                   수정
                 </Link>
                 <DeletePostButton postId={post.id} />
@@ -120,7 +120,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
               <li key={t}>
                 <Link
                   href={`/tags/${encodeURIComponent(t)}`}
-                  className="pb-slot inline-flex min-h-11 items-center whitespace-nowrap px-3 text-sm text-ink-soft hover:bg-[#fff3d6] hover:text-ink"
+                  className="pixel-slot inline-flex min-h-11 items-center whitespace-nowrap px-3 text-sm text-ink-soft hover:bg-[#fff3d6] hover:text-ink"
                 >
                   #{t}
                 </Link>
@@ -139,7 +139,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
       {/* grid-cols-1: 긴 제목(truncate)이 휴대폰 화면 폭을 넘지 않게 칸 최소 폭을 0으로 둔다 */}
       <nav className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2" aria-label="이전 글, 다음 글">
         {adjacent.prev ? (
-          <Link href={`/@${blog.slug}/${adjacent.prev.id}`} className="pb-card pb-card-hover min-w-0 p-4">
+          <Link href={`/@${blog.slug}/${adjacent.prev.id}`} className="pixel-card pb-card-hover min-w-0 p-4">
             <span className="font-display text-sm text-[#8a5a14]">◀ 이전 글</span>
             <span className="block truncate font-bold">{adjacent.prev.title}</span>
           </Link>
@@ -147,7 +147,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
           <span className="hidden sm:block" />
         )}
         {adjacent.next && (
-          <Link href={`/@${blog.slug}/${adjacent.next.id}`} className="pb-card pb-card-hover min-w-0 p-4 text-right">
+          <Link href={`/@${blog.slug}/${adjacent.next.id}`} className="pixel-card pb-card-hover min-w-0 p-4 text-right">
             <span className="font-display text-sm text-[#8a5a14]">다음 글 ▶</span>
             <span className="block truncate font-bold">{adjacent.next.title}</span>
           </Link>

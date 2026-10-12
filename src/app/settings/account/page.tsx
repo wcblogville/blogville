@@ -32,9 +32,9 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="pixel-wood inline-block px-4 pt-1 pb-1.5 font-display text-2xl sm:text-3xl">🙂 내 정보</h1>
+      <h1 className="pixel-sign text-2xl sm:text-3xl">🙂 내 정보</h1>
 
-      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="login-title" data-section="logins">
+      <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="login-title" data-section="logins">
         <h2 id="login-title" className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">
           로그인 수단
         </h2>
@@ -72,7 +72,7 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
       </section>
 
       {/* 닉네임: blog가 올린 변경 칸 (BLOG-03 / FR-019, research R-29) */}
-      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="nickname-title" data-section="nickname">
+      <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="nickname-title" data-section="nickname">
         <h2 id="nickname-title" className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">
           닉네임
         </h2>
@@ -80,7 +80,7 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
       </section>
 
       {/* 회원 탈퇴 (AUTH-06). 안내·버튼 문구는 spec에 없음 — 제안 (plan 남은 문제 1) */}
-      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="withdraw-title" data-section="withdraw">
+      <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="withdraw-title" data-section="withdraw">
         <h2 id="withdraw-title" className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">
           회원 탈퇴
         </h2>

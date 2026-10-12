@@ -21,7 +21,7 @@ export function BlogSearchBox({ base, q }: { base: string; q: string }) {
           placeholder="마을의 글·블로그 검색"
           className="pixel-input min-w-0 text-sm"
         />
-        <button className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 pt-1.5 pb-2 text-sm text-cream">검색</button>
+        <button className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-cream">검색</button>
       </Form>
     </Widget>
   );
@@ -43,18 +43,18 @@ export function BlogSearchResults({
   posts: PostCardData[];
   total: number;
 }) {
-  if (empty) return <p className="pb-card p-10 text-center text-ink-soft">검색어를 적어 주세요</p>;
+  if (empty) return <p className="pixel-card p-10 text-center text-ink-soft">검색어를 적어 주세요</p>;
   return (
     <div>
       <h2 className="pb-title mb-4 font-display text-xl break-words">🔍 &apos;{q}&apos; 검색 결과</h2>
       {blogs.length === 0 && total === 0 ? (
-        <p className="pb-card p-10 text-center text-ink-soft">검색 결과가 없어요</p>
+        <p className="pixel-card p-10 text-center text-ink-soft">검색 결과가 없어요</p>
       ) : (
         <>
           {blogs.length > 0 && (
             <section aria-labelledby="found-blogs" className="mb-5">
               <h3 id="found-blogs" className="pb-title mb-3 font-display text-lg">블로그</h3>
-              <ul className="pb-card divide-y-2 divide-dashed divide-[#e2c9a0]">
+              <ul className="pixel-card divide-y-2 divide-dashed divide-[#e2c9a0]">
                 {blogs.map((b) => (
                   <li key={b.slug}>
                     <Link href={`/@${b.slug}`} className="pb-row flex min-h-11 items-center gap-3 px-4 py-2">

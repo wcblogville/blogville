@@ -195,7 +195,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
                 )}
               </div>
               {find?.empty ? (
-                <p className="pb-card p-10 text-center text-ink-soft">찾을 말을 적어 주세요</p>
+                <p className="pixel-card p-10 text-center text-ink-soft">찾을 말을 적어 주세요</p>
               ) : list?.items.length ? (
                 <div className="grid gap-5">
                   {list.items.map((p) => (
@@ -203,9 +203,9 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
                   ))}
                 </div>
               ) : find || tag ? (
-                <p className="pb-card p-10 text-center text-ink-soft">이 블로그에서 찾은 글이 없어요</p>
+                <p className="pixel-card p-10 text-center text-ink-soft">이 블로그에서 찾은 글이 없어요</p>
               ) : (
-                <div className="pb-card p-10 text-center text-ink-soft">
+                <div className="pixel-card p-10 text-center text-ink-soft">
                   <p className="text-4xl">🌱</p>
                   <p className="mt-2">아직 글이 없어요.</p>
                   {isOwner && (

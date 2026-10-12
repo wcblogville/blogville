@@ -20,7 +20,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
         type="button"
         onClick={() => ref.current?.showModal()}
         aria-haspopup="dialog"
-        className="pixel-btn min-h-11 shrink-0 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-ink"
+        className="pixel-btn pixel-btn-sm shrink-0 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink"
         data-collection-open
       >
         🏅 도감 <span className="text-ink-soft">{animals.length}</span>
@@ -33,14 +33,14 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
         onClick={(e) => {
           if (e.target === e.currentTarget) e.currentTarget.close();
         }}
-        className="pb-dialog m-auto max-h-[85dvh] w-[min(92vw,40rem)] overflow-y-auto p-0 backdrop:bg-[#2b2118]/60"
+        className="pixel-dialog m-auto max-h-[85dvh] w-[min(92vw,40rem)] overflow-y-auto p-0 backdrop:bg-[#2b2118]/60"
       >
         <div className="p-5">
           <div className="pb-plank -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
             <h2 id="collection-title" className="font-display text-xl">
               🏅 동물 도감 <span className="text-sm text-[#fff3d6]">{animals.length}마리</span>
             </h2>
-            <button type="button" onClick={() => ref.current?.close()} aria-label="도감 닫기" className="pixel-btn min-h-11 min-w-11 bg-[#fffaf0] px-3 pt-1.5 pb-2 text-ink [text-shadow:none]">
+            <button type="button" onClick={() => ref.current?.close()} aria-label="도감 닫기" className="pixel-btn pixel-btn-sm min-w-11 bg-[#fffaf0] px-3 text-ink [text-shadow:none]">
               ✕
             </button>
           </div>
@@ -56,7 +56,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
                     <li
                       key={a.id}
                       data-animal-card
-                      className={`flex w-28 flex-col items-center p-2 text-center ${shown ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pb-slot"}`}
+                      className={`flex w-28 flex-col items-center p-2 text-center ${shown ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}
                     >
                       <AnimalArt assetKey={a.assetKey} skinKey={a.skinKey} size={64} />
                       <span className="font-display leading-tight">{a.name}</span>
@@ -67,7 +67,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
                           type="button"
                           disabled={pending}
                           onClick={() => start(() => setShowcaseAnimal(shown ? null : a.id))}
-                          className={`pixel-btn mt-2 mb-1 min-h-11 min-w-11 whitespace-nowrap px-2 pt-1.5 pb-2 text-sm ${shown ? "bg-[#fffaf0] text-ink" : "bg-leaf text-white"}`}
+                          className={`pixel-btn pixel-btn-sm mt-2 mb-1 min-w-11 whitespace-nowrap px-2 ${shown ? "bg-[#fffaf0] text-ink" : "bg-leaf text-white"}`}
                         >
                           {shown ? "전시 빼기" : "전시하기"}
                         </button>

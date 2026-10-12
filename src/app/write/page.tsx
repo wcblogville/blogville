@@ -1,4 +1,5 @@
 import { PostForm } from "@/components/editor/post-form";
+import { PixelIcon } from "@/components/pixel-icon";
 import { requireMember } from "@/server/dal";
 import { getCategoryOptions } from "@/server/posts";
 import "@/app/pixel-blog.css";
@@ -11,7 +12,10 @@ export default async function WritePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="pixel-wood mb-6 inline-block px-4 pt-1 pb-1.5 font-display text-2xl">✏️ 새 글 쓰기</h1>
+      <h1 className="pixel-sign mb-8 text-2xl sm:text-3xl">
+        <PixelIcon name="pencil" scale={2} />
+        새 글 쓰기
+      </h1>
       {/* 새 글 화면만 임시 저장한다 (POST-08 / FR-060, FR-064) */}
       <PostForm
         categories={categories}

@@ -28,37 +28,35 @@ export function FeedView({
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 md:grid-cols-[minmax(0,1fr)_260px]">
       <section className="min-w-0">
-        <h1 className="pixel-wood mb-5 inline-block max-w-full px-4 pt-1 pb-1.5 font-display text-2xl break-words sm:text-3xl">{title}</h1>
+        <h1 className="pixel-sign mb-5 max-w-full break-words text-2xl sm:text-3xl">{title}</h1>
         {top}
         {tab && (
           <div className="mt-5 flex gap-3 px-[3px]">
-            <Link href="/feed" aria-current={tab === "all" ? "page" : undefined}
-              className={`pixel-btn min-h-11 whitespace-nowrap px-4 pt-1.5 pb-2 text-sm ${tab === "all" ? "pb-tab-on" : "bg-[#fffaf0] text-ink"}`}>
+            <Link href="/feed" aria-current={tab === "all" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
               🏘 마을 전체
             </Link>
             {showFollowingTab && (
-              <Link href="/feed/following" aria-current={tab === "following" ? "page" : undefined}
-                className={`pixel-btn min-h-11 whitespace-nowrap px-4 pt-1.5 pb-2 text-sm ${tab === "following" ? "pb-tab-on" : "bg-[#fffaf0] text-ink"}`}>
+              <Link href="/feed/following" aria-current={tab === "following" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
                 💛 이웃 새 글
               </Link>
             )}
           </div>
         )}
         <div className="mt-6 grid gap-5">
-          {list.items.length ? list.items.map((p) => <PostCard key={p.id} post={p} showAuthor />) : <div className="pb-card p-10 text-center text-ink-soft">{empty}</div>}
+          {list.items.length ? list.items.map((p) => <PostCard key={p.id} post={p} showAuthor />) : <div className="pixel-card p-10 text-center text-ink-soft">{empty}</div>}
         </div>
         <Pagination page={list.page} pageCount={list.pageCount} hrefFor={hrefFor} />
       </section>
 
       <aside className="md:sticky md:top-20 md:self-start">
-        <div className="pb-card">
+        <div className="pixel-card">
           <h2 className="pb-plank px-4 py-2 font-display text-lg">🏷 인기 태그</h2>
           <div className="p-3">
           {tags.length ? (
             <ul className="flex flex-wrap gap-2">
               {tags.map((t) => (
                 <li key={t.name}>
-                  <Link href={`/tags/${encodeURIComponent(t.name)}`} className="pb-slot inline-flex min-h-11 items-center gap-1 whitespace-nowrap px-2.5 text-sm hover:bg-[#fff3d6] hover:text-leaf-dark">
+                  <Link href={`/tags/${encodeURIComponent(t.name)}`} className="pixel-slot inline-flex min-h-11 items-center gap-1 whitespace-nowrap px-2.5 text-sm hover:bg-[#fff3d6] hover:text-leaf-dark">
                     #{t.name} <span className="text-ink-soft">{t.count}</span>
                   </Link>
                 </li>

@@ -12,7 +12,7 @@ import { VisitWidget } from "./visit-widget";
 /** 위젯 한 칸: 나무 이름표 제목 + 내용 */
 export function Widget({ title, children, label, ...rest }: { title: React.ReactNode; children: React.ReactNode; label: string } & React.HTMLAttributes<HTMLElement>) {
   return (
-    <section className="pb-card" aria-label={label} {...rest}>
+    <section className="pixel-card" aria-label={label} {...rest}>
       <h2 className="pb-plank px-4 py-2 font-display text-lg">{title}</h2>
       <div className="p-3">{children}</div>
     </section>
@@ -34,7 +34,7 @@ export function BlogFindBox({ base, s }: { base: string; s: string }) {
           placeholder="이 블로그의 글 찾기"
           className="pixel-input min-w-0 text-sm"
         />
-        <button className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 pt-1.5 pb-2 text-sm text-cream">찾기</button>
+        <button className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-cream">찾기</button>
       </Form>
     </Widget>
   );
@@ -50,7 +50,7 @@ function PostLines({ base, posts, empty, rank = false }: { base: string; posts: 
         <li key={p.id}>
           <Link href={`${base}/${p.id}`} className={itemLink}>
             {rank && (
-              <span className={`grid h-6 w-6 shrink-0 place-items-center font-display text-xs ${i === 0 ? "pixel-wood" : "pb-slot text-ink-soft"}`}>
+              <span className={`grid h-6 w-6 shrink-0 place-items-center font-display text-xs ${i === 0 ? "pixel-wood" : "pixel-slot text-ink-soft"}`}>
                 {i + 1}
               </span>
             )}
@@ -121,7 +121,7 @@ export function TagsWidget({ base, tags, current }: { base: string; tags: BlogSi
                   href={`${base}?tag=${encodeURIComponent(t.name)}`}
                   aria-current={on ? "page" : undefined}
                   className={`inline-flex min-h-11 items-center gap-1 whitespace-nowrap px-2.5 text-sm ${
-                    on ? "bg-[#ffe7a3] font-bold shadow-[inset_0_0_0_3px_#d99a36]" : "pb-slot hover:bg-[#fff3d6] hover:text-leaf-dark"
+                    on ? "bg-[#ffe7a3] font-bold shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot hover:bg-[#fff3d6] hover:text-leaf-dark"
                   }`}
                 >
                   #{t.name} <span className="text-ink-soft">{t.count}</span>

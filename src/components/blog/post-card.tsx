@@ -24,7 +24,7 @@ export type PostCardData = {
 /** 글 목록 한 칸. showAuthor: 마을 소식처럼 여러 블로그 글이 섞일 때 작성자 표시 */
 export function PostCard({ post, showAuthor = false }: { post: PostCardData; showAuthor?: boolean }) {
   return (
-    <article className="pb-card pb-card-hover p-5">
+    <article className="pixel-card pb-card-hover p-5">
       {showAuthor && (
         // 작성자 줄 → 블로그 홈. 누르는 영역 44px (FR-037, R21)
         <Link href={`/@${post.blogSlug}`} className="mb-1 flex min-h-11 min-w-0 items-center gap-2 text-sm text-ink-soft hover:text-ink">

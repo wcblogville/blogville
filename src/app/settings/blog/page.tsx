@@ -20,7 +20,7 @@ export default async function BlogSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="pixel-wood px-4 pt-1 pb-1.5 font-display text-2xl sm:text-3xl">⚙️ 블로그 관리</h1>
+        <h1 className="pixel-sign text-2xl sm:text-3xl">⚙️ 블로그 관리</h1>
         <Link href={`/@${blog.slug}`} className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap px-1 text-sm text-ink-soft hover:text-ink">
           내 블로그로 →
         </Link>
@@ -39,14 +39,14 @@ export default async function BlogSettingsPage() {
       </p>
 
       {/* 최근 7일 방문자 (BLOG-06): 방문이 없는 날도 0으로 7칸, 마지막 칸은 오늘 */}
-      <section className="pb-card mt-8 p-5 sm:p-6" aria-labelledby="visits-title">
+      <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="visits-title">
         <div className="pb-plank -mx-5 -mt-5 mb-4 flex flex-wrap items-baseline justify-between gap-x-2 px-5 py-2 sm:-mx-6 sm:-mt-6 sm:px-6">
           <h2 id="visits-title" className="font-display text-xl">방문자</h2>
           <p className="text-sm text-[#fff3d6]">
             오늘 {visits.today.toLocaleString("ko-KR")} · 어제 {visits.yesterday.toLocaleString("ko-KR")} · 전체 {visits.total.toLocaleString("ko-KR")}
           </p>
         </div>
-        <ol className="pb-slot flex h-44 items-end gap-2 px-3 pt-2 pb-2" aria-label="최근 7일 방문자 수">
+        <ol className="pixel-slot flex h-44 items-end gap-2 px-3 pt-2 pb-2" aria-label="최근 7일 방문자 수">
           {visitDays.map((d, i) => {
             const label = i === visitDays.length - 1 ? "오늘" : `${Number(d.date.slice(5, 7))}/${Number(d.date.slice(8))}`;
             return (
@@ -64,7 +64,7 @@ export default async function BlogSettingsPage() {
         <p className="mt-3 text-xs text-ink-soft">같은 사람은 하루 1번만 셉니다. 블로그 홈이나 글을 연 사람이 방문자이고, 내 방문은 세지 않아요.</p>
       </section>
 
-      <section className="pb-card mt-8 p-5 sm:p-6">
+      <section className="pixel-card mt-8 p-5 sm:p-6">
         <h2 className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">기본 정보</h2>
         <BlogInfoForm title={blog.title} description={blog.description} />
         {/* 주소는 이름·소개와 따로 바꾼다 (BLOG-03 / FR-018, research R-09) */}
@@ -72,7 +72,7 @@ export default async function BlogSettingsPage() {
       </section>
 
       {/* 블로그 홈 주인 도구 막대의 [🗂 카테고리 관리]가 여기(#categories)로 온다 */}
-      <section id="categories" className="pb-card mt-8 scroll-mt-20 p-5 sm:p-6">
+      <section id="categories" className="pixel-card mt-8 scroll-mt-20 p-5 sm:p-6">
         <h2 className="pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6">카테고리</h2>
         <CategoryManager categories={cats} />
       </section>

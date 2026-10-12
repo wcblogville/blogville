@@ -41,7 +41,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="pixel-wood px-4 pt-1 pb-1.5 font-display text-2xl sm:text-3xl">📝 글 관리</h1>
+        <h1 className="pixel-sign text-2xl sm:text-3xl">📝 글 관리</h1>
         <Link href={`/@${viewer.profile.blogSlug}`} className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap px-1 text-sm text-ink-soft hover:text-ink">
           내 블로그로 →
         </Link>
@@ -61,7 +61,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
             placeholder="제목·본문으로 찾기"
             className="pixel-input min-w-0 text-sm"
           />
-          <button className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 pt-1.5 pb-2 text-sm text-cream">찾기</button>
+          <button className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-3 text-cream">찾기</button>
         </Form>
       </div>
 
@@ -73,7 +73,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
               key={f.key}
               href={href({ vis: f.key === "all" ? undefined : f.key })}
               aria-current={on ? "page" : undefined}
-              className={`pixel-btn min-h-11 whitespace-nowrap px-4 pt-1.5 pb-2 text-sm ${on ? "pb-tab-on" : "bg-[#fffaf0] text-ink"}`}
+              className="pixel-tab whitespace-nowrap text-sm"
             >
               {f.label}
             </Link>
@@ -87,7 +87,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
       </p>
 
       {list.items.length ? (
-        <ul className="pb-card mt-3 divide-y-2 divide-dashed divide-[#e2c9a0]" data-manage-list>
+        <ul className="pixel-card mt-3 divide-y-2 divide-dashed divide-[#e2c9a0]" data-manage-list>
           {list.items.map((p) => (
             <li key={p.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-3" data-manage-post={p.id}>
               <div className="min-w-0 flex-1">
@@ -109,7 +109,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
                 </p>
               </div>
               <div className="flex shrink-0 gap-3 p-[3px]">
-                <Link href={`/write/${p.id}`} className="pixel-btn min-h-11 min-w-11 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-leaf-dark">
+                <Link href={`/write/${p.id}`} className="pixel-btn pixel-btn-sm min-w-11 whitespace-nowrap bg-[#fffaf0] px-3 text-leaf-dark">
                   수정
                 </Link>
                 <DeletePostButton postId={p.id} back="manage" />
@@ -118,7 +118,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
           ))}
         </ul>
       ) : (
-        <div className="pb-card mt-3 p-10 text-center text-ink-soft">
+        <div className="pixel-card mt-3 p-10 text-center text-ink-soft">
           <p className="text-4xl">🌱</p>
           <p className="mt-2">{q || vis ? "맞는 글이 없어요." : "아직 쓴 글이 없어요."}</p>
         </div>

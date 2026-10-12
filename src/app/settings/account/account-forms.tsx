@@ -16,7 +16,7 @@ function LinkSubmit({ label, ready }: { label: string; ready: boolean }) {
       disabled={!ready || pending}
       title={ready ? undefined : "아직 연결 준비 중이에요"}
       // 비활성이어도 마우스를 올리면 안내(title)가 보인다 (pixel-btn:disabled는 누를 수만 없고 pointer-events는 그대로)
-      className="pixel-btn min-h-11 whitespace-nowrap bg-leaf px-3 pt-1.5 pb-2 text-sm text-white"
+      className="pixel-btn pixel-btn-sm whitespace-nowrap bg-leaf px-3 text-white"
     >
       {pending ? "이동하는 중..." : `${label} 연동하기`}
     </button>
@@ -39,7 +39,7 @@ export function UnlinkSocialButton({ provider, label }: { provider: SocialProvid
     <button
       type="button"
       disabled={pending}
-      className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-berry"
+      className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-[#fffaf0] px-3 text-berry"
       onClick={() => confirm(`${label} 연동을 해제할까요? 아이디 로그인은 그대로 쓸 수 있어요`) && start(() => unlinkSocial(provider))}
     >
       {pending ? "해제하는 중..." : "연동 해제"}
@@ -76,7 +76,7 @@ export function DeleteAccountForm() {
         <button
           type="submit"
           disabled={pending}
-          className="pixel-btn min-h-11 min-w-11 whitespace-nowrap bg-berry px-4 pt-1.5 pb-2 text-sm text-white"
+          className="pixel-btn pixel-btn-sm min-w-11 whitespace-nowrap bg-berry px-4 text-white"
         >
           {pending ? "탈퇴하는 중..." : "회원 탈퇴"}
         </button>

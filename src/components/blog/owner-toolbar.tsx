@@ -3,7 +3,7 @@
 // 주인 버튼은 여기 한 곳이다 (프로필 카드의 [✏️ 글쓰기] [🎨 꾸미기] [⚙️ 관리]는 카드와 함께 없앰, 2026-10-11)
 import Link from "next/link";
 
-const tool = "pixel-btn min-h-11 min-w-11 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 pt-1.5 pb-2 text-sm text-ink";
+const tool = "pixel-btn pixel-btn-sm min-w-11 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink";
 
 export function OwnerToolbar({ postCount, privateCount }: { postCount: number; privateCount: number }) {
   return (

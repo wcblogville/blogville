@@ -72,7 +72,7 @@ function Form({
         )}
         <button
           disabled={pending}
-          className="pixel-btn min-h-11 whitespace-nowrap bg-leaf px-4 pt-1.5 pb-2 text-sm text-white"
+          className="pixel-btn pixel-btn-sm whitespace-nowrap bg-leaf px-4 text-white"
         >
           {pending ? "등록 중..." : reply ? "답글 등록" : "댓글 등록"}
         </button>
@@ -98,7 +98,7 @@ function Line({
   if (!author) return <p className="py-3 italic text-ink-soft">삭제된 댓글이에요</p>;
   return (
     <div className="flex gap-3 py-3">
-      <span className="pb-slot h-fit shrink-0 p-1">
+      <span className="pixel-slot h-fit shrink-0 p-1">
         <CharacterBadge asset={author.characterAsset} size={34} />
       </span>
       <div className="min-w-0 flex-1">
@@ -184,7 +184,7 @@ export function CommentSection({ postId, thread, isMember }: { postId: number; t
         {isMember ? (
           <Form kind="comment" postId={postId} />
         ) : (
-          <p className="pb-slot p-4 text-center text-ink-soft">
+          <p className="pixel-slot p-4 text-center text-ink-soft">
             <Link href="/" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline">
               로그인
             </Link>

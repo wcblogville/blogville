@@ -40,7 +40,7 @@ export function NicknameForm({ nickname }: { nickname: string }) {
         <button
           type="submit"
           disabled={pending}
-          className="pixel-btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 pt-1.5 pb-2 text-sm text-white"
+          className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 text-white"
         >
           저장
         </button>

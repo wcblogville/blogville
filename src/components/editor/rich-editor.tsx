@@ -166,7 +166,7 @@ export function RichEditor({
   });
 
   return (
-    <div data-rich-editor className="pb-card overflow-hidden bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
+    <div data-rich-editor className="pixel-card overflow-hidden bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
       <div className="pb-plank flex flex-wrap items-center gap-1 p-2 [text-shadow:none]" role="toolbar" aria-label="글꼴 도구">
         {TOOLS.map((tool, i) =>
           tool === "sep" ? (
