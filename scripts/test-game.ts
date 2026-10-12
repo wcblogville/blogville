@@ -12,6 +12,9 @@ import { CHARACTER_KEYS, characterRows } from "../src/lib/art/characters";
 import { AVATAR_PARTS } from "../src/lib/art/avatar";
 import { fitSvg, PIXEL } from "../src/lib/art/pixel";
 import { FURNITURE_KEYS, furnitureRows } from "../src/lib/art/furniture";
+import { artHit, ISO_FURNITURE_KEYS, roomFurnitureArt } from "../src/lib/art/room-furniture";
+import { POSES, poseFrame } from "../src/lib/art/poses";
+import { actionOf, blockedTiles, depthRanks, findPath, layoutDepth, planUse, seatTile } from "../src/lib/room-walk";
 import { ANIMAL_SIZE, ANIMAL_SKINS, animalHalfWidth, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits } from "../src/lib/art/animals";
 import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, RIPPLE, SPLASH } from "../src/lib/art/catches";
 import { CATCHES, pickCatch } from "../src/lib/fishing";
@@ -21,8 +24,8 @@ import { ANIMAL_DISPLAY_SIZES, animalStage, isDisplaySize, levelEggLevels, pickW
 import { formatCoinsShort } from "../src/lib/format";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
-import { checkLayout, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
-import { floorToScreen, isoRoom, isoRoomDataUri, screenToFloor } from "../src/lib/art/room";
+import { checkLayout, findFreeSpot, fitsRoom, footprintOf, footprintTiles, FURNITURE_FOOTPRINT, repairLayout, WALKABLE_FURNITURE, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
+import { floorToScreen, isoRoom, isoRoomDataUri, roomCamera, screenToFloor } from "../src/lib/art/room";
 
 let failed = 0;
 function expect(name: string, got: unknown, want: unknown) {
@@ -62,7 +65,7 @@ expect(
   expect("배치: 개수 넘침", checkLayout([1, 2, 3, 4, 5].map((i) => spot(i, i, 0)), rule), "지금 집에는 가구를 4개까지 놓을 수 있어요.");
   expect("배치: 같은 가구 두 번", checkLayout([spot(1, 0, 0), spot(1, 1, 0)], rule), "같은 가구는 한 번만 놓을 수 있어요.");
   expect("배치: 방 밖(6, -1, 0.5)", [spot(1, 6, 0), spot(1, 0, -1), spot(1, 0.5, 0)].map((s) => checkLayout([s], rule)), Array(3).fill("방 밖에는 놓을 수 없어요."));
-  expect("배치: 한 칸에 둘", checkLayout([spot(1, 2, 2), spot(2, 2, 2)], rule), "한 칸에는 가구 하나만 놓을 수 있어요.");
+  expect("배치: 한 칸에 둘", checkLayout([spot(1, 2, 2), spot(2, 2, 2)], rule), "가구끼리 겹쳐 놓을 수 없어요.");
   expect("배치 값 읽기: 모양이 틀리면 null", [parseLayout(null), parseLayout([{ itemId: "1", x: 0, y: 0 }]), parseLayout([{ itemId: 0, x: 0, y: 0 }]), parseLayout("x")], [null, null, null, null]);
   expect("배치 값 읽기: flip은 true만 true", parseLayout([{ itemId: 3, x: 1, y: 2, flip: "yes" }]), [{ itemId: 3, x: 1, y: 2, flip: false }]);
 }
@@ -76,6 +79,20 @@ expect(
   expect("화면 → 바닥 되돌리기", [q.x, q.y].map((v) => Math.round(v * 1000) / 1000), [3.25, 1.5]);
   expect("방 그림 크기 = 4배 도트 (가로 6칸 × 64 + 여백)", [room.width % 4, room.height % 4, room.width], [0, 0, 6 * 64 + 16]);
   expect("방 그림은 같은 크기면 한 번만 만든다", isoRoomDataUri(6) === isoRoomDataUri(6) && isoRoomDataUri(6) !== isoRoomDataUri(7), true);
+  // 방 카메라 (2026-10-12): 넓은 방은 한 걸음 물러나고(도트 4 → 3px) 주인·동물도 같이, 휴대폰은 주인·동물이 한 단계 더 작다
+  const cam = (grid: number, width: number, dpr = 1) => {
+    const c = roomCamera({ grid, width, dpr });
+    return [c.dot, +(24 * c.charCss).toFixed(2), +(32 * c.petCss).toFixed(2)];
+  };
+  expect("1280px: 6·7칸 방은 도트 4px, 캐릭터 96px, 동물 칸 96px", [cam(6, 1100), cam(7, 1100)], [[4, 96, 96], [4, 96, 96]]);
+  expect("1280px: 8~10칸 방은 물러나 도트 3px, 캐릭터 72px, 동물 칸 64px", [8, 9, 10].map((g) => cam(g, 1100)), [[3, 72, 64], [3, 72, 64], [3, 72, 64]]);
+  expect("넓은 방도 화면에 보이는 너비가 520px 이하", [6, 7, 8, 9, 10].every((g) => isoRoom(g).width * roomCamera({ grid: g, width: 1100 }).fit <= 520), true);
+  expect("375px(2배 화면): 6칸 방 도트 3px·캐릭터 48px(예전 72), 10칸 방 도트 2px·캐릭터 36px(예전 48)", [cam(6, 343, 2), cam(10, 343, 2)], [[3, 48, 48], [2, 36, 32]]);
+  expect("375px(3배 화면): 캐릭터 도트는 기기 픽셀 정수 (10칸 5점 = 40px)", cam(10, 343, 3), [2, 40, 42.67]);
+  expect("캐릭터·동물 도트는 늘 기기 픽셀 정수", [1, 2, 3].every((dpr) => [6, 8, 10].every((g) => [343, 700, 1100].every((w) => {
+    const c = roomCamera({ grid: g, width: w, dpr });
+    return Number.isInteger(+(c.charCss * dpr).toFixed(6)) && Number.isInteger(+(c.petCss * dpr).toFixed(6));
+  }))), true);
 }
 
 // 도트 그림 (2026-10-09 "도트로 바꾸기"): 글자 줄 길이가 고르고, 광장 크기는 PIXEL의 정수배
@@ -369,5 +386,66 @@ expect("[+10,000 코인]은 칸 값을 무시", parseGrantInput(grantForm({ pres
 expect("경험치 최대로 0에서 Lv.99에 닿음", levelFromExp(GRANT_EXP_MAX), MAX_LEVEL);
 expect("Lv.99까지 모자란 경험치", [0, 1000, expForLevel(MAX_LEVEL) + 5].map(expToMaxLevel), [97020, 96020, 0]);
 expect("휴대폰 헤더 짧은 코인", [9999, 10017, 12345, 1_000_000, 12_345_678, 350_000_000].map(formatCoinsShort), ["9,999", "1만", "1.2만", "100만", "1234만", "3.5억"]);
+
+// 가구 크기·클릭해서 걷기·가구와 놀기 (사용자 요청 2026-10-12 "가구마다 크기 다르게", "클릭했을 때 이동", "가구들이랑 상호작용")
+{
+  expect("가구 크기: 침대 3×2, 탁자 2×1, 옷장·의자 1×1, 모르는 가구 1×1", ["furniture.bed", "furniture.table", "furniture.wardrobe", "furniture.chair", "furniture.nope"].map((k) => footprintOf(k)), [{ w: 3, d: 2 }, { w: 2, d: 1 }, { w: 1, d: 1 }, { w: 1, d: 1 }, { w: 1, d: 1 }]);
+  expect("뒤집으면 가로·세로가 바뀐다 (침대 2×3)", footprintOf("furniture.bed", true), { w: 2, d: 3 });
+  expect("모든 가구 크기 표가 가진 그림의 가구", Object.keys(FURNITURE_FOOTPRINT).every((k) => FURNITURE_KEYS().includes(k)), true);
+  expect("가장 작은 방(6×6)에도 큰 가구가 들어간다", Object.keys(FURNITURE_FOOTPRINT).every((k) => fitsRoom(k, { x: 0, y: 0, flip: false }, roomGrid(1)) && fitsRoom(k, { x: 0, y: 0, flip: true }, roomGrid(1))), true);
+  expect("침대가 차지하는 칸 (1,1에서 3×2)", footprintTiles("furniture.bed", { x: 1, y: 1, flip: false }), ["1,1", "2,1", "3,1", "1,2", "2,2", "3,2"]);
+  const keys: Record<number, string> = { 1: "furniture.bed", 2: "furniture.chair", 3: "furniture.table" };
+  const rule = { grid: 6, limit: 4, keyOf: (id: number) => keys[id] };
+  const at = (itemId: number, x: number, y: number, flip = false) => ({ itemId, x, y, flip });
+  expect("여러 칸 배치: 침대 옆 의자 통과", checkLayout([at(1, 0, 0), at(2, 3, 0)], rule), null);
+  expect("여러 칸 배치: 침대가 차지한 칸에 의자 → 겹침", checkLayout([at(1, 0, 0), at(2, 2, 1)], rule), "가구끼리 겹쳐 놓을 수 없어요.");
+  expect("여러 칸 배치: 침대 끝이 방 밖 (4,0 → 4~6칸)", checkLayout([at(1, 4, 0)], rule), "방 밖에는 놓을 수 없어요.");
+  expect("여러 칸 배치: 뒤집으면 들어감 (4,0 뒤집기 → 4~5 × 0~2)", checkLayout([at(1, 4, 0, true)], rule), null);
+  expect("여러 칸 배치: 뒤집은 침대 아래 칸과 탁자가 겹침", checkLayout([at(1, 4, 0, true), at(3, 3, 2)], rule), "가구끼리 겹쳐 놓을 수 없어요.");
+  expect("러그는 밟을 수 있다", WALKABLE_FURNITURE.has("furniture.rug"), true);
+  expect("빈 자리 찾기: 침대는 뒤 모서리, 꽉 차면 null", [findFreeSpot("furniture.bed", new Set(), 6), findFreeSpot("furniture.bed", new Set(Array.from({ length: 36 }, (_, i) => `${i % 6},${Math.floor(i / 6)}`)), 6)], [{ x: 0, y: 0, flip: false }, null]);
+  // 예전 1칸 배치를 고쳐 읽기: 침대(2,2)가 차지하게 된 칸의 의자(3,3)는 빈 자리로, 방 밖으로 나가는 탁자(5,5)는 뒤집거나 옮긴다
+  const old = [
+    { ...at(1, 2, 2), assetKey: "furniture.bed" },
+    { ...at(2, 3, 3), assetKey: "furniture.chair" },
+    { ...at(3, 5, 5), assetKey: "furniture.table" },
+  ];
+  const fixed = repairLayout(old, 6);
+  expect("고쳐 읽기: 겹치거나 나간 2개를 옮김, 결과는 checkLayout 통과", [fixed.moved, fixed.spots.length, checkLayout(fixed.spots, rule)], [2, 3, null]);
+  expect("고쳐 읽기: 맞는 배치는 그대로", repairLayout([old[0]], 6), { spots: [old[0]], moved: 0 });
+  expect("고쳐 읽기: 자리가 없으면 그 가구는 빠진다 (6×6 방에 3×2 침대 7개 → 6개)", repairLayout(Array.from({ length: 7 }, (_, i) => ({ ...at(i + 1, 0, 0), assetKey: "furniture.bed" })), 6).spots.length, 6);
+
+  // 길 찾기: 가구 칸을 피하고, 대각선으로 모서리를 뚫지 않는다
+  const bed = { itemId: 1, assetKey: "furniture.bed", x: 1, y: 1, flip: false };
+  const blocked = blockedTiles([bed, { itemId: 9, assetKey: "furniture.rug", x: 4, y: 4, flip: false }]);
+  expect("막힌 칸 = 침대 6칸 (러그는 안 막음)", [...blocked].sort(), ["1,1", "1,2", "2,1", "2,2", "3,1", "3,2"]);
+  const path = findPath(6, blocked, { x: 0, y: 0 }, { x: 4, y: 3 });
+  const steps = [{ x: 0, y: 0 }, ...path];
+  const noCut = steps.every((p, i) => i === 0 || (Math.abs(p.x - steps[i - 1].x) <= 1 && Math.abs(p.y - steps[i - 1].y) <= 1 && !blocked.has(`${p.x},${steps[i - 1].y}`) && !blocked.has(`${steps[i - 1].x},${p.y}`)));
+  expect("길: 도착 칸에서 끝나고, 막힌 칸을 안 밟고, 한 칸씩·모서리 안 뚫음", [path.at(-1), path.some((p) => blocked.has(`${p.x},${p.y}`)), noCut], [{ x: 4, y: 3 }, false, true]);
+  expect("길: 그대로 그 칸이면 빈 길", findPath(6, blocked, { x: 0, y: 0 }, { x: 0, y: 0 }), []);
+  expect("길: 막힌 칸을 누르면 가장 가까운 빈 칸으로", (() => { const p = findPath(6, blocked, { x: 0, y: 0 }, { x: 2, y: 1 }).at(-1)!; return !blocked.has(`${p.x},${p.y}`) && Math.hypot(p.x - 2, p.y - 1) <= 1; })(), true);
+  expect("길: 갇힌 곳은 못 감 (가장 가까운 곳까지)", findPath(3, new Set(["1,0", "1,1", "1,2"]), { x: 0, y: 0 }, { x: 2, y: 2 }).at(-1), { x: 0, y: 2 });
+  const plan = planUse(6, blocked, { x: 5, y: 5 }, bed);
+  expect("가구 쓰러 가기: 침대에 맞닿은 빈 칸, 앞쪽(y = 3)을 고름", [plan?.stand.y, plan?.path.at(-1)], [3, plan?.stand]);
+  expect("가구 행동: 침대 잠·의자 앉기·책장 읽기·화분 물·스탠드 불·TV 음악·옷장 한 바퀴·곰 인형 구경", ["bed", "chair", "shelf", "plant", "lamp", "tv", "wardrobe", "bear"].map((k) => actionOf(`furniture.${k}`)), ["sleep", "sit", "read", "water", "light", "music", "spin", "look"]);
+  expect("앉을 칸: 소파(2×1)의 서 있는 쪽 칸", seatTile({ itemId: 2, assetKey: "furniture.sofa", x: 2, y: 0, flip: false }, { x: 3, y: 1 }), { x: 3, y: 0 });
+  // 깊이: 긴 침대 오른쪽 뒤의 의자는 칸 합으로 줄 세우면 틀린다 → 상자 비교로 의자가 앞
+  const ranks = depthRanks([{ x0: 0, y0: 0, x1: 1, y1: 4 }, { x0: 1, y0: 0, x1: 2, y1: 1 }]);
+  expect("깊이: 길쭉한 가구 옆 가구 순서", ranks[0] < ranks[1], true);
+  const { pieceZ, pointZ } = layoutDepth([bed]);
+  expect("깊이: 침대 앞 캐릭터는 위, 뒤 캐릭터는 아래", [pointZ({ x: 2.5, y: 3.5 }) > pieceZ[0], pointZ({ x: 0.5, y: 0.5 }) < pieceZ[0]], [true, true]);
+  // 그림: 아이소메트릭 가구는 차지하는 칸만큼 넓고, 침대·옷장은 캐릭터(24줄 × 4px = 96px)보다 크다
+  const iso = ISO_FURNITURE_KEYS().map((k) => [k, roomFurnitureArt(k)] as const);
+  expect("방 가구 그림 폭 = (w + d) × 8도트(칸 반폭) + 외곽선 2, 4배", iso.filter(([k, a]) => a.width !== ((footprintOf(k).w + footprintOf(k).d) * 8 + 2) * 4).map(([k]) => k), []);
+  expect("침대는 사람보다 넓고, 옷장은 사람보다 크다", [roomFurnitureArt("furniture.bed").width > 96 * 1.5, roomFurnitureArt("furniture.wardrobe").height > 96 * 1.5], [true, true]);
+  expect("작은 가구는 정수배(2·3배) 상점 그림", FURNITURE_KEYS().filter((k) => !ISO_FURNITURE_KEYS().includes(k)).every((k) => [2, 3].includes(roomFurnitureArt(k).dot) && roomFurnitureArt(k).height === 32 * roomFurnitureArt(k).dot), true);
+  expect("큰 가구(2칸 넘게)는 모두 아이소메트릭 그림", Object.keys(FURNITURE_FOOTPRINT).every((k) => ISO_FURNITURE_KEYS().includes(k)), true);
+  expect("그림 누르기: 침대 가운데는 칠한 칸, 왼쪽 위 구석은 투명", [artHit(roomFurnitureArt("furniture.bed"), roomFurnitureArt("furniture.bed").width / 2, roomFurnitureArt("furniture.bed").height * 0.6, false), artHit(roomFurnitureArt("furniture.bed"), 2, 2, false)], [true, false]);
+  // 몸짓: 24×24 칸, 2칸씩, 어떤 캐릭터에도
+  expect("몸짓 그림: 모든 캐릭터·몸짓·칸이 24×24", CHARACTER_KEYS().every((c) => POSES.every((p) => [0, 1].every((f) => { const g = poseFrame(c, [], p, f); return g.length === 24 && g.every((r) => r.length === 24); }))), true);
+  expect("자는 몸짓은 머리만 (위 11줄은 비었다)", poseFrame("char.boy", [], "sleep", 0).slice(0, 11).every((r) => r.every((c) => c === null)), true);
+  expect("앉은 몸짓은 서 있을 때보다 2줄 낮다 (맨 위 2줄 빔)", poseFrame("char.boy", [], "sit", 0).slice(0, 2).every((r) => r.every((c) => c === null)), true);
+}
 
 if (failed) process.exit(1);

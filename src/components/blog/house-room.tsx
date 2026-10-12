@@ -6,22 +6,20 @@ import { useLayoutEffect, useMemo, useRef, useState, useTransition } from "react
 import { chooseRoofColor, saveFurnitureLayout } from "@/app/house/actions";
 import { backgroundDataUri, backgroundSky } from "@/lib/art/backgrounds";
 import { furnitureDataUri } from "@/lib/art/furniture";
-import { floorToScreen, isoRoom, isoRoomDataUri, ROOM_PIXEL, screenToFloor, type IsoRoom } from "@/lib/art/room";
+import { artHit, roomFurnitureArt } from "@/lib/art/room-furniture";
+import { floorToScreen, isoRoom, isoRoomDataUri, ROOM_PIXEL, roomCamera, screenToFloor, type IsoRoom, type RoomCamera } from "@/lib/art/room";
 import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
 import type { RoofColor } from "@/lib/blog";
 import type { AnimalDisplaySize } from "@/lib/farm";
-import { checkLayout, roomGrid, ROOF_LABELS, type FurnitureSpot } from "@/lib/house";
-import { depthOf, RoomResident } from "./room-resident";
+import { checkLayout, findFreeSpot, fitsRoom, footprintOf, footprintTiles, repairLayout, roomGrid, ROOF_LABELS, WALKABLE_FURNITURE, type FurnitureSpot } from "@/lib/house";
+import { ACTION_LABEL, actionOf, layoutDepth } from "@/lib/room-walk";
+import { type ResidentControl, RoomResident } from "./room-resident";
 
 type Furniture = { id: number; name: string; assetKey: string };
 type Placed = { itemId: number; name: string; assetKey: string; x: number; y: number; flip: boolean };
 
-/** 가구 그림 크기: 32칸 그림의 2배(64px) = 바닥 한 칸 너비. 방(4배)과 같이 정수배 */
-const FURNITURE_PX = 64;
 /** 창밖 장면을 그릴 너비 (px, 4배 도트로 64칸) */
 const WINDOW_SCENE_WIDTH = 256;
-/** 방이 칸에 다 안 들어가면 줄이는 배율. 4배 도트가 3배·2배가 된다 */
-const FITS = [1, 0.75, 0.5] as const;
 
 /**
  * 블로그의 "우리 집" 구역 (마을 개편 2차, 사용자 요청 2026-10-08): 집 안에 가구를 놓고, 🚪 문으로 마을에 나간다.
@@ -73,38 +71,43 @@ export function HouseRoom({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  // 방이 칸 너비에 안 들어가면 3/4·1/2로 줄인다 (휴대폰). 재기 전에는 CSS 기본값(휴대폰 3/4)
+  // 카메라 (roomCamera, src/lib/art/room.ts): 방이 칸 너비에 안 들어가거나 넓은 방(8×8칸부터)이면 한 걸음 물러나 4배 도트가 3배·2배가 되고,
+  // 가구·주인·동물도 같이 작아진다. 휴대폰(좁은 칸)에서는 주인·동물이 한 단계 더 작다. 재기 전에는 방 크기로 정한 CSS 기본값
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [fit, setFit] = useState<number | null>(null);
+  const [camera, setCamera] = useState<RoomCamera | null>(null);
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const measure = () => {
-      const w = el.clientWidth;
-      setFit(FITS.find((k) => room.width * k <= w) ?? FITS[FITS.length - 1]);
+      const next = roomCamera({ grid, width: el.clientWidth, dpr: window.devicePixelRatio || 1 });
+      setCamera((c) => (c && c.fit === next.fit && c.charScale === next.charScale && c.petScale === next.petScale ? c : next));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [room.width]);
+  }, [grid]);
+  const fit = camera?.fit;
 
   const info = useMemo(() => new Map((owned ?? placed.map((p) => ({ id: p.itemId, name: p.name, assetKey: p.assetKey }))).map((f) => [f.id, f])), [owned, placed]);
+  // 저장된 배치를 지금 규칙(가구 크기·방 크기)에 맞게 고쳐 읽는다 (repairLayout). 겹치게 된 예전 배치는 빈 자리로 옮겨 보여 주고, 주인이 저장하면 DB에도 남는다
+  const repaired = useMemo(() => repairLayout(placed, grid), [placed, grid]);
   const shownSpots: (FurnitureSpot & { name: string; assetKey: string })[] = editing
     ? draft.flatMap((d) => {
         const f = info.get(d.itemId);
         return f ? [{ ...d, name: f.name, assetKey: f.assetKey }] : [];
       })
-    : placed.filter((p) => p.x < grid && p.y < grid);
-  const count = editing ? draft.length : shownSpots.length;
+    : repaired.spots;
+  const count = shownSpots.length;
+  const keyOf = (id: number) => info.get(id)?.assetKey;
 
   const openEditor = () => {
-    setDraft(placed.map(({ itemId, x, y, flip }) => ({ itemId, x, y, flip })));
+    setDraft(repaired.spots.map(({ itemId, x, y, flip }) => ({ itemId, x, y, flip })));
     setSelected(null);
     setEditing(true);
     setRoofOpen(false);
     setError(null);
-    setNotice(null);
+    setNotice(repaired.moved ? `가구가 커져서 ${repaired.moved}개를 빈 자리로 옮겼어요. [💾 저장]하면 이대로 남아요.` : null);
   };
   const cancel = () => {
     setEditing(false);
@@ -114,7 +117,7 @@ export function HouseRoom({
   };
   const save = () =>
     start(async () => {
-      const bad = checkLayout(draft, { grid, limit: house.slots });
+      const bad = checkLayout(draft, { grid, limit: house.slots, keyOf });
       if (bad) {
         setError(bad);
         return;
@@ -192,7 +195,7 @@ export function HouseRoom({
       {/* 방: 아이소메트릭 상자를 가운데에 둔다. 둘레는 어두운 나무색 (밤의 디오라마처럼) */}
       <div
         ref={wrapRef}
-        className="relative flex justify-center overflow-hidden bg-[#3b2a20] bg-[radial-gradient(circle_at_50%_40%,#5a4030_0%,#3b2a20_70%)] py-3 [--fit:1] max-sm:[--fit:0.75]"
+        className={`relative flex justify-center overflow-hidden bg-[#3b2a20] bg-[radial-gradient(circle_at_50%_40%,#5a4030_0%,#3b2a20_70%)] py-3 ${grid >= 8 ? "[--fit:0.75]" : "[--fit:1]"} ${grid >= 7 ? "max-sm:[--fit:0.5]" : "max-sm:[--fit:0.75]"}`}
         style={fit ? ({ "--fit": fit } as React.CSSProperties) : undefined}
       >
         <div style={{ width: `calc(${room.width}px * var(--fit))`, height: `calc(${room.height}px * var(--fit))` }} className="relative shrink-0">
@@ -208,7 +211,9 @@ export function HouseRoom({
             doorHref={doorHref}
             highlightDoor={highlightDoor}
             resident={resident}
+            residentPieces={repaired.spots}
             pet={pet}
+            camera={camera}
           />
         </div>
 
@@ -274,32 +279,40 @@ export function HouseRoom({
 type Spot = FurnitureSpot & { name: string; assetKey: string };
 type SetDraft = React.Dispatch<React.SetStateAction<FurnitureSpot[]>>;
 
-/** 칸이 비었는지 (자기 자신은 빼고) */
-const freeAt = (draft: readonly FurnitureSpot[], x: number, y: number, except?: number) => !draft.some((d) => d.itemId !== except && d.x === x && d.y === y);
-/** 바닥 빈 칸 하나 (뒤 모서리에서 가까운 순) */
-function firstFree(draft: readonly FurnitureSpot[], grid: number) {
-  for (let s = 0; s < grid * 2 - 1; s++) {
-    for (let x = 0; x <= s; x++) {
-      const y = s - x;
-      if (x < grid && y < grid && freeAt(draft, x, y)) return { x, y };
-    }
-  }
-  return null;
+/** 다른 가구가 차지한 칸들 (except = 빼고 볼 가구) */
+function takenTiles(spots: readonly Spot[], except?: number) {
+  const out = new Set<string>();
+  for (const s of spots) if (s.itemId !== except) for (const t of footprintTiles(s.assetKey, s)) out.add(t);
+  return out;
+}
+/** 이 가구를 (x, y, flip)에 놓을 수 있는지: 방 안이고 다른 가구와 안 겹친다. 안 되면 보여 줄 문구 */
+function placeError(spots: readonly Spot[], s: Spot, at: { x: number; y: number; flip: boolean }, grid: number): string | null {
+  if (!fitsRoom(s.assetKey, at, grid)) return "방 밖에는 놓을 수 없어요.";
+  const taken = takenTiles(spots, s.itemId);
+  return footprintTiles(s.assetKey, at).some((t) => taken.has(t)) ? "그 칸에는 이미 가구가 있어요." : null;
 }
 
-/** 마름모 한 칸 꼭짓점 (SVG points) */
-function diamond(room: IsoRoom, x: number, y: number) {
+/** 차지하는 칸들(x, y에서 w × d)의 바깥 마름모 꼭짓점 (SVG points) */
+function diamond(room: IsoRoom, x: number, y: number, w = 1, d = 1) {
   return [
     [x, y],
-    [x + 1, y],
-    [x + 1, y + 1],
-    [x, y + 1],
+    [x + w, y],
+    [x + w, y + d],
+    [x, y + d],
   ]
     .map(([a, b]) => {
       const p = floorToScreen(room, a, b);
       return `${p.x},${p.y}`;
     })
     .join(" ");
+}
+
+/** 가구 그림의 방 안 자리 (왼쪽 위 px): 차지하는 칸들의 뒤 꼭짓점에 그림의 기준점을 맞춘다 */
+function artBox(room: IsoRoom, s: { assetKey: string; x: number; y: number; flip: boolean }) {
+  const art = roomFurnitureArt(s.assetKey);
+  const back = floorToScreen(room, s.x, s.y);
+  const a = art.anchor(s.flip);
+  return { art, left: back.x - a.x, top: back.y - a.y };
 }
 
 function RoomStage({
@@ -314,7 +327,9 @@ function RoomStage({
   doorHref,
   highlightDoor,
   resident,
+  residentPieces,
   pet,
+  camera,
 }: {
   room: IsoRoom;
   spots: Spot[];
@@ -327,13 +342,17 @@ function RoomStage({
   doorHref: string;
   highlightDoor: boolean;
   resident: { characterAsset: string; outfit: string[] };
+  /** 저장된(편집 전) 가구: 캐릭터가 길을 찾고 쓰는 가구 */
+  residentPieces: Spot[];
   pet: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
+  camera: RoomCamera | null;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
+  const controlRef = useRef<ResidentControl | null>(null);
   // 끄는 중인 가구: 손가락·마우스 아래 칸 (칸이 바뀔 때만 상태가 바뀐다)
   const [drag, setDrag] = useState<{ itemId: number; x: number; y: number; ok: boolean } | null>(null);
   const grab = useRef<{ itemId: number; dx: number; dy: number; moved: boolean; sx: number; sy: number } | null>(null);
-  const blocked = useMemo(() => spots.map((s) => `${s.x},${s.y}`), [spots]);
+  const depth = useMemo(() => layoutDepth(spots), [spots]);
 
   /** 화면 좌표 → 방 그림 안 px (줄인 배율은 실제 크기로 계산) */
   const toStage = (clientX: number, clientY: number) => {
@@ -341,31 +360,74 @@ function RoomStage({
     const k = r.width / room.width;
     return { x: (clientX - r.left) / k, y: (clientY - r.top) / k };
   };
-  const tileAt = (clientX: number, clientY: number, g: { dx: number; dy: number }) => {
+  const inRoom = (x: number, y: number) => x >= 0 && y >= 0 && x < room.grid && y < room.grid;
+
+  /**
+   * 누른 곳의 가구: 앞에 있는 가구부터 그림의 칠한 도트 위인지(투명한 곳은 지나간다) → 아니면 그 바닥 칸을 차지한 가구.
+   * withWalkable = 러그처럼 밟는 가구도 찾을지 (편집할 때만. 보기에서는 러그 위를 누르면 그 칸으로 걸어간다)
+   */
+  const pieceAt = (p: { x: number; y: number }, withWalkable: boolean): Spot | null => {
+    const order = spots.map((s, i) => ({ s, z: depth.pieceZ[i] })).sort((a, b) => b.z - a.z);
+    for (const { s } of order) {
+      if (!withWalkable && WALKABLE_FURNITURE.has(s.assetKey)) continue;
+      const { art, left, top } = artBox(room, s);
+      if (artHit(art, p.x - left, p.y - top, s.flip)) return s;
+    }
+    const f = screenToFloor(room, p.x, p.y);
+    const key = `${Math.floor(f.x)},${Math.floor(f.y)}`;
+    return spots.find((s) => (withWalkable || !WALKABLE_FURNITURE.has(s.assetKey)) && footprintTiles(s.assetKey, s).includes(key)) ?? null;
+  };
+
+  // ===== 보기: 바닥을 누르면 그 칸으로 걷고, 가구를 누르면 가서 논다 (누구나, 저장하지 않음) =====
+  // 잡는 단계(capture)에서 먼저 본다: 가구 그림이 🚪 문 위에 겹쳐 있으면 문보다 가구가 먼저다.
+  // 키보드로 누른 단추(detail = 0)는 단추가 직접 처리한다
+  const onClickCapture = (e: React.MouseEvent) => {
+    if (e.detail === 0) return;
+    const p = toStage(e.clientX, e.clientY);
+    const piece = pieceAt(p, editing);
+    if (editing) {
+      if (piece) e.preventDefault();
+      return;
+    }
+    if (!piece && (e.target as HTMLElement).closest("a")) return; // 문
+    e.preventDefault();
+    e.stopPropagation();
+    if (piece) return controlRef.current?.use(piece.itemId);
+    const f = screenToFloor(room, p.x, p.y);
+    const t = { x: Math.floor(f.x), y: Math.floor(f.y) };
+    if (inRoom(t.x, t.y)) controlRef.current?.walkTo(t);
+  };
+
+  // ===== 편집: 가구를 끌어 칸에 붙인다 =====
+  const dropAt = (clientX: number, clientY: number, g: { dx: number; dy: number }) => {
     const p = toStage(clientX, clientY);
     const f = screenToFloor(room, p.x - g.dx, p.y - g.dy);
     return { x: Math.floor(f.x), y: Math.floor(f.y) };
   };
-  const inRoom = (x: number, y: number) => x >= 0 && y >= 0 && x < room.grid && y < room.grid;
-
-  const onDown = (e: React.PointerEvent, s: Spot) => {
+  const onDown = (e: React.PointerEvent) => {
     if (!editing || e.button > 0) return;
+    const p = toStage(e.clientX, e.clientY);
+    const s = pieceAt(p, true);
+    if (!s) return setSelected(null);
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // 잡은 점과 뒤 모서리 칸 가운데의 거리를 기억해 손가락이 가구 어디를 잡든 같은 만큼 옮긴다
     const foot = floorToScreen(room, s.x + 0.5, s.y + 0.5);
-    const p = toStage(e.clientX, e.clientY);
     grab.current = { itemId: s.itemId, dx: p.x - foot.x, dy: p.y - foot.y, moved: false, sx: e.clientX, sy: e.clientY };
     setSelected(s.itemId);
     setError(null);
+    (stageRef.current?.querySelector(`[data-item="${s.itemId}"]`) as HTMLElement | null)?.focus({ preventScroll: true });
   };
   const onMove = (e: React.PointerEvent) => {
     const g = grab.current;
     if (!g) return;
     if (!g.moved && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < 4) return;
     g.moved = true;
-    const t = tileAt(e.clientX, e.clientY, g);
-    const ok = inRoom(t.x, t.y) && !spots.some((s) => s.itemId !== g.itemId && s.x === t.x && s.y === t.y);
-    if (!drag || drag.x !== t.x || drag.y !== t.y || drag.itemId !== g.itemId) setDrag({ itemId: g.itemId, ...t, ok });
+    const s = spots.find((o) => o.itemId === g.itemId);
+    if (!s) return;
+    const t = dropAt(e.clientX, e.clientY, g);
+    const ok = !placeError(spots, s, { ...t, flip: s.flip }, room.grid);
+    if (!drag || drag.x !== t.x || drag.y !== t.y || drag.itemId !== g.itemId || drag.ok !== ok) setDrag({ itemId: g.itemId, ...t, ok });
   };
   const onUp = () => {
     const g = grab.current;
@@ -374,8 +436,10 @@ function RoomStage({
       setDrag(null);
       return;
     }
-    if (drag.ok) setDraft((d) => d.map((s) => (s.itemId === drag.itemId ? { ...s, x: drag.x, y: drag.y } : s)));
-    else setError(inRoom(drag.x, drag.y) ? "그 칸에는 이미 가구가 있어요." : "방 밖에는 놓을 수 없어요.");
+    const s = spots.find((o) => o.itemId === drag.itemId);
+    const bad = s ? placeError(spots, s, { x: drag.x, y: drag.y, flip: s.flip }, room.grid) : null;
+    if (!bad) setDraft((d) => d.map((o) => (o.itemId === drag.itemId ? { ...o, x: drag.x, y: drag.y } : o)));
+    else setError(bad);
     setDrag(null);
   };
   const onKey = (e: React.KeyboardEvent, s: Spot) => {
@@ -384,30 +448,44 @@ function RoomStage({
     if (m) {
       e.preventDefault();
       setSelected(s.itemId);
-      const x = s.x + m[0];
-      const y = s.y + m[1];
-      if (!inRoom(x, y)) return setError("방 밖에는 놓을 수 없어요.");
-      if (spots.some((o) => o.itemId !== s.itemId && o.x === x && o.y === y)) return setError("그 칸에는 이미 가구가 있어요.");
+      const at = { x: s.x + m[0], y: s.y + m[1], flip: s.flip };
+      const bad = placeError(spots, s, at, room.grid);
+      if (bad) return setError(bad);
       setError(null);
-      setDraft((d) => d.map((o) => (o.itemId === s.itemId ? { ...o, x, y } : o)));
+      setDraft((d) => d.map((o) => (o.itemId === s.itemId ? { ...o, x: at.x, y: at.y } : o)));
     } else if (e.key === "Delete" || e.key === "Backspace") {
       e.preventDefault();
       setDraft((d) => d.filter((o) => o.itemId !== s.itemId));
       setSelected(null);
     } else if (e.key === "f" || e.key === "F") {
       e.preventDefault();
+      const bad = flipError(spots, s, room.grid);
+      if (bad) return setError(bad);
+      setError(null);
       setDraft((d) => d.map((o) => (o.itemId === s.itemId ? { ...o, flip: !o.flip } : o)));
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      setSelected(s.itemId);
     }
   };
 
   return (
     <div
       ref={stageRef}
-      className="absolute top-0 left-0 origin-top-left"
+      className={`absolute top-0 left-0 origin-top-left ${editing ? "touch-none" : "cursor-pointer"}`}
       style={{ width: room.width, height: room.height, transform: "scale(var(--fit))" }}
       data-room-grid={room.grid}
       data-origin={`${room.origin.x},${room.origin.y}`}
       data-tile-size={`${room.tile.w},${room.tile.h}`}
+      data-room-dot={camera?.dot}
+      onClickCapture={onClickCapture}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={() => {
+        grab.current = null;
+        setDrag(null);
+      }}
     >
       {/* 창밖: 주인이 고른 배경 장면(꾸미기의 배경)의 지평선 둘레가 기운 창 유리 너머로 보인다. 장면도 방과 같은 4배 도트 */}
       <div
@@ -442,86 +520,103 @@ function RoomStage({
         <span className="pixel-wood -mt-7 whitespace-nowrap px-1.5 py-0.5 font-display text-xs transition group-hover:-translate-y-0.5">🚪 밖으로</span>
       </Link>
 
-      {/* 편집: 바닥 칸 눈금, 끄는 칸 (초록 = 놓을 수 있음, 빨강 = 못 놓음) */}
+      {/* 편집: 바닥 칸 눈금, 가구마다 차지하는 칸, 끄는 칸 (초록 = 놓을 수 있음, 빨강 = 못 놓음) */}
       {editing && (
         <svg className="pointer-events-none absolute inset-0 z-[60]" width={room.width} height={room.height} aria-hidden>
           {Array.from({ length: room.grid * room.grid }, (_, i) => (
             <polygon key={i} points={diamond(room, i % room.grid, Math.floor(i / room.grid))} fill="#ffffff14" stroke="#fffaf0" strokeOpacity={0.75} strokeWidth={2} strokeDasharray="6 4" />
           ))}
-          {drag && inRoom(drag.x, drag.y) && (
-            <polygon points={diamond(room, drag.x, drag.y)} fill={drag.ok ? "#7ed95788" : "#ff6b6b88"} stroke={drag.ok ? "#3f9b2a" : "#c43c3c"} strokeWidth={3} data-drop-target={drag.ok ? "ok" : "blocked"} />
-          )}
+          {spots.map((s) => {
+            const { w, d } = footprintOf(s.assetKey, s.flip);
+            return (
+              <polygon
+                key={s.itemId}
+                points={diamond(room, s.x, s.y, w, d)}
+                data-footprint={`${s.assetKey}:${w}x${d}`}
+                fill={selected === s.itemId ? "#ffd36e55" : "#ffffff22"}
+                stroke={selected === s.itemId ? "#ffd36e" : "#fffaf0"}
+                strokeWidth={3}
+              />
+            );
+          })}
+        </svg>
+      )}
+      {editing && drag && (
+        <svg className="pointer-events-none absolute inset-0 z-[1600]" width={room.width} height={room.height} aria-hidden>
+          {(() => {
+            const s = spots.find((o) => o.itemId === drag.itemId);
+            const { w, d } = footprintOf(s?.assetKey, s?.flip);
+            return (
+              <polygon points={diamond(room, drag.x, drag.y, w, d)} fill={drag.ok ? "#7ed95788" : "#ff6b6b88"} stroke={drag.ok ? "#3f9b2a" : "#c43c3c"} strokeWidth={3} data-drop-target={drag.ok ? "ok" : "blocked"} />
+            );
+          })()}
         </svg>
       )}
 
       <ul aria-label="집 안 가구" className="contents">
-        {spots.map((s) => {
+        {spots.map((s, i) => {
           const dragging = drag?.itemId === s.itemId;
-          const at = dragging && inRoom(drag.x, drag.y) ? { x: drag.x, y: drag.y } : { x: s.x, y: s.y };
-          const foot = floorToScreen(room, at.x + 0.5, at.y + 0.5);
-          const style: React.CSSProperties = {
-            left: foot.x - FURNITURE_PX / 2,
-            top: foot.y - FURNITURE_PX + room.tile.h / 4,
-            width: FURNITURE_PX,
-            height: FURNITURE_PX,
-            zIndex: dragging ? 1500 : depthOf(at.x + 0.5, at.y + 0.5),
-          };
-          const art = (
-            <>
-              {/* 발밑 그림자 (작은 마름모) */}
-              <span
-                aria-hidden
-                className="absolute left-1/2 -translate-x-1/2 bg-[#3a2a1e33]"
-                style={{ bottom: room.tile.h / 4 - 6, width: FURNITURE_PX * 0.7, height: 12, clipPath: "polygon(50% 0, 100% 50%, 50% 100%, 0 50%)" }}
-              />
-              {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-              <img
-                src={furnitureDataUri(s.assetKey, FURNITURE_PX)}
-                alt=""
-                draggable={false}
-                className={`pixelated relative block h-full w-full max-w-none select-none ${s.flip ? "-scale-x-100" : ""}`}
-              />
-            </>
+          const at = dragging ? { ...s, x: drag.x, y: drag.y } : s;
+          const { art, left, top } = artBox(room, at);
+          const { w, d } = footprintOf(s.assetKey, s.flip);
+          const style: React.CSSProperties = { left, top, width: art.width, height: art.height, zIndex: dragging ? 1500 : depth.pieceZ[i] };
+          const img = (
+            // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
+            <img
+              src={art.uri}
+              alt=""
+              draggable={false}
+              width={art.width}
+              height={art.height}
+              className={`pixelated block h-full w-full max-w-none select-none ${s.flip ? "-scale-x-100" : ""} ${dragging ? "opacity-80" : ""}`}
+            />
           );
-          if (!editing) {
-            return (
-              <li key={s.itemId} title={s.name} data-furniture={s.assetKey} data-tile={`${s.x},${s.y}`} data-flip={s.flip ? "1" : "0"} className="pointer-events-auto absolute" style={style}>
-                {art}
-                <span className="sr-only">{s.name}</span>
-              </li>
-            );
-          }
+          // 마우스·손가락은 방(stage)이 받아 그림의 칠한 도트로 가구를 찾는다. 단추는 키보드·화면 읽기 프로그램용
           return (
-            <li key={s.itemId} className="absolute" style={style} data-furniture={s.assetKey} data-tile={`${s.x},${s.y}`} data-flip={s.flip ? "1" : "0"}>
-              <button
-                type="button"
-                data-item={s.itemId}
-                aria-label={`${s.name} (${s.x + 1}, ${s.y + 1}칸) — 끌어서 옮기거나 방향키로 한 칸씩`}
-                aria-pressed={selected === s.itemId}
-                onPointerDown={(e) => onDown(e, s)}
-                onPointerMove={onMove}
-                onPointerUp={onUp}
-                onPointerCancel={() => {
-                  grab.current = null;
-                  setDrag(null);
-                }}
-                onFocus={() => setSelected(s.itemId)}
-                onKeyDown={(e) => onKey(e, s)}
-                className={`relative block h-full w-full cursor-grab touch-none outline-none active:cursor-grabbing ${
-                  selected === s.itemId ? "drop-shadow-[0_0_0_#ffd36e] [filter:drop-shadow(0_0_2px_#ffd36e)_drop-shadow(0_0_2px_#ffd36e)]" : ""
-                } ${dragging ? "opacity-80" : ""} focus-visible:[filter:drop-shadow(0_0_2px_#6cb4ee)_drop-shadow(0_0_2px_#6cb4ee)]`}
-              >
-                {art}
-              </button>
+            <li key={s.itemId} title={s.name} className="pointer-events-none absolute" style={style} data-furniture={s.assetKey} data-tile={`${s.x},${s.y}`} data-size={`${w}x${d}`} data-flip={s.flip ? "1" : "0"}>
+              {editing ? (
+                <button
+                  type="button"
+                  data-item={s.itemId}
+                  aria-label={`${s.name} (${s.x + 1}, ${s.y + 1}칸, ${w}×${d}칸) — 끌어서 옮기거나 방향키로 한 칸씩`}
+                  aria-pressed={selected === s.itemId}
+                  onFocus={() => setSelected(s.itemId)}
+                  onKeyDown={(e) => onKey(e, s)}
+                  className={`block h-full w-full outline-none ${
+                    selected === s.itemId ? "[filter:drop-shadow(0_0_2px_#ffd36e)_drop-shadow(0_0_2px_#ffd36e)]" : ""
+                  } focus-visible:[filter:drop-shadow(0_0_2px_#6cb4ee)_drop-shadow(0_0_2px_#6cb4ee)]`}
+                >
+                  {img}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  data-use={s.itemId}
+                  aria-label={`${s.name} — ${ACTION_LABEL[actionOf(s.assetKey)]}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    controlRef.current?.use(s.itemId);
+                  }}
+                  className="block h-full w-full outline-none focus-visible:[filter:drop-shadow(0_0_2px_#6cb4ee)_drop-shadow(0_0_2px_#6cb4ee)]"
+                >
+                  {img}
+                </button>
+              )}
             </li>
           );
         })}
       </ul>
 
-      {/* 주인 캐릭터와 전시 동물: 빈 바닥 칸을 걷는다. 가구 놓기 중에는 숨긴다 */}
-      <RoomResident room={room} blocked={blocked} characterAsset={resident.characterAsset} outfit={resident.outfit} pet={pet} hidden={editing} />
+      {/* 주인 캐릭터와 전시 동물: 누른 칸으로 걷고 가구와 논다. 가구 놓기 중에는 숨긴다 */}
+      <RoomResident room={room} pieces={residentPieces} characterAsset={resident.characterAsset} outfit={resident.outfit} pet={pet} hidden={editing} camera={camera} controlRef={controlRef} />
     </div>
   );
+}
+
+/** 고른 가구를 뒤집을 수 있는지 (뒤집으면 차지하는 칸의 가로·세로가 바뀐다). 안 되면 문구 */
+function flipError(spots: readonly Spot[], s: Spot, grid: number): string | null {
+  const bad = placeError(spots, s, { x: s.x, y: s.y, flip: !s.flip }, grid);
+  return bad ? "돌리면 방 밖으로 나가거나 다른 가구와 겹쳐요. 빈 곳으로 옮긴 다음 돌려 주세요." : null;
 }
 
 /** 편집할 때 방 아래: 고른 가구 도구(뒤집기·빼기), 가진 가구 목록(누르면 빈 칸에 놓기) */
@@ -548,14 +643,24 @@ function FurnitureTray({
   const selInfo = sel && owned.find((f) => f.id === sel.itemId);
   const placedIds = new Set(draft.map((d) => d.itemId));
   const full = draft.length >= limit;
+  const keyOf = (id: number) => owned.find((f) => f.id === id)?.assetKey;
   const add = (f: Furniture) => {
     if (placedIds.has(f.id)) return setSelected(f.id);
     if (full) return setError(`지금 집에는 가구를 ${limit}개까지 놓을 수 있어요. 다른 가구를 빼고 넣어 주세요.`);
-    const at = firstFree(draft, grid);
-    if (!at) return setError("빈 칸이 없어요.");
+    const taken = new Set(draft.flatMap((d) => footprintTiles(keyOf(d.itemId), d)));
+    const at = findFreeSpot(f.assetKey, taken, grid);
+    if (!at) return setError("이 가구가 들어갈 빈 자리가 없어요. 다른 가구를 옮기거나 빼 주세요.");
     setError(null);
-    setDraft((d) => [...d, { itemId: f.id, x: at.x, y: at.y, flip: false }]);
+    setDraft((d) => [...d, { itemId: f.id, ...at }]);
     setSelected(f.id);
+  };
+  const flip = (s: FurnitureSpot) => {
+    const key = keyOf(s.itemId);
+    const at = { x: s.x, y: s.y, flip: !s.flip };
+    const taken = new Set(draft.filter((d) => d.itemId !== s.itemId).flatMap((d) => footprintTiles(keyOf(d.itemId), d)));
+    if (!fitsRoom(key, at, grid) || footprintTiles(key, at).some((t) => taken.has(t))) return setError("돌리면 방 밖으로 나가거나 다른 가구와 겹쳐요. 빈 곳으로 옮긴 다음 돌려 주세요.");
+    setError(null);
+    setDraft((d) => d.map((o) => (o.itemId === s.itemId ? { ...o, flip: at.flip } : o)));
   };
   return (
     <div className="pixel-paper border-t-[3px] border-[#4a3426] px-4 py-3" data-furniture-tray>
@@ -563,7 +668,10 @@ function FurnitureTray({
         {sel && selInfo ? (
           <>
             <span className="font-bold">고른 가구: {selInfo.name}</span>
-            <button type="button" className="pixel-btn pixel-btn-sm bg-[#fffaf0] text-ink" onClick={() => setDraft((d) => d.map((o) => (o.itemId === sel.itemId ? { ...o, flip: !o.flip } : o)))}>
+            <span className="text-xs text-ink-soft" data-selected-size>
+              {footprintOf(selInfo.assetKey, sel.flip).w}×{footprintOf(selInfo.assetKey, sel.flip).d}칸
+            </span>
+            <button type="button" className="pixel-btn pixel-btn-sm bg-[#fffaf0] text-ink" onClick={() => flip(sel)}>
               ↔ 뒤집기
             </button>
             <button
@@ -578,7 +686,7 @@ function FurnitureTray({
             </button>
           </>
         ) : (
-          <span className="text-ink-soft">가구를 끌어서 바닥 칸에 놓아요. 고른 가구는 방향키로 한 칸씩, Delete로 빼기, F로 뒤집기.</span>
+          <span className="text-ink-soft">가구를 끌어서 바닥 칸에 놓아요. 큰 가구는 여러 칸을 차지하고, 뒤집으면 놓이는 방향이 바뀌어요. 고른 가구는 방향키로 한 칸씩, Delete로 빼기, F로 뒤집기.</span>
         )}
       </div>
       <p className="mt-2 mb-1.5 text-xs font-bold text-ink-soft">
@@ -600,6 +708,9 @@ function FurnitureTray({
                 {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
                 <img src={furnitureDataUri(f.assetKey, 64)} alt="" className="pixelated h-16 w-16" />
                 <span className="line-clamp-1">{f.name}</span>
+                <span className="text-[10px] text-ink-soft">
+                  {footprintOf(f.assetKey).w}×{footprintOf(f.assetKey).d}칸
+                </span>
                 <span className="text-[10px] text-ink-soft">{here ? "✓ 놓음" : "＋ 놓기"}</span>
               </button>
             </li>

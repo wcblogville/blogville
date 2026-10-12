@@ -133,6 +133,23 @@ await db.query("INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2)", [post.
   await ph.close();
 }
 
+// ── 2026-10-12 "블로그 이름 전체를 수정할 수 있게 (예: 노근영의 왕국)": 칸을 다 지우면 빈 칸 그대로, 적은 이름은 뒤에 아무것도 붙지 않는다 ──
+{
+  await a.page.goto(`${BASE}/settings/blog`);
+  const field = a.page.locator("form", { has: a.page.getByLabel("블로그 이름") }).getByLabel("블로그 이름");
+  await field.click();
+  await a.page.keyboard.press("ControlOrMeta+a");
+  await a.page.keyboard.press("Backspace");
+  check("설정: 블로그 이름 칸을 지우면 빈 칸 그대로 (예시는 흐린 안내 글자)", (await field.inputValue()) === "" && (await field.getAttribute("placeholder")) === "예: 나의 작은 왕국", await field.inputValue());
+  const r = await saveInfo(a.page, { title: "노을이의 왕국" });
+  await a.page.screenshot({ path: `${outDir}/settings-title.png` });
+  await a.page.goto(`${BASE}/@${A}`);
+  const h1 = await a.page.locator("main h1").innerText();
+  check("설정: `노을이의 왕국` 저장 → 블로그 맨 위·탭 제목에 그대로", r.msg === MSG.saved && h1 === "노을이의 왕국" && (await a.page.title()) === "노을이의 왕국 | Blogville", `${h1} / ${await a.page.title()}`);
+  await a.page.screenshot({ path: `${outDir}/blog-custom-title.png` });
+  await saveInfo(a.page, { title: "새 이름" });
+}
+
 // ── US3-2 잘못된 이름·소개 → 첫 오류 하나만, DB 그대로, 칸에 보낸 값 남음 ──
 for (const [label, input, want] of [
   ["공백만 이름", { title: "   ", description: "소개" }, MSG.titleEmpty],

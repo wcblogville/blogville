@@ -37,6 +37,7 @@ const signUpSchema = z
  * 회원가입 (AUTH-01 / FR-002~FR-008, FR-010, FR-011).
  * 입력 검사 → createMember(한 트랜잭션) → 커밋 뒤 라이브러리로 로그인 → 내 블로그(집 안).
  * 블로그 이름은 블로그 관리와 같은 규칙(checkBlogTitle)으로, 폼 순서대로 비밀번호 확인 다음에 검사한다 (2026-10-11 사용자 요청).
+ * 적은 이름을 그대로 쓰고 뒤에 아무것도 붙이지 않는다. 칸을 비워 두면 `{아이디}의 블로그`가 된다 (공백만 적으면 블로그 관리와 같이 `블로그 이름을 적어 주세요`) (2026-10-12 사용자 요청 "블로그 이름 전체를 수정할 수 있게").
  * FormData의 다른 칸(예: role)은 읽지 않는다 (FR-011).
  */
 export async function signUp(_prev: AuthFormState, formData: FormData): Promise<AuthFormState> {
@@ -58,7 +59,7 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   const parsed = signUpSchema.safeParse(raw);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
   const { username, password } = parsed.data;
-  const blogTitle = checkBlogTitle(raw.blogTitle);
+  const blogTitle = checkBlogTitle(raw.blogTitle === "" ? defaultBlogFor(username).title : raw.blogTitle);
   if (!blogTitle.ok) return fail(blogTitle.error);
   if (isReservedName(username)) return fail(SIGNUP_ERRORS.reserved);
   const characterId = parseId(raw.characterId);

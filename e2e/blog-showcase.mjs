@@ -5,7 +5,7 @@
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
-import { BASE, collectErrors, loginDev } from "./helpers.mjs";
+import { BASE, collectErrors, loginDev, walkInRoom } from "./helpers.mjs";
 
 config({ path: ".env.local", quiet: true });
 const outDir = process.argv[2] ?? "e2e-shots";
@@ -87,10 +87,12 @@ async function viewOf(page, slug = OWNER) {
   check("US4-1 방 안 주인 캐릭터 그림 (도트 걷기 그림판)", v.character.startsWith('url("data:image/svg+xml'), v.character.slice(0, 40));
   check("US4-1 제목 줄 닉네임 (블로그 이름 아님)", v.nickname === `닉${n}` && v.nickname !== owner.title, v.nickname);
   await guest.page.keyboard.press("Escape");
+  // 2026-10-12: 혼자 돌아다니지 않는다. 방문자도 바닥을 누르면 그 칸으로 걷는다 (저장하지 않음)
+  await walkInRoom(guest.page);
   const walked = await guest.page
     .waitForFunction(() => document.querySelector("[data-room-resident]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 9000 })
     .then(() => true, () => false);
-  check("US4-1 캐릭터가 방 안을 걷는다 (data-walk=walk-…)", walked, await guest.page.locator("[data-room-resident]").getAttribute("data-walk"));
+  check("US4-1 바닥을 누르면 캐릭터가 걷는다 (data-walk=walk-…)", walked, await guest.page.locator("[data-room-resident]").getAttribute("data-walk"));
   const box = await guest.page.locator("[data-room-resident]").boundingBox();
   check("US4-1 캐릭터 96×96px (24칸 × 4배, 정수배)", Math.round(box.width) === 96 && Math.round(box.height) === 96, `${box.width}×${box.height}`);
 }
