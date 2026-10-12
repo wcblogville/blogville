@@ -1,7 +1,7 @@
 // 글 순수 규칙 테스트 (POST-01~04, POST-07, POST-09 / FR-006, FR-009, FR-018, FR-029, FR-041, FR-047, quickstart §1)
 // 실행: npm run test:post
 import { attachmentAccess, pasteAction } from "../src/lib/attachments";
-import { checkPostInput, isContentTooLarge, parseTags, type PostInputRaw } from "../src/lib/post-rules";
+import { checkPostInput, isContentTooLarge, joinTags, moveTag, parseTags, type PostInputRaw } from "../src/lib/post-rules";
 
 let failed = 0;
 function expect(name: string, got: () => unknown, want: unknown) {
@@ -68,6 +68,13 @@ function tags() {
   expect("줄바꿈 구분", () => parseTags("a\nb"), ["a", "b"]);
   expect("공백은 구분자가 아님", () => parseTags("a b"), ["a b"]);
   expect("빈 칸", () => parseTags(" , # ,"), []);
+  // 태그 순서 (사용자 요청 2026-10-12): 적은 순서 그대로, ◀ ▶ 한 칸씩, 끝을 넘으면 그대로
+  expect("적은 순서 유지", () => parseTags("zeta, alpha, 중간"), ["zeta", "alpha", "중간"]);
+  expect("앞으로", () => moveTag(["a", "b", "c"], 2, -1), ["a", "c", "b"]);
+  expect("뒤로", () => moveTag(["a", "b", "c"], 0, 1), ["b", "a", "c"]);
+  expect("맨 앞에서 앞으로는 그대로", () => moveTag(["a", "b"], 0, -1), ["a", "b"]);
+  expect("맨 뒤에서 뒤로는 그대로", () => moveTag(["a", "b"], 1, 1), ["a", "b"]);
+  expect("joinTags → parseTags 왕복", () => parseTags(joinTags(["c", "a b", "가"])), ["c", "a b", "가"]);
 }
 
 // ===== attachmentAccess (FR-029, FR-059, data-model 3.4) =====

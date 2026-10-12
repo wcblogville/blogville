@@ -4,8 +4,9 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { savePost, type SavePostState } from "@/app/write/actions";
 import { readDraft, writeDraft, type Draft } from "@/lib/draft";
 import { POST_REWARD_MIN_LENGTH, REWARD_RULES } from "@/lib/game";
-import { checkPostInput, isContentTooLarge, rawPostInput, TAGS_MAX, TITLE_MAX } from "@/lib/post-rules";
+import { checkPostInput, isContentTooLarge, rawPostInput, TITLE_MAX } from "@/lib/post-rules";
 import { RichEditor } from "./rich-editor";
+import { TagField } from "./tag-field";
 
 export type CategoryOption = { id: number; name: string; subcategories: { id: number; name: string }[] };
 
@@ -241,15 +242,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
         onUploadingChange={setUploading}
       />
 
-      <input
-        name="tags"
-        value={tags}
-        onChange={(e) => edit(setTags)(e.target.value)}
-        placeholder="태그 (쉼표로 구분, 최대 10개)  예: git, 회고"
-        className="pixel-input"
-        aria-label="태그"
-        maxLength={TAGS_MAX}
-      />
+      <TagField value={tags} onChange={edit(setTags)} />
 
       <div className="pixel-panel flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="text-sm text-ink-soft">

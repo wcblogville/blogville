@@ -105,3 +105,17 @@ export function parseTags(raw: string): string[] {
     .filter((t) => t.length > 0 && t.length <= 20);
   return [...new Set(names)].slice(0, 10);
 }
+
+/** 태그 이름들 → 태그 칸 글자 (적은 순서 그대로, parseTags로 다시 읽으면 같은 목록) */
+export function joinTags(names: string[]): string {
+  return names.join(", ");
+}
+
+/** 태그 하나를 앞(-1)·뒤(+1)로 한 칸 옮긴 새 목록. 끝을 넘으면 그대로 (사용자 요청 2026-10-12 태그 순서 바꾸기) */
+export function moveTag(names: string[], index: number, step: -1 | 1): string[] {
+  const to = index + step;
+  if (index < 0 || index >= names.length || to < 0 || to >= names.length) return names;
+  const next = [...names];
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
+}

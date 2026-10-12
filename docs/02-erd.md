@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.19 (2026-10-12, 태그 순서: `post_tags.position` smallint 기본 0, 글쓴이가 적은 순서. 옛 글은 태그 이름순으로 채움, 마이그레이션 0042). 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -165,6 +165,7 @@ erDiagram
     post_tags {
         int post_id PK,FK
         int tag_id PK,FK
+        smallint position "적은 순서 (0부터)"
     }
     comments {
         int id PK
@@ -468,7 +469,7 @@ COMMIT
 |---|---|---|
 | `profiles` | (`user_id`) | 회원당 프로필 1개 (1:1) |
 | `user_items` | (`user_id`, `item_id`) | 같은 아이템 두 번 보유 불가 |
-| `post_tags` | (`post_id`, `tag_id`) | 같은 태그 두 번 불가 |
+| `post_tags` | (`post_id`, `tag_id`) | 같은 태그 두 번 불가. 표시 순서는 키가 아니라 `position` 칸 (글쓴이가 적은 순서, 2026-10-12) |
 | `post_likes` | (`post_id`, `user_id`) | 한 글에 공감 한 번 (SOC-03) |
 | `follows` | (`follower_id`, `followee_id`) | 같은 이웃 두 번 불가 (+ CHECK 자기 자신 불가) |
 | `attendances` | (`user_id`, `date`) | 하루 한 번 출석 |
@@ -755,6 +756,13 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 스킨을 사고 입히는 것은 한 Server Action(`wearSkin`)에서 `lockUser` 트랜잭션으로: 안 산 스킨이면 잔액 확인 → `user_animal_skins` INSERT → 원장 `skin_purchase`(`ref_id` = 스킨 ID) → `skin_id` UPDATE.
 - 동물 크기(작은·중간·큰)와 따라다니는 움직임은 그림 코드(`ANIMAL_SIZE`, `petSheetSvg`)라 DB에 두지 않는다.
 
+### 3.29 태그 순서 (사용자 요청 2026-10-12 "해시태그 여러 개 쓰면 가나다 순서로 정렬되는데 … 사용 순서대로 하거나 바꿀 수 있게", POST-04, `0042_post_tag_position`)
+
+- 전에는 `post_tags`에 순서가 없어서 `getPostTags`가 태그 이름순(`ORDER BY tags.name`)으로 보여 줬다. 순서는 **글과 태그의 연결**마다 다르므로(같은 태그가 글마다 다른 자리) `tags`가 아니라 잇는 표 `post_tags`에 `position smallint NOT NULL DEFAULT 0`을 더했다. 글쓴이가 적은(◀ ▶로 바꾼) 순서 0, 1, 2 …
+- 저장은 `savePost` 트랜잭션 안에서 빠진 연결을 지우고 `INSERT … ON CONFLICT (post_id, tag_id) DO UPDATE SET position = excluded.position`으로 남은 연결의 순서도 고친다. 읽기는 `ORDER BY position, tags.name`.
+- `(post_id, position)` UNIQUE는 두지 않았다: 저장할 때마다 전체를 다시 쓰므로 순서가 겹칠 일이 없고, UNIQUE가 있으면 자리를 맞바꿀 때 문장 중간에 겹쳐 막힌다(DEFERRABLE이 필요해진다). 겹쳐도 이름순으로 정해진다.
+- 이미 있는 글은 **지금까지 보이던 순서(태그 이름순)**를 `ROW_NUMBER() OVER (PARTITION BY post_id ORDER BY name) − 1`로 채웠다. 만든 순서(`tags.id`)는 다른 글이 먼저 만든 태그일 수 있어 그 글에서 적은 순서가 아니므로 쓰지 않았다. 화면에 보이던 것이 그대로라 놀랄 일이 없다.
+
 ## 4. 데이터 마이그레이션
 
 구조가 아니라 **데이터**를 바꿔야 할 때도 마이그레이션 파일로 남긴다. 그래야 팀원 각자의 DB와 배포 DB에 똑같이 적용된다.
@@ -763,6 +771,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 |---|---|
 | `0002_give_all_starters.sql` | GAME-01 결정(그때는 기본 캐릭터 3종 모두 지급)에 맞춰, 이미 온보딩을 마친 회원에게 없는 기본 캐릭터를 채웠다. `ON CONFLICT DO NOTHING`이라 여러 번 실행해도 중복되지 않는다 |
 | `0020_reply_backfill.sql` | SOC-02: `comments.parent_id`가 있는 행을 `replies`로 옮겼다 (`id`·작성자·시각 그대로, 원댓글 = `parent_id`를 따라 올라간 첫 조상, 다른 글 부모는 일반 댓글로). 삭제한 행은 내용을 비웠다. `ON CONFLICT DO NOTHING`이라 다시 실행해도 같다 |
+| `0042_post_tag_position.sql` | POST-04: 새 칸 `post_tags.position`을 이미 있는 글마다 태그 이름순(지금까지 보이던 순서)으로 0부터 채웠다 (3.29) |
 | `0018_attachment_backfill.sql` | POST-07·POST-09: 기존 첨부마다 올린 회원의 글 중 본문에 `/files/키`가 든 가장 먼저 쓴 글에 `post_id`를 채웠다. 못 찾으면 NULL(정리 대상). `post_id IS NULL` 행만 고쳐 다시 실행해도 같다 |
 
 ## 5. 남은 확인 사항

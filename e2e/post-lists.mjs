@@ -125,7 +125,7 @@ await a.getByPlaceholder("제목").fill("태그 글");
 await a.locator(".ProseMirror").click();
 await a.keyboard.type("태그를 단다");
 const tag1 = `git${n}`;
-await a.getByLabel("태그").fill(`${tag1}, #회고${n}, ${tag1.toUpperCase()}`);
+await a.getByLabel("태그", { exact: true }).fill(`${tag1}, #회고${n}, ${tag1.toUpperCase()}`);
 await a.getByRole("button", { name: "발행하기" }).click();
 await a.waitForURL(/\/\d+(\?new=1)?$/);
 const tagPost = Number(new URL(a.url()).pathname.split("/").pop());
@@ -142,16 +142,16 @@ check("US6 빈 태그 문구 (404 아님)", await guest.getByText("이 태그가
 // 태그 비우기
 await a.goto(`${BASE}/write/${tagPost}`);
 await a.locator(".ProseMirror").waitFor();
-await a.getByLabel("태그").fill("");
+await a.getByLabel("태그", { exact: true }).fill("");
 await a.getByRole("button", { name: "수정 완료" }).click();
 await a.waitForURL(new RegExp(`/@${idA}/${tagPost}$`));
 check("US6 태그 비우면 배지 없음", (await a.locator('a[href^="/tags/"]').count()) === 0);
 // 300자 입력 제한과 조작
 await a.goto(`${BASE}/write/${tagPost}`);
 await a.locator(".ProseMirror").waitFor();
-check("US6 태그 칸 300자 제한", (await a.getByLabel("태그").getAttribute("maxlength")) === "300");
-await a.getByLabel("태그").evaluate((el) => el.removeAttribute("maxlength"));
-await a.getByLabel("태그").fill("a".repeat(301));
+check("US6 태그 칸 300자 제한", (await a.getByLabel("태그", { exact: true }).getAttribute("maxlength")) === "300");
+await a.getByLabel("태그", { exact: true }).evaluate((el) => el.removeAttribute("maxlength"));
+await a.getByLabel("태그", { exact: true }).fill("a".repeat(301));
 await a.getByRole("button", { name: "수정 완료" }).click();
 await a.getByText("태그는 모두 합쳐 300자까지예요").waitFor({ timeout: 10000 }).catch(() => {});
 check("US6 태그 301자 조작 → 문구", await a.getByText("태그는 모두 합쳐 300자까지예요").isVisible());
@@ -161,7 +161,7 @@ await a.locator(".ProseMirror").waitFor();
 await a.getByPlaceholder("제목").fill("퍼센트 태그");
 await a.locator(".ProseMirror").click();
 await a.keyboard.type("백 퍼센트");
-await a.getByLabel("태그").fill(`100%${n}`);
+await a.getByLabel("태그", { exact: true }).fill(`100%${n}`);
 await a.getByRole("button", { name: "발행하기" }).click();
 await a.waitForURL(/\/\d+(\?new=1)?$/);
 await a.locator(`a[href="/tags/${encodeURIComponent(`100%${n}`)}"]`).click();

@@ -54,6 +54,7 @@
 | 1.34 | 2026-10-12 | 사용자 요청 "마을 소식에 팔로우 한사람만 나오게 … 마을 전체는 즐겨찾기 해둔 사람들 글, 이웃 새 글은 팔로우 해 둔 사람들 글 다" + "맨 위에 공지사항(사용법·환영)" + "릴리스 노트칸 … 버전 업데이트 될 때마다 한 개씩": 마을 소식 **[🏘 마을 전체] = ⭐ 즐겨찾는 이웃의 공개 글**, **[💛 이웃 새 글] = 모든 이웃의 공개 글**(즐겨찾기 포함, 즐겨찾는 이웃의 최근 7일 글이 위). 모르는 사람·내 글·공지 블로그(관리자) 글은 두 탭 모두 없고, 방문자는 글 목록 없이 로그인 안내. 두 탭 맨 위에 **고정 공지**(공지 블로그 `공지` 분류의 최근 공개 글, `PinnedNoticeCard`, 방문자도 봄), 처음 공지는 시드가 넣는 **사용법 안내**(`src/lib/welcome-notice.ts`, 태그 `이용안내`). 새 탭 **[📜 릴리스 노트]**(`/feed/releases`, 공지 블로그 `릴리스 노트` 분류 공개 글 최신순, 관리자가 직접 쓴 글 포함). 릴리스 노트 원본은 `src/content/release-notes.ts`(버전마다 한 항목, v0.1~v0.4), `db:seed`·`admin:create`가 `scripts/notice-posts.ts`로 없는 버전만 넣는다(태그 = 버전, 고친 글은 덮어쓰지 않음). 태그별 글·마을 검색은 그대로 마을 전체. 스키마 변경 없음 (SOC-05) | 이진행 |
 | 1.35 | 2026-10-12 | 사용자 요청 "낚시터 낚을 수 있는 것들도 도트로", "캐릭터 계속 움직이는데 따라다니는 펫이 버퍼링 걸려", "동물 성장했을 때 대가리가 커지는 게 아니라 그 동물에 맞는 비율로", "최종 성장시켰을 때 동물 크기 조절도": **낚시터 도트**: 낚을 것 6가지를 20×20칸 도트(`src/lib/art/catches.ts`, 목록 2배·결과 5배), 연못의 찌가 까딱이고 던지면 입질로 잠기고 낚으면 물보라와 함께 튀어 오름 (TOWN-14). **광장 펫 끊김 고침**: 3px 자취 점에 닿으면 멈췄다 다시 걷느라 프레임마다 걷기/서기가 바뀌고 걷기 그림이 처음으로 돌아가던 것을, 1px 자취의 정확한 거리 점을 지수 감쇠(프레임 시간 기준)로 따라가고 걷기/서기 문턱 두 개·걸은 거리로 그림 넘기기로 바꿈 (TOWN-21). **동물 비율 성장**: 옆모습으로 몸·다리·목·머리·꼬리를 따로 재서 아기는 머리 크고 동글, 어른은 그 동물답게 (TOWN-09). **다 키운 동물 크기**(아주 작게·작게·보통·크게, 무료): `user_animals.display_size`(CHECK, 마이그레이션 0036, ERD 1.18), 농장 다 키운 동물 카드에서 고르면 광장(따라오는 거리 포함)·우리 집 방·농장에 그 크기. 늘이지 않고 다시 그려 도트가 고르다. 도화지에 다 들어가는 만큼만 커져 조랑말·송아지는 "크게"가 없다 (TOWN-09, TOWN-21, BLOG-04). 릴리스 노트 v0.5 (`src/content/release-notes.ts`) | 이진행 |
 | 1.36 | 2026-10-12 | 사용자 요청 "회원정보 수정 페이지 만들어서 비밀번호 변경이라던가 정보 수정하게": 내 정보(`/settings/account`)를 **🙂 회원정보 수정**으로 넓힘 (AUTH-11 추가). 카드 순서 기본 정보(아이디는 바꿀 수 없음·가입일·내 블로그 → 블로그 관리 링크) → 프로필 사진(올리기·바꾸기·지우기, `profiles.photo_key`) → 닉네임 → 비밀번호 변경(지금·새·새 확인, 가입과 같은 8~64자 `src/lib/password.ts`, 관리자는 12자 이상) → 로그인 수단 → 회원 탈퇴. 비밀번호를 바꾸면 다른 기기의 세션은 끊기고 이 브라우저 세션은 그대로. 헤더 캐릭터 배지·☰ 메뉴·블로그 관리의 이름도 `회원정보 수정`. 스키마 변경 없음. 릴리스 노트 v0.7 | 이진행 |
+| 1.37 | 2026-10-12 | 사용자 요청 "해시태그 여러 개 쓰면 가나다 순서로 정렬되는데 이거 오래된 순이나 사용 순서대로 하거나 바꿀 수 있게", "글 쓰기할때 글꼴 색, 글꼴 바탕색, 이모티콘 이런거 추가": **태그는 적은 순서대로** 저장·표시 (`post_tags.position`, 마이그레이션 0042, ERD 1.19). 이미 있는 글은 지금까지 보이던 가나다 순서를 그대로 순서로 채움. 글쓰기·수정 화면 태그 칸 아래 칩의 ◀ ▶(키보드 가능)로 순서 바꾸기 (POST-04). **에디터 글꼴 색(10색)·바탕색(9색)·이모티콘(5분류 120개)** 버튼 (POST-01). 정화는 `span`의 `color`, `mark`의 `background-color`만, `#hex`·`rgb()` 색 값일 때만 남기고 hex로 맞춘다 (NF-03). 릴리스 노트 v0.15 | 이진행 |
 
 ### 2026-10-07 설계 변경 (구현됨)
 
@@ -1569,13 +1570,14 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 2. 지우면 안내 문구 없이 내 블로그 홈(`/@주소`)으로 이동한다. 확인 창에서 [취소]를 누르면 아무 일도 없다.
 
 **에디터 도구** (왼쪽부터)
-`H2` 큰 제목 · `H3` 작은 제목 | `B` 굵게 · `I` 기울임 · `U` 밑줄 · `S` 취소선 | `• 목록` · `1. 목록` · `❝ 인용` · `</> 코드` 블록 · `― 구분선` · `🔗 링크` | `↶` 되돌리기 · `↷` 다시 실행 | `🖼 사진` · `📎 파일` (POST-07, POST-09)
+`H2` 큰 제목 · `H3` 작은 제목 | `B` 굵게 · `I` 기울임 · `U` 밑줄 · `S` 취소선 · `가` 글자색 · `가` 바탕색 · `😀` 이모티콘 | `• 목록` · `1. 목록` · `❝ 인용` · `</> 코드` 블록 · `― 구분선` · `🔗 링크` | `↶` 되돌리기 · `↷` 다시 실행 | `🖼 사진` · `📎 파일` (POST-07, POST-09)
 
 - 지금 커서 위치에 적용된 도구는 검은 배경으로 표시된다. 버튼에 마우스를 올리면 이름(`큰 제목`, `글머리 목록` 등)이 뜬다.
 - 도구 버튼, [🖼 사진]·[📎 파일], 올리기 안내의 [✕]는 누르는 영역이 44×44px 이상이다. 375px에서는 도구 모음이 여러 줄로 감긴다 (가로 스크롤 없음).
 - 링크: 버튼을 누르면 주소 입력 창 `링크 주소 (비우면 링크 해제)`가 뜬다. 기본값은 `https://`(이미 링크면 그 주소). 비우거나 `https://`만 남기면 링크가 풀린다. 주소를 붙여 넣으면 자동으로 링크가 된다. 쓰는 중에는 링크를 눌러도 열리지 않는다.
 - 본문이 비어 있으면 첫 줄에 안내 문구 `오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️`가 흐리게(`ink-soft`) 보이고, 글자를 쓰면 사라진다. `Placeholder`가 붙인 `data-placeholder`를 `src/app/globals.css`의 `.tiptap .is-editor-empty:first-child::before`가 그린다 (#17).
 - 마크다운처럼 입력해도 바뀐다 (Tiptap 기본 입력 규칙). 줄 맨 앞에 `##`·`###`·`>`·`-`·`1.`을 쓰고 띄어쓰기하면 큰 제목·작은 제목·인용·목록·번호 목록이 된다. ```` ``` ````+띄어쓰기는 코드 블록, `---`는 구분선이다. 글자를 `**`로 감싸면 굵게, `*`는 기울임, `~~`는 취소선, `` ` ``는 글자 속 코드가 된다. `[글자](주소)` 링크 문법은 바뀌지 않는다.
+- 글자색·바탕색·이모티콘 (사용자 요청 2026-10-12): 버튼을 누르면 도구 모음 아래에 작은 도트 창이 열린다. 글자색은 10색(빨강·주황·노랑·초록·하늘·파랑·보라·분홍·갈색·회색) + `✕ 글꼴 색 없애기 (기본 색)`, 바탕색은 9색(노랑·주황·빨강·분홍·초록·민트·하늘·보라·회색) + `✕ 바탕색 없애기`이고, 먼저 글자를 고른 뒤 색을 누르면 칠하고 창이 닫힌다. 이모티콘 창은 분류 5개(표정·손·하트·동물·자연·음식·물건·기호) × 24개이고 누르면 커서 자리에 들어가며 창은 열려 있다(여러 개를 이어서 넣기). `Esc`·[닫기]·창 바깥을 누르면 닫히고, 키보드로 열면 창 안 첫 칸(지금 색이 있으면 그 칸)에 포커스, 닫으면 연 버튼으로 돌아온다. 버튼의 `가` 밑줄·바탕은 지금 커서 자리의 색이다. 색 목록은 `src/lib/editor-palette.ts` 한 곳. 어두운 색 위 어두운 글자 같은 대비는 글쓴이가 정한다.
 - 단축키: `Ctrl/⌘+B` 굵게 · `Ctrl/⌘+I` 기울임 · `Ctrl/⌘+U` 밑줄 · `Ctrl/⌘+E` 글자 속 코드 (글자 속 코드는 도구 모음에 버튼이 없다) · `Shift+Enter` 문단을 나누지 않고 줄바꿈
 
 **예외 흐름**
@@ -1652,6 +1654,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 - [x] 발행 안내는 주인에게 한 번만 보인다: 안내가 뜬 뒤 주소에서 `?new`가 지워지고, 새로고침하면 안내가 없고, 다른 회원이 `?new=1` 주소를 열어도 안내가 없다. (`e2e/post-write.mjs`)
 - [x] 큰·작은 제목, 굵게·기울임·밑줄·취소선, 링크, 두 목록, 인용, 코드 블록, 구분선(12가지)이 저장 후 그대로 남는다. (`e2e/post-write.mjs`, `npm run test:sanitize`)
 - [x] `<script>`, `onerror`·`onclick`, `javascript:` 링크, `<iframe>`, `data:` 사진은 저장되지 않는다. (`e2e/post-write.mjs`, `npm run test:sanitize`)
+- [x] 글자색·바탕색·이모티콘이 저장 뒤 글 화면과 수정 화면에 그대로 보인다. 저장 HTML은 `<span style="color:#d63c3c">`·`<mark data-color="#fff176" style="background-color:#fff176;color:inherit">`. (`e2e/editor-tags.mjs`)
+- [x] 색 말고 다른 CSS(`position`·`font-size`·`url()`·`expression()`·`var()`·이름 색)와 `p`·`h2` 같은 다른 태그의 `style`은 저장되지 않는다. (`npm run test:sanitize`, `e2e/editor-tags.mjs`)
+- [x] 375px에서 이모티콘 창이 화면 밖으로 넘치지 않는다. (`e2e/editor-tags.mjs`)
 - [x] 내 글만 수정·삭제할 수 있다: 남의 글·없는 글·범위 밖 번호의 수정 화면은 404이고, 남의 글 수정을 조작해 보내면 `잠깐 문제가 생겼어요`가 뜨고 그 글은 그대로다. (`e2e/post-write.mjs`, `e2e/params.mjs`)
 - [x] 삭제 확인 창 문구는 `이 글을 삭제할까요? 댓글과 공감도 함께 지워져요.`이고, [취소]하면 그대로, 지우면 블로그 홈으로 가고 받은 경험치·코인은 그대로다. (`e2e/post-write.mjs`)
 - [x] 글을 지우면 댓글·공감도 함께 지워진다. (코드 확인)
@@ -1862,7 +1867,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 | 관련 | 화면 `/write`, `/write/[글ID]`, 글 상세, `/tags/[태그]`, 마을 소식·이웃 새 글·태그별 글 오른쪽 · 테이블 `tags`, `post_tags`(N:M) · POST-01, POST-02, POST-05, SOC-04, SOC-05 |
 
 **기본 흐름**
-1. 글쓰기 화면 아래 태그 칸에 `git, 회고`처럼 적는다.
+1. 글쓰기 화면 아래 태그 칸에 `git, 회고`처럼 적는다. 칸 아래에 적은 순서대로 `◀ #git ▶` `◀ #회고 ▶` 칩이 보이고, ◀ ▶로 한 칸씩 옮기면 칸의 글자도 그 순서로 다시 쓰인다 (사용자 요청 2026-10-12).
 2. 글 상세 아래에 `#git` `#회고`가 보이고, 누르면 그 태그가 달린 공개 글 목록(`/tags/git`)으로 간다.
 3. 마을 소식 오른쪽 "🏷 인기 태그"에 많이 쓰인 태그가 보인다. 이웃 새 글(`/feed/following`)과 태그별 글(`/tags/[태그]`) 화면에도 같은 상자가 있고, 셋 다 **마을 전체** 기준이다.
 4. 인기 태그를 눌러도 같은 태그별 글 목록으로 간다.
@@ -1897,8 +1902,9 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 **표시 규칙**
 - 글쓰기 화면: 본문 에디터와 보상 안내 상자 사이에 한 줄 칸. 안내 문구(placeholder) `태그 (쉼표로 구분, 최대 10개)  예: git, 회고`, 칸 이름 `태그`
-- 수정 화면: 저장된 태그를 이름순으로 `, `로 이어서 채운다 (예: `git, 회고`). 처음 적은 순서는 남지 않는다
-- 글 상세: 본문 아래, 공감 버튼 위에 `#태그` 둥근 배지. 태그 이름 가나다순(`ORDER BY tags.name`, DB 정렬 규칙 기준). 태그가 없으면 이 줄이 없다. 배지 높이 44px 이상
+- 순서 칩 (글쓰기·수정 화면): 태그 칸 아래 `보이는 순서대로 저장돼요 · ◀ ▶ 로 순서 바꾸기` + 칩 `◀ #태그 ▶`. 맨 앞 ◀·맨 뒤 ▶는 꺼진다. 버튼 이름 `#태그 앞으로`·`#태그 뒤로`, 옮긴 뒤에도 같은 버튼에 포커스(끝에 닿으면 반대쪽 버튼), 화면 읽기 프로그램에 `#태그 태그를 N번째로 옮겼어요`. 칩은 `parseTags` 결과라 빠질 태그(21자·11번째)는 칩에도 없다
+- 수정 화면: 저장된 태그를 **저장한 순서대로** `, `로 이어서 채운다 (예: `git, 회고`)
+- 글 상세: 본문 아래, 공감 버튼 위에 `#태그` 둥근 배지. **글쓴이가 적은 순서**(`ORDER BY post_tags.position`, 같은 값이면 이름순). 태그가 없으면 이 줄이 없다. 배지 높이 44px 이상
 - 태그 링크 주소: `/tags/` + `encodeURIComponent(태그)` (예: `회고` → `/tags/%ED%9A%8C%EA%B3%A0`)
 - 인기 태그: 공개 글에 달린 횟수가 많은 순 → 같으면 이름순, **최대 30개**, `#태그 N` 형식
   - 숫자 N은 흐린 글씨. 화면 폭 768px(`md`) 이상이면 오른쪽(260px, 스크롤해도 따라옴), 그보다 좁으면 글 목록 아래. 칩 높이 44px 이상
@@ -1912,17 +1918,18 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 
 | 항목 | 내용 |
 |---|---|
-| 화면 | 입력: `PostForm` (`src/components/editor/post-form.tsx`, 클라이언트, `name="tags"`, `aria-label="태그"`). 수정 화면 `src/app/write/[postId]/page.tsx`가 `getPostTags`로 채움 · 글 상세: `src/app/blog/[slug]/[postId]/page.tsx` (서버, `getPostTags`) · 태그별 글: `src/app/tags/[name]/page.tsx` (서버), `FeedView` (`src/components/blog/feed-view.tsx`) |
-| 처리 | `savePost` (`src/app/write/actions.ts`): `postInputSchema`의 `tags` 300자 → `parseTags()`(`src/lib/post-rules.ts`) → 글 저장과 **같은 트랜잭션** 안에서 없는 태그는 `INSERT ... ON CONFLICT DO NOTHING`으로 만들고, 이름으로 태그 ID를 다시 조회한 뒤, 이 글의 연결(`post_tags`)을 새 목록에 맞게 지우고(`DELETE ... WHERE post_id AND tag_id NOT IN 새 목록`) 추가(`ON CONFLICT DO NOTHING`). 새 목록이 비면 이 글의 연결을 모두 지운다 |
-| 데이터 | `tags.name` UNIQUE, `post_tags` 기본 키 `(post_id, tag_id)`, 인덱스 `post_tags_tag_idx`(`tag_id`) · `getPostTags(postId)`: 이름 오름차순 · `listFeed({ page, tag })`: 공개 글 중 `posts.id IN (태그 이름이 같은 post_tags)` · `getAllTags(limit = 30)`: 공개 글과 JOIN → `GROUP BY tags.id` → `COUNT(*) DESC, name ASC` → `LIMIT 30` (모두 `src/server/blog.ts`) |
+| 화면 | 입력: `PostForm` (`src/components/editor/post-form.tsx`) 안의 `TagField` (`src/components/editor/tag-field.tsx`, 클라이언트, `name="tags"`, `aria-label="태그"`, 순서 칩은 `moveTag`·`joinTags`(`src/lib/post-rules.ts`)). 수정 화면 `src/app/write/[postId]/page.tsx`가 `getPostTags`로 채움 · 글 상세: `src/app/blog/[slug]/[postId]/page.tsx` (서버, `getPostTags`) · 태그별 글: `src/app/tags/[name]/page.tsx` (서버), `FeedView` (`src/components/blog/feed-view.tsx`) |
+| 처리 | `savePost` (`src/app/write/actions.ts`): `postInputSchema`의 `tags` 300자 → `parseTags()`(`src/lib/post-rules.ts`) → 글 저장과 **같은 트랜잭션** 안에서 없는 태그는 `INSERT ... ON CONFLICT DO NOTHING`으로 만들고, 이름으로 태그 ID를 다시 조회한 뒤, 이 글의 연결(`post_tags`)을 새 목록에 맞게 지우고(`DELETE ... WHERE post_id AND tag_id NOT IN 새 목록`) 추가하며 순서를 적는다(`position` = 적은 순서 0부터, 이미 있는 연결은 `ON CONFLICT DO UPDATE SET position`). 새 목록이 비면 이 글의 연결을 모두 지운다 |
+| 데이터 | `tags.name` UNIQUE, `post_tags` 기본 키 `(post_id, tag_id)` + 순서 `position`(smallint, 0부터), 인덱스 `post_tags_tag_idx`(`tag_id`) · `getPostTags(postId)`: `position` → 이름 오름차순 · `listFeed({ page, tag })`: 공개 글 중 `posts.id IN (태그 이름이 같은 post_tags)` · `getAllTags(limit = 30)`: 공개 글과 JOIN → `GROUP BY tags.id` → `COUNT(*) DESC, name ASC` → `LIMIT 30` (모두 `src/server/blog.ts`) |
 | 무결성 | 글 저장·보상·태그가 한 트랜잭션(`db.transaction`)이라 태그 처리 중 실패하면 글 저장도 함께 취소된다. 트랜잭션 시작 때 `lockUser`로 회원 단위 잠금을 건다. `post_tags`의 두 외래 키는 `ON DELETE CASCADE`라 글을 지우면 연결도 지워진다. `tags` 행은 남는다 |
 | 검증 | 브라우저: `maxLength=300` (`required`는 없음) / 서버: `postInputSchema` 300자(`태그는 모두 합쳐 300자까지예요`) + `parseTags`가 규칙에 안 맞는 태그를 조용히 버림 / DB: UNIQUE(`tags.name`), 기본 키. 태그 길이 CHECK는 없다 |
 | 갱신 | `revalidatePath("/", "layout")` → 글 상세로 이동 (POST-01) |
-| 테스트 | `npm run test:post`(`parseTags` 9가지), `e2e/post-lists.mjs`(태그 달기·목록·비우기·300자·`%` 태그·비공개 제외), `e2e/blog.mjs`(스크린샷) |
+| 테스트 | `npm run test:post`(`parseTags` 9가지), `e2e/post-lists.mjs`(태그 달기·목록·비우기·300자·`%` 태그·비공개 제외), `e2e/editor-tags.mjs`(적은 순서·◀ ▶·키보드·수정 뒤 순서), `e2e/blog.mjs`(스크린샷) |
 
 **수용 기준**
 - [x] `Git`과 `git`은 같은 태그다. (`npm run test:post`, `e2e/post-lists.mjs`)
 - [x] 태그를 고쳐서 저장하면 빠진 태그의 연결은 지워진다. (코드 확인)
+- [x] `zeta, alpha, 중간`처럼 적으면 글 상세·수정 화면에 적은 순서 그대로 보이고, ◀ ▶(마우스·키보드)로 바꾼 순서로 저장된다. 수정 화면에서 순서를 바꾸고 태그를 더해도 그 순서가 저장된다. (`e2e/editor-tags.mjs`)
 - [x] `git, #회고, Git`을 저장하면 `#git` `#회고` 2개만 달린다. (`npm run test:post`, `e2e/post-lists.mjs`)
 - [x] 21자 태그는 저장되지 않고, 규칙에 맞는 태그를 11개 적으면 앞의 10개만 저장된다. (`npm run test:post`)
 - [x] 태그 칸을 비우고 저장하면 그 글의 태그가 모두 없어진다. (`e2e/post-lists.mjs`)
@@ -4915,7 +4922,7 @@ Blogville은 **블로그 활동을 게임 보상과 연결**해서, 글을 쓸�
 |---|---|---|---|---|---|
 | NF-01 | 보안 | DB 접속 정보, 로그인 비밀키, 소셜 Client Secret, 관리자 비밀번호는 **서버 환경 변수**(`.env.local`)에만 둔다 | M | ✅ | `.env.local`이 Git에서 제외되는지 `git check-ignore`(`.gitignore`의 `.env*`), 저장소 전체 검색. 배포 서버는 GitHub secret 또는 `~/blogville/.secrets`(권한 600, `scripts/deploy.sh`) |
 | NF-02 | 보안 | 글 수정·삭제, 장착, 구매, 관리자 기능의 권한 검사는 모두 **서버**에서 한다 | M | ✅ | 모든 Server Action·회원 화면이 맨 앞에서 `requireMember()`/`requireAdmin()`을 부르는지 코드 리뷰, E2E(일반 회원 `/admin` → 404, 관리자 글 삭제 요청 조작 → 글 그대로, `e2e/auth.mjs` 5·6) |
-| NF-03 | 보안 | 에디터로 쓴 HTML은 **저장할 때** 허용 태그만 남기고 정화해서 XSS를 막는다 | M | ✅ | `npm run test:sanitize`: `<script>`, `onerror`, `onclick`, `javascript:` 링크, `<iframe>`, `<style>` 6가지 제거 확인 + 사진·파일 카드는 우리 저장소 주소(`/files/키`)만 (POST-07, POST-09) |
+| NF-03 | 보안 | 에디터로 쓴 HTML은 **저장할 때** 허용 태그만 남기고 정화해서 XSS를 막는다 | M | ✅ | `npm run test:sanitize`: `<script>`, `onerror`, `onclick`, `javascript:` 링크, `<iframe>`, `<style>` 6가지 제거 확인 + 사진·파일 카드는 우리 저장소 주소(`/files/키`)만 (POST-07, POST-09) + 글자색·바탕색은 `span`의 `color`, `mark`의 `background-color`만 `#hex`·`rgb()` 값일 때 남김 (POST-01) |
 | NF-09 | 보안 | 비밀번호는 **해시로만** 저장하고, 원문을 DB·로그·화면 어디에도 남기지 않는다 | M | ✅ | `accounts.password` 값이 해시 형식인지 확인 (`e2e/signup.mjs` 2) |
 | NF-10 | 보안 | 같은 아이디로 짧은 시간에 로그인을 여러 번 실패하면 잠시 막는다 | S | ✅ | `e2e/login-limit.mjs`: 5번 연속 실패 → 6번째는 맞는 비밀번호도 잠금 문구, 5분 뒤 풀림 |
 | NF-11 | 보안 | 로그인 쿠키는 자바스크립트로 읽을 수 없고(HttpOnly), 다른 사이트의 요청에 실리지 않으며(SameSite=Lax), 배포 환경에서는 HTTPS로만 전송(Secure)한다 | M | 🚧 (로컬 ✅, 배포 https의 `Secure` 미확인) | 쿠키 속성 확인 (`e2e/session.mjs` 1·5) |
