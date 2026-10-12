@@ -62,3 +62,121 @@ export function subject(name: string): string {
   const hasFinal = code >= 0 && code <= 11171 && code % 28 !== 0;
   return `${name}${hasFinal ? "이" : "가"}`;
 }
+
+// ===== 알 확률·암수·특별 진화 (사용자 요청 2026-10-12 "노말한 동물들이랑 희귀한 애들이랑 확률 다르게", "암/수 별로 성장했을 때 모습",
+// "낮은 확률로 망아지가 유니콘이나 페가수스 … 진화") =====
+// 숫자는 모두 여기 한 곳에서 정한다. 농장 ⓘ 안내 창도 이 표를 그대로 보여 준다. 실제 뽑기는 서버가 node:crypto로 한다
+
+/** 알에서 나오는 등급 */
+export type HatchRarity = "common" | "rare" | "epic";
+export const RARITY_LABEL: Record<HatchRarity, string> = { common: "일반", rare: "희귀", epic: "아주 희귀" };
+/** 등급마다 알에서 나올 확률 (%), 모두 더하면 100. 같은 등급 안의 동물들은 똑같이 나눈다 */
+export const RARITY_ODDS: Record<HatchRarity, number> = { common: 60, rare: 32, epic: 8 };
+/** 동물 종류(animal_species.code)마다 등급. 알에서는 아홉 종류가 모두 나온다 (분양은 값을 내고 바로 고른다) */
+export const HATCH_RARITY: Record<string, HatchRarity> = {
+  chick: "common",
+  bunny: "common",
+  hamster: "common",
+  piglet: "rare",
+  kitten: "rare",
+  puppy: "rare",
+  lamb: "rare",
+  calf: "epic",
+  pony: "epic",
+};
+export const RARITY_ORDER: HatchRarity[] = ["common", "rare", "epic"];
+/** 알 확률 비중의 합 (만분율: 1 = 0.01%) */
+export const HATCH_WEIGHT_TOTAL = 10_000;
+
+/** 이 종류가 알에서 나올 확률 (%) */
+export function hatchPercent(code: string): number {
+  const tier = HATCH_RARITY[code];
+  if (!tier) return 0;
+  const same = Object.values(HATCH_RARITY).filter((t) => t === tier).length;
+  return RARITY_ODDS[tier] / same;
+}
+/** DB animal_species.hatch_weight에 넣는 비중 (만분율, scripts/seed.ts가 쓴다). 모두 더하면 HATCH_WEIGHT_TOTAL */
+export function hatchWeightOf(code: string): number {
+  return Math.round(hatchPercent(code) * (HATCH_WEIGHT_TOTAL / 100));
+}
+
+/** 암수 (부화·분양할 때 반반으로 정한다, DB user_animals.sex) */
+export const ANIMAL_SEXES = ["female", "male"] as const;
+export type AnimalSex = (typeof ANIMAL_SEXES)[number];
+export const SEX_LABEL: Record<AnimalSex, string> = { female: "암컷", male: "수컷" };
+export const SEX_MARK: Record<AnimalSex, string> = { female: "♀", male: "♂" };
+export function isSex(v: unknown): v is AnimalSex {
+  return typeof v === "string" && (ANIMAL_SEXES as readonly string[]).includes(v);
+}
+/** 암수마다 어른 모습이 어떻게 다른지 (ⓘ 안내 창) */
+export const SEX_LOOKS: Record<string, { female: string; male: string }> = {
+  chick: { female: "작은 볏의 암탉", male: "큰 볏·긴 꽁지깃의 수탉" },
+  bunny: { female: "긴 속눈썹", male: "볼이 통통한 수토끼" },
+  hamster: { female: "긴 속눈썹", male: "볼주머니가 더 빵빵" },
+  piglet: { female: "긴 속눈썹", male: "작은 엄니와 등 갈기" },
+  kitten: { female: "긴 속눈썹", male: "볼살이 통통한 수고양이" },
+  puppy: { female: "긴 속눈썹", male: "쫑긋 선 귀" },
+  lamb: { female: "뿔 없는 암양", male: "돌돌 말린 뿔의 숫양" },
+  calf: { female: "작은 뿔의 암소", male: "큰 뿔과 코뚜레의 황소" },
+  pony: { female: "땋은 갈기의 암말", male: "길게 휘날리는 갈기의 수말" },
+};
+
+/**
+ * 다 키운 동물을 데리고 다닐 모습 (사용자 요청 2026-10-12 "아기 형태로 데리고 다닐 수도 있게").
+ * DB user_animals.display_form (CHECK가 이 목록과 같다). 다 자란 동물만 고른다
+ */
+export const ANIMAL_FORMS = ["adult", "baby"] as const;
+export type AnimalForm = (typeof ANIMAL_FORMS)[number];
+export const FORM_LABEL: Record<AnimalForm, string> = { adult: "다 자란 모습", baby: "아기 모습" };
+export function isAnimalForm(v: unknown): v is AnimalForm {
+  return typeof v === "string" && (ANIMAL_FORMS as readonly string[]).includes(v);
+}
+
+/**
+ * 특별 진화: 다 자라는 순간 낮은 확률로 특별한 모습이 된다 (DB user_animals.variant = key).
+ * chance = 그 동물이 다 자랄 때 이 모습이 될 확률 (%). 그림은 src/lib/art/animals.ts ANIMAL_VARIANT_ART
+ */
+export type SpecialVariant = { key: string; species: string; name: string; chance: number; look: string };
+export const SPECIAL_VARIANTS: SpecialVariant[] = [
+  { key: "golden_hen", species: "chick", name: "황금 닭", chance: 4, look: "금빛으로 반짝이는 깃털" },
+  { key: "dutch_bunny", species: "bunny", name: "얼룩 토끼", chance: 4, look: "앞은 하얗고 눈가·귀·엉덩이는 진회색" },
+  { key: "panda_hamster", species: "hamster", name: "판다 햄스터", chance: 4, look: "눈가와 귀가 까만 판다 무늬" },
+  { key: "black_pig", species: "piglet", name: "흑돼지", chance: 4, look: "새까만 털과 등 갈기" },
+  { key: "galaxy_cat", species: "kitten", name: "은하수 고양이", chance: 4, look: "밤하늘 털에 별이 콕콕" },
+  { key: "angel_puppy", species: "puppy", name: "천사 강아지", chance: 4, look: "하얀 날개와 금빛 고리" },
+  { key: "rainbow_lamb", species: "lamb", name: "무지개 양", chance: 4, look: "일곱 빛깔 털" },
+  { key: "strawberry_calf", species: "calf", name: "딸기우유 송아지", chance: 4, look: "분홍 몸에 딸기 무늬" },
+  { key: "unicorn", species: "pony", name: "유니콘", chance: 3, look: "금빛 뿔과 무지개 갈기" },
+  { key: "pegasus", species: "pony", name: "페가수스", chance: 3, look: "하늘색 갈기와 커다란 날개" },
+];
+export function variantOf(key: string | null | undefined): SpecialVariant | null {
+  return (key && SPECIAL_VARIANTS.find((v) => v.key === key)) || null;
+}
+/** 이 종류의 특별 진화 목록 */
+export function variantsFor(code: string): SpecialVariant[] {
+  return SPECIAL_VARIANTS.filter((v) => v.species === code);
+}
+/** 이 종류가 특별하게 자랄 확률 (%) */
+export function specialPercent(code: string): number {
+  return variantsFor(code).reduce((sum, v) => sum + v.chance, 0);
+}
+/** 다 자랄 때 특별 진화 고르기. r은 0 이상 1 미만 (서버는 node:crypto). 보통이면 null */
+export function pickSpecial(code: string, r: number): SpecialVariant | null {
+  let point = r * 100;
+  for (const v of variantsFor(code)) {
+    point -= v.chance;
+    if (point < 0) return v;
+  }
+  return null;
+}
+/** 화면에 보일 이름: 특별 진화면 그 이름 */
+export function animalName(name: string, variant?: string | null): string {
+  return variantOf(variant)?.name ?? name;
+}
+
+/** 이름 뒤에 "(으)로" (유니콘으로, 페가수스로, 황금 닭으로, 얼룩 토끼로) */
+export function toward(name: string): string {
+  const code = name.charCodeAt(name.length - 1) - 0xac00;
+  const final = code >= 0 && code <= 11171 ? code % 28 : 0;
+  return `${name}${final === 0 || final === 8 ? "로" : "으로"}`;
+}

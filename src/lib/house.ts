@@ -94,8 +94,54 @@ export function roomGrid(stage: HouseStage): number {
   return Math.min(MAX_ROOM_GRID, 5 + stage);
 }
 
-/** 놓인 가구 하나: 바닥 칸(x = 오른쪽 벽을 따라, y = 왼쪽 벽을 따라, 0,0 = 뒤 모서리)과 좌우 뒤집기 */
+/** 놓인 가구 하나: 바닥 칸(x = 오른쪽 벽을 따라, y = 왼쪽 벽을 따라, 0,0 = 뒤 모서리)과 좌우 뒤집기. x, y는 가구가 차지하는 칸들의 뒤 모서리 칸 */
 export type FurnitureSpot = { itemId: number; x: number; y: number; flip: boolean };
+
+/**
+ * 가구가 차지하는 바닥 칸 수 (사용자 요청 2026-10-12 "가구마다 크기 다르게 해줘 침대같은 경우는 사람보다 컸으면").
+ * w = x축(오른쪽 벽을 따라) 칸 수, d = y축(왼쪽 벽을 따라) 칸 수. 여기에 없는 가구는 1×1.
+ * 아이소메트릭 방에서 좌우 뒤집기는 x축과 y축을 맞바꾼 것과 같아서, 뒤집으면 w와 d가 바뀐다 (footprintOf).
+ * 화면(편집 미리보기·길 찾기)과 서버(checkLayout) 모두 이 표 하나를 쓴다. 그림 크기는 src/lib/art/room-furniture.ts가 이 표에 맞춰 그린다
+ */
+export const FURNITURE_FOOTPRINT: Readonly<Record<string, { w: number; d: number }>> = {
+  // 침대는 누운 사람보다 길고 넓다 (3 × 2칸)
+  "furniture.bed": { w: 3, d: 2 },
+  "furniture.canopy": { w: 3, d: 2 },
+  // 러그는 넓고 납작하다 (그 위를 걸을 수 있다, WALKABLE_FURNITURE)
+  "furniture.rug": { w: 2, d: 2 },
+  // 긴 가구 (2 × 1칸)
+  "furniture.table": { w: 2, d: 1 },
+  "furniture.desk": { w: 2, d: 1 },
+  "furniture.computer": { w: 2, d: 1 },
+  "furniture.sofa": { w: 2, d: 1 },
+  "furniture.piano": { w: 2, d: 1 },
+  "furniture.fireplace": { w: 2, d: 1 },
+  "furniture.aquarium": { w: 2, d: 1 },
+  "furniture.cupboard": { w: 2, d: 1 },
+};
+
+/** 밟고 지나갈 수 있는 가구 (캐릭터 길 찾기에서 막지 않는다. 배치에서는 다른 가구와 겹칠 수 없다) */
+export const WALKABLE_FURNITURE: ReadonlySet<string> = new Set(["furniture.rug"]);
+
+/** 가구가 차지하는 칸 수 (뒤집으면 w·d가 바뀐다) */
+export function footprintOf(assetKey: string | undefined, flip = false): { w: number; d: number } {
+  const f = (assetKey && FURNITURE_FOOTPRINT[assetKey]) || { w: 1, d: 1 };
+  return flip ? { w: f.d, d: f.w } : { w: f.w, d: f.d };
+}
+
+/** 가구가 차지하는 칸들 ("x,y") */
+export function footprintTiles(assetKey: string | undefined, s: { x: number; y: number; flip: boolean }): string[] {
+  const { w, d } = footprintOf(assetKey, s.flip);
+  const out: string[] = [];
+  for (let j = 0; j < d; j++) for (let i = 0; i < w; i++) out.push(`${s.x + i},${s.y + j}`);
+  return out;
+}
+
+/** 가구가 방 안에 다 들어가는지 */
+export function fitsRoom(assetKey: string | undefined, s: { x: number; y: number; flip: boolean }, grid: number): boolean {
+  const { w, d } = footprintOf(assetKey, s.flip);
+  return Number.isInteger(s.x) && Number.isInteger(s.y) && s.x >= 0 && s.y >= 0 && s.x + w <= grid && s.y + d <= grid;
+}
 
 /**
  * 옛 칸 번호(0~7) → 바닥 칸. 마이그레이션 0035와 가입(기본 가구 2개)이 같은 자리를 쓴다.
@@ -112,23 +158,76 @@ export const DEFAULT_TILES: readonly (readonly [number, number])[] = [
   [1, 5],
 ];
 
+/** 가구 id → asset_key (모르는 가구는 1×1로 본다) */
+export type KeyOf = (itemId: number) => string | undefined;
+
 /**
  * 가구 배치 검사 (화면·서버 공용, 순수 함수). 통과하면 null, 아니면 보여 줄 문구.
- * 순서: 개수(집 단계의 칸 수) → 같은 가구 두 번 → 방 밖 → 같은 칸에 두 개
+ * 순서: 개수(집 단계의 칸 수) → 같은 가구 두 번 → 방 밖(가구가 차지하는 칸이 하나라도 밖) → 다른 가구와 겹침(차지하는 칸끼리)
  */
-export function checkLayout(spots: readonly FurnitureSpot[], { grid, limit }: { grid: number; limit: number }): string | null {
+export function checkLayout(spots: readonly FurnitureSpot[], { grid, limit, keyOf = () => undefined }: { grid: number; limit: number; keyOf?: KeyOf }): string | null {
   if (spots.length > limit) return `지금 집에는 가구를 ${limit}개까지 놓을 수 있어요.`;
   const items = new Set<number>();
   const tiles = new Set<string>();
   for (const s of spots) {
     if (items.has(s.itemId)) return "같은 가구는 한 번만 놓을 수 있어요.";
     items.add(s.itemId);
-    if (![s.x, s.y].every((v) => Number.isInteger(v) && v >= 0 && v < grid)) return "방 밖에는 놓을 수 없어요.";
-    const key = `${s.x},${s.y}`;
-    if (tiles.has(key)) return "한 칸에는 가구 하나만 놓을 수 있어요.";
-    tiles.add(key);
+    const key = keyOf(s.itemId);
+    if (!fitsRoom(key, s, grid)) return "방 밖에는 놓을 수 없어요.";
+    for (const t of footprintTiles(key, s)) {
+      if (tiles.has(t)) return "가구끼리 겹쳐 놓을 수 없어요.";
+      tiles.add(t);
+    }
   }
   return null;
+}
+
+/** 빈 자리 하나 찾기: 뒤 모서리에서 가까운 칸부터, 그대로 → 뒤집어서. 없으면 null */
+export function findFreeSpot(
+  assetKey: string | undefined,
+  taken: ReadonlySet<string>,
+  grid: number,
+  prefer: { x: number; y: number; flip: boolean } | null = null,
+): { x: number; y: number; flip: boolean } | null {
+  const fits = (s: { x: number; y: number; flip: boolean }) => fitsRoom(assetKey, s, grid) && footprintTiles(assetKey, s).every((t) => !taken.has(t));
+  if (prefer) {
+    if (fits(prefer)) return prefer;
+    if (fits({ ...prefer, flip: !prefer.flip })) return { ...prefer, flip: !prefer.flip };
+  }
+  const flips = prefer ? [prefer.flip, !prefer.flip] : [false, true];
+  for (let sum = 0; sum < grid * 2 - 1; sum++) {
+    for (let x = 0; x <= sum; x++) {
+      for (const flip of flips) {
+        const s = { x, y: sum - x, flip };
+        if (s.x < grid && s.y < grid && fits(s)) return s;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * 저장된 배치를 지금 규칙에 맞게 고쳐 읽기 (화면에서 읽을 때마다, 순수 함수 · DB는 바꾸지 않는다).
+ * 2026-10-12 가구 크기가 생기면서 예전에 1칸씩 놓았던 배치가 겹치거나 방 밖으로 나갈 수 있다.
+ * 앞에서부터(뒤 → 앞 칸 순) 그대로 들어가면 두고, 안 되면 같은 자리에서 뒤집어 보고, 그래도 안 되면 뒤 모서리에서 가까운 빈 자리로 옮긴다.
+ * 방에 자리가 없으면 그 가구는 보여 주지 않는다. 주인이 [가구 놓기]에서 저장하면 고친 배치가 DB에 남는다.
+ * moved = 옮기거나 뒤집거나 뺀 가구 수
+ */
+export function repairLayout<T extends FurnitureSpot & { assetKey: string }>(spots: readonly T[], grid: number): { spots: T[]; moved: number } {
+  const taken = new Set<string>();
+  const out: T[] = [];
+  let moved = 0;
+  for (const s of spots) {
+    const at = findFreeSpot(s.assetKey, taken, grid, { x: s.x, y: s.y, flip: s.flip });
+    if (!at) {
+      moved++;
+      continue;
+    }
+    if (at.x !== s.x || at.y !== s.y || at.flip !== s.flip) moved++;
+    for (const t of footprintTiles(s.assetKey, at)) taken.add(t);
+    out.push({ ...s, ...at });
+  }
+  return { spots: out, moved };
 }
 
 /** 서버로 온 배치 값 읽기 (모양만 확인. 규칙은 checkLayout). 모양이 틀리면 null */

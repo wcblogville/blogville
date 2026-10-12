@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const tool = "pixel-btn pixel-btn-sm min-w-11 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink";
 
-export function OwnerToolbar({ postCount, privateCount }: { postCount: number; privateCount: number }) {
+export function OwnerToolbar({ postCount, nonPublicCount }: { postCount: number; nonPublicCount: number }) {
   return (
     <nav className="pixel-panel mt-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center" aria-label="내 블로그 관리" data-owner-toolbar>
       <Link href="/write" className="pixel-btn min-h-12 shrink-0 bg-leaf px-6 text-white">
@@ -13,7 +13,7 @@ export function OwnerToolbar({ postCount, privateCount }: { postCount: number; p
       </Link>
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-3.5 sm:flex sm:flex-wrap sm:items-center">
         <Link href="/settings/posts" className={tool}>
-          📝 글 관리 <span className="pb-chip-muted px-1 font-sans text-xs">{postCount + privateCount}</span>
+          📝 글 관리 <span className="pb-chip-muted px-1 font-sans text-xs">{postCount + nonPublicCount}</span>
         </Link>
         <Link href="/settings/blog#categories" className={tool}>
           🗂 카테고리 관리

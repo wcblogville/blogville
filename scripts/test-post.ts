@@ -2,6 +2,7 @@
 // 실행: npm run test:post
 import { attachmentAccess, pasteAction } from "../src/lib/attachments";
 import { checkPostInput, isContentTooLarge, parseTags, type PostInputRaw } from "../src/lib/post-rules";
+import { canSeePost, visibleVisibilities, type Visibility } from "../src/lib/visibility";
 
 let failed = 0;
 function expect(name: string, got: () => unknown, want: unknown) {
@@ -83,6 +84,31 @@ function access() {
   expect("붙지 않은 첨부 다른 회원", () => a({ viewerId: "u2" }), false);
   expect("붙지 않은 첨부 방문자", () => a({}), false);
   expect("붙지 않은 첨부 + 프로필 사진 방문자", () => a({ isProfilePhoto: true }), true);
+  // 👥 이웃 공개 (2026-10-12): 주인과 주인을 이웃 추가한 회원만
+  expect("이웃 공개 글 첨부 주인", () => a({ postVisibility: "neighbors", postOwnerId: "u1", viewerId: "u1" }), true);
+  expect("이웃 공개 글 첨부 이웃", () => a({ postVisibility: "neighbors", postOwnerId: "u1", viewerId: "u2", viewerIsNeighbor: true }), true);
+  expect("이웃 공개 글 첨부 이웃 아닌 회원", () => a({ postVisibility: "neighbors", postOwnerId: "u1", viewerId: "u2" }), false);
+  expect("이웃 공개 글 첨부 방문자(이웃 표시를 조작해도)", () => a({ postVisibility: "neighbors", postOwnerId: "u1", viewerIsNeighbor: true }), false);
+}
+
+// ===== canSeePost (POST-02 공개 범위, 2026-10-12 이웃 공개) =====
+function visibility() {
+  const see = (v: Visibility, isOwner: boolean, isNeighbor: boolean) => canSeePost(v, { isOwner, isNeighbor });
+  expect("공개 글 아무나", () => see("public", false, false), true);
+  expect("이웃 공개 글 주인", () => see("neighbors", true, false), true);
+  expect("이웃 공개 글 이웃", () => see("neighbors", false, true), true);
+  expect("이웃 공개 글 그 밖", () => see("neighbors", false, false), false);
+  expect("비공개 글 주인", () => see("private", true, false), true);
+  expect("비공개 글 이웃", () => see("private", false, true), false);
+  expect("자리별 공개 범위", () => (["owner", "neighbor", "guest"] as const).map(visibleVisibilities), [
+    ["public", "neighbors", "private"],
+    ["public", "neighbors"],
+    ["public"],
+  ]);
+  expect("이웃 공개 저장", () => {
+    const r = checkPostInput({ postId: "", title: "t", contentHtml: "<p>b</p>", categoryId: "", subcategoryId: "", tags: "", visibility: "neighbors" });
+    return "value" in r ? r.value.visibility : r.error;
+  }, "neighbors");
 }
 
 // ===== pasteAction (FR-047, contracts/write-actions.md §4) =====
@@ -105,6 +131,7 @@ function paste() {
 postInput();
 tags();
 access();
+visibility();
 paste();
 
 console.log(failed ? `\n❌ ${failed}개 실패` : "\n✅ 모두 통과");

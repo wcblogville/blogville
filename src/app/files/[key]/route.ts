@@ -1,8 +1,9 @@
 // 글 첨부 내려주기 (POST-07, POST-09). 사진은 화면에 바로, 파일은 올린 사람이 붙인 원래 이름으로 내려받는다.
 // 누가 열 수 있나 (POST-02 첨부 공개 범위 / FR-029, contracts/attachments-http.md §2): 공개 글 첨부·프로필 사진은 누구나,
-// 비공개 글 첨부는 그 블로그 주인만, 어느 글에도 안 붙은 첨부는 올린 사람만. 안 되면 없는 것과 똑같이 404
+// 비공개 글 첨부는 그 블로그 주인만, 이웃 공개 글 첨부는 주인과 주인의 이웃만, 어느 글에도 안 붙은 첨부는 올린 사람만. 안 되면 없는 것과 똑같이 404
 import { ATTACHMENT_KEY_RE, attachmentAccess } from "@/lib/attachments";
 import { findReadableAttachment } from "@/server/attachments";
+import { isFollowing } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 import { attachmentExists, openAttachment } from "@/server/storage";
 
@@ -17,12 +18,19 @@ export async function GET(request: Request, ctx: RouteContext<"/files/[key]">) {
   // 누구나 볼 수 있는 첨부는 세션을 읽지 않는다 (글 상세의 사진마다 세션 조회가 늘지 않게)
   const open = row.postVisibility === "public" || (row.postVisibility === null && row.isProfilePhoto);
   const viewer = open ? null : await getViewer();
+  // 👥 이웃 공개 글 첨부는 주인을 이웃 추가한 회원도 연다 (그때만 이웃인지 묻는다)
+  const viewerId = viewer?.userId ?? null;
+  const viewerIsNeighbor =
+    row.postVisibility === "neighbors" && viewerId !== null && row.postOwnerId !== null && viewerId !== row.postOwnerId
+      ? await isFollowing(viewerId, row.postOwnerId)
+      : false;
   const allowed = attachmentAccess({
     postVisibility: row.postVisibility,
     postOwnerId: row.postOwnerId,
     uploaderId: row.uploaderId,
     isProfilePhoto: row.isProfilePhoto,
-    viewerId: viewer?.userId ?? null,
+    viewerId,
+    viewerIsNeighbor,
   });
   if (!allowed) return notFound();
 

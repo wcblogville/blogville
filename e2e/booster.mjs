@@ -52,7 +52,7 @@ await page.locator('[data-shop-section="growth"]').screenshot({ path: `${outDir}
 
 // ── 3. 농장: 가방에 보이고, 키우는 동물에게 쓴다 ──
 const sp = await one("SELECT id, name, grow_exp, reward_coins FROM animal_species ORDER BY grow_exp DESC LIMIT 1");
-const animal = await one("INSERT INTO user_animals (user_id, source, status, species_id, growth, hatched_at) VALUES ($1, 'shop', 'growing', $2, 0, now()) RETURNING id", [uid, sp.id]);
+const animal = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth, hatched_at) VALUES ($1, 'female', 'shop', 'growing', $2, 0, now()) RETURNING id", [uid, sp.id]);
 await page.goto(`${BASE}/farm`);
 const bagText = await bag.innerText();
 check("가방에 촉진제 ×1 · 한 번에 성장 +100", bagText.includes("성장 촉진제 ×1") && bagText.includes("한 번에 성장 +100"));
@@ -68,6 +68,8 @@ await page.getByRole("status").filter({ hasText: "성장 촉진제 먹였어요"
 check("결과: 성장 +100", (await page.getByRole("status").innerText()).includes("성장 +100"));
 await page.waitForLoadState("networkidle");
 check("DB: 성장 100, 촉진제 0개", (await one("SELECT growth FROM user_animals WHERE id = $1", [animal.id])).growth === 100 && (await qty("growth_booster")) === 0);
+// 화면 갱신이 상태 문구보다 조금 늦게 올 수 있어 사라질 때까지 기다린다
+await page.locator('[data-use-growth="growth.booster"]').first().waitFor({ state: "detached", timeout: 10000 }).catch(() => {});
 check("다 쓰면 촉진제 버튼이 사라짐", (await page.locator('[data-use-growth="growth.booster"]').count()) === 0);
 
 // ── 4. 황금 성장 물약으로 다 키우기 → 보상 ──
@@ -85,7 +87,7 @@ await page.screenshot({ path: `${outDir}/booster-grown.png`, fullPage: true });
 // ── 5. 375px: 농장 가로 스크롤 없음 ──
 {
   await db.query("UPDATE user_items SET quantity = 3 FROM items WHERE items.id = user_items.item_id AND user_items.user_id = $1 AND items.code = 'growth_booster'", [uid]);
-  await db.query("INSERT INTO user_animals (user_id, source, status, species_id, growth, hatched_at) VALUES ($1, 'shop', 'growing', $2, 10, now())", [uid, sp.id]);
+  await db.query("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth, hatched_at) VALUES ($1, 'female', 'shop', 'growing', $2, 10, now())", [uid, sp.id]);
   const m = await browser.newContext({ viewport: { width: 375, height: 800 }, isMobile: true, hasTouch: true, storageState: await ctx.storageState() });
   const mp = await m.newPage();
   errors.push(...collectErrors(mp));

@@ -30,9 +30,11 @@ const updatedAt = () =>
 export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth", "deco"]);
 // 아바타 꾸미기 부위 (SHOP-06). 머리 모양 hair·머리 색 hair_color는 미용실(SHOP-07, 2026-10-11)에서 뒤에 더했다
 export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "hair", "hair_color"]);
-export const visibility = pgEnum("visibility", ["public", "private"]);
+// neighbors = 이웃 공개: 주인과 주인을 이웃 추가한(follows.follower_id) 회원만 본다 (2026-10-12 사용자 요청)
+export const visibility = pgEnum("visibility", ["public", "neighbors", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);
-export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply"]);
+// follow: 누가 나를 이웃으로 추가함 (SOC-06, 사용자 요청 2026-10-12 "누가 팔로우 하면 알림 가게")
+export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply", "follow"]);
 export const ledgerReason = pgEnum("ledger_reason", [
   "signup",
   "attendance",
@@ -230,6 +232,8 @@ export const profiles = pgTable(
     characterItemId: integer("character_item_id").notNull(),
     // 프로필 사진 (ERD 3.9). 올리는 화면은 아직 없다. 첨부 행이 지워지면 사진만 비운다 (ON DELETE SET NULL)
     photoKey: text("photo_key"),
+    // 마을 한마디 (사용자 요청 2026-10-12): 마을에서 이웃이 나(NPC)에게 말을 걸면 말풍선으로 보인다. 없으면 공개 글의 한 문장
+    greeting: text("greeting"),
     createdAt: createdAt(),
   },
   (t) => [
@@ -239,6 +243,8 @@ export const profiles = pgTable(
       foreignColumns: [attachments.key],
     }).onDelete("set null"),
     check("profiles_nickname_check", sql`char_length(${t.nickname}) BETWEEN 2 AND 20`),
+    // 마을 한마디: 앞뒤 공백 없이 1~60자 (비우면 NULL)
+    check("profiles_greeting_check", sql`${t.greeting} IS NULL OR char_length(${t.greeting}) BETWEEN 1 AND 60`),
     // 보유한 아이템만 장착할 수 있다 (복합 외래 키)
     foreignKey({
       name: "profiles_character_owned_fk",
@@ -591,7 +597,7 @@ export const pointLedger = pgTable(
   ],
 );
 
-// 알림 (GAME-06·GAME-08): 레벨업 · 공감 · 댓글 · 답글. 닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다
+// 알림 (GAME-06·GAME-08·SOC-06): 레벨업 · 공감 · 댓글 · 답글 · 이웃 추가. 닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다
 export const notifications = pgTable(
   "notifications",
   {
@@ -601,7 +607,7 @@ export const notifications = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     kind: notificationKind("kind").notNull(),
     actorId: text("actor_id").references(() => users.id, { onDelete: "cascade" }), // 행동한 회원 (레벨업은 NULL)
-    postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }), // 관련 글 (레벨업은 NULL)
+    postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }), // 관련 글 (레벨업·이웃 추가는 NULL)
     level: integer("level"), // 레벨업일 때 오른 레벨
     createdAt: createdAt(),
     readAt: timestamp("read_at", { withTimezone: true }),
@@ -609,12 +615,16 @@ export const notifications = pgTable(
   (t) => [
     check(
       "notifications_shape_check",
-      sql`(${t.kind} = 'level_up' AND ${t.level} IS NOT NULL AND ${t.actorId} IS NULL AND ${t.postId} IS NULL) OR (${t.kind} <> 'level_up' AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NOT NULL)`,
+      // follow는 같은 마이그레이션에서 enum에 더한 값이라 ::text로 비교한다 (새 enum 값은 커밋 전에 enum으로 못 쓴다)
+      sql`(${t.kind} = 'level_up' AND ${t.level} IS NOT NULL AND ${t.actorId} IS NULL AND ${t.postId} IS NULL) OR (${t.kind}::text = 'follow' AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NULL) OR (${t.kind}::text NOT IN ('level_up', 'follow') AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NOT NULL)`,
     ),
     check("notifications_level_check", sql`${t.level} IS NULL OR ${t.level} BETWEEN 2 AND 99`),
     check("notifications_not_self_check", sql`${t.actorId} IS NULL OR ${t.actorId} <> ${t.userId}`),
     // 레벨업 알림은 회원·레벨마다 한 번 (FR-037)
     uniqueIndex("notifications_level_up_uq").on(t.userId, t.level).where(sql`${t.kind} = 'level_up'`),
+    // 이웃 추가 알림은 같은 사람에게서 처음 한 번만 (끊었다 다시 추가해도 다시 안 감, SOC-06).
+    // 모양 CHECK상 "글 없음 + 행동한 회원 있음"은 follow뿐이라 그 조건으로 건다 (enum을 ::text로 바꾸는 식은 인덱스 조건에 못 쓴다)
+    uniqueIndex("notifications_follow_uq").on(t.userId, t.actorId).where(sql`${t.postId} IS NULL AND ${t.actorId} IS NOT NULL`),
     index("notifications_user_created_idx").on(t.userId, t.createdAt.desc(), t.id.desc()),
     index("notifications_unread_idx").on(t.userId).where(sql`${t.readAt} IS NULL`),
     index("notifications_post_idx").on(t.postId).where(sql`${t.postId} IS NOT NULL`),
@@ -702,12 +712,25 @@ export const userAnimals = pgTable(
     skinId: integer("skin_id"),
     // 다 키운 동물의 크기 (사용자 요청 2026-10-12, 주인이 농장에서 고른다). 목록은 src/lib/farm.ts ANIMAL_DISPLAY_SIZES
     displaySize: text("display_size").notNull().default("normal"),
+    // 암수 (2026-10-12 "암/수 별로 성장했을 때 모습"): 부화·분양할 때 반반으로 정한다. 알이면 NULL. 목록은 src/lib/farm.ts ANIMAL_SEXES
+    sex: text("sex"),
+    // 특별 진화 (2026-10-12 "낮은 확률로 망아지가 유니콘이나 페가수스"): 다 자랄 때 정해진다. NULL = 보통 모습.
+    // 키·확률은 src/lib/farm.ts SPECIAL_VARIANTS, 그림은 src/lib/art/animals.ts ANIMAL_VARIANT_ART
+    variant: text("variant"),
+    // 데리고 다닐 모습 (2026-10-12 "아기 형태로 데리고 다닐 수도 있게"): 다 자란 동물이 고른다. 목록은 src/lib/farm.ts ANIMAL_FORMS
+    displayForm: text("display_form").notNull().default("adult"),
   },
   (t) => [
     check("user_animals_species_check", sql`(${t.status} = 'egg') = (${t.speciesId} IS NULL)`),
     check("user_animals_growth_check", sql`${t.growth} >= 0`),
     check("user_animals_level_check", sql`(${t.source} = 'level') = (${t.sourceLevel} IS NOT NULL)`),
     check("user_animals_display_size_check", sql`${t.displaySize} IN ('tiny', 'small', 'normal', 'large')`),
+    // 알은 암수가 없고, 깨어난 동물은 꼭 있다
+    // (NULL이 CHECK를 통과하지 않게 IS NULL로 견준다)
+    check("user_animals_sex_check", sql`(${t.status} = 'egg') = (${t.sex} IS NULL) AND (${t.sex} IS NULL OR ${t.sex} IN ('female', 'male'))`),
+    // 특별 진화는 다 자란 동물만
+    check("user_animals_variant_check", sql`${t.variant} IS NULL OR ${t.status} = 'grown'`),
+    check("user_animals_display_form_check", sql`${t.displayForm} IN ('adult', 'baby')`),
     // 첫 알은 한 번, 레벨 보상 알은 레벨마다 한 번만
     uniqueIndex("user_animals_starter_uq").on(t.userId).where(sql`${t.source} = 'starter'`),
     uniqueIndex("user_animals_level_uq").on(t.userId, t.sourceLevel).where(sql`${t.source} = 'level'`),

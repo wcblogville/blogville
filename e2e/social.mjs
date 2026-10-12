@@ -1,6 +1,7 @@
 // 교류: 마을 소식(SOC-05)·공감(SOC-03)·이웃(SOC-04) (US1, US3, US4 / SC-002·003·005·009, quickstart 4.2~4.4)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/social.mjs <스크린샷 폴더>
 // 실행마다 새 회원을 만들고, 글은 DB로 준비한다. 마을 소식 첫 장에 오도록 넣은 글은 끝에 지운다
+import { readFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
@@ -154,7 +155,12 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   check("릴리스 노트: 방문자도 탭·탭 제목", (await guest.getByRole("link", { name: "📜 릴리스 노트" }).getAttribute("aria-current")) === "page" && (await guest.title()) === "릴리스 노트 | Blogville", await guest.title());
   check("릴리스 노트: 관리자가 그 분류로 직접 쓴 글이 맨 위", rel[0] === `손으로 쓴 릴리스 노트 ${n}`, rel.join());
   const vs = rel.filter((t) => /^v\d/.test(t)).map((t) => t.split(" ")[0]);
-  check("릴리스 노트: 시드 버전 최신순 (v0.4 → v0.1)", vs.slice(-4).join() === "v0.4,v0.3,v0.2,v0.1" || vs.slice(0, 4).join() === "v0.4,v0.3,v0.2,v0.1", vs.join());
+  // 버전이 늘면 v0.1이 2쪽으로 넘어가므로 순서만 본다 (v0.11 > v0.7: 숫자로 비교)
+  const num = (v) => v.slice(1).split(".").map(Number);
+  const desc = [...vs].sort((a, b) => num(b)[0] - num(a)[0] || num(b)[1] - num(a)[1]);
+  // 맨 앞은 src/content/release-notes.ts의 마지막(가장 새) 버전 (버전이 늘어 v0.4가 첫 장에서 밀려나도 맞게)
+  const newest = [...readFileSync("src/content/release-notes.ts", "utf8").matchAll(/version: "(v[\d.]+)"/g)].at(-1)?.[1];
+  check("릴리스 노트: 시드 버전 최신순", vs.length >= 4 && vs.join() === desc.join() && vs[0] === newest, `${vs.join()} (최신 ${newest})`);
   check("릴리스 노트: 비공개·다른 분류·분류 없는 관리자 글은 없음",
     [`비공개 릴리스 노트 ${n}`, `공지 분류 옛 글 ${n}`, `분류 없는 관리자 글 ${n}`, notice?.title].every((t) => !rel.includes(t)));
   check("릴리스 노트: 맨 위 공지 카드도 걸림", (await guest.locator("[data-pinned-notice]").count()) === 1);
@@ -167,7 +173,7 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   await guest.screenshot({ path: `${outDir}/feed-releases-375.png`, fullPage: true });
   await guest.setViewportSize({ width: 1280, height: 900 });
   await r.goto(`${BASE}/feed`);
-  check("릴리스 노트: 회원 마을 소식에 세 탭", (await r.locator("a.pixel-tab").allInnerTexts()).join() === "🏘 마을 전체,💛 이웃 새 글,📜 릴리스 노트");
+  check("릴리스 노트: 회원 마을 소식에 네 탭 (🌐 모든 글 1.37)", (await r.locator("a.pixel-tab").allInnerTexts()).join() === "🏘 마을 전체,💛 이웃 새 글,🌐 모든 글,📜 릴리스 노트");
   await db.query("DELETE FROM posts WHERE id = ANY($1)", [[hand, handPrivate, otherCat, noCat]]);
 }
 

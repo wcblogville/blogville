@@ -5,17 +5,18 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { blogs, blogVisits, comments, follows, pointLedger, postLikes, posts, replies } from "@/db/schema";
 import { parseId } from "@/lib/ids";
+import { canSeePost } from "@/lib/visibility";
 import { checkComment, SOCIAL_ERRORS } from "@/lib/social";
 import { todayKST } from "@/lib/game";
 import { getBlogVisitStats } from "@/server/blog";
 import { getViewer, requireMember, type Viewer } from "@/server/dal";
 import { foreignKeyViolation } from "@/server/db-errors";
-import { notifyActivity } from "@/server/notifications";
+import { notifyActivity, notifyFollow } from "@/server/notifications";
 import { grantReward, lockUser, type Tx } from "@/server/points";
 import { ensureVisitorId } from "@/server/visitor";
 
 /**
- * 볼 수 있는 글(공개 글이거나 내 글)과 그 블로그 주인. 트랜잭션 안에서 글 행을 FOR KEY SHARE로 잠가
+ * 볼 수 있는 글(공개 글, 내 글, 내가 주인을 이웃 추가한 👥 이웃 공개 글)과 그 블로그 주인. 트랜잭션 안에서 글 행을 FOR KEY SHARE로 잠가
  * 확인과 저장 사이에 글이 지워지지 않게 한다 (research R6). 비공개 전환은 막지 않는다
  */
 async function lockVisiblePost(tx: Tx, postId: number, viewerId: string) {
@@ -26,7 +27,15 @@ async function lockVisiblePost(tx: Tx, postId: number, viewerId: string) {
     .where(eq(posts.id, postId))
     .for("key share", { of: posts });
   if (!row) return null;
-  if (row.visibility === "private" && row.ownerId !== viewerId) return null;
+  const isOwner = row.ownerId === viewerId;
+  const isNeighbor =
+    row.visibility === "neighbors" && !isOwner
+      ? (await tx
+          .select({ x: follows.followerId })
+          .from(follows)
+          .where(and(eq(follows.followerId, viewerId), eq(follows.followeeId, row.ownerId)))).length > 0
+      : false;
+  if (!canSeePost(row.visibility, { isOwner, isNeighbor })) return null;
   return row;
 }
 
@@ -204,20 +213,23 @@ export async function toggleFollow(followeeId: unknown) {
   if (typeof followeeId !== "string" || followeeId.length < 1 || followeeId.length > 64) return;
   if (followeeId === viewer.userId) return;
 
-  const removed = await db
-    .delete(follows)
-    .where(and(eq(follows.followerId, viewer.userId), eq(follows.followeeId, followeeId)))
-    .returning({ id: follows.followeeId });
-  if (!removed.length) {
-    // 블로그가 있는 회원만 (없는 회원 ID로 조작한 요청은 0행). 동시 요청이면 1행만 (FR-039, FR-040)
-    try {
-      await db.execute(sql`INSERT INTO ${follows} (follower_id, followee_id)
+  try {
+    await db.transaction(async (tx) => {
+      const removed = await tx
+        .delete(follows)
+        .where(and(eq(follows.followerId, viewer.userId), eq(follows.followeeId, followeeId)))
+        .returning({ id: follows.followeeId });
+      if (removed.length) return;
+      // 블로그가 있는 회원만 (없는 회원 ID로 조작한 요청은 0행). 동시 요청이면 1행만 (FR-039, FR-040)
+      const added = await tx.execute(sql`INSERT INTO ${follows} (follower_id, followee_id)
         SELECT ${viewer.userId}, ${blogs.ownerId} FROM ${blogs} WHERE ${blogs.ownerId} = ${followeeId}
         ON CONFLICT DO NOTHING`);
-    } catch (err) {
-      // 그 순간 대상 회원이 지워졌으면 무시 (research R10)
-      if (!foreignKeyViolation(err)) throw err;
-    }
+      // 새로 이웃이 됐으면 상대에게 알림 (SOC-06). 같은 사람에게서는 처음 한 번만
+      if (added.rowCount) await notifyFollow(tx, { recipientId: followeeId, actorId: viewer.userId });
+    });
+  } catch (err) {
+    // 그 순간 대상 회원이 지워졌으면 무시 (research R10)
+    if (!foreignKeyViolation(err)) throw err;
   }
   revalidatePath("/", "layout");
 }

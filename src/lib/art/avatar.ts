@@ -658,6 +658,98 @@ const PARTS: Record<string, Part> = {
 for (const [key, rows] of Object.entries(HAIR_STYLES)) PARTS[key] = { slot: "hair", rows };
 for (const key of Object.keys(HAIR_COLORS)) PARTS[key] = { slot: "hair_color", rows: [] };
 
+/**
+ * 뒷모습 (사용자 요청 2026-10-12 "정장같은 옷 입었을때 위로 올라가면 옷이 뒷모습이 보여야하는데 계속 앞모습만 보인다"):
+ * 위로 걸을 때(뒷모습) 옷·모자·소품의 앞에만 있는 무늬를 지운다. 그림을 새로 그리지 않고 앞모습 글자 줄에서 만든다.
+ * - details: 앞에만 있는 글자 (단추·넥타이·셔츠 깃·드러난 목·주머니·문장·보석·해골). 옷은 몸통(13~17줄, 3~12칸) 안에서만,
+ *   모자·소품은 그림 전체에서 같은 줄의 가장 가까운 옷감 글자로 덮는다 (팔·바지 줄무늬처럼 뒤에도 있는 것은 그대로)
+ * - hide: 앞에만 다는 소품(나비넥타이·목걸이·메달)은 뒤에서 보이지 않는다
+ * - keepRows: 앞으로 늘어진 부분(목도리 끝)은 빼고 위의 n줄만
+ * - cape: 등을 덮는 망토 [천, 그늘] (13~20줄 몸통을 덮는다)
+ */
+type Back = { details?: string; hide?: boolean; keepRows?: number; cape?: readonly [string, string] };
+const BACK: Record<string, Back> = {
+  "outfit.overalls": { details: "zq" },
+  "outfit.hoodie": { details: "w" },
+  "outfit.dress": { details: "w" },
+  "outfit.suit": { details: "wNQz" },
+  "outfit.hanbok": { details: "wR" },
+  "outfit.wizard": { details: "wz" },
+  "outfit.knight": { details: "z" },
+  "outfit.chef": { details: "Nx" },
+  "outfit.tshirt": { details: "g" },
+  "outfit.raincoat": { details: "wg" },
+  "outfit.sweater": { details: "gV" },
+  "outfit.tracksuit": { details: "gwz" },
+  "outfit.sailor": { details: "gN" },
+  "outfit.doctor": { details: "gix" },
+  "outfit.pirate": { details: "gwzK" },
+  "outfit.ninja": { details: "g" },
+  "outfit.astronaut": { details: "gvKzNi" },
+  "outfit.prince": { details: "gwz" },
+  "outfit.princess": { details: "gz" },
+  "outfit.royal": { cape: ["N", "Q"] },
+  "hat.crown": { details: "N" },
+  "hat.tiara": { details: "Vi" },
+  "hat.cap": { details: "z" },
+  "hat.pirate": { details: "w" },
+  "hat.wizard": { details: "z" },
+  "hat.catears": { details: "V" },
+  "acc.scarf": { keepRows: 14 },
+  "acc.bowtie": { hide: true },
+  "acc.necklace": { hide: true },
+  "acc.medal": { hide: true },
+};
+/** 옷의 앞 무늬를 지우는 몸통 자리 */
+export const TORSO = { rows: [13, 17], cols: [3, 12] } as const;
+
+/**
+ * 앞에만 있는 글자(details)를 같은 줄의 가장 가까운 다른 글자(외곽선·투명·details가 아닌 것)로 덮는다.
+ * area가 있으면 그 줄·칸 안에서만 (캐릭터 몸의 셔츠 깃도 같은 방법, characters.ts)
+ */
+export function stripFront(rows: Sprite, details: string, area?: { rows: readonly [number, number]; cols: readonly [number, number] }): string[] {
+  const [r0, r1] = area?.rows ?? [0, rows.length - 1];
+  const [c0, c1] = area?.cols ?? [0, 15];
+  const cloth = (ch: string | undefined) => ch !== undefined && ch !== "." && ch !== "#" && !details.includes(ch);
+  return rows.map((row, y) => {
+    if (y < r0 || y > r1) return row;
+    const out = [...row];
+    for (let x = Math.max(0, c0); x <= Math.min(row.length - 1, c1); x++) {
+      if (!details.includes(row[x])) continue;
+      for (let d = 1; d <= c1 - c0; d++) {
+        const pick = [x - d, x + d].find((k) => k >= c0 && k <= c1 && cloth(row[k]));
+        if (pick !== undefined) {
+          out[x] = row[pick];
+          break;
+        }
+      }
+    }
+    return out.join("");
+  });
+}
+
+/** 그 아이템을 보는 쪽의 글자 줄 (뒷모습이면 앞 무늬를 지운 것, 앞에만 다는 소품은 빈 줄) */
+export function partRows(key: string, view: "front" | "back"): Sprite {
+  const part = PARTS[key];
+  if (!part) return [];
+  const back = BACK[key];
+  if (view === "front" || !back) return part.rows;
+  if (back.hide) return [];
+  let rows = fixRows(part.rows);
+  if (back.keepRows) rows = rows.slice(0, back.keepRows);
+  if (back.details) rows = stripFront(rows, back.details, part.slot === "outfit" ? TORSO : undefined);
+  if (back.cape) {
+    const [cloth, shade] = back.cape;
+    rows = rows.map((row, y) =>
+      y < 13 || y > 20 ? row : [...row].map((ch, x) => (x < 3 || x > 12 || ch === "#" || ch === "." ? ch : x === 12 ? shade : cloth)).join(""),
+    );
+  }
+  return rows;
+}
+
+/** 뒷모습이 앞모습과 다른 아이템 (시험용) */
+export const BACK_PARTS = () => Object.keys(BACK);
+
 export type AvatarPart = Part & { svg: string };
 export const AVATAR_PARTS: Record<string, AvatarPart> = Object.fromEntries(
   Object.entries(PARTS).map(([key, part]) => [key, { ...part, svg: part.slot === "hair" || part.slot === "hair_color" ? "" : spriteRects(fixRows(part.rows), AVATAR_COLORS) }]),

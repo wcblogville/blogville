@@ -855,3 +855,9 @@ export function furnitureRows(assetKey: string): Sprite | null {
   return FURNITURE[assetKey]?.rows ?? null;
 }
 export const FURNITURE_KEYS = () => Object.keys(FURNITURE);
+
+/** 우리 집 방(room-furniture.ts)용: 가구 글자 줄과 바꿔 칠할 색 (그림이 없으면 기본 상자) */
+export function furnitureArtOf(assetKey: string): { rows: Sprite; colors: Colors } {
+  const art = FURNITURE[assetKey] ?? FALLBACK;
+  return { rows: art.rows, colors: art.colors ?? {} };
+}

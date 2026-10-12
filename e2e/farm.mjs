@@ -1,11 +1,12 @@
 // TOWN-09 동물 농장 1차: 첫 알 → 부화 → 돌보기(하루 한 번) → 다 자라면 보상, 알 사기, 5마리 제한, 글쓰기 연동
 // 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨": 동물 분양(코인), 스킨 사서 입히기, 우리 집·광장에서 스킨과 움직임
 // 2026-10-12 다 키운 동물 크기 고르기 (아주 작게~크게): 농장 카드 → 방·광장
+// 2026-10-12 알 확률 등급·암수·특별 진화·아기 모습으로 데리고 다니기·농장 ⓘ 안내 창
 // 사용: 개발 서버를 띄운 상태에서 node e2e/farm.mjs <스크린샷 폴더> (실행마다 새 회원)
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
-import { BASE, coins, collectErrors, loginDev } from "./helpers.mjs";
+import { BASE, coins, collectErrors, loginDev, walkInRoom } from "./helpers.mjs";
 
 config({ path: ".env.local", quiet: true });
 const outDir = process.argv[2] ?? "e2e-shots";
@@ -21,7 +22,7 @@ const devId = `farm${Date.now() % 100_000_000}`;
 await loginDev(page, devId);
 const uid = (await one("SELECT id FROM users WHERE username = $1", [devId])).id;
 const status = () => page.getByRole("status").innerText();
-const animals = async () => (await db.query("SELECT id, status, growth, species_id FROM user_animals WHERE user_id = $1 ORDER BY id", [uid])).rows;
+const animals = async () => (await db.query("SELECT id, status, growth, species_id, sex, variant, display_form FROM user_animals WHERE user_id = $1 ORDER BY id", [uid])).rows;
 
 // ── 광장 농장 입구 → /farm ──
 await page.goto(`${BASE}/farm`);
@@ -39,6 +40,26 @@ await page.getByRole("button", { name: /부화시키기/ }).click();
 await page.getByText(/태어났어요/).waitFor();
 const [hatched] = await animals();
 check("부화하면 종류가 정해지고 키우는 중이 된다", hatched.status === "growing" && hatched.species_id !== null, await status());
+check("부화하면 암수가 정해지고 문구에 ♀/♂", ["female", "male"].includes(hatched.sex) && /[♀♂] (암컷|수컷)/.test(await status()), `${hatched.sex} · ${await status()}`);
+await page.reload();
+check("키우는 동물 카드에 암수 표시", (await page.locator(`[data-animal-title="${hatched.id}"] [data-sex]`).getAttribute("data-sex")) === hatched.sex);
+
+// ── ⓘ 안내 창: 등급별 알 확률·암수·특별 진화·아기 모습 ──
+{
+  const dialog = page.locator("dialog[data-farm-info]");
+  check("ⓘ 안내 창은 처음에 닫혀 있다", !(await dialog.isVisible()));
+  await page.locator("[data-farm-info-open]").click();
+  await dialog.waitFor();
+  const rarities = await dialog.locator("[data-rarity]").evaluateAll((els) => els.map((e) => e.dataset.rarity));
+  check("알 확률: 일반·희귀·아주 희귀 세 등급", JSON.stringify(rarities) === JSON.stringify(["common", "rare", "epic"]), rarities.join(","));
+  check("알 확률: 아홉 종류, 병아리 20%·조랑말 4%", (await dialog.locator("[data-odds]").count()) === 9 && (await dialog.locator('[data-odds="chick"]').innerText()).includes("20%") && (await dialog.locator('[data-odds="pony"]').innerText()).includes("4%"));
+  check("등급 합: 일반 60%·희귀 32%·아주 희귀 8%", (await dialog.locator('[data-rarity="common"]').innerText()).includes("60%") && (await dialog.locator('[data-rarity="rare"]').innerText()).includes("32%") && (await dialog.locator('[data-rarity="epic"]').innerText()).includes("8%"));
+  check("특별 진화 목록 10가지 (유니콘·페가수스·딸기우유 송아지 포함)", (await dialog.locator("[data-special]").count()) === 10 && /유니콘[\s\S]*페가수스/.test(await dialog.locator("[data-info-special]").innerText()) && (await dialog.locator("[data-info-special]").innerText()).includes("딸기우유 송아지"));
+  check("암수·아기 모습 설명이 있다", (await dialog.locator("[data-info-sex]").innerText()).includes("반반") && (await dialog.locator("[data-info-baby]").innerText()).includes("아기 모습"));
+  await page.screenshot({ path: `${outDir}/98-farm-info.png` });
+  await page.keyboard.press("Escape");
+  check("Esc로 안내 창 닫기", !(await dialog.isVisible()));
+}
 
 // ── 돌보기: 성장 +10/+10/+5, 같은 돌보기는 하루 한 번 ──
 for (const label of ["밥 주기", "물 주기", "쓰다듬기"]) {
@@ -63,9 +84,12 @@ await db.query("DELETE FROM animal_cares WHERE animal_id = $1", [hatched.id]);
 await page.reload();
 const coinsBeforeGrown = await coins(page);
 await page.getByRole("button", { name: /밥 주기/ }).click();
-await page.getByText(/다 자랐어요/).waitFor();
+// 낮은 확률(4%)로 특별 진화하면 "…(으)로 자랐어요" (2026-10-12)
+await page.getByText(/다 자랐어요|자랐어요!/).waitFor();
 const grownRow = (await animals())[0];
-check("다 자라면 grown + 성장치는 최대에서 멈춤", grownRow.status === "grown" && grownRow.growth === sp.grow_exp);
+check("다 자라면 grown + 성장치는 최대에서 멈춤", grownRow.status === "grown" && grownRow.growth === sp.grow_exp, grownRow.variant ? `특별 진화 ${grownRow.variant}` : "");
+// 아래 도감 검사는 종류 이름으로 찾으므로, 특별 진화했으면 시험용으로 보통 모습으로 돌린다 (특별 진화 모습은 맨 아래에서 따로 본다)
+if (grownRow.variant) await db.query("UPDATE user_animals SET variant = NULL WHERE id = $1", [grownRow.id]);
 const grownLedger = await one("SELECT exp_delta, coin_delta FROM point_ledger WHERE user_id = $1 AND reason = 'farm_grown'", [uid]);
 check(`다 키운 보상 = 종류 표 숫자 (${sp.name})`, grownLedger?.exp_delta === sp.reward_exp && grownLedger?.coin_delta === sp.reward_coins);
 await page.reload();
@@ -118,7 +142,7 @@ check("5마리면 알 버튼이 막힌다", await page.getByRole("button", { nam
 // ── 글쓰기 보상 → 키우는 동물마다 성장 +10 ──
 await db.query("DELETE FROM user_animals WHERE user_id = $1 AND status = 'egg'", [uid]);
 const sp2 = await one("SELECT id FROM animal_species WHERE code = 'calf'");
-const { id: growingId } = await one("INSERT INTO user_animals (user_id, source, status, species_id, growth) VALUES ($1, 'shop', 'growing', $2, 0) RETURNING id", [uid, sp2.id]);
+const { id: growingId } = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth) VALUES ($1, 'female', 'shop', 'growing', $2, 0) RETURNING id", [uid, sp2.id]);
 await page.goto(`${BASE}/write`);
 await page.locator(".ProseMirror").waitFor();
 await page.getByPlaceholder("제목").fill("농장 동물에게 들려주는 글");
@@ -131,8 +155,8 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
 
 // ── 동물 분양·스킨 (사용자 요청 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨") ──
 {
-  const adoptOnly = await one("SELECT COUNT(*)::int AS n FROM animal_species WHERE hatch_weight = 0 AND price IS NOT NULL");
-  check("분양 동물 5종은 알에서 안 나오고 값이 있다", adoptOnly.n === 5, adoptOnly.n);
+  const adoptOnly = await one("SELECT COUNT(*) FILTER (WHERE price IS NOT NULL)::int AS n, COUNT(*) FILTER (WHERE hatch_weight > 0)::int AS h, SUM(hatch_weight)::int AS w FROM animal_species");
+  check("분양 동물 5종은 값이 있고, 아홉 종류 모두 알에서 나온다 (비중 합 10,000)", adoptOnly.n === 5 && adoptOnly.h === 9 && adoptOnly.w === 10000, JSON.stringify(adoptOnly));
   await db.query("DELETE FROM user_animals WHERE user_id = $1 AND status <> 'grown'", [uid]);
   // 시험용 코인 (관리자 테스트 지급과 같은 사유)
   await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta) VALUES ($1, 'admin_grant', 5000)", [uid]);
@@ -143,7 +167,9 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
   const k0 = await coins(page);
   await list.locator('[data-adopt="kitten"]').getByRole("button").click();
   await page.getByText(/왔어요/).waitFor();
-  const adopted = await one("SELECT id, status, source, growth FROM user_animals WHERE user_id = $1 AND species_id = $2", [uid, kitten.id]);
+  // 첫 알에서도 아기 고양이가 나올 수 있어(2026-10-12부터 알에서 아홉 종류) 분양한 줄만 고른다
+  const adopted = await one("SELECT id, status, source, growth, sex FROM user_animals WHERE user_id = $1 AND species_id = $2 AND source = 'adopt'", [uid, kitten.id]);
+  check("분양한 동물도 암수가 정해진다", ["female", "male"].includes(adopted?.sex), adopted?.sex);
   const adoptLedger = await one("SELECT coin_delta FROM point_ledger WHERE user_id = $1 AND reason = 'animal_adopt'", [uid]);
   check("아기 고양이 분양 → 알 없이 키우는 중, 코인 −값", adopted?.status === "growing" && adopted.source === "adopt" && adoptLedger?.coin_delta === -kitten.price);
   await page.reload();
@@ -179,6 +205,7 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
   const pet = page.locator("[data-house-room] [data-showcase]");
   await pet.waitFor();
   check("방 안 전시 동물에 스킨·크기", (await pet.getAttribute("data-skin")) === calico.asset_key && (await pet.getAttribute("data-size")) === "small");
+  await walkInRoom(page);
   const walked = await page
     .waitForFunction(() => document.querySelector("[data-showcase]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 15000 })
     .then(() => true, () => false);
@@ -213,6 +240,76 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
   await page.locator(`[data-grown="${adopted.id}"] [data-size-choice="normal"]`).click();
   await page.getByText(/보통으로 바꿨어요/).waitFor();
   check("보통으로 되돌리기", (await one("SELECT display_size FROM user_animals WHERE id = $1", [adopted.id])).display_size === "normal");
+
+  // 아기 모습으로 데리고 다니기 (2026-10-12 "아기 형태로 데리고 다닐 수도 있게"): 농장 카드 → 방·광장
+  check("다 키운 동물 카드에 모습 고르기 (기본 다 자란 모습)", (await page.locator(`[data-grown="${adopted.id}"]`).getAttribute("data-display-form")) === "adult" && (await page.locator(`[data-grown="${adopted.id}"] [data-form-choice]`).count()) === 2);
+  check("다 키운 동물 카드에 암수 표시", (await page.locator(`[data-grown="${adopted.id}"] [data-sex]`).getAttribute("data-sex")) === adopted.sex);
+  await page.locator(`[data-grown="${adopted.id}"] [data-form-choice="baby"]`).click();
+  await page.getByText(/아기 모습으로 데리고 다녀요/).waitFor();
+  check("[🍼 아기 모습] → DB display_form = baby", (await one("SELECT display_form FROM user_animals WHERE id = $1", [adopted.id])).display_form === "baby");
+  const badForm = await db.query("UPDATE user_animals SET display_form = 'teen' WHERE id = $1", [adopted.id]).then(() => "ok", (e) => e.constraint ?? e.message);
+  check("정해진 모습만 (CHECK)", badForm === "user_animals_display_form_check", badForm);
+  await page.reload();
+  check("농장 카드도 아기 모습", (await page.locator(`[data-grown="${adopted.id}"]`).getAttribute("data-display-form")) === "baby");
+  await page.screenshot({ path: `${outDir}/99-farm-baby-form.png`, fullPage: true });
+  await page.goto(`${BASE}/@${devId}`);
+  await pet.waitFor();
+  check("우리 집 방 동물이 아기 모습 (data-display-form)", (await pet.getAttribute("data-display-form")) === "baby");
+  await page.waitForTimeout(1500);
+  await page.locator("[data-house-room]").screenshot({ path: `${outDir}/100-room-baby-pet.png` });
+  await page.goto(`${BASE}/town`);
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 20000 });
+  check("광장에서 따라오는 동물도 아기 모습 (data-pet-display-form)", (await page.locator("canvas").getAttribute("data-pet-display-form")) === "baby");
+  // 조금 걸어서 따라오는 모습
+  await page.keyboard.down("ArrowRight");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("ArrowRight");
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${outDir}/101-town-baby-pet.png` });
+  await page.goto(`${BASE}/farm`);
+  await page.locator(`[data-grown="${adopted.id}"] [data-form-choice="adult"]`).click();
+  await page.getByText(/다 자란 모습으로 데리고 다녀요/).waitFor();
+  check("다 자란 모습으로 되돌리기", (await one("SELECT display_form FROM user_animals WHERE id = $1", [adopted.id])).display_form === "adult");
+
+  // 특별 진화 (2026-10-12 "낮은 확률로 망아지가 유니콘이나 페가수스"): 확률은 npm run test:game이 보고, 여기서는 시험용으로 DB에 직접 넣어 보이는 모습을 본다
+  const pony = await one("SELECT id, grow_exp FROM animal_species WHERE code = 'pony'");
+  const noSex = await db.query("INSERT INTO user_animals (user_id, source, status, species_id) VALUES ($1, 'shop', 'growing', $2)", [uid, pony.id]).then(() => "ok", (e) => e.constraint ?? e.message);
+  check("깨어난 동물은 암수가 꼭 있다 (CHECK)", noSex === "user_animals_sex_check", noSex);
+  const { id: ponyId } = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth, hatched_at) VALUES ($1, 'male', 'adopt', 'growing', $2, 0, now()) RETURNING id", [uid, pony.id]);
+  const growingVariant = await db.query("UPDATE user_animals SET variant = 'unicorn' WHERE id = $1", [ponyId]).then(() => "ok", (e) => e.constraint ?? e.message);
+  check("특별 진화는 다 자란 동물만 (CHECK)", growingVariant === "user_animals_variant_check", growingVariant);
+  await db.query("UPDATE user_animals SET status = 'grown', growth = $2, grown_at = now(), variant = 'unicorn' WHERE id = $1", [ponyId, pony.grow_exp]);
+  await page.reload();
+  const uni = page.locator(`[data-grown="${ponyId}"]`);
+  check("특별 진화 카드: 유니콘 이름·✨ 배지·수컷", (await uni.getAttribute("data-variant")) === "unicorn" && (await uni.innerText()).includes("유니콘") && (await uni.innerText()).includes("특별 진화") && (await uni.locator("[data-sex]").getAttribute("data-sex")) === "male");
+  check("특별한 동물은 스킨 입히기 목록에 없다", (await page.locator(`[data-skin-shop] [data-dress="${ponyId}"]`).count()) === 0);
+  await uni.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${outDir}/102-farm-special.png`, fullPage: true });
+  // 도감·방·광장에 유니콘 (아기 모습으로도)
+  await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, ponyId]);
+  await page.goto(`${BASE}/@${devId}`);
+  await pet.waitFor();
+  check("방 안 전시 동물: 유니콘 (이름·data-variant)", (await pet.getAttribute("title")) === "유니콘" && (await pet.getAttribute("data-variant")) === "unicorn");
+  await page.locator("[data-collection-open]").click();
+  const uniCard = page.locator('dialog[data-collection] [data-animal-card][data-variant="unicorn"]');
+  check("도감에 유니콘이 따로 (이름·✨ 특별)", (await uniCard.innerText()).includes("유니콘") && (await uniCard.innerText()).includes("특별"));
+  await page.screenshot({ path: `${outDir}/103-collection-special.png` });
+  await page.keyboard.press("Escape");
+  await db.query("UPDATE user_animals SET display_form = 'baby' WHERE id = $1", [ponyId]);
+  await page.reload();
+  await pet.waitFor();
+  check("아기 모습 유니콘 (방)", (await pet.getAttribute("data-display-form")) === "baby" && (await pet.getAttribute("data-variant")) === "unicorn");
+  await page.waitForTimeout(1500);
+  await page.locator("[data-house-room]").screenshot({ path: `${outDir}/104-room-baby-unicorn.png` });
+  await page.goto(`${BASE}/town`);
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 20000 });
+  const c = page.locator("canvas");
+  check("광장: 아기 유니콘이 따라온다", (await c.getAttribute("data-pet-variant")) === "unicorn" && (await c.getAttribute("data-pet-display-form")) === "baby" && (await c.getAttribute("data-pet-sex")) === "male");
+  await page.keyboard.down("ArrowLeft");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("ArrowLeft");
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${outDir}/105-town-baby-unicorn.png` });
 }
 
 console.log(results.join("\n"));

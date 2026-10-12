@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef } from "react";
 import { lookKey } from "@/lib/art/characters";
 import { PHONE_MEDIA } from "@/lib/device";
+import { PIXEL } from "@/lib/art/pixel";
+import { gradePixels, snowCapPixels, townTheme, type TownTheme } from "@/lib/art/town-theme";
 import { townBus } from "./bus";
 import type { TownData, TownTarget } from "./types";
 
@@ -36,12 +38,14 @@ export function TownGame({
       else if (target.kind === "login") router.push("/");
       else townBus.emit("open", target);
     };
-    // 메뉴에서 고른 곳으로 순간 이동, 메뉴 창이 열려 있으면 키보드를 메뉴에 양보
+    // 메뉴에서 고른 곳으로 순간 이동.
+    // 메뉴 창이 열려 있어도 방향키·WASD로 걸을 수 있다 (사용자 요청 2026-10-12 "메뉴 떠 있는 상태에서 방향키랑 wasd가 안 먹는데").
+    // 다만 창 안의 버튼·목록이 키를 쓸 수 있게 키 기본 동작은 막지 않는다 (버튼 위 Enter·Space와 글자 칸은 아래 yieldKeys가 양보)
     const offTeleport = townBus.on("teleport", (spot) => game?.events.emit("teleport", spot));
     const offPanel = townBus.on("panel", (open) => {
       const keyboard = game?.scene.getScene("town")?.input.keyboard;
       if (!keyboard) return;
-      keyboard.enabled = !open;
+      keyboard.enabled = true;
       if (open) keyboard.disableGlobalCapture();
       else keyboard.enableGlobalCapture();
     });
@@ -68,11 +72,13 @@ export function TownGame({
       const Phaser = (await import("phaser")).default;
       const { createTownScene, townTextures } = await import("./scene");
       // 광장 그림(SVG)을 미리 이미지로 불러 둔다. 글꼴도 준비된 뒤에 글자를 그린다
+      // 마을 테마(꾸미기 배경)에 맞춰 칸마다 색을 입히고, 눈 테마면 건물·나무 윗면에 눈을 얹는다
+      const theme = townTheme(data.theme);
       const images = new Map<string, HTMLImageElement>();
       await Promise.all([
         document.fonts.ready,
-        ...townTextures(data).map(async ({ key, uri }) => {
-          images.set(key, await rasterize(uri));
+        ...townTextures(data).map(async ({ key, uri, kind }) => {
+          images.set(key, await rasterize(uri, theme.grade || theme.snow ? (px, w, h) => themePixels(px, w, h, kind, theme) : undefined));
         }),
       ]);
       starting = false;
@@ -81,7 +87,7 @@ export function TownGame({
       game = new Phaser.Game({
         type: Phaser.AUTO,
         parent: containerRef.current,
-        backgroundColor: "#8fd18a",
+        backgroundColor: townTheme(data.theme).bg,
         // 도트 그림: 키울 때 가까운 픽셀을 써서 흐려지지 않게, 위치는 정수 픽셀로 맞춘다
         pixelArt: true,
         roundPixels: true,
@@ -117,7 +123,9 @@ export function TownGame({
       ref={containerRef}
       data-player-look={data.player ? lookKey(data.player.characterAsset, data.player.outfit) : undefined}
       data-town-host={data.host?.slug}
-      className={`overflow-hidden bg-[#8fd18a] ${className}`}
+      data-town-theme={townTheme(data.theme).key}
+      style={{ backgroundColor: townTheme(data.theme).bg }}
+      className={`overflow-hidden ${className}`}
       aria-label={`${data.host ? `${data.host.nickname}님의 마을` : "중앙 광장"}. 방향키나 WASD로 움직이고 Space로 건물에 들어갑니다.`}
     />
   );
@@ -128,7 +136,7 @@ export function TownGame({
  * 브라우저에 따라 SVG를 Phaser 텍스처로 올릴 때 작게 그려 왼쪽 위로 쏠리는 일이 있어
  * (2026-10-12 사용자 제보: 마을의 내 집이 작아지고 그림자·이름표에서 떨어져 보임) 크기를 못 박은 PNG로 넘긴다.
  */
-async function rasterize(uri: string): Promise<HTMLImageElement> {
+async function rasterize(uri: string, edit?: (px: Uint8ClampedArray, w: number, h: number) => void): Promise<HTMLImageElement> {
   const svg = new Image();
   svg.src = uri;
   await svg.decode();
@@ -142,8 +150,20 @@ async function rasterize(uri: string): Promise<HTMLImageElement> {
   if (!ctx || !w || !h) return svg;
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(svg, 0, 0, w, h);
+  if (edit) {
+    const img = ctx.getImageData(0, 0, w, h);
+    edit(img.data, w, h);
+    ctx.putImageData(img, 0, 0);
+  }
   const png = new Image();
   png.src = canvas.toDataURL("image/png");
   await png.decode();
   return png;
+}
+
+/** 마을 테마 입히기: 건물·나무는 테마 색(눈 테마면 윗면에 눈 먼저), 캐릭터·동물은 약하게 */
+function themePixels(px: Uint8ClampedArray, w: number, h: number, kind: "world" | "plain" | "character", theme: TownTheme) {
+  if (kind === "character") return gradePixels(px, theme.grade, theme.charStrength);
+  if (kind === "world" && theme.snow) snowCapPixels(px, w, h, PIXEL);
+  gradePixels(px, theme.grade);
 }

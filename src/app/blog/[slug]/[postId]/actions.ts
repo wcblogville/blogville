@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { blogs, posts } from "@/db/schema";
 import { parseId } from "@/lib/ids";
+import { isFollowing } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 import { recordView } from "@/server/posts";
 import { ensureVisitorId } from "@/server/visitor";
@@ -11,6 +12,7 @@ import { ensureVisitorId } from "@/server/visitor";
 /**
  * 글 조회 기록 (POST-06 / FR-046, contracts/post-pages.md §2). 글 상세가 브라우저에 열리면 한 번 부른다.
  * 방문자도 불러야 해서 로그인이 필요 없다 (recordBlogVisit과 같음). 주인·비공개 글·없는 글은 세지 않는다.
+ * 👥 이웃 공개 글은 주인을 이웃 추가한 회원이 열 때만 센다.
  * 쿠키를 새로 만들 수 있어야 해서 서버 컴포넌트가 아니라 Server Action에서 센다. IP·회원 ID는 저장하지 않는다
  */
 export async function recordPostView(postId: number): Promise<{ viewCount: number } | null> {
@@ -25,6 +27,7 @@ export async function recordPostView(postId: number): Promise<{ viewCount: numbe
 
   const viewer = await getViewer();
   if (viewer?.profile && viewer.userId === post.ownerId) return { viewCount: post.viewCount };
+  if (post.visibility === "neighbors" && !(viewer?.profile && (await isFollowing(viewer.userId, post.ownerId)))) return null;
 
   return { viewCount: await recordView(id, await ensureVisitorId()) };
 }

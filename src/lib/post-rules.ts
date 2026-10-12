@@ -2,6 +2,7 @@
 // 브라우저(발행 전 사전 검사)와 서버(savePost)가 같은 규칙과 같은 문구를 쓴다
 import { z } from "zod";
 import { parseId } from "@/lib/ids";
+import { VISIBILITIES, type Visibility } from "@/lib/visibility";
 
 export const POST_ERRORS = {
   bad: "잘못된 요청이에요",
@@ -33,7 +34,7 @@ export const postInputSchema = z.object({
   categoryId: optionalId,
   subcategoryId: optionalId,
   tags: z.string().max(TAGS_MAX, POST_ERRORS.tagsLong),
-  visibility: z.enum(["public", "private"], POST_ERRORS.bad),
+  visibility: z.enum(VISIBILITIES, POST_ERRORS.bad),
 });
 
 export type PostInputRaw = Record<keyof z.input<typeof postInputSchema>, string>;
@@ -45,7 +46,7 @@ export type PostInput = {
   categoryId: number | null;
   subcategoryId: number | null;
   tags: string;
-  visibility: "public" | "private";
+  visibility: Visibility;
 };
 
 /** 검사해서 첫 오류 문구 또는 정리된 값 */

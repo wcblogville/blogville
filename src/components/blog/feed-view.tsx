@@ -18,7 +18,8 @@ export function FeedView({
   notice,
 }: {
   title: React.ReactNode;
-  tab?: "all" | "following" | "releases";
+  /** all = 🏘 마을 전체(즐겨찾는 이웃), everyone = 🌐 모든 글 */
+  tab?: "all" | "following" | "everyone" | "releases";
   list: { items: PostCardData[]; page: number; pageCount: number; total: number };
   tags: Tag[];
   showFollowingTab: boolean;
@@ -45,19 +46,37 @@ export function FeedView({
                 💛 이웃 새 글
               </Link>
             )}
+            <Link href="/feed/all" aria-current={tab === "everyone" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
+              🌐 모든 글
+            </Link>
             <Link href="/feed/releases" aria-current={tab === "releases" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
               📜 릴리스 노트
             </Link>
           </div>
         )}
-        {tab && (
-          <p className="mt-4 px-1 text-sm text-ink-soft" data-feed-hint>
-            {tab === "all"
-              ? "⭐ 즐겨찾기한 이웃의 새 글만 모여요"
-              : tab === "following"
-                ? "💛 이웃 추가한 모든 이웃의 새 글이 모여요 (즐겨찾기 이웃의 최근 7일 글이 맨 위)"
-                : "📜 Blogville에 새로 생긴 기능을 버전별로 알려 드려요"}
-          </p>
+        {tab === "everyone" ? (
+          // 모든 글 탭 설명 (사용자 요청 2026-10-12 "모든 글 볼 수 있게 설명해주고 … 여기 안 나오게 … 이웃에게만 공개")
+          <div className="pixel-paper mt-4 p-4 text-sm leading-relaxed" data-feed-hint>
+            <p>
+              <b>🌐 Blogville 모든 회원의 전체 공개 글</b>이 최신순으로 모여요. 이웃이 아니어도 누구의 글이든 여기서 구경할 수 있어요.
+            </p>
+            <p className="mt-1 text-ink-soft">
+              이웃에게만 보여 주고 싶은 글은 글쓰기에서 <b className="text-ink">👥 이웃 공개</b>를 고르세요. 여기와 태그·검색에는 나오지 않고, 나를 이웃 추가한 회원만 볼 수 있어요.
+            </p>
+            <p className="mt-1 text-ink-soft" data-feed-manners>
+              📢 전체 공개 글은 모두가 읽어요. 다른 사람을 불쾌하게 하는 말이나 개인정보는 쓰지 말아 주세요.
+            </p>
+          </div>
+        ) : (
+          tab && (
+            <p className="mt-4 px-1 text-sm text-ink-soft" data-feed-hint>
+              {tab === "all"
+                ? "⭐ 즐겨찾기한 이웃의 새 글만 모여요"
+                : tab === "following"
+                  ? "💛 이웃 추가한 모든 이웃의 새 글이 모여요 (즐겨찾기 이웃의 최근 7일 글이 맨 위)"
+                  : "📜 Blogville에 새로 생긴 기능을 버전별로 알려 드려요"}
+            </p>
+          )
         )}
         <div className="mt-6 grid gap-5">
           {list.items.length ? list.items.map((p) => <PostCard key={p.id} post={p} showAuthor />) : <div className="pixel-card p-10 text-center text-ink-soft">{empty}</div>}

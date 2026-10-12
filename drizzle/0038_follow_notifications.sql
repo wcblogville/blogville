@@ -1,0 +1,5 @@
+-- SOC-06 (사용자 요청 2026-10-12): 누가 나를 이웃으로 추가하면 알림. 알림 종류 follow (글 없음, 같은 사람에게서 처음 한 번만)
+ALTER TYPE "public"."notification_kind" ADD VALUE 'follow';--> statement-breakpoint
+ALTER TABLE "notifications" DROP CONSTRAINT "notifications_shape_check";--> statement-breakpoint
+CREATE UNIQUE INDEX "notifications_follow_uq" ON "notifications" USING btree ("user_id","actor_id") WHERE "notifications"."post_id" IS NULL AND "notifications"."actor_id" IS NOT NULL;--> statement-breakpoint
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_shape_check" CHECK (("notifications"."kind" = 'level_up' AND "notifications"."level" IS NOT NULL AND "notifications"."actor_id" IS NULL AND "notifications"."post_id" IS NULL) OR ("notifications"."kind"::text = 'follow' AND "notifications"."level" IS NULL AND "notifications"."actor_id" IS NOT NULL AND "notifications"."post_id" IS NULL) OR ("notifications"."kind"::text NOT IN ('level_up', 'follow') AND "notifications"."level" IS NULL AND "notifications"."actor_id" IS NOT NULL AND "notifications"."post_id" IS NOT NULL));

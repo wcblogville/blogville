@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { animalSkins, animalSpecies, items } from "../src/db/schema";
 import { ensureNoticePosts, noticePostsMessage } from "./notice-posts";
+import { hatchWeightOf } from "../src/lib/farm";
 
 config({ path: ".env.local" });
 
@@ -28,12 +29,12 @@ const ITEMS: NewItem[] = [
   { code: "char_unicorn", type: "character", name: "유니콘", description: "꾸준함의 상징", price: 1200, requiredLevel: 8, isStarter: false, assetKey: "char.unicorn" },
 
   // 배경 (초원은 모두에게 기본 지급)
-  { code: "bg_meadow", type: "background", name: "초원", description: "모든 이야기가 시작되는 곳", price: 0, requiredLevel: 1, isStarter: true, assetKey: "bg.meadow" },
-  { code: "bg_beach", type: "background", name: "바닷가", description: "파도 소리가 들리는 해변", price: 120, requiredLevel: 1, isStarter: false, assetKey: "bg.beach" },
-  { code: "bg_snow", type: "background", name: "눈 마을", description: "조용히 눈이 쌓이는 마을", price: 200, requiredLevel: 2, isStarter: false, assetKey: "bg.snow" },
-  { code: "bg_sakura", type: "background", name: "벚꽃길", description: "봄바람이 부는 벚꽃길", price: 300, requiredLevel: 3, isStarter: false, assetKey: "bg.sakura" },
-  { code: "bg_night", type: "background", name: "밤의 도시", description: "불빛이 반짝이는 밤", price: 450, requiredLevel: 4, isStarter: false, assetKey: "bg.night" },
-  { code: "bg_space", type: "background", name: "우주", description: "끝없이 펼쳐진 우주", price: 900, requiredLevel: 6, isStarter: false, assetKey: "bg.space" },
+  { code: "bg_meadow", type: "background", name: "초원", description: "모든 이야기가 시작되는 곳. 꾸미면 마을도 푸른 초원으로", price: 0, requiredLevel: 1, isStarter: true, assetKey: "bg.meadow" },
+  { code: "bg_beach", type: "background", name: "바닷가", description: "파도 소리가 들리는 해변. 꾸미면 마을도 햇살 가득 반짝여요", price: 120, requiredLevel: 1, isStarter: false, assetKey: "bg.beach" },
+  { code: "bg_snow", type: "background", name: "눈 마을", description: "조용히 눈이 쌓이는 마을. 꾸미면 마을에도 눈이 쌓이고 내려요", price: 200, requiredLevel: 2, isStarter: false, assetKey: "bg.snow" },
+  { code: "bg_sakura", type: "background", name: "벚꽃길", description: "봄바람이 부는 벚꽃길. 꾸미면 마을에 꽃잎이 흩날려요", price: 300, requiredLevel: 3, isStarter: false, assetKey: "bg.sakura" },
+  { code: "bg_night", type: "background", name: "밤의 도시", description: "불빛이 반짝이는 밤. 꾸미면 마을도 밤이 되고 반딧불이가 날아요", price: 450, requiredLevel: 4, isStarter: false, assetKey: "bg.night" },
+  { code: "bg_space", type: "background", name: "우주", description: "끝없이 펼쳐진 우주. 꾸미면 마을이 보랏빛으로 물들고 별이 반짝여요", price: 900, requiredLevel: 6, isStarter: false, assetKey: "bg.space" },
   // 집 안 가구 (마을 개편 2차). 화분·나무 의자는 가입할 때 모두 받는 기본 가구. 마이그레이션 0026에도 같은 값이 있다
   { code: "fur_plant", type: "furniture", name: "초록 화분", description: "집 안을 싱그럽게 해 주는 화분", price: 0, requiredLevel: 1, isStarter: true, assetKey: "furniture.plant" },
   { code: "fur_chair", type: "furniture", name: "나무 의자", description: "처음 이사 온 날부터 함께한 의자", price: 0, requiredLevel: 1, isStarter: true, assetKey: "furniture.chair" },
@@ -172,27 +173,29 @@ const ITEMS: NewItem[] = [
   { code: "growth_elixir", type: "growth", growthValue: 300, name: "황금 성장 물약", description: "금빛으로 반짝이는 귀한 물약 (성장 +300)", price: 400, requiredLevel: 6, isStarter: false, assetKey: "growth.elixir" },
 ];
 
-// 동물 농장 동물 종류 (TOWN-09). 흔한 동물일수록 빨리 자라고 보상이 작다
+// 동물 농장 동물 종류 (TOWN-09). 흔한 동물일수록 빨리 자라고 보상이 작다.
+// 알 확률(hatch_weight, 만분율)은 src/lib/farm.ts HATCH_RARITY·RARITY_ODDS 한 곳에서 정한다 (2026-10-12 "노말한 동물들이랑 희귀한 애들이랑 확률 다르게"):
+// 일반 60%(병아리·토끼·햄스터), 희귀 32%(아기 돼지·아기 고양이·강아지·아기 양), 아주 희귀 8%(송아지·조랑말). 아홉 종류 모두 알에서 나온다.
+// 값(price)이 있는 종류는 농장 [동물 분양]에서 코인으로 바로 고를 수도 있다. 크기(작은·중간·큰)는 src/lib/art/animals.ts ANIMAL_SIZE
 const SPECIES: (typeof animalSpecies.$inferInsert)[] = [
-  { code: "chick", name: "병아리", assetKey: "animal.chick", growExp: 60, rewardExp: 50, rewardCoins: 20, hatchWeight: 40 },
-  { code: "bunny", name: "토끼", assetKey: "animal.bunny", growExp: 90, rewardExp: 80, rewardCoins: 30, hatchWeight: 30 },
-  { code: "piglet", name: "아기 돼지", assetKey: "animal.piglet", growExp: 120, rewardExp: 110, rewardCoins: 50, hatchWeight: 20 },
-  { code: "calf", name: "송아지", assetKey: "animal.calf", growExp: 160, rewardExp: 160, rewardCoins: 80, hatchWeight: 10 },
-  // 분양 동물 (2026-10-11 "펫 종류"): 알에서 안 나오고(hatchWeight 0) 농장 [동물 분양]에서 코인으로 아기를 데려온다.
-  // 크기(작은·중간·큰)는 src/lib/art/animals.ts ANIMAL_SIZE
-  { code: "hamster", name: "햄스터", assetKey: "animal.hamster", growExp: 70, rewardExp: 60, rewardCoins: 20, hatchWeight: 0, price: 200 },
-  { code: "kitten", name: "아기 고양이", assetKey: "animal.kitten", growExp: 100, rewardExp: 90, rewardCoins: 30, hatchWeight: 0, price: 300 },
-  { code: "puppy", name: "강아지", assetKey: "animal.puppy", growExp: 110, rewardExp: 100, rewardCoins: 35, hatchWeight: 0, price: 350 },
-  { code: "lamb", name: "아기 양", assetKey: "animal.lamb", growExp: 130, rewardExp: 120, rewardCoins: 45, hatchWeight: 0, price: 400 },
-  { code: "pony", name: "조랑말", assetKey: "animal.pony", growExp: 180, rewardExp: 180, rewardCoins: 70, hatchWeight: 0, price: 600 },
-];
+  { code: "chick", name: "병아리", assetKey: "animal.chick", growExp: 60, rewardExp: 50, rewardCoins: 20 },
+  { code: "bunny", name: "토끼", assetKey: "animal.bunny", growExp: 90, rewardExp: 80, rewardCoins: 30 },
+  { code: "piglet", name: "아기 돼지", assetKey: "animal.piglet", growExp: 120, rewardExp: 110, rewardCoins: 50 },
+  { code: "calf", name: "송아지", assetKey: "animal.calf", growExp: 160, rewardExp: 160, rewardCoins: 80 },
+  { code: "hamster", name: "햄스터", assetKey: "animal.hamster", growExp: 70, rewardExp: 60, rewardCoins: 20, price: 200 },
+  { code: "kitten", name: "아기 고양이", assetKey: "animal.kitten", growExp: 100, rewardExp: 90, rewardCoins: 30, price: 300 },
+  { code: "puppy", name: "강아지", assetKey: "animal.puppy", growExp: 110, rewardExp: 100, rewardCoins: 35, price: 350 },
+  { code: "lamb", name: "아기 양", assetKey: "animal.lamb", growExp: 130, rewardExp: 120, rewardCoins: 45, price: 400 },
+  { code: "pony", name: "조랑말", assetKey: "animal.pony", growExp: 180, rewardExp: 180, rewardCoins: 70, price: 600 },
+].map((sp) => ({ ...sp, hatchWeight: hatchWeightOf(sp.code) }));
 
 // 동물 스킨 (2026-10-11 "펫 종류별로 스킨"): 종류마다 둘. 색·무늬는 src/lib/art/animals.ts ANIMAL_SKINS (asset_key)
 const SKINS: { code: string; species: string; name: string; price: number }[] = [
   { code: "chick_choco", species: "chick", name: "초코 병아리", price: 120 },
   { code: "chick_mint", species: "chick", name: "민트 병아리", price: 150 },
   { code: "bunny_gray", species: "bunny", name: "회색 토끼", price: 120 },
-  { code: "bunny_patch", species: "bunny", name: "얼룩 토끼", price: 180 },
+  // 이름이 특별 진화(얼룩 토끼·흑돼지·딸기우유 송아지, src/lib/farm.ts SPECIAL_VARIANTS)와 겹치지 않게 바꿨다 (2026-10-12)
+  { code: "bunny_patch", species: "bunny", name: "갈색 점 토끼", price: 180 },
   { code: "hamster_snow", species: "hamster", name: "눈송이 햄스터", price: 150 },
   { code: "hamster_choco", species: "hamster", name: "초코 햄스터", price: 150 },
   { code: "kitten_black", species: "kitten", name: "까망이", price: 200 },
@@ -200,11 +203,11 @@ const SKINS: { code: string; species: string; name: string; price: number }[] = 
   { code: "puppy_shiba", species: "puppy", name: "시바 강아지", price: 200 },
   { code: "puppy_choco", species: "puppy", name: "초코 강아지", price: 200 },
   { code: "piglet_spot", species: "piglet", name: "점박이 돼지", price: 180 },
-  { code: "piglet_black", species: "piglet", name: "흑돼지", price: 200 },
+  { code: "piglet_black", species: "piglet", name: "먹색 돼지", price: 200 },
   { code: "lamb_black", species: "lamb", name: "까만 양", price: 220 },
   { code: "lamb_pink", species: "lamb", name: "솜사탕 양", price: 250 },
   { code: "calf_hanwoo", species: "calf", name: "누렁 송아지", price: 220 },
-  { code: "calf_strawberry", species: "calf", name: "딸기우유 송아지", price: 260 },
+  { code: "calf_strawberry", species: "calf", name: "분홍 점 송아지", price: 260 },
   { code: "pony_white", species: "pony", name: "백마", price: 300 },
   { code: "pony_zebra", species: "pony", name: "얼룩말", price: 350 },
 ];

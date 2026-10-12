@@ -212,7 +212,7 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
 {
   const me = await one("SELECT u.id, b.id AS blog_id FROM users u JOIN blogs b ON b.owner_id = u.id WHERE u.username = 'tester1'");
   const animal = await one(
-    "INSERT INTO user_animals (user_id, species_id, status, source, hatched_at, grown_at) VALUES ($1, (SELECT min(id) FROM animal_species), 'grown', 'shop', now(), now()) RETURNING id",
+    "INSERT INTO user_animals (user_id, sex, species_id, status, source, hatched_at, grown_at) VALUES ($1, 'female', (SELECT min(id) FROM animal_species), 'grown', 'shop', now(), now()) RETURNING id",
     [me.id],
   );
   await page.goto(`${BASE}/@tester1`);

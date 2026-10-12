@@ -14,7 +14,7 @@ export type FurnitureResult = { ok: true } | { ok: false; error: string };
 /**
  * 우리 집 가구 배치 저장 (사용자 요청 2026-10-12 "편집 들어가서 위치 조정도 마음대로 하고 저장하면 그자리에 놓게").
  * 편집 화면의 배치 전체를 받아 한 트랜잭션에서 내 집 가구를 통째로 바꾼다. 늘 내 집만 바꾼다 (남의 집은 고칠 수 없다).
- * 서버에서 다시 확인: 집 단계(주인 레벨)의 개수·방 크기, 같은 가구 두 번, 같은 칸 두 개(checkLayout), 가진 가구인지.
+ * 서버에서 다시 확인: 집 단계(주인 레벨)의 개수·방 크기, 같은 가구 두 번, 가구 크기(차지하는 칸, FURNITURE_FOOTPRINT)가 방 밖이거나 겹치는지(checkLayout), 가진 가구인지.
  * DB도 막는다: 가진 가구(house_furniture_owned_fk), 한 칸 하나(house_furniture_tile_uq), 방 크기 0~9(tile_check)
  */
 export async function saveFurnitureLayout(input: unknown): Promise<FurnitureResult> {
@@ -26,17 +26,18 @@ export async function saveFurnitureLayout(input: unknown): Promise<FurnitureResu
     await lockUser(tx, viewer.userId);
     const { level } = await getWallet(viewer.userId, tx);
     const { stage, slots } = houseInfo(level);
-    const bad = checkLayout(spots, { grid: roomGrid(stage), limit: slots });
+    // 가구 크기(차지하는 칸)를 알려면 asset_key가 필요하다: 가진 가구만 읽어 와서 검사하고, 없는 가구가 있으면 막는다
+    const owned = spots.length
+      ? await tx
+          .select({ id: items.id, assetKey: items.assetKey })
+          .from(userItems)
+          .innerJoin(items, eq(items.id, userItems.itemId))
+          .where(and(eq(userItems.userId, viewer.userId), inArray(userItems.itemId, spots.map((s) => s.itemId)), eq(items.type, "furniture")))
+      : [];
+    const keys = new Map(owned.map((o) => [o.id, o.assetKey]));
+    const bad = checkLayout(spots, { grid: roomGrid(stage), limit: slots, keyOf: (id) => keys.get(id) });
     if (bad) return { ok: false, error: bad };
-    if (spots.length) {
-      const ids = spots.map((s) => s.itemId);
-      const owned = await tx
-        .select({ id: items.id })
-        .from(userItems)
-        .innerJoin(items, eq(items.id, userItems.itemId))
-        .where(and(eq(userItems.userId, viewer.userId), inArray(userItems.itemId, ids), eq(items.type, "furniture")));
-      if (owned.length !== ids.length) return { ok: false, error: "가진 가구만 놓을 수 있어요." };
-    }
+    if (owned.length !== spots.length) return { ok: false, error: "가진 가구만 놓을 수 있어요." };
     await tx.delete(houseFurniture).where(eq(houseFurniture.userId, viewer.userId));
     if (spots.length) {
       await tx
