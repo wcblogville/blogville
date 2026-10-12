@@ -154,7 +154,9 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   check("릴리스 노트: 방문자도 탭·탭 제목", (await guest.getByRole("link", { name: "📜 릴리스 노트" }).getAttribute("aria-current")) === "page" && (await guest.title()) === "릴리스 노트 | Blogville", await guest.title());
   check("릴리스 노트: 관리자가 그 분류로 직접 쓴 글이 맨 위", rel[0] === `손으로 쓴 릴리스 노트 ${n}`, rel.join());
   const vs = rel.filter((t) => /^v\d/.test(t)).map((t) => t.split(" ")[0]);
-  check("릴리스 노트: 시드 버전 최신순 (v0.4 → v0.1)", vs.slice(-4).join() === "v0.4,v0.3,v0.2,v0.1" || vs.slice(0, 4).join() === "v0.4,v0.3,v0.2,v0.1", vs.join());
+  // 버전이 늘어 첫 장(8개)에 v0.1이 안 들어갈 수 있다: 첫 장에 보이는 v0.1~v0.4가 최신순인지 본다
+  const oldVs = vs.filter((v) => ["v0.1", "v0.2", "v0.3", "v0.4"].includes(v));
+  check("릴리스 노트: 시드 버전 최신순 (v0.4 → v0.1)", oldVs.length >= 3 && oldVs.join() === ["v0.4", "v0.3", "v0.2", "v0.1"].slice(0, oldVs.length).join(), vs.join());
   check("릴리스 노트: 비공개·다른 분류·분류 없는 관리자 글은 없음",
     [`비공개 릴리스 노트 ${n}`, `공지 분류 옛 글 ${n}`, `분류 없는 관리자 글 ${n}`, notice?.title].every((t) => !rel.includes(t)));
   check("릴리스 노트: 맨 위 공지 카드도 걸림", (await guest.locator("[data-pinned-notice]").count()) === 1);
@@ -167,7 +169,7 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   await guest.screenshot({ path: `${outDir}/feed-releases-375.png`, fullPage: true });
   await guest.setViewportSize({ width: 1280, height: 900 });
   await r.goto(`${BASE}/feed`);
-  check("릴리스 노트: 회원 마을 소식에 세 탭", (await r.locator("a.pixel-tab").allInnerTexts()).join() === "🏘 마을 전체,💛 이웃 새 글,📜 릴리스 노트");
+  check("릴리스 노트: 회원 마을 소식에 네 탭 (🌐 모든 글 1.37)", (await r.locator("a.pixel-tab").allInnerTexts()).join() === "🏘 마을 전체,💛 이웃 새 글,🌐 모든 글,📜 릴리스 노트");
   await db.query("DELETE FROM posts WHERE id = ANY($1)", [[hand, handPrivate, otherCat, noCat]]);
 }
 

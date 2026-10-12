@@ -19,6 +19,7 @@ import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { ANIMAL_DISPLAY_SIZES, animalStage, isDisplaySize, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
 import { formatCoinsShort } from "../src/lib/format";
+import { boardSeenValue, shouldAutoOpenBoard } from "../src/lib/attendance-window";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
 import { checkLayout, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
@@ -369,5 +370,12 @@ expect("[+10,000 코인]은 칸 값을 무시", parseGrantInput(grantForm({ pres
 expect("경험치 최대로 0에서 Lv.99에 닿음", levelFromExp(GRANT_EXP_MAX), MAX_LEVEL);
 expect("Lv.99까지 모자란 경험치", [0, 1000, expForLevel(MAX_LEVEL) + 5].map(expToMaxLevel), [97020, 96020, 0]);
 expect("휴대폰 헤더 짧은 코인", [9999, 10017, 12345, 1_000_000, 12_345_678, 350_000_000].map(formatCoinsShort), ["9,999", "1만", "1.2만", "100만", "1234만", "3.5억"]);
+
+// 게시판 출석 창은 회원마다 하루 한 번만 저절로 (2026-10-12)
+expect("출석 창: 처음 게시판 → 연다", shouldAutoOpenBoard(true, undefined, "u1", "2026-10-12"), true);
+expect("출석 창: 오늘 이미 열림 → 안 연다", shouldAutoOpenBoard(true, boardSeenValue("u1", "2026-10-12"), "u1", "2026-10-12"), false);
+expect("출석 창: 어제 열림 → 연다", shouldAutoOpenBoard(true, boardSeenValue("u1", "2026-10-11"), "u1", "2026-10-12"), true);
+expect("출석 창: 다른 회원이 오늘 연 브라우저 → 연다", shouldAutoOpenBoard(true, boardSeenValue("u2", "2026-10-12"), "u1", "2026-10-12"), true);
+expect("출석 창: 게시판 입구가 아니면 안 연다", shouldAutoOpenBoard(false, undefined, "u1", "2026-10-12"), false);
 
 if (failed) process.exit(1);

@@ -1,5 +1,7 @@
 // 글 첨부(사진·파일) 규칙: 브라우저와 서버가 같은 값을 쓴다 (POST-07 사진, POST-09 파일)
 
+import { canSeePost, type Visibility } from "@/lib/visibility";
+
 export type AttachmentKind = "image" | "file";
 
 /** 사진: 확장자 → 저장·응답할 형식 */
@@ -108,17 +110,22 @@ export function cleanFileName(name: string): string {
 
 /**
  * 첨부를 누가 열 수 있나 (POST-02 첨부 공개 범위 / FR-029, FR-059, data-model 3.4). 관리자 예외 없음.
- * postVisibility가 null이면 어느 글에도 붙지 않은 첨부
+ * postVisibility가 null이면 어느 글에도 붙지 않은 첨부. 붙은 첨부는 글과 같은 규칙(canSeePost):
+ * 👥 이웃 공개 글 첨부는 주인과 주인을 이웃 추가한 회원(viewerIsNeighbor)만
  */
 export function attachmentAccess(a: {
-  postVisibility: "public" | "private" | null;
+  postVisibility: Visibility | null;
   postOwnerId: string | null;
   uploaderId: string;
   isProfilePhoto: boolean;
   viewerId: string | null;
+  /** 보는 회원이 글 주인을 이웃 추가했나 (이웃 공개 글일 때만 본다) */
+  viewerIsNeighbor?: boolean;
 }): boolean {
-  if (a.postVisibility === "public") return true;
-  if (a.postVisibility === "private") return a.viewerId !== null && a.viewerId === a.postOwnerId;
+  if (a.postVisibility !== null) {
+    const isOwner = a.viewerId !== null && a.viewerId === a.postOwnerId;
+    return canSeePost(a.postVisibility, { isOwner, isNeighbor: a.viewerId !== null && Boolean(a.viewerIsNeighbor) });
+  }
   if (a.isProfilePhoto) return true;
   return a.viewerId !== null && a.viewerId === a.uploaderId;
 }

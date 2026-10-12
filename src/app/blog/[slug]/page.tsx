@@ -21,6 +21,7 @@ import { formatDate } from "@/lib/format";
 import { REWARD_RULES } from "@/lib/game";
 import { currentRoof, houseInfo, roofOrder } from "@/lib/house";
 import { parseId } from "@/lib/ids";
+import { postAccessOf } from "@/lib/visibility";
 import {
   getBlogBySlug,
   getBlogSidebar,
@@ -68,8 +69,11 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const base = `/@${blog.slug}`;
 
   const welcome = isOwner && Boolean(sp.welcome);
-  const [cats, list, following, visits, grown, found, ownerWallet, placed, owned, side] = await Promise.all([
-    getCategories(blog.id, isOwner),
+  // 주인을 이웃 추가한 회원에게는 👥 이웃 공개 글도 보인다 (POST-02). 목록·위젯 조건에 쓰므로 먼저 읽는다
+  const following = viewerId && !isOwner ? await isFollowing(viewerId, blog.ownerId) : false;
+  const access = postAccessOf(isOwner, following);
+  const [cats, list, visits, grown, found, ownerWallet, placed, owned, side] = await Promise.all([
+    getCategories(blog.id, access),
     search
       ? search.empty
         ? null
@@ -77,18 +81,17 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
       : find
         ? find.empty
           ? null
-          : listBlogPosts({ blogId: blog.id, isOwner, search: find.q, page })
+          : listBlogPosts({ blogId: blog.id, access, search: find.q, page })
         : tag
-          ? listBlogPosts({ blogId: blog.id, isOwner, tag, page })
-          : listBlogPosts({ blogId: blog.id, isOwner, categoryId, subcategoryId, page }),
-    viewerId && !isOwner ? isFollowing(viewerId, blog.ownerId) : false,
+          ? listBlogPosts({ blogId: blog.id, access, tag, page })
+          : listBlogPosts({ blogId: blog.id, access, categoryId, subcategoryId, page }),
     getBlogVisitStats(blog.id),
     getGrownAnimals(blog.ownerId),
     search && !search.empty && page === 1 ? searchBlogs(search.q) : [],
     getWallet(blog.ownerId),
     getPlacedFurniture(blog.ownerId),
     isOwner ? getOwnedFurniture(blog.ownerId) : null,
-    getBlogSidebar(blog.id, isOwner),
+    getBlogSidebar(blog.id, access),
   ]);
   // 문: 마을의 이 집 앞으로 나간다. 처음 가입한 회원은 환영 문구가 있는 마을로 (마을 개편 2차)
   const doorHref = welcome ? "/town?welcome=1" : `/town?at=${blog.slug}`;
@@ -164,7 +167,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         className="mt-4"
       />
 
-      {isOwner && <OwnerToolbar postCount={blog.postCount} privateCount={side.privateCount} />}
+      {isOwner && <OwnerToolbar postCount={blog.postCount} nonPublicCount={side.nonPublicCount} />}
 
       <div className="mt-8 grid gap-7 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-[minmax(0,1fr)_300px]">
         <section className="min-w-0" aria-label="글 목록">

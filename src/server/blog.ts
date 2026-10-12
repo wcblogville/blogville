@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
@@ -28,11 +28,26 @@ import { favoriteWindowStart } from "@/lib/social";
 import { liveCommentCountSql } from "@/server/social";
 import { previousDay, todayKST } from "@/lib/game";
 import { NOTICE_CATEGORY, RELEASE_CATEGORY } from "@/lib/welcome-notice";
+import { visibleVisibilities, type PostAccess, type Visibility } from "@/lib/visibility";
 
 const characterItem = alias(items, "character_item");
 const backgroundItem = alias(items, "background_item");
 
 export const PAGE_SIZE = 8;
+
+/**
+ * 블로그 안에서 보는 사람의 자리(PostAccess)에 맞는 공개 범위 조건 (POST-02).
+ * 주인은 모두, 주인의 이웃은 공개 + 👥 이웃 공개, 그 밖은 공개만. 주인이면 undefined(조건 없음)
+ */
+function visibleFor(access: PostAccess): SQL | undefined {
+  return access === "owner" ? undefined : inArray(posts.visibility, visibleVisibilities(access));
+}
+
+/** 같은 조건을 별칭 p로 쓰는 날 SQL 조각 (AND로 시작) */
+function visibleSqlFor(access: PostAccess): SQL {
+  if (access === "owner") return sql``;
+  return access === "neighbor" ? sql`AND p.visibility IN ('public', 'neighbors')` : sql`AND p.visibility = 'public'`;
+}
 
 // ===== 블로그 =====
 export async function getBlogBySlug(slug: string) {
@@ -100,10 +115,10 @@ export async function getBlogByOwner(ownerId: string) {
 
 /**
  * 카테고리 트리 (BLOG-05 / FR-039·040, research R-14): 대분류마다 subcategories 배열, 정렬은 position → id.
- * 대분류 글 수는 그 대분류의 글(소분류 글 포함). includePrivate(주인·관리 화면)이면 비공개 글도 센다.
+ * 대분류 글 수는 그 대분류의 글(소분류 글 포함). 보는 사람의 자리(access)에서 보이는 글만 센다 (주인·관리 화면은 비공개 포함, 이웃은 이웃 공개 포함).
  * 소분류 글 수는 posts.subcategory_id로 센다 (POST-03, 같은 공개 범위 규칙).
  */
-export async function getCategories(blogId: number, includePrivate: boolean) {
+export async function getCategories(blogId: number, access: PostAccess) {
   const cats = await db
     .select({
       id: categories.id,
@@ -114,7 +129,7 @@ export async function getCategories(blogId: number, includePrivate: boolean) {
       postCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${posts} AS p
         WHERE p.category_id = "categories"."id"
-        ${includePrivate ? sql`` : sql`AND p.visibility = 'public'`}
+        ${visibleSqlFor(access)}
       )`,
     })
     .from(categories)
@@ -130,7 +145,7 @@ export async function getCategories(blogId: number, includePrivate: boolean) {
           postCount: sql<number>`(
             SELECT COUNT(*)::int FROM ${posts} AS p
             WHERE p.subcategory_id = "subcategories"."id"
-            ${includePrivate ? sql`` : sql`AND p.visibility = 'public'`}
+            ${visibleSqlFor(access)}
           )`,
         })
         .from(subcategories)
@@ -256,27 +271,27 @@ function baseList(where: SQL | undefined, orderFirst?: SQL) {
 }
 
 /**
- * 블로그 홈 글 목록. 주인이 보면 비공개 글도 보인다.
+ * 블로그 홈 글 목록. 주인이 보면 비공개 글도, 주인의 이웃이 보면 👥 이웃 공개 글도 보인다.
  * categoryId: 대분류 거르기(소분류 글 포함). subcategoryId: 소분류 거르기 (categoryId보다 먼저, BLOG-05 / FR-040, research R-13).
  */
 export async function listBlogPosts(opts: {
   blogId: number;
-  isOwner: boolean;
+  access: PostAccess;
   categoryId?: number;
   subcategoryId?: number;
   /** 블로그 안 검색: 제목·본문 부분 일치 (%·_·\ 는 글자 그대로). 주인이면 비공개 글도 찾는다 (사용자 요청 2026-10-11) */
   search?: string;
   /** 이 블로그에서 그 태그가 붙은 글 */
   tag?: string;
-  /** 비공개 글만 / 공개 글만 (글 관리 화면, 주인만) */
-  visibility?: "public" | "private";
+  /** 공개 범위 하나만 (글 관리 화면, 주인만) */
+  visibility?: Visibility;
   page: number;
   pageSize?: number;
 }) {
   const pattern = opts.search ? toLikePattern(opts.search) : null;
   const where = and(
     eq(posts.blogId, opts.blogId),
-    opts.isOwner ? (opts.visibility ? eq(posts.visibility, opts.visibility) : undefined) : eq(posts.visibility, "public"),
+    opts.access === "owner" ? (opts.visibility ? eq(posts.visibility, opts.visibility) : undefined) : visibleFor(opts.access),
     opts.subcategoryId ? eq(posts.subcategoryId, opts.subcategoryId) : opts.categoryId ? eq(posts.categoryId, opts.categoryId) : undefined,
     pattern ? or(sql`${posts.title} ILIKE ${pattern} ESCAPE '\\'`, sql`${posts.contentText} ILIKE ${pattern} ESCAPE '\\'`) : undefined,
     opts.tag
@@ -298,16 +313,17 @@ export async function listBlogPosts(opts: {
 const notNoticeBlog = sql`NOT EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${blogs.ownerId} AND ${users.role} = 'admin')`;
 
 /**
- * 공개 글 목록. followerId를 주면 그 회원의 이웃 글만 (모르는 사람 글은 없다, 사용자 요청 2026-10-12):
+ * 마을 글 목록. followerId를 주면 그 회원의 이웃 글만 (모르는 사람 글은 없다, 사용자 요청 2026-10-12):
  * - favoritesOnly: 마을 소식 [🏘 마을 전체] = ⭐ 즐겨찾는 이웃의 글
  * - 아니면 [💛 이웃 새 글] = 모든 이웃의 글 (즐겨찾는 이웃의 최근 7일 글이 맨 위)
  * 이웃은 자기 자신이 아니므로(follows_not_self_check) 내 글은 빠지고, 공지 블로그(관리자)도 빠진다.
- * followerId 없이 부르는 태그 목록·마을 검색은 마을 전체 공개 글이다
+ * 이웃 글이므로 공개 글과 👥 이웃 공개 글이 같이 나온다 (보는 사람이 그 주인을 이웃 추가했으니 볼 수 있다).
+ * followerId 없이 부르는 태그 목록·마을 검색은 마을 전체 공개 글이다 (이웃 공개 글은 없다)
  */
 export async function listFeed(opts: { page: number; followerId?: string; favoritesOnly?: boolean; tag?: string; search?: string }) {
   const pattern = opts.search ? toLikePattern(opts.search) : null;
   const where = and(
-    eq(posts.visibility, "public"),
+    opts.followerId ? inArray(posts.visibility, ["public", "neighbors"]) : eq(posts.visibility, "public"),
     pattern ? or(sql`${posts.title} ILIKE ${pattern} ESCAPE '\\'`, sql`${posts.contentText} ILIKE ${pattern} ESCAPE '\\'`) : undefined,
     opts.followerId
       ? and(
@@ -337,6 +353,15 @@ export async function listFeed(opts: { page: number; followerId?: string; favori
           AND ${follows.followeeId} = ${blogs.ownerId} AND ${follows.isFavorite}) THEN 0 ELSE 1 END`
       : undefined;
   return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE), favoriteFirst);
+}
+
+/**
+ * 마을 소식 [🌐 모든 글] (사용자 요청 2026-10-12 "모든 글 볼 수 있는 페이지"): 모든 회원의 공개 글, 최신순.
+ * 내 글도 나온다. 👥 이웃 공개·🔒 비공개 글과 공지 블로그(관리자) 글은 없다 (공지는 맨 위 카드·릴리스 노트 탭으로 본다)
+ */
+export async function listAllPosts(page: number) {
+  const where = and(eq(posts.visibility, "public"), notNoticeBlog);
+  return paged(where, page, (q) => q.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE));
 }
 
 /** 빈 목록 (방문자의 마을 소식: 이웃이 없으니 글을 읽지 않는다) */
@@ -382,14 +407,14 @@ export async function getPinnedNotice(): Promise<PinnedNotice | null> {
 
 /**
  * 블로그 옆 칸: 최근 글·인기 글(조회수)·최근 댓글(댓글 + 답글)·태그 목록.
- * 주인이 아니면 공개 글과 그 글의 댓글만 (비공개 글은 제목도 내보내지 않는다). 지운 댓글·답글은 뺀다.
+ * 주인이 아니면 보이는 글(공개, 이웃이면 👥 이웃 공개도)과 그 글의 댓글만 (못 보는 글은 제목도 내보내지 않는다). 지운 댓글·답글은 뺀다.
  * 글은 posts_blog_created_idx(blog_id, created_at)로 이 블로그 글만 읽는다
  */
-export async function getBlogSidebar(blogId: number, isOwner: boolean, limit = 5) {
-  const visible = and(eq(posts.blogId, blogId), isOwner ? undefined : eq(posts.visibility, "public"));
-  const visibleSql = isOwner ? sql`` : sql`AND p.visibility = 'public'`;
+export async function getBlogSidebar(blogId: number, access: PostAccess, limit = 5) {
+  const visible = and(eq(posts.blogId, blogId), visibleFor(access));
+  const visibleSql = visibleSqlFor(access);
   const short = { id: posts.id, title: posts.title, visibility: posts.visibility, viewCount: posts.viewCount, createdAt: posts.createdAt };
-  const [recent, popular, recentComments, blogTags, privateCount] = await Promise.all([
+  const [recent, popular, recentComments, blogTags, nonPublicCount] = await Promise.all([
     db.select(short).from(posts).where(visible).orderBy(desc(posts.createdAt), desc(posts.id)).limit(limit),
     db
       .select(short)
@@ -424,17 +449,17 @@ export async function getBlogSidebar(blogId: number, isOwner: boolean, limit = 5
       .groupBy(tags.id)
       .orderBy(desc(sql`COUNT(*)`), asc(tags.name))
       .limit(30),
-    // 주인 도구 막대의 글 수 (공개 + 비공개)
-    isOwner
+    // 주인 도구 막대의 글 수 (공개 + 이웃 공개 + 비공개)
+    access === "owner"
       ? db
           .select({ n: sql<number>`COUNT(*)::int` })
           .from(posts)
-          .where(and(eq(posts.blogId, blogId), eq(posts.visibility, "private")))
+          .where(and(eq(posts.blogId, blogId), ne(posts.visibility, "public")))
           .then((r) => r[0].n)
       : 0,
   ]);
   return {
-    privateCount,
+    nonPublicCount,
     recent,
     popular,
     comments: recentComments.map((c) => ({
@@ -502,8 +527,8 @@ export async function getLikeState(postId: number, viewerId: string | null) {
  * 같은 블로그 안에서 바로 이전 / 다음 글.
  * 기준 글의 시각은 DB 값(마이크로초)과 그대로 비교한다. JS Date(밀리초)로 넘기면 같은 글이 "더 새 글"이 된다
  */
-export async function getAdjacentPosts(blogId: number, postId: number, isOwner: boolean) {
-  const visible = isOwner ? undefined : eq(posts.visibility, "public");
+export async function getAdjacentPosts(blogId: number, postId: number, access: PostAccess) {
+  const visible = visibleFor(access);
   const self = sql`(SELECT ${posts.createdAt}, ${posts.id} FROM ${posts} WHERE ${posts.id} = ${postId})`;
   const older = sql`(${posts.createdAt}, ${posts.id}) < ${self}`;
   const newer = sql`(${posts.createdAt}, ${posts.id}) > ${self}`;

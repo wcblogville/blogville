@@ -1,6 +1,6 @@
 // 블로그 옆 칸 위젯 (사용자 요청 2026-10-11 "내 블로그 들어갔을 때 글쓰기랑 다른 부가기능들이 부족한 것 같음").
 // 티스토리처럼: 블로그 검색, 카테고리(글 수), 최근 글, 인기 글, 최근 댓글, 태그, 방문자.
-// 내용은 서버가 공개 범위를 지켜 읽은 것(getBlogSidebar)만 그린다. 비공개 글은 주인에게만 넘어온다
+// 내용은 서버가 공개 범위를 지켜 읽은 것(getBlogSidebar)만 그린다. 비공개 글은 주인에게만, 이웃 공개 글은 주인과 주인의 이웃에게만 넘어온다
 import Form from "next/form";
 import Link from "next/link";
 import type React from "react";
@@ -56,6 +56,7 @@ function PostLines({ base, posts, empty, rank = false }: { base: string; posts: 
             )}
             <span className="min-w-0 flex-1 truncate">
               {p.visibility === "private" && <span aria-label="비공개">🔒 </span>}
+              {p.visibility === "neighbors" && <span aria-label="이웃 공개">👥 </span>}
               {p.title}
             </span>
             <span className="shrink-0 text-xs text-ink-soft">{rank ? `👀 ${p.viewCount.toLocaleString("ko-KR")}` : formatDate(p.createdAt)}</span>

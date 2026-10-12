@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.19 (2026-10-12, 이웃 공개 글: `visibility`에 `neighbors` 더함(`public` < `neighbors` < `private`), 마이그레이션 0040, 3.29). 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -153,7 +153,7 @@ erDiagram
         varchar title
         text content_html
         text content_text
-        visibility visibility "public / private"
+        visibility visibility "public / neighbors / private"
         int view_count
         timestamptz created_at
         timestamptz updated_at
@@ -497,7 +497,7 @@ COMMIT
 - 파일 내용은 DB가 아니라 저장소(`src/server/storage.ts`)에 두고, `attachments`에는 원래 이름·형식·크기만 둔다. `key`는 서버가 만든 무작위 32자이고 저장 이름이자 주소(`/files/키`)다.
 - **글에 붙이는 규칙** (POST-07·POST-09, `savePost`): 글 P를 저장할 때 본문의 키는 ① 행이 있고 ② 내가 올렸고 ③ 어느 글에도 안 붙었거나 P에 붙었고(새 글은 안 붙은 것만) ④ 지금 프로필 사진이 아니고 ⑤ 종류가 자리와 맞을 때(`<img>`는 사진, 파일 카드는 파일)만 남는다. 행을 키 순서로 `FOR UPDATE` 잠가 동시에 저장하는 글과 엇갈리지 않는다. 그래서 **한 첨부는 한 글에만** 붙는다.
 - **붙여 넣기 다시 올리기**: 내 다른 글·프로필 사진의 첨부를 에디터에 붙여 넣으면 원본은 그대로 두고 새 키로 복사한 새 행(`post_id` NULL)을 만든다. 남의 첨부·없는 키는 넣지 않는다.
-- **누가 여나** (`GET /files/키`): 공개 글 첨부는 누구나, 비공개 글 첨부는 그 블로그 주인만(관리자도 안 됨), 어느 글에도 안 붙은 첨부는 올린 사람만, 프로필 사진은 누구나. 안 되면 없는 것과 같은 404. 캐시는 `private, no-cache` + `ETag`(키).
+- **누가 여나** (`GET /files/키`): 공개 글 첨부는 누구나, 이웃 공개 글 첨부는 그 블로그 주인과 주인을 이웃 추가한 회원만(3.29), 비공개 글 첨부는 그 블로그 주인만(관리자도 안 됨), 어느 글에도 안 붙은 첨부는 올린 사람만, 프로필 사진은 누구나. 안 되면 없는 것과 같은 404. 캐시는 `private, no-cache` + `ETag`(키).
 - **떨어진 시각** `detached_at`: 트리거 `attachments_track_detached`(`BEFORE UPDATE OF post_id`)가 값→NULL이면 지금 시각을, NULL→값이면 NULL을 적는다. 본문에서 빼거나 글을 지울 때(`SET NULL`) 모두 지난다.
 - **정리 작업** `npm run posts:cleanup`(하루 1번): `post_id IS NULL`이고 `COALESCE(detached_at, created_at)`이 하루 넘었고 프로필 사진이 아닌 첨부를 `FOR UPDATE SKIP LOCKED`로 골라 행과 파일을 지운다. 행 없는 저장소 파일(1시간 넘은 것)과 어제보다 오래된 조회 기록(`post_views`)도 지운다.
 
@@ -587,7 +587,7 @@ COMMIT
 | `user_role` | `user`, `admin` |
 | `item_type` | `character`, `background`, `furniture`, `avatar`(모자·옷·소품), `growth`(성장 아이템: 먹이, 촉진제), `deco`(광장 장식) |
 | `avatar_slot` | `hat`(모자), `outfit`(옷), `accessory`(소품), `hair`(머리 모양), `hair_color`(머리 색) |
-| `visibility` | `public`, `private` |
+| `visibility` | `public`, `neighbors`(이웃 공개, 3.29), `private` |
 | `ledger_reason` | `signup`, `attendance`, `attendance_streak`(지난 기록용), `post`, `comment`, `like_received`, `purchase`, `farm_care`, `farm_grown`, `egg_purchase`, `fishing`(낚시), `admin_grant`(관리자 테스트 지급, AUTH-10), `animal_adopt`(동물 분양), `skin_purchase`(동물 스킨) |
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알), `adopt`(코인으로 분양받은 아기, 알 없음) |
@@ -754,6 +754,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 입힌 스킨이 "그 종류의 것"이고 "내가 산 것"인지는 복합 FK 두 개로 DB가 지킨다: `(species_id, skin_id) → animal_skins (species_id, id)`(이를 위해 `animal_skins`에 UNIQUE `(species_id, id)`), `(user_id, skin_id) → user_animal_skins (user_id, skin_id)`. `skin_id`가 NULL이면(기본 색) 두 FK 모두 검사하지 않는다 (MATCH SIMPLE). 탈퇴하면 `user_animals`·`user_animal_skins`가 함께 CASCADE로 지워지고, NO ACTION 검사는 문장 끝에 하므로 막히지 않는다.
 - 스킨을 사고 입히는 것은 한 Server Action(`wearSkin`)에서 `lockUser` 트랜잭션으로: 안 산 스킨이면 잔액 확인 → `user_animal_skins` INSERT → 원장 `skin_purchase`(`ref_id` = 스킨 ID) → `skin_id` UPDATE.
 - 동물 크기(작은·중간·큰)와 따라다니는 움직임은 그림 코드(`ANIMAL_SIZE`, `petSheetSvg`)라 DB에 두지 않는다.
+
+### 3.29 이웃 공개 글 (사용자 요청 2026-10-12 "이웃에게만 공개", POST-02, `0040_post_visibility_neighbors`)
+
+- `posts.visibility`에 `neighbors`를 더했다 (`ALTER TYPE visibility ADD VALUE 'neighbors' BEFORE 'private'`). 새 표·컬럼은 없다. 기존 글은 그대로다.
+- **누가 보나**: 주인, 그리고 주인을 이웃 추가한 회원(`follows.follower_id` = 보는 사람, `followee_id` = 글 주인). 관리자 예외는 없다. 이웃을 끊으면 바로 못 본다 (따로 권한 표를 두지 않고 매번 `follows`를 본다). 규칙은 `src/lib/visibility.ts` `canSeePost` 한 곳 (글 상세·공감·댓글·조회수·첨부가 같이 쓴다).
+- **어디에 나오나**: 마을 소식 [🏘 마을 전체]·[💛 이웃 새 글](이미 이웃 글만 모이는 곳)과 이웃이 보는 블로그 홈·옆 칸·이전/다음 글. [🌐 모든 글]·태그별 글·마을 검색·인기 태그·광장 집 우체통·블로그 `글 N`에는 공개 글만 나온다.
+- 블로그 안 조건은 보는 사람의 자리(`PostAccess` = owner·neighbor·guest)로 정한다 (`src/server/blog.ts` `visibleFor`). 인덱스는 그대로 `posts (visibility, created_at DESC)`.
+- 글쓰기 보상(GAME-05)은 지금처럼 `public` 새 글만.
 
 ## 4. 데이터 마이그레이션
 

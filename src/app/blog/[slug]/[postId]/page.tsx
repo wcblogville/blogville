@@ -15,7 +15,9 @@ import {
   getLikeState,
   getPost,
   getPostTags,
+  isFollowing,
 } from "@/server/blog";
+import { canSeePost, postAccessOf, VISIBILITY_BADGE } from "@/lib/visibility";
 import { getViewer } from "@/server/dal";
 import { getPublishNotice, hasViewedToday } from "@/server/posts";
 import { getCommentThread } from "@/server/social";
@@ -34,7 +36,8 @@ async function load(props: PageProps<"/blog/[slug]/[postId]">) {
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]/[postId]">) {
   const data = await load(props);
-  if (!data || data.post.visibility === "private") return { title: "글" };
+  // 공개 글만 탭 제목·요약을 넣는다 (비공개·이웃 공개 글은 누가 보든 `글`)
+  if (!data || data.post.visibility !== "public") return { title: "글" };
   return { title: data.post.title, description: data.post.contentText.slice(0, 120) };
 }
 
@@ -47,14 +50,17 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
   const viewer = await getViewer();
   const viewerId = viewer?.profile ? viewer.userId : null;
   const isOwner = viewerId === blog.ownerId;
-  if (post.visibility === "private" && !isOwner) notFound();
+  // 👥 이웃 공개 글은 주인을 이웃 추가한 회원만, 🔒 비공개 글은 주인만. 아니면 없는 글과 같은 404 (POST-02)
+  const isNeighbor = viewerId !== null && !isOwner ? await isFollowing(viewerId, blog.ownerId) : false;
+  if (!canSeePost(post.visibility, { isOwner, isNeighbor })) notFound();
 
   // 서버 렌더는 조회수를 바꾸지 않는다. 오늘 이 브라우저로 처음 여는 것이면 +1을 미리 보여 주고, 기록은 ViewCount가 한다 (FR-046, R2)
   const [tagNames, like, thread, adjacent, viewed, notice] = await Promise.all([
     getPostTags(post.id),
     getLikeState(post.id, viewerId),
     getCommentThread(post.id, viewerId && viewer ? { userId: viewerId, isAdmin: viewer.user.role === "admin" } : null),
-    getAdjacentPosts(blog.id, post.id, isOwner),
+    // 이전/다음 글도 보는 사람이 볼 수 있는 글만 (이웃이면 이웃 공개 글까지)
+    getAdjacentPosts(blog.id, post.id, postAccessOf(isOwner, isNeighbor)),
     isOwner ? true : readVisitorId().then((v) => hasViewedToday(post.id, v)),
     // 발행 안내는 ?new가 있을 때만, 주인에게만 (FR-013, R13)
     sp.new !== undefined ? getPublishNotice(viewerId, { id: post.id, ownerId: blog.ownerId, createdAt: post.createdAt }) : null,
@@ -88,9 +94,11 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
                 </span>
               </Link>
             )}
-            {post.visibility === "private" && (
+            {VISIBILITY_BADGE[post.visibility] && (
               <span className="inline-flex min-h-11 items-center">
-                <span className="pb-chip pb-chip-muted">🔒 비공개</span>
+                <span className="pb-chip pb-chip-muted" data-visibility-badge={post.visibility}>
+                  {VISIBILITY_BADGE[post.visibility]}
+                </span>
               </span>
             )}
           </div>

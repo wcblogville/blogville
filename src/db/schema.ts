@@ -30,7 +30,8 @@ const updatedAt = () =>
 export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth", "deco"]);
 // 아바타 꾸미기 부위 (SHOP-06). 머리 모양 hair·머리 색 hair_color는 미용실(SHOP-07, 2026-10-11)에서 뒤에 더했다
 export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "hair", "hair_color"]);
-export const visibility = pgEnum("visibility", ["public", "private"]);
+// neighbors = 이웃 공개: 주인과 주인을 이웃 추가한(follows.follower_id) 회원만 본다 (2026-10-12 사용자 요청)
+export const visibility = pgEnum("visibility", ["public", "neighbors", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);
 export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply"]);
 export const ledgerReason = pgEnum("ledger_reason", [

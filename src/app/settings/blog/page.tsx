@@ -10,7 +10,7 @@ export default async function BlogSettingsPage() {
   const blog = await getBlogByOwner(viewer.userId);
   if (!blog) return null;
   const [cats, visitDays, visits] = await Promise.all([
-    getCategories(blog.id, true),
+    getCategories(blog.id, "owner"),
     getBlogVisitDays(blog.id),
     getBlogVisitStats(blog.id),
   ]);
