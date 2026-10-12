@@ -15,7 +15,7 @@ import { FURNITURE_KEYS, furnitureRows } from "../src/lib/art/furniture";
 import { artHit, ISO_FURNITURE_KEYS, roomFurnitureArt } from "../src/lib/art/room-furniture";
 import { POSES, poseFrame } from "../src/lib/art/poses";
 import { actionOf, blockedTiles, depthRanks, findPath, layoutDepth, planUse, seatTile } from "../src/lib/room-walk";
-import { ANIMAL_SIZE, ANIMAL_SKINS, ANIMAL_VARIANT_ART, animalHalfWidth, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits, variantFits } from "../src/lib/art/animals";
+import { ANIMAL_SIZE, ANIMAL_SKINS, ANIMAL_VARIANT_ART, animalFlies, animalHalfWidth, petGait, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits, variantFits } from "../src/lib/art/animals";
 import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, catchSilhouetteDataUri, RIPPLE, SPLASH } from "../src/lib/art/catches";
 import { CATCHES, catchPool, pickCatch, poolTotal } from "../src/lib/fishing";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
@@ -34,7 +34,10 @@ import {
   levelEggLevels,
   pickSpecial,
   pickWeighted,
+  RARITY_ICON,
+  RARITY_LABEL,
   RARITY_ODDS,
+  RARITY_ORDER,
   SEX_LOOKS,
   SPECIAL_VARIANTS,
   specialPercent,
@@ -398,9 +401,12 @@ expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), is
   expect("등급 확률 합 100%", Object.values(RARITY_ODDS).reduce((a, b) => a + b, 0), 100);
   expect("종류별 알 확률 합 100%", Math.round(codes.reduce((a, c) => a + hatchPercent(c), 0) * 1000) / 1000, 100);
   expect("시드 비중(만분율) 합 10,000이고 모두 정수", [codes.reduce((a, c) => a + hatchWeightOf(c), 0), codes.every((c) => Number.isInteger(hatchWeightOf(c)) && hatchWeightOf(c) > 0)], [HATCH_WEIGHT_TOTAL, true]);
-  expect("그림이 있는 아홉 종류 모두 알 등급이 있다", [...assetCodes].sort(), [...codes].sort());
-  expect("일반 > 희귀 > 아주 희귀 (종류 하나 확률)", hatchPercent("chick") > hatchPercent("piglet") && hatchPercent("piglet") > hatchPercent("pony"), true);
-  expect("병아리 20%, 고양이 8%, 조랑말 4%", ["chick", "kitten", "pony"].map(hatchPercent), [20, 8, 4]);
+  expect("그림이 있는 열아홉 종류 모두 알 등급이 있다", [[...assetCodes].sort(), codes.length], [[...codes].sort(), 19]);
+  expect("보통 > 희귀 > 매우 희귀 > 전설 (종류 하나 확률)", hatchPercent("chick") > hatchPercent("kitten") && hatchPercent("kitten") > hatchPercent("pony") && hatchPercent("pony") > hatchPercent("tiger"), true);
+  expect("병아리 10%, 고양이 5%, 조랑말 3.75%, 호랑이 1.25%", ["chick", "kitten", "pony", "tiger"].map(hatchPercent), [10, 5, 3.75, 1.25]);
+  expect("등급 50·30·15·5, 네 등급 모두 쓴다", [RARITY_ODDS, RARITY_ORDER.filter((t) => !codes.some((c) => HATCH_RARITY[c] === t))], [{ common: 50, rare: 30, epic: 15, legend: 5 }, []]);
+  expect("맹수는 전설·매우 희귀", ["tiger", "lion", "leopard", "eagle", "bear", "wolf", "cheetah"].map((c) => HATCH_RARITY[c]), ["legend", "legend", "legend", "legend", "epic", "epic", "epic"]);
+  expect("등급 표시 아이콘·이름", RARITY_ORDER.map((t) => `${RARITY_ICON[t]}${RARITY_LABEL[t]}`), ["egg보통", "star희귀", "sparkle매우 희귀", "crown전설"]);
   // 분포: 시드 비중으로 0~1을 고르게 나눠 뽑으면 확률대로 나온다
   const list = codes.map((code) => ({ code, hatchWeight: hatchWeightOf(code) }));
   const N = 100_000;
@@ -456,6 +462,25 @@ expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), is
   expect("아기 모습 반폭 < 어른 반폭 (따라오는 거리)", animalHalfWidth("animal.pony", "normal", { form: "baby" }) < animalHalfWidth("animal.pony"), true);
   expect("아기 모습 크기: 조랑말은 아주 작게~크게, 햄스터는 보통만", [displaySizeChoices("animal.pony", "baby"), displaySizeChoices("animal.hamster", "baby")], [["tiny", "small", "normal", "large"], ["normal"]]);
   expect("아기 모습 크기가 커질수록 크다 (조랑말)", (["tiny", "small", "normal", "large"] as const).map((z) => animalRadius("animal.pony", "baby", z)), [3, 5, 6, 8]);
+  // 야생 동물 열 종류 (2026-10-12 "동물 가짓수 더"): 스킨 둘씩, 특별 진화, 걸음새 (독수리는 날고 거북이는 느리게)
+  const wild = ["bear", "fox", "wolf", "tiger", "lion", "eagle", "turtle", "cheetah", "leopard", "deer"];
+  expect("야생 동물마다 스킨 둘", wild.filter((c) => Object.values(ANIMAL_SKINS).filter((k) => k.species === `animal.${c}`).length !== 2), []);
+  expect("야생 동물마다 특별 진화 (백호·흑표범·구미호·불사조·빛나는 순록…)", [wild.filter((c) => variantsFor(c).length === 0), ["white_tiger", "black_panther", "nine_tailed", "phoenix", "glowing_reindeer"].map((k) => animalName("x", k))], [[], ["백호", "흑표범", "구미호", "불사조", "빛나는 순록"]]);
+  expect("특별 진화 25가지", SPECIAL_VARIANTS.length, 25);
+  expect("수사자는 갈기, 수사슴은 뿔: 암컷보다 키가 크거나 넓다", ["animal.lion", "animal.deer"].filter((k) => animalHeight(k, "normal", { sex: "male" }) <= animalHeight(k, "normal", { sex: "female" })), []);
+  expect("독수리만 난다, 걸음새: 독수리 높이 뜨고 거북이는 느리고 안 뛴다", [Object.keys(ANIMAL_SIZE).filter(animalFlies), Math.min(...petGait("animal.eagle").lift) > 2, petGait("animal.turtle").speed < 1 && petGait("animal.turtle").lift.every((l) => l === 0), petGait("animal.bear") === petGait("animal.chick")], [["animal.eagle"], true, true, true]);
+  {
+    // 독수리 그림판: 걷기 칸(2·3·4) = 날갯짓, 서로 다르고 서 있는 그림과도 다르다
+    const cells = (svg: string) => [0, 1, 2, 3, 4].map((f) => [...svg.matchAll(/M(\d+) (\d+)h(\d+)/g)].filter((m) => +m[2] < 32 && +m[1] >= f * 32 && +m[1] < f * 32 + 32).map((m) => `${+m[1] - f * 32},${m[2]},${m[3]}`).sort().join(";"));
+    const eagleFrames = cells(petSheetSvg("animal.eagle", null, 1));
+    expect("독수리 날갯짓 세 칸이 모두 다르다", new Set(eagleFrames.slice(2)).size === 3 && !eagleFrames.slice(2).includes(eagleFrames[0]), true);
+    const clippedFly: string[] = [];
+    for (const z of ANIMAL_DISPLAY_SIZES)
+      for (const form of ["adult", "baby"] as const)
+        for (const variant of [null, "golden_eagle", "phoenix"])
+          for (const m of petSheetSvg("animal.eagle", null, 1, z, { form, variant, sex: "male" }).matchAll(/M(\d+) (\d+)h(\d+)/g)) if (+m[2] % 32 === 0 && +m[2] < 32) clippedFly.push(`${z}:${form}:${variant}`);
+    expect("날갯짓 그림도 도화지 맨 위 줄을 넘지 않는다", [...new Set(clippedFly)], []);
+  }
 }
 // 낚시터 도트 그림 (2026-10-12 "낚을 수 있는 것들도 도트로"): 낚을 것마다 20×20칸 그림, 연출 그림은 줄 길이가 고르다
 expect("낚을 것마다 20×20 도트 그림", CATCHES.filter((c) => { const r = catchRows(c.key); return !r || r.length !== CATCH_CELLS || r.some((x) => x.length !== CATCH_CELLS); }).map((c) => c.key), []);

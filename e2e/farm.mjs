@@ -51,10 +51,13 @@ check("키우는 동물 카드에 암수 표시", (await page.locator(`[data-ani
   await page.locator("[data-farm-info-open]").click();
   await dialog.waitFor();
   const rarities = await dialog.locator("[data-rarity]").evaluateAll((els) => els.map((e) => e.dataset.rarity));
-  check("알 확률: 일반·희귀·아주 희귀 세 등급", JSON.stringify(rarities) === JSON.stringify(["common", "rare", "epic"]), rarities.join(","));
-  check("알 확률: 아홉 종류, 병아리 20%·조랑말 4%", (await dialog.locator("[data-odds]").count()) === 9 && (await dialog.locator('[data-odds="chick"]').innerText()).includes("20%") && (await dialog.locator('[data-odds="pony"]').innerText()).includes("4%"));
-  check("등급 합: 일반 60%·희귀 32%·아주 희귀 8%", (await dialog.locator('[data-rarity="common"]').innerText()).includes("60%") && (await dialog.locator('[data-rarity="rare"]').innerText()).includes("32%") && (await dialog.locator('[data-rarity="epic"]').innerText()).includes("8%"));
-  check("특별 진화 목록 10가지 (유니콘·페가수스·딸기우유 송아지 포함)", (await dialog.locator("[data-special]").count()) === 10 && /유니콘[\s\S]*페가수스/.test(await dialog.locator("[data-info-special]").innerText()) && (await dialog.locator("[data-info-special]").innerText()).includes("딸기우유 송아지"));
+  check("알 확률: 보통·희귀·매우 희귀·전설 네 등급 (2026-10-12)", JSON.stringify(rarities) === JSON.stringify(["common", "rare", "epic", "legend"]), rarities.join(","));
+  check("알 확률: 열아홉 종류, 병아리 10%·조랑말 3.75%·호랑이 1.25%", (await dialog.locator("[data-odds]").count()) === 19 && (await dialog.locator('[data-odds="chick"]').innerText()).includes("10%") && (await dialog.locator('[data-odds="pony"]').innerText()).includes("3.75%") && (await dialog.locator(`[data-odds="tiger"]`).innerText()).includes("1.25%"));
+  const tierText = async (t) => dialog.locator(`[data-rarity="${t}"]`).innerText();
+  check("등급 합: 보통 50%·희귀 30%·매우 희귀 15%·전설 5%", (await tierText("common")).includes("50%") && (await tierText("rare")).includes("30%") && (await tierText("epic")).includes("15%") && (await tierText("legend")).includes("5%") && (await tierText("legend")).includes("전설") && (await tierText("legend")).includes("사자"));
+  const specialText = await dialog.locator("[data-info-special]").innerText();
+  check("특별 진화 목록 25가지 (유니콘·페가수스·백호·구미호·불사조 포함)", (await dialog.locator("[data-special]").count()) === 25 && /유니콘[\s\S]*페가수스/.test(await dialog.locator("[data-info-special]").innerText()) && ["딸기우유 송아지", "백호", "구미호", "불사조", "빛나는 순록"].every((n) => specialText.includes(n)));
+  check("걸음새 설명 (독수리·거북이)", (await dialog.locator("[data-info-gait]").innerText()).includes("독수리"));
   check("암수·아기 모습 설명이 있다", (await dialog.locator("[data-info-sex]").innerText()).includes("반반") && (await dialog.locator("[data-info-baby]").innerText()).includes("아기 모습"));
   await page.screenshot({ path: `${outDir}/98-farm-info.png` });
   await page.keyboard.press("Escape");
@@ -156,13 +159,13 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
 // ── 동물 분양·스킨 (사용자 요청 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨") ──
 {
   const adoptOnly = await one("SELECT COUNT(*) FILTER (WHERE price IS NOT NULL)::int AS n, COUNT(*) FILTER (WHERE hatch_weight > 0)::int AS h, SUM(hatch_weight)::int AS w FROM animal_species");
-  check("분양 동물 5종은 값이 있고, 아홉 종류 모두 알에서 나온다 (비중 합 10,000)", adoptOnly.n === 5 && adoptOnly.h === 9 && adoptOnly.w === 10000, JSON.stringify(adoptOnly));
+  check("분양 동물 8종은 값이 있고, 열아홉 종류 모두 알에서 나온다 (비중 합 10,000)", adoptOnly.n === 8 && adoptOnly.h === 19 && adoptOnly.w === 10000, JSON.stringify(adoptOnly));
   await db.query("DELETE FROM user_animals WHERE user_id = $1 AND status <> 'grown'", [uid]);
   // 시험용 코인 (관리자 테스트 지급과 같은 사유)
   await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta) VALUES ($1, 'admin_grant', 5000)", [uid]);
   await page.goto(`${BASE}/farm`);
   const list = page.locator("[data-adopt-list]");
-  check("[🐾 동물 분양]에 5종, 크기 표시", (await list.locator("[data-adopt]").count()) === 5 && (await list.locator('[data-adopt="pony"]').innerText()).includes("큰 동물") && (await list.locator('[data-adopt="hamster"]').innerText()).includes("작은 동물"));
+  check("[🐾 동물 분양]에 8종(거북이·여우·사슴 포함, 맹수 없음), 크기·등급 표시", (await list.locator("[data-adopt]").count()) === 8 && (await list.locator('[data-adopt="pony"]').innerText()).includes("큰 동물") && (await list.locator('[data-adopt="hamster"]').innerText()).includes("작은 동물") && (await list.locator('[data-adopt="deer"]').innerText()).includes("희귀") && (await list.locator('[data-adopt="tiger"]').count()) === 0);
   const kitten = await one("SELECT id, price, grow_exp FROM animal_species WHERE code = 'kitten'");
   const k0 = await coins(page);
   await list.locator('[data-adopt="kitten"]').getByRole("button").click();
@@ -310,6 +313,71 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
   await page.keyboard.up("ArrowLeft");
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${outDir}/105-town-baby-unicorn.png` });
+}
+
+// ── 야생 동물 (2026-10-12 "곰, 여우, 늑대, 호랑이, 사자, 독수리 …"): 새 종류가 알에서 깨어나 자라고, 특별 진화(불사조)가 날아서 따라온다 ──
+{
+  const pet = page.locator("[data-house-room] [data-showcase]");
+  // 알에서 호랑이가 나오게 시험 동안만 비중을 크게 (끝나면 되돌린다. 확률 표 자체는 npm run test:game)
+  const tiger = await one("SELECT id, hatch_weight, grow_exp, name FROM animal_species WHERE code = 'tiger'");
+  await db.query("DELETE FROM user_animals WHERE user_id = $1 AND status <> 'grown'", [uid]);
+  const { id: eggId } = await one("INSERT INTO user_animals (user_id, source) VALUES ($1, 'shop') RETURNING id", [uid]);
+  await db.query("UPDATE animal_species SET hatch_weight = 100000000 WHERE id = $1", [tiger.id]);
+  try {
+    await page.goto(`${BASE}/farm`);
+    await page.getByRole("button", { name: /부화시키기/ }).click();
+    await page.getByText(/태어났어요/).waitFor();
+  } finally {
+    await db.query("UPDATE animal_species SET hatch_weight = $2 WHERE id = $1", [tiger.id, tiger.hatch_weight]);
+  }
+  await page.locator(`[data-animal-title="${eggId}"]`).waitFor();
+  const t = await one("SELECT species_id, status, sex FROM user_animals WHERE id = $1", [eggId]);
+  const msg = await page.getByText(/태어났어요/).innerText();
+  check("알에서 호랑이: (왕관 도트) 전설! 문구와 전설 배지", t.species_id === tiger.id && msg.includes("전설!") && (await page.locator(`[data-animal-title="${eggId}"]`).locator("..").locator('[data-rarity-badge="legend"]').count()) === 1, msg);
+  await page.screenshot({ path: `${outDir}/106-farm-tiger-hatched.png`, fullPage: true });
+  await db.query("UPDATE user_animals SET growth = $2 WHERE id = $1", [eggId, tiger.grow_exp - 5]);
+  await page.reload();
+  await page.locator(`[data-animal-title="${eggId}"]`).locator("..").getByRole("button", { name: /밥 주기/ }).click();
+  await page.getByText(/자랐어요!/).waitFor();
+  const grownTiger = await one("SELECT status, variant FROM user_animals WHERE id = $1", [eggId]);
+  check("호랑이가 다 자란다 (특별 진화면 백호)", grownTiger.status === "grown" && [null, "white_tiger"].includes(grownTiger.variant), grownTiger.variant ?? "");
+  await page.locator(`[data-grown="${eggId}"]`).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${outDir}/107-farm-tiger-grown.png`, fullPage: true });
+
+  // 불사조 (독수리 특별 진화): 카드 이름, 방·광장에서 날아서 따라온다
+  const eagle = await one("SELECT id, grow_exp FROM animal_species WHERE code = 'eagle'");
+  const { id: phoenixId } = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth, hatched_at, grown_at, variant) VALUES ($1, 'female', 'shop', 'grown', $2, $3, now(), now(), 'phoenix') RETURNING id", [uid, eagle.id, eagle.grow_exp]);
+  await page.reload();
+  const card = page.locator(`[data-grown="${phoenixId}"]`);
+  check("특별 진화 카드: 불사조 이름·✨ 배지", (await card.getAttribute("data-variant")) === "phoenix" && (await card.innerText()).includes("불사조") && (await card.innerText()).includes("특별 진화"));
+  await card.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${outDir}/108-farm-phoenix.png` });
+  await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, phoenixId]);
+  await page.goto(`${BASE}/@${devId}`);
+  await pet.waitFor();
+  check("방 안 불사조: 이름·특별 진화·나는 걸음새", (await pet.getAttribute("title")) === "불사조" && (await pet.getAttribute("data-variant")) === "phoenix" && Number(await pet.getAttribute("data-gait")) > 1);
+  await page.locator("[data-house-room]").screenshot({ path: `${outDir}/109-room-phoenix.png` });
+  await page.goto(`${BASE}/town`);
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 20000 });
+  const c = page.locator("canvas");
+  check("광장: 불사조가 따라온다", (await c.getAttribute("data-pet")) === "animal.eagle" && (await c.getAttribute("data-pet-variant")) === "phoenix" && (await c.getAttribute("data-pet-size")) === "medium");
+  await page.keyboard.down("ArrowLeft");
+  await page.waitForTimeout(600);
+  const flying = await c.getAttribute("data-pet-walk");
+  await page.screenshot({ path: `${outDir}/110-town-phoenix-flying.png` });
+  await page.keyboard.up("ArrowLeft");
+  check("광장: 걸으면 날갯짓(걷기 칸)", flying === "walk", flying);
+  // 거북이는 느리게 (걸음새 0.6)
+  const turtle = await one("SELECT id, grow_exp FROM animal_species WHERE code = 'turtle'");
+  const { id: turtleId } = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth, hatched_at, grown_at) VALUES ($1, 'male', 'adopt', 'grown', $2, $3, now(), now()) RETURNING id", [uid, turtle.id, turtle.grow_exp]);
+  await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, turtleId]);
+  await page.reload();
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petAt, null, { timeout: 20000 });
+  check("광장: 거북이는 느린 걸음새", (await c.getAttribute("data-pet")) === "animal.turtle" && Number(await c.getAttribute("data-pet-gait")) < 1);
+  await page.keyboard.down("ArrowRight");
+  await page.waitForTimeout(900);
+  await page.keyboard.up("ArrowRight");
+  await page.screenshot({ path: `${outDir}/111-town-turtle.png` });
 }
 
 console.log(results.join("\n"));

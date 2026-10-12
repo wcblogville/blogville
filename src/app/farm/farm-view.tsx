@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { SexMark } from "@/components/game/sex-mark";
 import { ANIMAL_SIZE, type AnimalTier, animalSvg, displaySizeChoices, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
 import { growthDataUri } from "@/lib/art/growth";
-import { ANIMAL_FORMS, animalName, animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, FORM_LABEL, HATCH_RARITY, RARITY_LABEL, STAGE_LABEL } from "@/lib/farm";
+import { ANIMAL_FORMS, animalName, animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, FORM_LABEL, HATCH_RARITY, RARITY_ICON, RARITY_LABEL, STAGE_LABEL } from "@/lib/farm";
 import type { AdoptableSpecies, FarmAnimal, FarmSkin } from "@/server/farm";
 import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalForm, setAnimalSize, wearSkin } from "./actions";
 
@@ -152,12 +152,17 @@ export function FarmView({
             동물 분양
           </h2>
           <p className="mb-3 text-sm text-ink-soft">알 없이 아기를 바로 데려와요. 키우는 자리를 함께 써요.</p>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
             {adoptable.map((sp) => (
               <li key={sp.id} className="pixel-card flex flex-col items-center p-3 text-center" data-adopt={sp.code}>
                 <AdultImage assetKey={sp.assetKey} size={96} />
                 <span className="font-display text-lg">{sp.name}</span>
                 <span className="text-xs text-ink-soft">
+                  {HATCH_RARITY[sp.code] && (
+                    <>
+                      <IconText icon={RARITY_ICON[HATCH_RARITY[sp.code]]}>{RARITY_LABEL[HATCH_RARITY[sp.code]]}</IconText> ·{" "}
+                    </>
+                  )}
                   {TIER_LABEL[ANIMAL_SIZE[sp.assetKey]?.tier ?? "medium"]} · 성장 {sp.growExp}
                 </span>
                 <button
@@ -206,8 +211,8 @@ export function FarmView({
                       <span className="text-sm text-ink-soft">· {STAGE_LABEL[animalStage(a.growth, a.growExp!)]}</span>
                     </h3>
                     {a.code && HATCH_RARITY[a.code] && HATCH_RARITY[a.code] !== "common" && (
-                      <span className="pixel-badge bg-[#fff0c2] text-xs">
-                        <IconText icon={HATCH_RARITY[a.code] === "epic" ? "sparkle" : "star"}>{RARITY_LABEL[HATCH_RARITY[a.code]]}</IconText>
+                      <span className="pixel-badge bg-[#fff0c2] text-xs" data-rarity-badge={HATCH_RARITY[a.code]}>
+                        <IconText icon={RARITY_ICON[HATCH_RARITY[a.code]]}>{RARITY_LABEL[HATCH_RARITY[a.code]]}</IconText>
                       </span>
                     )}
                     <div className="pixel-bar mt-3 w-full" role="progressbar" aria-valuenow={a.growth} aria-valuemax={a.growExp!} aria-label="성장">

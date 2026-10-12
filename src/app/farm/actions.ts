@@ -17,6 +17,7 @@ import {
   levelEggLevels,
   MAX_ACTIVE_ANIMALS,
   pickWeighted,
+  RARITY_ICON,
   RARITY_LABEL,
   SEX_LABEL,
   SEX_MARK,
@@ -88,7 +89,7 @@ export async function buyEgg(): Promise<FarmResult> {
   return result;
 }
 
-/** 알 부화: 종류는 비중(일반·희귀·아주 희귀, src/lib/farm.ts HATCH_RARITY)에 따라 랜덤, 암수는 반반 (node:crypto) */
+/** 알 부화: 종류는 비중(보통·희귀·매우 희귀·전설, src/lib/farm.ts HATCH_RARITY)에 따라 랜덤, 암수는 반반 (node:crypto) */
 export async function hatchEgg(animalId: number): Promise<FarmResult> {
   const viewer = await requireMember();
   const id = parseId(animalId);
@@ -108,7 +109,7 @@ export async function hatchEgg(animalId: number): Promise<FarmResult> {
     if (!hatched) return { ok: false, text: "부화시킬 수 있는 알이 아니에요" };
     const rarity = HATCH_RARITY[sp.code];
     const tag = rarity && rarity !== "common" ? `${RARITY_LABEL[rarity]}! ` : "";
-    return { ok: true, text: `${tag}${SEX_MARK[sex]} ${SEX_LABEL[sex]} ${subject(sp.name)} 태어났어요!`, icon: rarity === "epic" ? "sparkle" : rarity === "rare" ? "star" : "chick" };
+    return { ok: true, text: `${tag}${SEX_MARK[sex]} ${SEX_LABEL[sex]} ${subject(sp.name)} 태어났어요!`, icon: rarity && rarity !== "common" ? RARITY_ICON[rarity] : "chick" };
   });
   revalidatePath("/farm");
   return result;

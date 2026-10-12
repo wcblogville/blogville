@@ -18,7 +18,7 @@
 import type React from "react";
 import { useEffect, useMemo, useRef } from "react";
 import { lookKey } from "@/lib/art/characters";
-import { ANIMAL_SIZE, animalHalfWidth, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri } from "@/lib/art/animals";
+import { ANIMAL_SIZE, animalHalfWidth, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, petGait, petSheetDataUri } from "@/lib/art/animals";
 import { type Particle, PARTICLE_SIZE, particleDataUri, type Pose, POSE_ANCHOR, POSE_FRAMES, POSES, poseSheetDataUri } from "@/lib/art/poses";
 import { floorToScreen, type IsoRoom, isoRoomDataUri, type RoomCamera } from "@/lib/art/room";
 import { restSpot, roomFurnitureArt } from "@/lib/art/room-furniture";
@@ -135,6 +135,8 @@ export function RoomResident({
   const idleSheet = useMemo(() => idleSheetDataUri(characterAsset, outfit, scale), [characterAsset, outfit, scale]);
   const idleH = (BOX / IDLE_FRAME.w) * IDLE_FRAME.h;
   const gap = shown ? petGap(shown.assetKey, shown.size, shown) : 0;
+  // 걸음새: 독수리는 날고 거북이는 느릿느릿 (animals.ts petGait, 광장과 같다)
+  const gait = petGait(shown?.assetKey ?? "");
   const piecesKey = pieces.map((p) => `${p.itemId}:${p.assetKey}:${p.x},${p.y}${p.flip ? "~" : ""}`).join(";");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 가구가 실제로 바뀔 때만 (배열은 렌더마다 새로 온다)
   const layout = useMemo(() => pieces.map((p) => ({ ...p })), [piecesKey]);
@@ -411,9 +413,9 @@ export function RoomResident({
 
       if (petEl) {
         // 걸으면 착지·기욺·뛰어오름 그림을 돌리며 통통 뛰고, 서 있으면 숨쉬기 두 칸. 가는 쪽(오른쪽·왼쪽)을 본다
-        const step = Math.floor(s.hop / PET_HOP_MS) % PET_WALK_FRAMES.length;
+        const step = Math.floor(s.hop / (PET_HOP_MS * gait.stride)) % PET_WALK_FRAMES.length;
         const pf = s.petWalking ? PET_WALK_FRAMES[step] : PET_IDLE_FRAMES[Math.floor(s.idle / PET_BREATH_MS) % PET_IDLE_FRAMES.length];
-        const lift = s.petWalking ? -PET_WALK_LIFT[step] * petScale : 0;
+        const lift = s.petWalking ? -gait.lift[step] * petScale : 0;
         petEl.style.transform = spot(room, s.petPos, PET_BOX, snap, lift);
         petEl.style.zIndex = String(depth.pointZ(s.petPos));
         petEl.style.backgroundPosition = `-${pf * PET_BOX}px -${s.face === "left" ? PET_BOX : 0}px`;
@@ -488,7 +490,7 @@ export function RoomResident({
       if (petEl) {
         // 동물: 길 위 목표 자리(주인 거리 − gap)로 부드럽게 붙는다. 목표와의 거리에 비례한 속도를 지수로 따라가 덜컥거리지 않는다
         const target = Math.max(s.petD, s.walked - gap);
-        const want = Math.min(SPEED * 1.6, (target - s.petD) * 3);
+        const want = Math.min(SPEED * 1.6 * gait.speed, (target - s.petD) * 3);
         s.petV += (want - s.petV) * Math.min(1, dt * 8);
         if (s.petV < 0.001) s.petV = 0;
         const before = s.petPos;
@@ -517,7 +519,7 @@ export function RoomResident({
       cancelAnimationFrame(raf);
       if (controlRef) controlRef.current = null;
     };
-  }, [gap, room, start, blocked, depth, layout, BOX, PET_BOX, scale, petScale, snap, hidden, controlRef, idleH]);
+  }, [gap, gait, room, start, blocked, depth, layout, BOX, PET_BOX, scale, petScale, snap, hidden, controlRef, idleH]);
 
   // 첫 그림(서버·하이드레이션 전)도 처음 자리(칸 가운데)에 둔다
   const first = (p: Tile, box: number) => ({ transform: spot(room, center(p), box, snap), zIndex: depth.pointZ(center(p)) });
@@ -544,6 +546,7 @@ export function RoomResident({
           data-display-form={shown.form ?? "adult"}
           data-sex={shown.sex ?? ""}
           data-variant={shown.variant ?? ""}
+          data-gait={gait.speed}
           data-walk="idle-right"
           title={shown.name}
           aria-hidden={hidden}
