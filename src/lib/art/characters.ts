@@ -4,6 +4,7 @@
 // 글자 뜻은 pixel.ts PALETTE. 동물은 털 7·8·9(밝은 면·기본·그늘), 배 k, 코·귀 안쪽 o, 발 F를 캐릭터마다 칠한다.
 // DB의 asset_key("char.cat" 등)로 고른다.
 import { AVATAR_COLORS, AVATAR_PARTS, MANNEQUIN, orderOutfit, partRows, stripFront, TORSO } from "./avatar";
+import { FACE_SHAPES, nativeHair } from "./faces";
 import { BALD_HEAD, HAIR_COLORS, hairColors } from "./hair";
 import { gridRects, outfit, PALETTE, rowsToGrid, stampGrid, svgDataUri, type Colors, type Grid, type Sprite } from "./pixel";
 
@@ -339,7 +340,7 @@ function backOfHead(grid: Grid): Grid {
 
 /**
  * 캐릭터 + 입은 아바타 아이템을 색 칸 격자 하나(16×24)로 겹친다. 걷기 그림(walk.ts)이 이 격자의 칸을 옮긴다.
- * 순서: 캐릭터(사람이 머리 모양을 입었으면 머리카락 없는 머리 위에) → 옷 → 머리 모양 → (뒷모습이면 머리 뒤) → 소품 → 모자.
+ * 순서: 캐릭터(사람이 머리 모양·얼굴형을 입었으면 머리카락 없는 머리·그 얼굴형 위에) → 옷 → 머리 모양(또는 원래 머리) → (뒷모습이면 머리 뒤) → 소품 → 모자.
  * 머리 색은 사람의 머리카락 칸(H·h·j)을 바꿔 칠한다 (원래 머리에도)
  */
 export function lookGrid(assetKey: string, outfit: readonly string[] = [], view: LookView = "front"): Grid {
@@ -348,15 +349,21 @@ export function lookGrid(assetKey: string, outfit: readonly string[] = [], view:
   const slotOf = (k: string) => AVATAR_PARTS[k].slot;
   const style = look.human ? keys.find((k) => slotOf(k) === "hair") : undefined;
   const color = look.human ? keys.find((k) => slotOf(k) === "hair_color") : undefined;
+  const face = look.human ? keys.find((k) => slotOf(k) === "face_shape") : undefined;
   const colors: Colors = { ...look.colors, ...(color ? hairColors(HAIR_COLORS[color]) : {}) };
 
-  let rows: Sprite = style ? [...BALD_HEAD, ...look.rows.slice(BALD_HEAD.length)] : look.rows;
+  // 머리 모양이나 얼굴형을 입으면 머리(0~12줄)를 머리카락 없는 머리(얼굴형이 있으면 그 얼굴형)로 바꾼다.
+  // 얼굴형만 바꾸면 캐릭터 원래 머리(nativeHair)를 그 위에 다시 얹는다
+  const head = face ? FACE_SHAPES[face] : style ? BALD_HEAD : null;
+  const native = face && !style ? nativeHair(look.rows, FACE_SHAPES[face]) : null;
+  let rows: Sprite = head ? [...head, ...look.rows.slice(BALD_HEAD.length)] : look.rows;
   // 사람 주민의 뒷모습: 셔츠 깃(흰색)·드러난 목은 앞에만 있다
   if (view === "back" && look.human) rows = stripFront(rows, "wg", TORSO);
   let grid = rowsToGrid(rows, colors);
   // 뒷모습이면 옷·모자·소품도 뒤에서 본 글자 줄 (앞에만 있는 단추·넥타이·깃은 지운다, avatar.ts partRows)
   for (const k of keys) if (slotOf(k) === "outfit") grid = stampGrid(grid, partRows(k, view), AVATAR_COLORS);
   if (style) grid = stampGrid(grid, AVATAR_PARTS[style].rows, colors);
+  else if (native) grid = stampGrid(grid, native, colors);
   if (view === "back") grid = backOfHead(grid);
   for (const k of keys) {
     const part = AVATAR_PARTS[k];
@@ -390,7 +397,7 @@ export function characterRows(assetKey: string): Sprite | null {
   return CHARACTERS[assetKey]?.rows ?? null;
 }
 export const CHARACTER_KEYS = () => Object.keys(CHARACTERS);
-/** 미용실 머리 모양·머리 색이 보이는 캐릭터인지 (사람 주민) */
+/** 미용실 머리 모양·머리 색·얼굴형이 보이는 캐릭터인지 (사람 주민) */
 export function hasHair(assetKey: string): boolean {
   return CHARACTERS[assetKey]?.human === true;
 }

@@ -24,7 +24,7 @@ export default async function SalonPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
       <PlaceHeader place="salon" icon="scissors" title="반짝 미용실" aside={<WalletChips level={wallet.level} coins={wallet.coins} />}>
-        <p className="max-w-2xl">머리 모양과 머리 색을 골라 보세요. 거울 속 내 캐릭터에 바로 입혀 보고, 마음에 들면 적용해요. 기본 머리와 기본 색은 무료예요.</p>
+        <p className="max-w-2xl">머리 모양, 머리 색, 얼굴형을 골라 보세요. 거울 속 내 캐릭터에 바로 입혀 보고, 마음에 들면 적용해요. 기본 머리와 기본 색, 원래 얼굴은 무료예요.</p>
       </PlaceHeader>
       <StyleStudio
         place={place}

@@ -62,10 +62,10 @@ await a.getByRole("radio", { name: "🔒 비공개" }).click();
 check("US3-2 비공개 안내", (await status(a)) === "100자 · 비공개 글은 보상이 없어요", await status(a));
 await a.getByRole("radio", { name: "🌍 공개" }).click();
 // 빈 제목 → 오류, 입력값 유지
-await a.getByLabel("태그").fill("남는 태그");
+await a.getByLabel("태그", { exact: true }).fill("남는 태그");
 await a.getByRole("button", { name: "발행하기" }).click();
 await a.getByText("제목을 적어 주세요").waitFor();
-check("US1 빈 제목 → 오류, 태그 유지", (await a.getByLabel("태그").inputValue()) === "남는 태그" && a.url().endsWith("/write"));
+check("US1 빈 제목 → 오류, 태그 유지", (await a.getByLabel("태그", { exact: true }).inputValue()) === "남는 태그" && a.url().endsWith("/write"));
 await a.getByPlaceholder("제목").fill("   ");
 await a.getByRole("button", { name: "발행하기" }).click();
 await a.getByText("제목을 적어 주세요").waitFor();

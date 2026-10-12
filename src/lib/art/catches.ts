@@ -79,6 +79,27 @@ function oldBoot(): string[] {
   return p.rows();
 }
 
+/** 작은 보물 상자: 나무 상자에 금테, 열린 틈으로 코인이 반짝, 물풀 한 가닥 */
+function treasureChest(): string[] {
+  const p = new Pix(CATCH_CELLS, CATCH_CELLS);
+  // 뚜껑(둥근 윗면)과 몸통
+  p.ellipse(10, 8, 7.5, 3.5, "B");
+  p.rect(3, 8, 15, 2, "B");
+  p.rect(3, 10, 15, 7, "b");
+  p.map((c, _x, y) => (c === "B" && y <= 5 ? "Z" : c));
+  // 금테: 뚜껑 아래 띠, 세로 띠 둘, 자물쇠
+  p.hline(3, 17, 10, "z").vline(6, 6, 16, "z").vline(14, 6, 16, "z");
+  p.rect(9, 10, 3, 3, "u").px(10, 11, "#");
+  // 뚜껑 틈 사이 코인
+  p.px(8, 9, "Z").px(11, 9, "Z").px(12, 9, "z");
+  p.outline();
+  // 반짝이·물풀
+  p.px(2, 3, "w").px(18, 2, "Z").px(17, 1, "w").px(1, 14, "m").px(1, 15, "l").px(2, 16, "m");
+  return p.rows();
+}
+
+const cache = new Map<string, string>();
+
 const SILVER = { 4: "#eef6fb", 5: "#b4cadb", 6: "#7895ae" };
 
 const ART: Record<string, Art> = {
@@ -100,6 +121,47 @@ const ART: Record<string, Art> = {
     })(),
     colors: { 4: "#fff3b0", 5: "#ffd36e", 6: "#d99a36" },
   },
+  // ── 2026-10-12 "낚시 컨텐츠 더 풍성하게": 새 물고기 ──
+  // 피라미: 날씬한 은빛, 보랏빛 옆줄
+  chub: { rows: fish({ len: 12, h: 5, stripe: "U" }), colors: { 4: "#f3f6fb", 5: "#b9c4dc", 6: "#7c88b0" } },
+  // 빙어: 작고 투명한 몸, 물빛 옆줄
+  smelt: { rows: fish({ len: 10, h: 4, stripe: "i" }), colors: { 4: "#f7fdff", 5: "#d4eef7", 6: "#96c4d8" } },
+  // 메기: 길고 납작한 흙빛 몸, 긴 수염
+  catfish: {
+    rows: (() => {
+      const p = new Pix(CATCH_CELLS, CATCH_CELLS).stamp(fish({ len: 16, h: 7, whisker: true }), 0, 0);
+      p.px(18, 8, "#").px(19, 7, "#").px(18, 13, "#").px(19, 14, "#");
+      return p.rows();
+    })(),
+    colors: { 4: "#d8c8ab", 5: "#806c58", 6: "#55473a" },
+  },
+  // 쏘가리: 노란 몸에 짙은 얼룩
+  mandarin: {
+    rows: fish({ len: 14, h: 8, spots: [[7, 9, 1.4], [10, 11, 1.3], [12, 8, 1.2], [8, 12, 1]] }),
+    colors: { 4: "#f8eab8", 5: "#d9b85e", 6: "#9a7a36", K: "#7a5a2a", N: "#4f3a1e" },
+  },
+  // 산천어: 은록빛 몸, 분홍 옆줄, 파란 무늬
+  cherry: {
+    rows: fish({ len: 13, h: 7, stripe: "V", spots: [[8, 8, 1.2], [11, 8, 1.2]] }),
+    colors: { 4: "#eef4ea", 5: "#a9bfa0", 6: "#6f8a68", K: "#9db0d8", N: "#6f7fb0" },
+  },
+  // 은어: 올리브빛 날씬한 몸, 아가미 뒤 노란 점
+  sweetfish: { rows: fish({ len: 13, h: 5, stripe: "z" }), colors: { 4: "#f6f3dc", 5: "#c3c493", 6: "#86915f" } },
+  // 꺽지: 갈색 몸, 아가미에 파란 점
+  perch: {
+    rows: fish({ len: 12, h: 8, spots: [[13, 9, 1]] }),
+    colors: { 4: "#ecdcb4", 5: "#a88c5a", 6: "#6e5a38", K: "#7fd0f0", N: "#3f9ad0" },
+  },
+  // 달빛 잉어: 은청빛 몸, 별 반짝이
+  moon: {
+    rows: (() => {
+      const p = new Pix(CATCH_CELLS, CATCH_CELLS).stamp(fish({ len: 15, h: 9, whisker: true }), 0, 0);
+      for (const [x, y] of [[2, 3], [17, 2], [17, 16]] as const) p.px(x, y, "w").px(x - 1, y, "U").px(x + 1, y, "U").px(x, y - 1, "U").px(x, y + 1, "U");
+      return p.rows();
+    })(),
+    colors: { 4: "#f4f8ff", 5: "#c6d4f5", 6: "#8a9ad6" },
+  },
+  chest: { rows: treasureChest() },
   feed: { rows: feedSack() },
   boot: { rows: oldBoot(), colors: { 4: "#a7c48a", 5: "#6f8f5a", 6: "#4f6b40" } },
 };
@@ -107,12 +169,25 @@ const ART: Record<string, Art> = {
 /** 그림이 있는 낚을 것 키 (시험용) */
 export const CATCH_ART_KEYS = Object.keys(ART);
 
+/** 아직 못 낚은 것의 그림자 그림 (도감): 모든 칸을 한 색으로 */
+export function catchSilhouetteDataUri(key: string, scale = 2): string | null {
+  const art = ART[key];
+  if (!art) return null;
+  const id = `${key}@${scale}:shadow`;
+  let uri = cache.get(id);
+  if (!uri) {
+    const rows = art.rows.map((r) => r.replace(/[^.]/g, "X"));
+    uri = svgDataUri(spriteSvg(rows, { scale, colors: { X: "#9fb7c4" } }));
+    cache.set(id, uri);
+  }
+  return uri;
+}
+
 /** 낚을 것 그림 줄 (없으면 null) */
 export function catchRows(key: string): Sprite | null {
   return ART[key]?.rows ?? null;
 }
 
-const cache = new Map<string, string>();
 /** 낚을 것 data URI (scale = 정수 배율). 그림이 없으면 null */
 export function catchDataUri(key: string, scale = 2): string | null {
   const art = ART[key];

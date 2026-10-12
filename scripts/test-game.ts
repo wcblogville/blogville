@@ -16,8 +16,8 @@ import { artHit, ISO_FURNITURE_KEYS, roomFurnitureArt } from "../src/lib/art/roo
 import { POSES, poseFrame } from "../src/lib/art/poses";
 import { actionOf, blockedTiles, depthRanks, findPath, layoutDepth, planUse, seatTile } from "../src/lib/room-walk";
 import { ANIMAL_SIZE, ANIMAL_SKINS, ANIMAL_VARIANT_ART, animalHalfWidth, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits, variantFits } from "../src/lib/art/animals";
-import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, RIPPLE, SPLASH } from "../src/lib/art/catches";
-import { CATCHES, pickCatch } from "../src/lib/fishing";
+import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, catchSilhouetteDataUri, RIPPLE, SPLASH } from "../src/lib/art/catches";
+import { CATCHES, catchPool, pickCatch, poolTotal } from "../src/lib/fishing";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
 import {
@@ -461,7 +461,11 @@ expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), is
 expect("낚을 것마다 20×20 도트 그림", CATCHES.filter((c) => { const r = catchRows(c.key); return !r || r.length !== CATCH_CELLS || r.some((x) => x.length !== CATCH_CELLS); }).map((c) => c.key), []);
 expect("낚을 것 그림은 정수배 SVG", CATCHES.every((c) => catchDataUri(c.key, 2)!.includes("width='40' height='40'")), true);
 expect("찌·물보라·물결 줄 길이가 고르다", [BOBBER, SPLASH, RIPPLE].map((r) => new Set(r.map((x) => x.length)).size), [1, 1, 1]);
-expect("낚을 것 무게 합 100, 0~99가 모두 무언가를 낚는다", [CATCHES.reduce((a, c) => a + c.weight, 0), pickCatch(0).key, pickCatch(99).key], [100, "minnow", "boot"]);
+{
+  const pool = catchPool({ hour: 12, month: 10 }, false);
+  expect("낚시 무게: 0 → 첫 칸(송사리), 합-1 → 마지막(낡은 장화)", [pickCatch(0, pool).key, pickCatch(poolTotal(pool) - 1, pool).key], ["minnow", "boot"]);
+  expect("그림자 그림(도감)도 정수배", CATCHES.every((c) => catchSilhouetteDataUri(c.key, 2)!.includes("width='40' height='40'")), true);
+}
 expect("걷기 칸과 뛰는 높이 수가 같다", PET_WALK_FRAMES.length === PET_WALK_LIFT.length && PET_IDLE_FRAMES.length === 2, true);
 expect("배경 1280px × 5배 → 256칸, 높이 60칸 × 5", backgroundSvg("bg.meadow", 1280, 5).match(/viewBox="0 0 (\d+) (\d+)" width="(\d+)" height="(\d+)"/)!.slice(1).map(Number), [256, BG_ROWS, 1280, BG_ROWS * 5]);
 

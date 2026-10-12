@@ -250,6 +250,14 @@ export async function recordBlogVisit(blogId: number): Promise<{ today: number; 
   if (viewer?.profile && viewer.userId === blog.ownerId) return getBlogVisitStats(id);
 
   const visitorId = await ensureVisitorId();
-  await db.insert(blogVisits).values({ blogId: id, date: todayKST(), visitorId }).onConflictDoNothing();
+  // 로그인한 회원이면 누구인지도 적는다 (BLOG-10 방문자 기록, 주인만 본다). 같은 날 손님으로 먼저 왔다가 로그인하면 그 줄에 회원을 채운다
+  const userId = viewer?.profile ? viewer.userId : null;
+  const insert = db.insert(blogVisits).values({ blogId: id, date: todayKST(), visitorId, userId });
+  await (userId
+    ? insert.onConflictDoUpdate({
+        target: [blogVisits.blogId, blogVisits.date, blogVisits.visitorId],
+        set: { userId: sql`COALESCE(${blogVisits.userId}, excluded.user_id)` },
+      })
+    : insert.onConflictDoNothing());
   return getBlogVisitStats(id);
 }

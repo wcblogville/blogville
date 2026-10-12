@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { blogs, comments, items, posts, profiles, replies } from "@/db/schema";
 import { formatDateTime } from "@/lib/format";
 import { canDeleteComment } from "@/lib/social";
+import { outfitOf } from "@/server/inventory";
 import type { Tx } from "@/server/points";
 
 const characterItem = alias(items, "character_item");
@@ -28,7 +29,8 @@ export async function countLiveComments(): Promise<number> {
   return rows[0].n;
 }
 
-export type CommentAuthor = { nickname: string; characterAsset: string; blogSlug: string };
+/** 댓글·답글 작성자. outfit = 지금 입은 아바타 (꾸민 모습, 사용자 요청 2026-10-12) */
+export type CommentAuthor = { nickname: string; characterAsset: string; outfit: string[]; blogSlug: string };
 
 export type ReplyView = {
   id: number;
@@ -53,11 +55,13 @@ export type CommentView = {
 
 export type CommentThread = { count: number; comments: CommentView[] };
 
-const authorColumns = {
+/** 작성자 칸. 꾸민 모습은 같은 쿼리 안의 하위 쿼리(outfitOf)라 댓글마다 따로 묻지 않는다 */
+const authorColumns = (authorId: AnyPgColumn) => ({
   nickname: profiles.nickname,
   characterAsset: characterItem.assetKey,
+  outfit: outfitOf(authorId),
   blogSlug: blogs.slug,
-};
+});
 
 /**
  * 글 상세의 댓글 영역. 댓글·답글 모두 오래된 순, 권한(canReply·canDelete)은 서버가 계산한다.
@@ -75,7 +79,7 @@ export async function getCommentThread(
   if (!owner) return { count: 0, comments: [] };
 
   const commentRows = await db
-    .select({ id: comments.id, authorId: comments.authorId, content: comments.content, createdAt: comments.createdAt, deletedAt: comments.deletedAt, ...authorColumns })
+    .select({ id: comments.id, authorId: comments.authorId, content: comments.content, createdAt: comments.createdAt, deletedAt: comments.deletedAt, ...authorColumns(comments.authorId) })
     .from(comments)
     .leftJoin(profiles, eq(profiles.userId, comments.authorId))
     .leftJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
@@ -85,7 +89,7 @@ export async function getCommentThread(
 
   const replyRows = commentRows.length
     ? await db
-        .select({ id: replies.id, commentId: replies.commentId, authorId: replies.authorId, content: replies.content, createdAt: replies.createdAt, deletedAt: replies.deletedAt, ...authorColumns })
+        .select({ id: replies.id, commentId: replies.commentId, authorId: replies.authorId, content: replies.content, createdAt: replies.createdAt, deletedAt: replies.deletedAt, ...authorColumns(replies.authorId) })
         .from(replies)
         .innerJoin(profiles, eq(profiles.userId, replies.authorId))
         .innerJoin(characterItem, eq(characterItem.id, profiles.characterItemId))
@@ -102,7 +106,7 @@ export async function getCommentThread(
     const deleted = c.deletedAt !== null;
     if (!deleted) count++;
     const author = c.authorId && c.nickname && c.characterAsset && c.blogSlug
-      ? { nickname: c.nickname, characterAsset: c.characterAsset, blogSlug: c.blogSlug }
+      ? { nickname: c.nickname, characterAsset: c.characterAsset, outfit: c.outfit, blogSlug: c.blogSlug }
       : null;
     return {
       id: c.id,
@@ -122,7 +126,7 @@ export async function getCommentThread(
             createdAtText: formatDateTime(r.createdAt),
             deleted: rDeleted,
             content: rDeleted ? "" : r.content,
-            author: { nickname: r.nickname, characterAsset: r.characterAsset, blogSlug: r.blogSlug },
+            author: { nickname: r.nickname, characterAsset: r.characterAsset, outfit: r.outfit, blogSlug: r.blogSlug },
             canDelete: !rDeleted && can(r.authorId),
           };
         }),

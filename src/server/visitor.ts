@@ -1,5 +1,5 @@
 // 방문자 쿠키 bv_visitor (BLOG-06 방문자 수, POST-06 조회수 / FR-046, research R3).
-// 무작위 UUID라 회원 정보와 잇지 않고 IP도 저장하지 않는다
+// 무작위 UUID다. IP는 저장하지 않는다. 블로그 방문(blog_visits)만 로그인한 회원이면 회원 ID를 함께 적는다 (BLOG-10 방문자 기록, 주인만 본다)
 import "server-only";
 import { cookies } from "next/headers";
 

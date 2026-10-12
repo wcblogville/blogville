@@ -74,6 +74,8 @@ export type TownFriend = {
   title: string;
   nickname: string;
   characterAsset: string;
+  /** 지금 입은 아바타 (꾸민 모습) */
+  outfit: string[];
   isFavorite: boolean;
   /** 공지 블로그(관리자). 마을에 집이 없어 즐겨찾기(⭐)를 쓰지 않는다 */
   isNotice: boolean;

@@ -28,8 +28,8 @@ const updatedAt = () =>
 // ===== 열거형 =====
 // avatar(모자·옷·소품)·growth(동물 성장 아이템)는 SHOP-01·SHOP-06에서 뒤에 더했다
 export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth", "deco"]);
-// 아바타 꾸미기 부위 (SHOP-06). 머리 모양 hair·머리 색 hair_color는 미용실(SHOP-07, 2026-10-11)에서 뒤에 더했다
-export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "hair", "hair_color"]);
+// 아바타 꾸미기 부위 (SHOP-06). 머리 모양 hair·머리 색 hair_color는 미용실(SHOP-07, 2026-10-11), 얼굴형 face_shape는 2026-10-12에 뒤에 더했다
+export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "hair", "hair_color", "face_shape"]);
 // neighbors = 이웃 공개: 주인과 주인을 이웃 추가한(follows.follower_id) 회원만 본다 (2026-10-12 사용자 요청)
 export const visibility = pgEnum("visibility", ["public", "neighbors", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);
@@ -439,6 +439,8 @@ export const postTags = pgTable(
     tagId: integer("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
+    // 글쓴이가 적은 순서 (0부터). 글·수정 화면은 이 순서로 보여 준다 (가나다 순 X, 사용자 요청 2026-10-12)
+    position: smallint("position").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.postId, t.tagId] }), index("post_tags_tag_idx").on(t.tagId)],
 );
@@ -765,7 +767,8 @@ export const animalCares = pgTable(
   (t) => [primaryKey({ columns: [t.animalId, t.action, t.date] })],
 );
 
-// 연못 낚시터: 회원마다 하루(한국 날짜) 한 번 (사용자 요청 2026-10-08). 무엇을 낚았는지는 src/lib/fishing.ts의 key
+// 연못 낚시터: 회원마다 하루(한국 날짜) 세 번 (사용자 요청 2026-10-08 하루 한 번 → 2026-10-12 "낚시 컨텐츠 더 풍성하게" 세 번).
+// 무엇을 낚았는지는 src/lib/fishing.ts의 key. 몇 번째 낚싯대인지(cast_no 1~3)가 PK에 들어가 하루 횟수를 DB가 지킨다
 export const fishingCatches = pgTable(
   "fishing_catches",
   {
@@ -773,11 +776,20 @@ export const fishingCatches = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     date: date("date").notNull(),
+    castNo: smallint("cast_no").notNull().default(1),
     catchKey: text("catch_key").notNull(),
     coins: integer("coins").notNull().default(0),
+    // 물고기 길이 (mm). 장화·먹이 꾸러미·보물 상자처럼 물고기가 아니면 NULL. 도감 최대 크기·이번 주 랭킹에 쓴다
+    sizeMm: integer("size_mm"),
     createdAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.userId, t.date] }), check("fishing_catches_coins_check", sql`${t.coins} >= 0`)],
+  (t) => [
+    primaryKey({ columns: [t.userId, t.date, t.castNo] }),
+    check("fishing_catches_coins_check", sql`${t.coins} >= 0`),
+    check("fishing_catches_cast_no_check", sql`${t.castNo} BETWEEN 1 AND 3`),
+    check("fishing_catches_size_check", sql`${t.sizeMm} IS NULL OR ${t.sizeMm} > 0`),
+    index("fishing_catches_date_idx").on(t.date),
+  ],
 );
 
 // 글 첨부(사진·파일) 정보. 파일 내용은 DB가 아니라 저장소(src/server/storage.ts)에 둔다 (POST-07, POST-09)
@@ -808,7 +820,7 @@ export const attachments = pgTable(
   ],
 );
 
-// 블로그 방문자 (BLOG-06): 같은 사람(쿠키 bv_visitor)은 한 블로그에 하루(한국 시간) 1줄. IP는 저장하지 않는다
+// 블로그 방문자 (BLOG-06, BLOG-10 방문자 기록): 같은 사람(쿠키 bv_visitor)은 한 블로그에 하루(한국 시간) 1줄. IP는 저장하지 않는다
 export const blogVisits = pgTable(
   "blog_visits",
   {
@@ -816,10 +828,13 @@ export const blogVisits = pgTable(
       .notNull()
       .references(() => blogs.id, { onDelete: "cascade" }),
     date: date("date").notNull(), // 한국 날짜 (todayKST)
-    visitorId: uuid("visitor_id").notNull(), // 방문자 쿠키 값 (회원 정보와 연결하지 않음)
+    visitorId: uuid("visitor_id").notNull(), // 방문자 쿠키 값
+    // 로그인한 회원이 왔으면 그 회원 (2026-10-12 "방문자기록 볼 수 있으면"). 손님이면 NULL. 블로그 주인만 방문자 기록에서 본다.
+    // 탈퇴하면 NULL이 되어 손님으로 남는다 (숫자는 그대로)
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
     createdAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.blogId, t.date, t.visitorId] })],
+  (t) => [primaryKey({ columns: [t.blogId, t.date, t.visitorId] }), index("blog_visits_user_idx").on(t.userId)],
 );
 
 // 글 조회 기록 (POST-06 / FR-046, data-model 4): 같은 브라우저(쿠키 bv_visitor)는 글마다 하루(한국 시간) 1줄.
