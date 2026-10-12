@@ -1,3 +1,4 @@
+import { PlaceHeader, WalletChips } from "@/components/place-banner";
 import { StyleStudio } from "@/components/style-studio";
 import { AVATAR_PARTS, type AvatarSlot } from "@/lib/art/avatar";
 import { hasHair } from "@/lib/art/characters";
@@ -21,21 +22,10 @@ export default async function ClothesPage() {
   const baseOutfit = viewer.profile.outfit.filter((k) => !slots.includes(AVATAR_PARTS[k]?.slot));
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl">👗 꼬까 옷가게</h1>
-          <p className="mt-1 max-w-2xl text-ink-soft">옷·모자·소품을 마음껏 입어 보세요. 거울 속 내 캐릭터가 걸어 다니며 보여 줘요. 마음에 들면 사서 바로 입어요.</p>
-        </div>
-        <div className="card flex gap-4 px-4 py-2 text-sm">
-          <span>
-            Lv.<b>{wallet.level}</b>
-          </span>
-          <span>
-            🪙 <b>{wallet.coins.toLocaleString()}</b>
-          </span>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="clothes" icon="shirt" title="꼬까 옷가게" aside={<WalletChips level={wallet.level} coins={wallet.coins} />}>
+        <p className="max-w-2xl">옷·모자·소품을 마음껏 입어 보세요. 거울 속 내 캐릭터가 걸어 다니며 보여 줘요. 마음에 들면 사서 바로 입어요.</p>
+      </PlaceHeader>
       <StyleStudio
         place={place}
         items={items}

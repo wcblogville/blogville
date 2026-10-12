@@ -4,11 +4,12 @@ import { withJosa } from "@/lib/josa";
 export type ItemType = "character" | "background" | "furniture" | "avatar" | "growth" | "deco";
 
 /** 상점 구역 순서와 제목 (FR-003). 캐릭터는 상점에 없다 */
-export const SHOP_SECTIONS: { type: Exclude<ItemType, "character">; title: string }[] = [
-  { type: "avatar", title: "👕 아바타 꾸미기" },
-  { type: "furniture", title: "🪑 가구" },
-  { type: "background", title: "🖼 배경" },
-  { type: "growth", title: "🌱 성장 아이템" },
+// name·icon: 상점 화면의 구역 제목 (그림 글자 대신 도트 아이콘, src/lib/art/icons.ts)
+export const SHOP_SECTIONS: { type: Exclude<ItemType, "character">; title: string; name: string; icon: "shirt" | "chair" | "frame" | "sprout" }[] = [
+  { type: "avatar", title: "👕 아바타 꾸미기", name: "아바타 꾸미기", icon: "shirt" },
+  { type: "furniture", title: "🪑 가구", name: "가구", icon: "chair" },
+  { type: "background", title: "🖼 배경", name: "배경", icon: "frame" },
+  { type: "growth", title: "🌱 성장 아이템", name: "성장 아이템", icon: "sprout" },
 ];
 
 export function sectionTitle(type: ItemType): string | null {

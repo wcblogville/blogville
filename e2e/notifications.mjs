@@ -313,7 +313,10 @@ check("FR-046 행동한 회원 삭제 → 그 회원이 남긴 알림 삭제", f
   await mp.goto(`${BASE}/feed`);
   const overflow = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   const banner = await mp.getByRole("banner").innerText();
-  check("SC-008 375px 헤더 🔔·Lv·🪙 보임, 가로 스크롤 없음", overflow <= 0 && (await bell(mp).isVisible()) && /Lv\.\d+/.test(banner) && banner.includes("🪙"), `${overflow}`);
+    // 코인은 글자 🪙 대신 도트 동전 그림 (2026-10-12 도트 화면): 그림의 대체 글자가 🪙이고 칩에 숫자가 보인다
+  const coinChip = mp.getByRole("banner").getByTitle("코인");
+  const coinShown = (await coinChip.isVisible()) && (await coinChip.getByRole("img", { name: "🪙" }).isVisible()) && /\d/.test(await coinChip.innerText());
+  check("SC-008 375px 헤더 🔔·Lv·🪙 보임, 가로 스크롤 없음", overflow <= 0 && (await bell(mp).isVisible()) && /Lv\.\d+/.test(banner) && coinShown, `${overflow}`);
   await mp.screenshot({ path: `${outDir}/header-bell-375.png` });
   await mp.goto(`${BASE}/notifications`);
   const overflow2 = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

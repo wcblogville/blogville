@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { ItemArt } from "@/components/item-art";
+import { PixelIcon } from "@/components/pixel-icon";
 import { withJosa } from "@/lib/josa";
 import { buttonState, purchaseMessage, type ShopItem } from "@/lib/shop";
 import { buyItem } from "./actions";
@@ -26,20 +27,21 @@ export function ShopGrid({
   const [pending, start] = useTransition();
 
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4">
       {items.map((item) => {
         const state = buttonState(item, { level, coins });
         const growth = item.type === "growth";
         return (
-          <article key={item.id} data-item-id={item.id} data-state={state} className={`card flex flex-col p-3 ${state === "owned" ? "opacity-70" : ""}`}>
+          <article key={item.id} data-item-id={item.id} data-state={state} className={`pixel-card flex flex-col p-3 ${state === "owned" ? "opacity-75" : ""}`}>
             <ItemArt type={item.type} assetKey={item.assetKey} />
-            <h3 className="mt-2 font-display text-lg">{item.name}</h3>
+            <h3 className="mt-2 font-display text-lg leading-tight">{item.name}</h3>
             <p className="line-clamp-2 min-h-10 text-xs text-ink-soft">{item.description}</p>
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 text-sm">
-              <span>
-                🪙 <b>{item.price.toLocaleString()}</b>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="inline-flex items-center gap-1">
+                <PixelIcon name="coin" scale={1} />
+                <b>{item.price.toLocaleString()}</b>
               </span>
-              {item.requiredLevel >= 2 && <span className="text-xs text-ink-soft">Lv.{item.requiredLevel}+</span>}
+              {item.requiredLevel >= 2 && <span className="pixel-badge bg-[#f1ebe2] px-1.5 text-xs leading-4 text-ink-soft">Lv.{item.requiredLevel}+</span>}
               {growth && item.quantity > 0 && (
                 <span className="text-xs font-bold text-leaf-dark" data-quantity>
                   보유 {item.quantity}개 ·{" "}
@@ -67,7 +69,7 @@ export function ShopGrid({
                   );
                 })
               }
-              className="btn mt-3 min-h-11 bg-sun py-1.5 text-sm text-ink"
+              className={`pixel-btn pixel-btn-sm mt-4 ${state === "buy" ? "bg-sun" : "bg-[#f1ebe2]"} text-ink`}
             >
               {state === "owned" ? "보유 중" : state === "locked" ? `🔒 Lv.${item.requiredLevel}` : state === "short" ? "코인 부족" : "사기"}
             </button>

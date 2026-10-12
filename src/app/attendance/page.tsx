@@ -1,3 +1,4 @@
+import { PlaceHeader } from "@/components/place-banner";
 import { AttendanceCalendar, AttendanceRewards, AttendanceToday } from "@/components/game/attendance-board";
 import { getAttendanceBoard } from "@/server/attendance";
 import { requireMember } from "@/server/dal";
@@ -12,18 +13,18 @@ export default async function AttendancePage() {
   const data = await getAttendanceBoard(viewer);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="font-display text-3xl">📮 출석 체크</h1>
+    <div className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="attendance" icon="post" title="출석 체크" />
 
-      <section className="card mt-6 p-8">
+      <section className="pixel-panel mt-6 p-8">
         <AttendanceToday data={data} />
       </section>
 
-      <section className="card mt-6 p-4 sm:p-6" aria-label="일차별 출석 보상">
+      <section className="pixel-card mt-8 p-4 sm:p-6" aria-label="일차별 출석 보상">
         <AttendanceRewards data={data} />
       </section>
 
-      <section className="card mt-6 p-6">
+      <section className="pixel-card mt-8 p-4 sm:p-6">
         <AttendanceCalendar data={data} />
       </section>
     </div>
