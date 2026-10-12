@@ -2,7 +2,7 @@
 import { MAX_LEVEL } from "@/lib/game";
 import { withJosa } from "@/lib/josa";
 
-export type NotificationKind = "level_up" | "like" | "comment" | "reply";
+export type NotificationKind = "level_up" | "like" | "comment" | "reply" | "follow";
 
 /** 화면에 보여 줄 알림 한 줄 (닉네임·제목·주소는 보여 줄 때 JOIN으로 읽는다) */
 export type NotificationRow = {
@@ -12,6 +12,8 @@ export type NotificationRow = {
   postId: number | null;
   postTitle: string | null;
   blogSlug: string | null;
+  /** 행동한 회원의 블로그 주소 (이웃 추가 알림이 그 블로그로 간다) */
+  actorSlug: string | null;
 };
 
 /** 레벨업 팝업 제목 */
@@ -47,11 +49,15 @@ export function notificationText(row: NotificationRow): string {
       return `💬 ${row.actorNickname}님이 「${row.postTitle}」에 댓글을 달았어요`;
     case "reply":
       return `💬 ${row.actorNickname}님이 내 댓글에 답글을 달았어요`;
+    case "follow":
+      return `👫 ${row.actorNickname}님이 나를 이웃으로 추가했어요`;
   }
 }
 
 /** 알림을 누르면 가는 곳 */
-export function notificationHref(row: Pick<NotificationRow, "kind" | "postId" | "blogSlug">): string {
+export function notificationHref(row: Pick<NotificationRow, "kind" | "postId" | "blogSlug" | "actorSlug">): string {
+  // 이웃 추가: 나를 추가한 회원의 블로그로 (거기서 맞이웃 추가)
+  if (row.kind === "follow") return row.actorSlug ? `/@${row.actorSlug}` : "/notifications";
   if (row.kind === "level_up" || !row.postId || !row.blogSlug) return "/shop";
   const post = `/@${row.blogSlug}/${row.postId}`;
   return row.kind === "like" ? post : `${post}#comments`;

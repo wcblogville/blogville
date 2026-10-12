@@ -101,6 +101,63 @@ check("알림 창: 알림함 링크", (await panel().getByRole("link", { name: /
 // 친구: 이웃이 없으면 안내
 await openMenu("친구 목록");
 check("친구 목록: 이웃 없음 안내", await panel().getByText("아직 이웃이 없어요").isVisible());
+
+// 메뉴 창이 떠 있어도 방향키·WASD로 걷는다 (사용자 요청 2026-10-12 "메뉴 떠있는 상태에서 방향키랑 wasd가 안먹는데")
+{
+  const canvas = page.locator("canvas");
+  const feet = async () => ((await canvas.getAttribute("data-feet")) ?? "0,0").split(",").map(Number);
+  await canvas.evaluate((el) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: "plaza" })));
+  await page.waitForTimeout(500);
+  await openMenu();
+  const hold = async (key, ms = 450) => {
+    const [x0, y0] = await feet();
+    await page.keyboard.down(key);
+    await page.waitForTimeout(ms);
+    await page.keyboard.up(key);
+    await page.waitForTimeout(150);
+    const [x1, y1] = await feet();
+    return [x1 - x0, y1 - y0];
+  };
+  // 갔다가 되돌아오는 순서라 막힌 곳에 부딪히지 않는다
+  const [ax] = await hold("ArrowLeft");
+  const [dx] = await hold("d");
+  const [, sy] = await hold("s");
+  const [, wy] = await hold("w");
+  check(
+    "메뉴 창이 열린 채로 방향키·WASD로 걷는다",
+    (await panel().isVisible()) && ax < -10 && sy > 10 && dx > 10 && wy < -10,
+    `←${ax} S${sy} D${dx} W${wy}`,
+  );
+  await page.screenshot({ path: `${outDir}/town-menu-walk.png` });
+  // 창 안 버튼에 포커스를 두고 Enter·Space → 버튼이 눌리고 캐릭터는 건물로 안 들어간다
+  const before = await feet();
+  await panel().getByRole("button", { name: /내 프로필/ }).focus();
+  await page.keyboard.press("Enter");
+  check("메뉴 창 버튼 위 Enter → 그 버튼이 눌림", await panel().locator("[data-profile-coins]").isVisible().catch(() => false));
+  await panel().getByRole("button", { name: "메뉴로" }).focus();
+  await page.keyboard.press(" ");
+  check("메뉴 창 버튼 위 Space → 그 버튼이 눌림", (await panel().getAttribute("data-town-panel")) === "menu");
+  check("버튼 위 Enter·Space는 게임에 안 간다 (제자리)", JSON.stringify(await feet()) === JSON.stringify(before), `${before} → ${await feet()}`);
+  // 창 안 글자 칸에 쓰는 글자(wasd·방향키)는 캐릭터를 움직이지 않는다 (창에 글자 칸이 없어 시험용으로 하나 붙인다)
+  await panel().evaluate((el) => {
+    const input = document.createElement("input");
+    input.setAttribute("data-test-input", "");
+    el.append(input);
+  });
+  const typeFrom = await feet();
+  await panel().locator("[data-test-input]").focus();
+  await page.keyboard.type("wasdwasd");
+  await page.keyboard.down("ArrowLeft");
+  await page.waitForTimeout(300);
+  await page.keyboard.up("ArrowLeft");
+  await page.waitForTimeout(150);
+  check(
+    "창 안 글자 칸에 쓰면 캐릭터는 안 움직임",
+    JSON.stringify(await feet()) === JSON.stringify(typeFrom) && (await panel().locator("[data-test-input]").inputValue()) === "wasdwasd",
+    `${typeFrom} → ${await feet()}`,
+  );
+  await panel().locator("[data-test-input]").evaluate((el) => el.remove());
+}
 await page.keyboard.press("Escape");
 check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
 

@@ -196,7 +196,7 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   const sideBox = await sidebar(page).boundingBox();
   check("1280px: 글 목록 왼쪽 + 옆 칸 오른쪽 300px", sideBox.x > listBox.x + listBox.width - 1 && Math.abs(sideBox.width - 300) < 2 && Math.abs(sideBox.y - listBox.y) < 2, `글 ${Math.round(listBox.width)}, 옆 칸 ${Math.round(sideBox.width)}`);
   const order = await sidebar(page).locator(":scope > *").evaluateAll((els) => els.map((e) => e.getAttribute("data-widget")));
-  check("옆 칸 위젯 순서", order.join() === "search,village-search,categories,recent,popular,comments,tags,visitors", order.join());
+  check("옆 칸 위젯 순서", order.join() === "search,village-search,categories,recent,popular,comments,neighbors,tags,visitors", order.join());
   const ownRecent = await widgetText(page, "recent");
   check("주인 최근 글: 비공개 글도 (🔒)", ownRecent.includes(`🔒 비밀 ${KEY} 일기`), ownRecent.slice(0, 80));
   const popularTitles = await sidebar(page).locator('[data-widget="popular"] li').allInnerTexts();

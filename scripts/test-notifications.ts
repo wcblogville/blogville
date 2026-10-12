@@ -40,8 +40,8 @@ expect("24시간 → 날짜", notificationTime(ago(24 * 3_600_000), now), "2026.
 expect("날짜는 한국 시간 (UTC 10/6 16:00 = 한국 10/7)", notificationTime(new Date("2026-10-06T16:00:00Z"), now), "2026.10.07");
 
 // 문구·링크 (FR-045)
-const base: NotificationRow = { kind: "like", level: null, actorNickname: "토끼", postId: 7, postTitle: "첫 글", blogSlug: "rabbit" };
-const levelUp: NotificationRow = { kind: "level_up", level: 3, actorNickname: null, postId: null, postTitle: null, blogSlug: null };
+const base: NotificationRow = { kind: "like", level: null, actorNickname: "토끼", postId: 7, postTitle: "첫 글", blogSlug: "rabbit", actorSlug: "rabbit" };
+const levelUp: NotificationRow = { kind: "level_up", level: 3, actorNickname: null, postId: null, postTitle: null, blogSlug: null, actorSlug: null };
 expect("레벨업 문구", notificationText(levelUp), "🎉 Lv.3이 되었어요!");
 expect("공감 문구", notificationText(base), "❤️ 토끼님이 「첫 글」에 공감했어요");
 expect("댓글 문구", notificationText({ ...base, kind: "comment" }), "💬 토끼님이 「첫 글」에 댓글을 달았어요");
@@ -50,5 +50,11 @@ expect("레벨업 링크", notificationHref(levelUp), "/shop");
 expect("공감 링크", notificationHref(base), "/@rabbit/7");
 expect("댓글 링크", notificationHref({ ...base, kind: "comment" }), "/@rabbit/7#comments");
 expect("답글 링크", notificationHref({ ...base, kind: "reply" }), "/@rabbit/7#comments");
+
+// 이웃 추가 (SOC-06, 2026-10-12): 나를 추가한 회원의 블로그로
+const follow: NotificationRow = { kind: "follow", level: null, actorNickname: "토끼", postId: null, postTitle: null, blogSlug: null, actorSlug: "rabbit" };
+expect("이웃 추가 문구", notificationText(follow), "👫 토끼님이 나를 이웃으로 추가했어요");
+expect("이웃 추가 링크 = 그 회원 블로그", notificationHref(follow), "/@rabbit");
+expect("이웃 추가인데 블로그 주소가 없으면 알림함", notificationHref({ ...follow, actorSlug: null }), "/notifications");
 
 if (failed) process.exit(1);

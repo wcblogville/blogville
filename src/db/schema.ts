@@ -33,7 +33,8 @@ export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "
 // neighbors = 이웃 공개: 주인과 주인을 이웃 추가한(follows.follower_id) 회원만 본다 (2026-10-12 사용자 요청)
 export const visibility = pgEnum("visibility", ["public", "neighbors", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);
-export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply"]);
+// follow: 누가 나를 이웃으로 추가함 (SOC-06, 사용자 요청 2026-10-12 "누가 팔로우 하면 알림 가게")
+export const notificationKind = pgEnum("notification_kind", ["level_up", "like", "comment", "reply", "follow"]);
 export const ledgerReason = pgEnum("ledger_reason", [
   "signup",
   "attendance",
@@ -592,7 +593,7 @@ export const pointLedger = pgTable(
   ],
 );
 
-// 알림 (GAME-06·GAME-08): 레벨업 · 공감 · 댓글 · 답글. 닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다
+// 알림 (GAME-06·GAME-08·SOC-06): 레벨업 · 공감 · 댓글 · 답글 · 이웃 추가. 닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다
 export const notifications = pgTable(
   "notifications",
   {
@@ -602,7 +603,7 @@ export const notifications = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     kind: notificationKind("kind").notNull(),
     actorId: text("actor_id").references(() => users.id, { onDelete: "cascade" }), // 행동한 회원 (레벨업은 NULL)
-    postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }), // 관련 글 (레벨업은 NULL)
+    postId: integer("post_id").references(() => posts.id, { onDelete: "cascade" }), // 관련 글 (레벨업·이웃 추가는 NULL)
     level: integer("level"), // 레벨업일 때 오른 레벨
     createdAt: createdAt(),
     readAt: timestamp("read_at", { withTimezone: true }),
@@ -610,12 +611,16 @@ export const notifications = pgTable(
   (t) => [
     check(
       "notifications_shape_check",
-      sql`(${t.kind} = 'level_up' AND ${t.level} IS NOT NULL AND ${t.actorId} IS NULL AND ${t.postId} IS NULL) OR (${t.kind} <> 'level_up' AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NOT NULL)`,
+      // follow는 같은 마이그레이션에서 enum에 더한 값이라 ::text로 비교한다 (새 enum 값은 커밋 전에 enum으로 못 쓴다)
+      sql`(${t.kind} = 'level_up' AND ${t.level} IS NOT NULL AND ${t.actorId} IS NULL AND ${t.postId} IS NULL) OR (${t.kind}::text = 'follow' AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NULL) OR (${t.kind}::text NOT IN ('level_up', 'follow') AND ${t.level} IS NULL AND ${t.actorId} IS NOT NULL AND ${t.postId} IS NOT NULL)`,
     ),
     check("notifications_level_check", sql`${t.level} IS NULL OR ${t.level} BETWEEN 2 AND 99`),
     check("notifications_not_self_check", sql`${t.actorId} IS NULL OR ${t.actorId} <> ${t.userId}`),
     // 레벨업 알림은 회원·레벨마다 한 번 (FR-037)
     uniqueIndex("notifications_level_up_uq").on(t.userId, t.level).where(sql`${t.kind} = 'level_up'`),
+    // 이웃 추가 알림은 같은 사람에게서 처음 한 번만 (끊었다 다시 추가해도 다시 안 감, SOC-06).
+    // 모양 CHECK상 "글 없음 + 행동한 회원 있음"은 follow뿐이라 그 조건으로 건다 (enum을 ::text로 바꾸는 식은 인덱스 조건에 못 쓴다)
+    uniqueIndex("notifications_follow_uq").on(t.userId, t.actorId).where(sql`${t.postId} IS NULL AND ${t.actorId} IS NOT NULL`),
     index("notifications_user_created_idx").on(t.userId, t.createdAt.desc(), t.id.desc()),
     index("notifications_unread_idx").on(t.userId).where(sql`${t.readAt} IS NULL`),
     index("notifications_post_idx").on(t.postId).where(sql`${t.postId} IS NOT NULL`),
