@@ -7,6 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 import { username } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/password";
 import { SOCIAL_PROVIDERS, type SocialReady } from "@/lib/social";
 
 // 소셜 로그인 (AUTH-01, AUTH-05 / FR-013, FR-030~FR-035, research R9)
@@ -109,7 +110,7 @@ export const auth = betterAuth({
   },
   // 아이디 + 비밀번호 로그인 (username 플러그인이 이메일·비밀번호 로그인 위에 아이디를 얹는다).
   // 가입은 우리 트랜잭션(src/server/signup.ts)만 한다. 라이브러리 가입(sign-up/email)은 끈다 (AUTH-01 / FR-007, FR-011)
-  emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: 8, maxPasswordLength: 64 },
+  emailAndPassword: { enabled: true, disableSignUp: true, minPasswordLength: PASSWORD_MIN, maxPasswordLength: PASSWORD_MAX },
   session: {
     expiresIn: SESSION_REMEMBER_SECONDS,
     updateAge: 60 * 60,

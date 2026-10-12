@@ -15,7 +15,7 @@ import { getViewer } from "@/server/dal";
 // - email_not_found: 사용자 정보에 이메일이 없음 (대체 이메일을 늘 넣으므로 생기지 않지만, 생기면 연동이 없는 것과 같다)
 // 취소·동의 안 함(access_denied 등)과 그 밖의 코드는 문구 없이 첫 화면 그대로 (spec Edge Case)
 const NOT_LINKED_ERRORS = new Set(["signup_disabled", "account_not_linked", "email_not_found"]);
-const NOT_LINKED_MESSAGE = "연동된 계정이 없어요. 아이디로 로그인한 뒤 내 정보에서 연동해 주세요";
+const NOT_LINKED_MESSAGE = "연동된 계정이 없어요. 아이디로 로그인한 뒤 회원정보 수정에서 연동해 주세요";
 
 // 첫 화면 (AUTH-01, AUTH-02 / FR-001, FR-014, FR-031, FR-033, contracts/auth-entry.md 1장·4장)
 export default async function LandingPage({ searchParams }: PageProps<"/">) {
