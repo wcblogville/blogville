@@ -27,7 +27,7 @@ export function BlogSearchBox({ base, q }: { base: string; q: string }) {
   );
 }
 
-type FoundBlog = { slug: string; title: string; nickname: string; characterAsset: string; photoKey: string | null };
+type FoundBlog = { slug: string; title: string; nickname: string; characterAsset: string; outfit?: string[]; photoKey: string | null };
 
 /** 검색 결과: 1페이지에만 블로그 묶음, 그 아래 공개 글 카드 (작성자 표시) */
 export function BlogSearchResults({
@@ -58,7 +58,7 @@ export function BlogSearchResults({
                 {blogs.map((b) => (
                   <li key={b.slug}>
                     <Link href={`/@${b.slug}`} className="pb-row flex min-h-11 items-center gap-3 px-4 py-2">
-                      <OwnerAvatar photoKey={b.photoKey} characterAsset={b.characterAsset} nickname={b.nickname} size={36} />
+                      <OwnerAvatar photoKey={b.photoKey} characterAsset={b.characterAsset} outfit={b.outfit} nickname={b.nickname} size={36} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate">
                           <b>{b.nickname}</b> · {b.title}

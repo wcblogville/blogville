@@ -11,6 +11,8 @@ type Blog = {
   nickname: string;
   photoKey: string | null;
   characterAsset: string;
+  /** 주인이 지금 입은 아바타 (꾸민 모습) */
+  outfit?: string[];
   followerCount: number;
   postCount: number;
   /** 공지 블로그(관리자): 마을이 없다 */
@@ -19,6 +21,7 @@ type Blog = {
 
 /**
  * 주인 프로필 사진(48px 원형) 또는 캐릭터 얼굴 (BLOG-04 / FR-028, research R-20·R-21).
+ * 사진이 있으면 사진이 먼저다. 사진이 없으면 지금 꾸민 모습(옷·머리·얼굴형, 2026-10-12)의 캐릭터 얼굴.
  * 사진은 post 소유 /files/{키}가 누구에게나 내려준다 (프로필 사진 첨부는 비공개 글 보호와 별개)
  */
 export function OwnerAvatar({
@@ -75,7 +78,7 @@ export function BlogTitleBar({
     <section className={`pixel-card flex flex-wrap items-center gap-x-5 gap-y-3 px-4 py-3 ${className}`} aria-label="블로그 이름과 주인" data-blog-title-bar>
       <div className="flex min-w-0 flex-[1_1_18rem] items-center gap-3">
         {/* 주인 프로필: 사진 또는 캐릭터 얼굴 (FR-028). 누구에게나 같다 (US4-10) */}
-        <OwnerAvatar photoKey={blog.photoKey} characterAsset={blog.characterAsset} nickname={blog.nickname} />
+        <OwnerAvatar photoKey={blog.photoKey} characterAsset={blog.characterAsset} outfit={blog.outfit} nickname={blog.nickname} />
         <div className="min-w-0">
           {/* 블로그 이름 링크도 누르는 영역 44px 이상 (FR-059, research R-24) */}
           <Link href={`/@${blog.slug}`} className="inline-flex min-h-11 min-w-11 items-center">

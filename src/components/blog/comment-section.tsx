@@ -99,7 +99,7 @@ function Line({
   return (
     <div className="flex gap-3 py-3">
       <span className="pixel-slot h-fit shrink-0 p-1">
-        <CharacterBadge asset={author.characterAsset} size={34} />
+        <CharacterBadge asset={author.characterAsset} outfit={author.outfit} size={34} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-2 text-sm">

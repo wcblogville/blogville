@@ -199,6 +199,7 @@ export async function getFriends(userId: string): Promise<TownFriend[]> {
       title: blogs.title,
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
+      outfit: outfitOf(blogs.ownerId),
       isFavorite: follows.isFavorite,
       townLot: follows.townLot,
       // 공지 블로그(관리자)는 마을에 집이 없어 ⭐로 자리를 차지하지 않게 한다

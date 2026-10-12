@@ -147,6 +147,58 @@ let captured = null;
   await applyAndWait("어울려요");
 }
 
+// ── 미용실 얼굴형 + 꾸민 모습이 블로그·댓글 얼굴에 (사용자 요청 2026-10-12) ──
+{
+  await page.goto(`${BASE}/salon`);
+  await page.locator('[data-style-studio="salon"]').waitFor({ timeout: 20000 });
+  check("미용실 탭: 머리 모양·머리 색·얼굴형", (await page.getByRole("tab").count()) === 3 && (await tab("얼굴형").count()) === 1);
+  await tab("얼굴형").click();
+  const round = await itemId("face_round");
+  check("얼굴형 카드 5개 + 원래 얼굴", (await page.locator('[data-style-grid="face_shape"] [data-style-option]').count()) === 6);
+  await option(round).click();
+  check("동그란 얼굴 고르면 거울이 바로 바뀜", (await page.locator("[data-mirror]").getAttribute("data-look")).includes("face.round"));
+  check("계산서: 🪙 60", (await apply.innerText()).includes("🪙 60"), await apply.innerText());
+  await page.screenshot({ path: `${outDir}/style-face-shape.png`, fullPage: true });
+  check("얼굴형 사고 적용: 얼굴형 안내", await applyAndWait("새 얼굴형이 잘 어울려요"), await status.innerText());
+  check(
+    "DB: 동그란 얼굴을 가지고 입음, 머리·옷 그대로, 코인 60 줄어듦",
+    (await owns("face_round")) && (await equipped("face_shape")) === "face_round" && (await equipped("hair")) === "hair_pony" && (await equipped("outfit")) === "outfit_pajama" && (await coins()) === 150,
+    `${await coins()}`,
+  );
+  await page.reload();
+  const headerLook = await page.locator("header img[data-look]").first().getAttribute("data-look");
+  check("헤더 캐릭터 얼굴에 얼굴형·머리·옷", headerLook.includes("face.round") && headerLook.includes("hair.pony") && headerLook.includes("outfit.pajama"), headerLook);
+
+  // 원래 얼굴로 돌아가기 (무료) → 다시 동그란 얼굴 (가진 것이라 다시 사지 않는다)
+  await tab("얼굴형").click();
+  await option("none").click();
+  check("원래 얼굴 적용", await applyAndWait("새 얼굴형이 잘 어울려요"));
+  check("DB: 얼굴형 칸 비움, 가진 것은 그대로", (await equipped("face_shape")) === null && (await owns("face_round")) && (await coins()) === 150);
+  await option(round).click();
+  check("가진 얼굴형은 `✨ 적용하기`", (await apply.getAttribute("data-style-apply")) === "apply");
+  await applyAndWait("어울려요");
+
+  // 블로그 제목 줄과 댓글 얼굴이 꾸민 모습 (프로필 사진이 없으니 캐릭터 얼굴)
+  const slug = (await one("SELECT slug FROM blogs WHERE owner_id = $1", [uid])).slug;
+  await page.goto(`${BASE}/@${slug}`);
+  const titleLook = await page.locator("[data-blog-title-bar] img[data-look]").first().getAttribute("data-look");
+  check("블로그 제목 줄 얼굴 = 꾸민 모습", titleLook.includes("face.round") && titleLook.includes("hair.pony") && titleLook.includes("outfit.pajama"), titleLook);
+  await page.locator("[data-blog-title-bar]").screenshot({ path: `${outDir}/style-blog-title-look.png` });
+
+  const blogId = (await one("SELECT id FROM blogs WHERE owner_id = $1", [uid])).id;
+  const postId = (await one("INSERT INTO posts (blog_id, title, content_html, content_text, visibility) VALUES ($1, '꾸민 모습 댓글', '<p>x</p>', 'x', 'public') RETURNING id", [blogId])).id;
+  await page.goto(`${BASE}/@${slug}/${postId}`);
+  const signLook = await page.locator(`main a[href="/@${slug}"] img[data-look]`).first().getAttribute("data-look");
+  check("글 상세 블로그 간판 얼굴 = 꾸민 모습", signLook.includes("face.round"), signLook);
+  await page.getByRole("textbox", { name: "댓글" }).fill("새 얼굴형 어때요?");
+  await page.getByRole("button", { name: "댓글 등록" }).click();
+  const line = page.locator('[id^="comment-"]', { hasText: "새 얼굴형 어때요?" }).first();
+  await line.waitFor({ timeout: 10000 });
+  const commentLook = await line.locator("img[data-look]").first().getAttribute("data-look");
+  check("댓글 얼굴 = 꾸민 모습 (얼굴형·머리·머리 색·옷)", ["face.round", "hair.pony", "haircolor.pink", "outfit.pajama"].every((k) => commentLook.includes(k)), commentLook);
+  await page.locator("section", { has: line }).last().screenshot({ path: `${outDir}/style-comment-look.png` });
+}
+
 // ── 광장: 입은 모습 + 걷기 그림 (TOWN-17) ──
 {
   await page.goto(`${BASE}/town`);

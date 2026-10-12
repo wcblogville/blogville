@@ -28,8 +28,8 @@ const updatedAt = () =>
 // ===== 열거형 =====
 // avatar(모자·옷·소품)·growth(동물 성장 아이템)는 SHOP-01·SHOP-06에서 뒤에 더했다
 export const itemType = pgEnum("item_type", ["character", "background", "furniture", "avatar", "growth", "deco"]);
-// 아바타 꾸미기 부위 (SHOP-06). 머리 모양 hair·머리 색 hair_color는 미용실(SHOP-07, 2026-10-11)에서 뒤에 더했다
-export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "hair", "hair_color"]);
+// 아바타 꾸미기 부위 (SHOP-06). 머리 모양 hair·머리 색 hair_color는 미용실(SHOP-07, 2026-10-11), 얼굴형 face_shape는 2026-10-12에 뒤에 더했다
+export const avatarSlot = pgEnum("avatar_slot", ["hat", "outfit", "accessory", "hair", "hair_color", "face_shape"]);
 // neighbors = 이웃 공개: 주인과 주인을 이웃 추가한(follows.follower_id) 회원만 본다 (2026-10-12 사용자 요청)
 export const visibility = pgEnum("visibility", ["public", "neighbors", "private"]);
 export const userRole = pgEnum("user_role", ["user", "admin"]);

@@ -9,7 +9,7 @@ import { removeProfilePhoto, setProfilePhoto } from "./photo-actions";
 
 const ACCEPT = Object.keys(IMAGE_TYPES).map((e) => `.${e}`).join(",");
 
-export function PhotoForm({ photoKey, characterAsset, nickname }: { photoKey: string | null; characterAsset: string; nickname: string }) {
+export function PhotoForm({ photoKey, characterAsset, outfit, nickname }: { photoKey: string | null; characterAsset: string; outfit?: string[]; nickname: string }) {
   const input = useRef<HTMLInputElement>(null);
   const [pending, start] = useTransition();
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -50,7 +50,7 @@ export function PhotoForm({ photoKey, characterAsset, nickname }: { photoKey: st
   return (
     <div className="mt-3 flex flex-wrap items-center gap-4 px-[3px]">
       <span className="pixel-slot grid place-items-center p-2" data-profile-photo={photoKey ? "photo" : "character"}>
-        <OwnerAvatar photoKey={photoKey} characterAsset={characterAsset} nickname={nickname} size={72} />
+        <OwnerAvatar photoKey={photoKey} characterAsset={characterAsset} outfit={outfit} nickname={nickname} size={72} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <p className="text-xs text-ink-soft">PNG·JPG·GIF·WEBP 사진, 10MB까지. 사진이 없으면 캐릭터 얼굴이 보여요.</p>

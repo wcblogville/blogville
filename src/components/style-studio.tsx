@@ -28,6 +28,7 @@ const THEMES: Record<StylePlace, { awning: string; wall: string; floor: string }
 const NONE_LABEL: Record<AvatarSlot, string> = {
   hair: "원래 머리",
   hair_color: "원래 색",
+  face_shape: "원래 얼굴",
   outfit: "옷 벗기",
   hat: "모자 벗기",
   accessory: "소품 빼기",
@@ -107,9 +108,10 @@ export function StyleStudio({
         const r = await save(selection, bill.cost);
         if (!r.ok) return setMessage({ ok: false, text: r.error });
         setItems((list) => list.map((i) => (bill.toBuy.some((b) => b.id === i.id) ? { ...i, owned: true } : i)));
+        const changed = slots.filter((s) => (selection[s] ?? null) !== (worn[s] ?? null));
         setWorn(selection);
         setCoins(r.coins);
-        setMessage({ ok: true, text: styleMessage(place, r.bought, r.cost) });
+        setMessage({ ok: true, text: styleMessage(place, r.bought, r.cost, changed) });
       } catch {
         setMessage({ ok: false, text: STYLE_ERRORS.failed });
       }
@@ -183,7 +185,7 @@ export function StyleStudio({
 
         {place === "salon" && !hairVisible && (
           <p className="pixel-paper mt-4 bg-[#fff0f6] p-3 text-sm shadow-[inset_0_0_0_3px_#f0c3d6]" data-hair-hidden>
-            🐾 지금 캐릭터는 털이라 머리가 보이지 않아요. 사람 주민(남자·여자 주민, 모험가)일 때 보여요. 골라 둔 머리는 그대로 남아요.
+            🐾 지금 캐릭터는 털이라 머리와 얼굴형이 보이지 않아요. 사람 주민(남자·여자 주민, 모험가)일 때 보여요. 골라 둔 머리와 얼굴형은 그대로 남아요.
           </p>
         )}
 

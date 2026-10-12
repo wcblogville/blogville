@@ -65,7 +65,7 @@ expect("모자는 top 층", outfitLayers(["hat.straw"]).top === AVATAR_PARTS["ha
 expect("lookKey는 순서와 상관없이 같음", lookKey("char.cat", ["hat.straw", "acc.glasses"]) === lookKey("char.cat", ["acc.glasses", "hat.straw"]), true);
 expect("옷 없으면 lookKey = 캐릭터", lookKey("char.cat"), "char.cat");
 expect("입히면 그림이 달라짐", characterSvg("char.cat", 64, ["hat.straw"]) !== characterSvg("char.cat", 64), true);
-expect("아바타 그림 77개 (모자·옷·소품 45 + 머리 모양 16 + 머리 색 16)", Object.keys(AVATAR_PARTS).length, 77);
+expect("아바타 그림 99개 (모자·옷·소품 55 + 머리 모양 23 + 머리 색 16 + 얼굴형 5)", Object.keys(AVATAR_PARTS).length, 99);
 expect("성장 아이템 그림", ["growth.feed", "growth.premium", "growth.booster", "growth.elixir"].every((k) => growthSvg(k).startsWith("<svg") && hasGrowthArt(k)), true);
 
 // 아이템 카탈로그(scripts/seed.ts)의 모든 asset_key에 코드로 그린 그림이 있다 (그림이 없으면 회색 상자로 보인다)

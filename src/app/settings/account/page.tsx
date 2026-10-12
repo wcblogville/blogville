@@ -82,7 +82,7 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
         <h2 id="profile-title" className={PLANK}>
           프로필 사진
         </h2>
-        <PhotoForm photoKey={viewer.profile.photoKey} characterAsset={viewer.profile.characterAsset} nickname={viewer.profile.nickname} />
+        <PhotoForm photoKey={viewer.profile.photoKey} characterAsset={viewer.profile.characterAsset} outfit={viewer.profile.outfit} nickname={viewer.profile.nickname} />
       </section>
 
       <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="nickname-title" data-section="nickname">

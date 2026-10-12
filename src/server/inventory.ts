@@ -14,7 +14,7 @@ export function outfitOf(userIdColumn: AnyPgColumn | SQL): SQL<string[]> {
   )`;
 }
 
-/** 상점 목록: 판매 중인 것만, 내 수량(없으면 0)과 가진 회원 수 (contracts/shop.md 1.1). 머리 모양·머리 색은 미용실에서만 판다 (SHOP-07) */
+/** 상점 목록: 판매 중인 것만, 내 수량(없으면 0)과 가진 회원 수 (contracts/shop.md 1.1). 머리 모양·머리 색·얼굴형은 미용실에서만 판다 (SHOP-07) */
 export async function listShopItems(userId: string): Promise<ShopItem[]> {
   const owners = db
     .select({ itemId: userItems.itemId, n: sql<number>`COUNT(*)::int`.as("n") })
@@ -41,7 +41,7 @@ export async function listShopItems(userId: string): Promise<ShopItem[]> {
       and(
         eq(items.isOnSale, true),
         ne(items.type, "character"),
-        or(isNull(items.avatarSlot), notInArray(items.avatarSlot, ["hair", "hair_color"])),
+        or(isNull(items.avatarSlot), notInArray(items.avatarSlot, ["hair", "hair_color", "face_shape"])),
       ),
     )
     .orderBy(asc(items.requiredLevel), asc(items.price), asc(items.id));

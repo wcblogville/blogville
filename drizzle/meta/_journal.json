@@ -302,6 +302,13 @@
       "when": 1791785474002,
       "tag": "0042_post_tag_position",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791785980519,
+      "tag": "0043_face_shape_slot",
+      "breakpoints": true
     }
   ]
 }
