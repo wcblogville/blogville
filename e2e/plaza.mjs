@@ -79,8 +79,8 @@ const placed = async () =>
   // 따라다니는 동물: P는 병아리, Q(구경하는 나)는 토끼를 블로그에 전시했다 → P의 마을에서도 나를 따라오는 건 내 토끼
   for (const [uid, code] of [[p.uid, "chick"], [q.uid, "bunny"]]) {
     const a = await one(
-      `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
-       VALUES ($1, (SELECT id FROM animal_species WHERE code = $2), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+      `INSERT INTO user_animals (user_id, sex, species_id, status, growth, source, hatched_at, grown_at)
+       VALUES ($1, 'female', (SELECT id FROM animal_species WHERE code = $2), 'grown', 0, 'shop', now(), now()) RETURNING id`,
       [uid, code],
     );
     await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, a.id]);

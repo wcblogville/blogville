@@ -5,7 +5,7 @@
 // - 땅: 절벽 앞면·물·단 가장자리는 못 지나가고 계단으로만 오르내린다 (발 상자로 미리 확인)
 // - 즐겨찾기 이웃은 집 앞에 서 있지 않고 마을 길을 걸어 다닌다 (NPC, 사용자 요청 2026-10-11)
 import type * as PhaserNS from "phaser";
-import { ANIMAL_SIZE, animalHalfWidth, animalHeight, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri } from "@/lib/art/animals";
+import { ANIMAL_SIZE, animalHalfWidth, animalHeight, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri, type PetLook } from "@/lib/art/animals";
 import type { AnimalDisplaySize } from "@/lib/farm";
 import { VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
@@ -72,8 +72,8 @@ const PET_UP = 8;
 const ME_HEIGHT = 21;
 const TALL_EXTRA = 20;
 /** 동물별 따라오는 거리(자취)와 옆으로 비켜 서는 거리 (px) */
-export function petGaps(assetKey: string, size?: AnimalDisplaySize) {
-  const gap = ME_HALF + animalHalfWidth(assetKey, size) * PIXEL + PET_MARGIN + (animalHeight(assetKey, size) > ME_HEIGHT ? TALL_EXTRA : 0);
+export function petGaps(assetKey: string, size?: AnimalDisplaySize, look: PetLook = {}) {
+  const gap = ME_HALF + animalHalfWidth(assetKey, size, look) * PIXEL + PET_MARGIN + (animalHeight(assetKey, size, look) > ME_HEIGHT ? TALL_EXTRA : 0);
   return { gap, side: gap + PET_SIDE_EXTRA };
 }
 /**
@@ -93,8 +93,8 @@ const PET_WALK_OFF = 8;
 /** 걷기 그림 한 칸마다 걷는 거리(px, 내 빠르기로 90ms)와 숨쉬기 한 칸 시간(ms). 뛰는 높이는 PET_WALK_LIFT × PIXEL */
 const PET_HOP_PX = (SPEED * 90) / 1000;
 const PET_BREATH_MS = 600;
-/** 동물 그림판 이름 (동물·스킨·크기마다 다르다) */
-const petKey = (pet: TownPet) => `pet:${pet.assetKey}:${pet.skinKey ?? ""}:${pet.size ?? "normal"}`;
+/** 동물 그림판 이름 (동물·스킨·크기·암수·특별 진화·모습마다 다르다) */
+const petKey = (pet: TownPet) => `pet:${pet.assetKey}:${pet.skinKey ?? ""}:${pet.size ?? "normal"}:${pet.sex ?? ""}:${pet.variant ?? ""}:${pet.form ?? "adult"}`;
 /** 이만큼 넘게 떨어지면(순간 이동 등) 바로 옆으로 옮긴다 */
 const PET_SNAP = 420;
 const TREE_KINDS = ["round", "pine", "bush", "blossom", "oak", "cherry", "rock", "boulder"] as const;
@@ -112,7 +112,7 @@ export function townTextures(data: TownData) {
   for (const h of data.neighbors) list.set(walkKey(h.characterAsset, h.outfit), walkSheetDataUri(h.characterAsset, h.outfit, PIXEL));
   // 따라다니는 동물 (내가 블로그에 전시한 다 키운 동물, 어른 단계)
   // 그림판: 서 있기·숨쉬기·착지·기욺·뛰어오름 5칸 × 오른쪽·왼쪽 2줄 (animals.ts petSheetSvg), 스킨을 입힌 색
-  if (data.pet) list.set(petKey(data.pet), petSheetDataUri(data.pet.assetKey, data.pet.skinKey, PIXEL, data.pet.size));
+  if (data.pet) list.set(petKey(data.pet), petSheetDataUri(data.pet.assetKey, data.pet.skinKey, PIXEL, data.pet.size, data.pet));
   list.set("board", toDataUri(boardSvg()));
   list.set("shop", toDataUri(shopSvg()));
   list.set("salon", toDataUri(salonSvg()));
@@ -493,11 +493,14 @@ export function createTownScene(
       if (!data.pet || !this.textures.exists(petKey(data.pet))) return;
       // 발바닥(32칸 중 30번째 줄)이 발 위치에 오게. 캐릭터처럼 발 위치 + 8에 그린다
       const img = this.add.image(0, 0, petKey(data.pet), 0).setOrigin(0.5, 30 / 32);
-      this.pet = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", ...petGaps(data.pet.assetKey, data.pet.size) };
+      this.pet = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", ...petGaps(data.pet.assetKey, data.pet.size, data.pet) };
       this.game.canvas.dataset.pet = data.pet.assetKey;
       this.game.canvas.dataset.petSize = ANIMAL_SIZE[data.pet.assetKey]?.tier ?? "medium";
       this.game.canvas.dataset.petSkin = data.pet.skinKey ?? "";
       this.game.canvas.dataset.petDisplaySize = data.pet.size ?? "normal";
+      this.game.canvas.dataset.petDisplayForm = data.pet.form ?? "adult";
+      this.game.canvas.dataset.petSex = data.pet.sex ?? "";
+      this.game.canvas.dataset.petVariant = data.pet.variant ?? "";
       this.placePet(start);
     }
 

@@ -292,8 +292,8 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
   await page.waitForTimeout(500);
   check("전시한 동물이 없으면 따라오는 동물 없음", (await canvas.getAttribute("data-pet")) === null);
   const pet = await one(
-    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
-     VALUES ($1, (SELECT id FROM animal_species WHERE code = 'bunny'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+    `INSERT INTO user_animals (user_id, sex, species_id, status, growth, source, hatched_at, grown_at)
+     VALUES ($1, 'female', (SELECT id FROM animal_species WHERE code = 'bunny'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
     [aId],
   );
   await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [aId, pet.id]);
@@ -344,8 +344,8 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
   await page.screenshot({ path: `${outDir}/town-pet-small.png` });
   const smallGap = Math.hypot(sx - tx, sy - ty);
   const calf = await one(
-    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
-     VALUES ($1, (SELECT id FROM animal_species WHERE code = 'calf'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+    `INSERT INTO user_animals (user_id, sex, species_id, status, growth, source, hatched_at, grown_at)
+     VALUES ($1, 'female', (SELECT id FROM animal_species WHERE code = 'calf'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
     [aId],
   );
   await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [aId, calf.id]);

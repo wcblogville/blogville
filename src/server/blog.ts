@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
-import type { AnimalDisplaySize } from "@/lib/farm";
+import type { AnimalDisplaySize, AnimalForm, AnimalSex } from "@/lib/farm";
 import {
   animalSkins,
   animalSpecies,
@@ -158,6 +158,10 @@ export async function getGrownAnimals(ownerId: string) {
       assetKey: animalSpecies.assetKey,
       skinKey: animalSkins.assetKey,
       size: sql<AnimalDisplaySize>`${userAnimals.displaySize}`,
+      // 암수·특별 진화·데리고 다닐 모습 (2026-10-12)
+      sex: sql<AnimalSex | null>`${userAnimals.sex}`,
+      variant: userAnimals.variant,
+      form: sql<AnimalForm>`${userAnimals.displayForm}`,
       grownAt: userAnimals.grownAt,
     })
     .from(userAnimals)

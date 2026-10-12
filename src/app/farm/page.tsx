@@ -4,6 +4,7 @@ import { requireMember } from "@/server/dal";
 import { getFarm } from "@/server/farm";
 import { listGrowthItems } from "@/server/inventory";
 import { getWallet } from "@/server/points";
+import { FarmInfo } from "./farm-info";
 import { FarmView } from "./farm-view";
 
 export const metadata = { title: "동물 농장" };
@@ -21,9 +22,13 @@ export default async function FarmPage() {
         icon="paw"
         title="동물 농장"
         aside={
-          <p className="pixel-badge bg-[#e9f6e4] text-sm">
-            키우는 중 <b>{MAX_ACTIVE_ANIMALS - farm.slotsLeft}</b> / {MAX_ACTIVE_ANIMALS}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="pixel-badge bg-[#e9f6e4] text-sm">
+              키우는 중 <b>{MAX_ACTIVE_ANIMALS - farm.slotsLeft}</b> / {MAX_ACTIVE_ANIMALS}
+            </p>
+            {/* ⓘ 알 확률·암수·특별 진화·아기 모습 안내 (2026-10-12) */}
+            <FarmInfo odds={farm.hatchOdds} />
+          </div>
         }
       >
         <p className="text-sm">

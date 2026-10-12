@@ -702,12 +702,25 @@ export const userAnimals = pgTable(
     skinId: integer("skin_id"),
     // 다 키운 동물의 크기 (사용자 요청 2026-10-12, 주인이 농장에서 고른다). 목록은 src/lib/farm.ts ANIMAL_DISPLAY_SIZES
     displaySize: text("display_size").notNull().default("normal"),
+    // 암수 (2026-10-12 "암/수 별로 성장했을 때 모습"): 부화·분양할 때 반반으로 정한다. 알이면 NULL. 목록은 src/lib/farm.ts ANIMAL_SEXES
+    sex: text("sex"),
+    // 특별 진화 (2026-10-12 "낮은 확률로 망아지가 유니콘이나 페가수스"): 다 자랄 때 정해진다. NULL = 보통 모습.
+    // 키·확률은 src/lib/farm.ts SPECIAL_VARIANTS, 그림은 src/lib/art/animals.ts ANIMAL_VARIANT_ART
+    variant: text("variant"),
+    // 데리고 다닐 모습 (2026-10-12 "아기 형태로 데리고 다닐 수도 있게"): 다 자란 동물이 고른다. 목록은 src/lib/farm.ts ANIMAL_FORMS
+    displayForm: text("display_form").notNull().default("adult"),
   },
   (t) => [
     check("user_animals_species_check", sql`(${t.status} = 'egg') = (${t.speciesId} IS NULL)`),
     check("user_animals_growth_check", sql`${t.growth} >= 0`),
     check("user_animals_level_check", sql`(${t.source} = 'level') = (${t.sourceLevel} IS NOT NULL)`),
     check("user_animals_display_size_check", sql`${t.displaySize} IN ('tiny', 'small', 'normal', 'large')`),
+    // 알은 암수가 없고, 깨어난 동물은 꼭 있다
+    // (NULL이 CHECK를 통과하지 않게 IS NULL로 견준다)
+    check("user_animals_sex_check", sql`(${t.status} = 'egg') = (${t.sex} IS NULL) AND (${t.sex} IS NULL OR ${t.sex} IN ('female', 'male'))`),
+    // 특별 진화는 다 자란 동물만
+    check("user_animals_variant_check", sql`${t.variant} IS NULL OR ${t.status} = 'grown'`),
+    check("user_animals_display_form_check", sql`${t.displayForm} IN ('adult', 'baby')`),
     // 첫 알은 한 번, 레벨 보상 알은 레벨마다 한 번만
     uniqueIndex("user_animals_starter_uq").on(t.userId).where(sql`${t.source} = 'starter'`),
     uniqueIndex("user_animals_level_uq").on(t.userId, t.sourceLevel).where(sql`${t.source} = 'level'`),

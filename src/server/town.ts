@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { animalSkins, animalSpecies, blogs, blogVisits, follows, items, pointLedger, posts, profiles, userAnimals, users } from "@/db/schema";
 import { hasAnimalArt } from "@/lib/art/animals";
 import { ROOF_HEX } from "@/lib/art/town";
-import type { AnimalDisplaySize } from "@/lib/farm";
+import { type AnimalDisplaySize, type AnimalForm, type AnimalSex, animalName } from "@/lib/farm";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
 import { assignLots } from "@/lib/town-lots";
@@ -136,13 +136,21 @@ export async function getMyHouse(userId: string): Promise<TownHouse | null> {
  */
 export async function getTownPet(userId: string): Promise<TownPet | null> {
   const [row] = await db
-    .select({ assetKey: animalSpecies.assetKey, name: animalSpecies.name, skinKey: animalSkins.assetKey, size: sql<AnimalDisplaySize>`${userAnimals.displaySize}` })
+    .select({
+      assetKey: animalSpecies.assetKey,
+      name: animalSpecies.name,
+      skinKey: animalSkins.assetKey,
+      size: sql<AnimalDisplaySize>`${userAnimals.displaySize}`,
+      sex: sql<AnimalSex | null>`${userAnimals.sex}`,
+      variant: userAnimals.variant,
+      form: sql<AnimalForm>`${userAnimals.displayForm}`,
+    })
     .from(blogs)
     .innerJoin(userAnimals, and(eq(userAnimals.id, blogs.showcaseAnimalId), eq(userAnimals.userId, blogs.ownerId)))
     .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
     .leftJoin(animalSkins, eq(animalSkins.id, userAnimals.skinId))
     .where(and(eq(blogs.ownerId, userId), eq(userAnimals.status, "grown")));
-  return row && hasAnimalArt(row.assetKey) ? row : null;
+  return row && hasAnimalArt(row.assetKey) ? { ...row, name: animalName(row.name, row.variant) } : null;
 }
 
 /** 친구 목록: 내가 이웃으로 추가한 사람 (즐겨찾기 먼저, 그다음 닉네임 순). followsBack = 서로 이웃 */

@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.19 (2026-10-12, 동물 암수·특별 진화·데리고 다닐 모습: `user_animals.sex`(알은 NULL, 깨어나면 `female`/`male`, CHECK `user_animals_sex_check`, 기존 동물은 반반으로 채움)·`variant`(특별 진화 키, 다 자란 동물만 CHECK)·`display_form`(기본 `adult`, CHECK `adult`·`baby`), 알 확률은 `animal_species.hatch_weight` 만분율(아홉 종류 모두 0보다 큼), 마이그레이션 0042). 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -283,7 +283,7 @@ erDiagram
         int grow_exp
         int reward_exp
         int reward_coins
-        smallint hatch_weight "0 = 알에서 안 나옴"
+        smallint hatch_weight "알 확률 만분율 (합 10000), 0 = 알에서 안 나옴"
         int price "분양 값, NULL = 분양 안 함"
     }
     animal_skins {
@@ -312,6 +312,9 @@ erDiagram
         timestamptz grown_at
         int skin_id FK "NULL = 기본 색"
         text display_size "tiny / small / normal / large, 기본 normal"
+        text sex "female / male, 알이면 NULL"
+        text variant "특별 진화 키 (다 자란 동물만), NULL = 보통"
+        text display_form "adult / baby, 기본 adult"
     }
     animal_cares {
         int animal_id PK,FK
@@ -534,6 +537,11 @@ COMMIT
   - 사용 기록 표는 두지 않는다: 요구사항에 "먹인 기록" 화면이 없고, 성장치는 `user_animals.growth`에, 구매는 원장(`purchase`)에 남는다. 필요해지면 그때 추가해도 다른 구조는 바뀌지 않는다
 - **다 키운 동물은 블로그에서** (BLOG-04, 블로그 홈 `🏅 동물 도감`): 다 키운 동물(`status = 'grown'`)이 곧 카드다. 블로그는 주인(`blogs.owner_id = user_animals.user_id`)으로 도감을 모아 보여준다. 블로그와 동물을 따로 잇는 표는 필요 없다 (같은 정보를 두 번 두게 된다).
 - **다 키운 동물 크기** (2026-10-12, `0036_animal_display_size`): `user_animals.display_size` 텍스트 NOT NULL 기본 `'normal'`, `CHECK (display_size IN ('tiny', 'small', 'normal', 'large'))`. 목록은 `src/lib/farm.ts` `ANIMAL_DISPLAY_SIZES`와 같다. 바꾸는 쪽은 `setAnimalSize`(내 동물이고 `status = 'grown'`인 줄만 UPDATE). 그림 크기(칸)는 저장하지 않고 그릴 때 계산한다 (종류별 크기·도화지 한계가 코드에 있어 같은 정보를 두 번 두지 않는다). 짧은 고정 목록이라 enum 대신 CHECK를 썼다 (나중에 값을 늘리기 쉽다).
+- **암수·특별 진화·데리고 다닐 모습** (2026-10-12, `0042_animal_rarity`, 병합 때 번호 정리): 세 열 모두 텍스트 + CHECK (짧은 고정 목록이라 enum 대신, 1.18과 같은 이유).
+  - `sex`: `CHECK ((status = 'egg') = (sex IS NULL) AND (sex IS NULL OR sex IN ('female', 'male')))` (NULL은 CHECK를 통과하므로 `IN`만으로는 깨어난 동물의 빈 암수를 못 막는다. 그래서 `IS NULL`로 견준다). 알일 때는 종류처럼 정해지지 않았다가 부화(`hatchEgg`)·분양(`adoptAnimal`)하는 같은 UPDATE/INSERT에서 정한다 (`randomSex`, node:crypto). 마이그레이션이 이미 깨어난 동물에 `random()`으로 반반을 채운 뒤 CHECK를 건다.
+  - `variant`: NULL = 보통 모습, 값은 `src/lib/farm.ts` `SPECIAL_VARIANTS`의 키(`unicorn`, `pegasus`, `strawberry_calf` …). `CHECK (variant IS NULL OR status = 'grown')`. 다 자라는 `addGrowth` 트랜잭션 안에서만 넣는다 (그때 `skin_id`를 NULL로: 특별한 동물은 스킨을 입지 않는다). 키 목록과 "그 종류의 키인지"는 DB가 아니라 코드 표가 정한다 (특별 진화를 늘릴 때 마이그레이션이 필요 없게, 모르는 키는 보통 모습으로 그린다). 확률은 저장하지 않는다 (코드 표 한 곳).
+  - `display_form`: NOT NULL 기본 `'adult'`, `CHECK (display_form IN ('adult', 'baby'))`. `setAnimalForm`(내 `grown` 동물만). 크기(`display_size`)와 함께 광장·우리 집·농장 그림을 정한다.
+- **알 확률** (2026-10-12): 표는 바뀌지 않고 `animal_species.hatch_weight`의 값만 바뀐다 — 등급(`src/lib/farm.ts` `HATCH_RARITY`·`RARITY_ODDS`)에서 계산한 만분율(합 10,000)을 시드가 넣는다. 그래서 분양 동물도 `hatch_weight > 0`이고 `animal_species_obtainable_check`는 그대로 맞다.
 - **블로그에 한 마리 전시** (BLOG-04, `0015_blog_showcase`): `blogs.showcase_animal_id`(NULL 허용). **내 동물만** 전시하도록 장착처럼 복합 FK를 쓴다.
 
   ```sql
@@ -749,7 +757,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 
 ### 3.28 펫 종류·스킨 (사용자 요청 2026-10-11 "펫 종류, 펫 따라다니는 모션, 펫 종류별로 스킨", TOWN-09, `0034_pet_species_skins`)
 
-- **분양 동물**: 새 표 없이 `animal_species.price`(NULL = 분양 안 함)를 더했다. 햄스터·아기 고양이·강아지·아기 양·조랑말은 `hatch_weight = 0`이라 알에서 나오지 않고 값으로만 데려온다. CHECK `animal_species_obtainable_check`(알에서 나오거나 값이 있다)로 얻을 수 없는 종류를 막는다. 분양하면 `user_animals`에 `source = 'adopt'`, `status = 'growing'`(알 없이 아기)으로 한 줄, 원장 `animal_adopt`(경험치 0이라 직접 INSERT, `ref_id` = 동물 ID). 키우는 자리 5마리를 알과 함께 쓴다.
+- **분양 동물**: 새 표 없이 `animal_species.price`(NULL = 분양 안 함)를 더했다. 햄스터·아기 고양이·강아지·아기 양·조랑말은 `hatch_weight = 0`이라 알에서 나오지 않고 값으로만 데려온다. (1.19부터는 아홉 종류 모두 알에서도 나온다: 등급 확률 만분율) CHECK `animal_species_obtainable_check`(알에서 나오거나 값이 있다)로 얻을 수 없는 종류를 막는다. 분양하면 `user_animals`에 `source = 'adopt'`, `status = 'growing'`(알 없이 아기)으로 한 줄, 원장 `animal_adopt`(경험치 0이라 직접 INSERT, `ref_id` = 동물 ID). 키우는 자리 5마리를 알과 함께 쓴다.
 - **스킨**: `animal_skins`는 종류마다의 색·무늬 카탈로그(실제 색은 코드 `src/lib/art/animals.ts` `ANIMAL_SKINS`, DB에는 `asset_key`만). 산 것은 `user_animal_skins (user_id, skin_id)`(N:M, 한 번 사면 같은 종류의 내 동물 모두에게), 입힌 것은 `user_animals.skin_id`.
 - 입힌 스킨이 "그 종류의 것"이고 "내가 산 것"인지는 복합 FK 두 개로 DB가 지킨다: `(species_id, skin_id) → animal_skins (species_id, id)`(이를 위해 `animal_skins`에 UNIQUE `(species_id, id)`), `(user_id, skin_id) → user_animal_skins (user_id, skin_id)`. `skin_id`가 NULL이면(기본 색) 두 FK 모두 검사하지 않는다 (MATCH SIMPLE). 탈퇴하면 `user_animals`·`user_animal_skins`가 함께 CASCADE로 지워지고, NO ACTION 검사는 문장 끝에 하므로 막히지 않는다.
 - 스킨을 사고 입히는 것은 한 Server Action(`wearSkin`)에서 `lockUser` 트랜잭션으로: 안 산 스킨이면 잔액 확인 → `user_animal_skins` INSERT → 원장 `skin_purchase`(`ref_id` = 스킨 ID) → `skin_id` UPDATE.
