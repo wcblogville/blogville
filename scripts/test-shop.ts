@@ -8,7 +8,8 @@ import { CHARACTER_KEYS } from "../src/lib/art/characters";
 import { hasDecoArt } from "../src/lib/art/deco";
 import { FURNITURE_KEYS, furnitureRows, hasFurnitureArt } from "../src/lib/art/furniture";
 import { growthSvg, hasGrowthArt } from "../src/lib/art/growth";
-import { CATCHES, pickCatch } from "../src/lib/fishing";
+import { availabilityText, catchByKey, catchCoins, catchPool, CATCHES, expectedCoinsPerCast, formatSize, isAvailable, judgeTiming, pickCatch, poolTotal, rollSize } from "../src/lib/fishing";
+import { FISHING_RULES, kstClock, weekStart } from "../src/lib/game";
 import { buttonState, purchaseMessage, SHOP_ERRORS, SHOP_SECTIONS, shortage, sortShopItems, type ShopItem } from "../src/lib/shop";
 
 let failed = 0;
@@ -90,12 +91,53 @@ expect("성장 아이템 그림", ["growth.feed", "growth.premium", "growth.boos
   expect("가구 값: 30부터 3,000까지 (싼 소품부터 오래 모으는 목표까지)", [Math.min(...furniture), Math.max(...furniture)], [30, 3000]);
 }
 
-// 연못 낚시터: 무게 합 100, 경계값
-expect("낚시 무게 합 100", CATCHES.reduce((n, c) => n + c.weight, 0), 100);
-expect("0 → 송사리", pickCatch(0).key, "minnow");
-expect("99 → 마지막(낡은 장화)", pickCatch(99).key, "boot");
-expect("먹이 꾸러미는 growth_feed", CATCHES.find((c) => c.key === "feed")?.itemCode, "growth_feed");
-expect("0~99 모두 무언가 낚임", Array.from({ length: 100 }, (_, i) => pickCatch(i)).every(Boolean), true);
+// 연못 낚시터 (TOWN-14, 2026-10-12 "낚시 컨텐츠 더 풍성하게"): 등급·시간·계절, 타이밍, 길이, 평균 코인
+{
+  const day = { hour: 12, month: 10 };
+  const night = { hour: 23, month: 10 };
+  const keys = (at: { hour: number; month: number }) => catchPool(at, false).map((p) => p.c.key);
+  expect("key가 겹치지 않음", new Set(CATCHES.map((c) => c.key)).size, CATCHES.length);
+  expect("등급 4가지가 다 있다", [...new Set(CATCHES.map((c) => c.tier))].sort(), ["common", "junk", "legendary", "rare"]);
+  expect("먹이 꾸러미는 growth_feed", catchByKey("feed")?.itemCode, "growth_feed");
+  const pool = catchPool(day, false);
+  expect("0 → 송사리, 합-1 → 마지막(낡은 장화)", [pickCatch(0, pool).key, pickCatch(poolTotal(pool) - 1, pool).key], ["minnow", "boot"]);
+  expect("0~합-1 모두 무언가 낚임", Array.from({ length: poolTotal(pool) }, (_, i) => pickCatch(i, pool)).every(Boolean), true);
+  expect("메기·달빛 잉어는 밤에만 (낮 12시 없음, 밤 11시 있음)", [keys(day).includes("catfish"), keys(day).includes("moon"), keys(night).includes("catfish"), keys(night).includes("moon")], [false, false, true, true]);
+  expect("자정을 넘는 밤: 새벽 3시 메기 있음, 새벽 5시 없음", [isAvailable(catchByKey("catfish")!, { hour: 3, month: 1 }), isAvailable(catchByKey("catfish")!, { hour: 5, month: 1 })], [true, false]);
+  expect("계절 물고기: 10월은 꺽지만", ["smelt", "cherry", "sweetfish", "perch"].filter((k) => keys(day).includes(k)), ["perch"]);
+  expect("계절마다 계절 물고기 하나씩", [1, 4, 7, 10].map((month) => ["smelt", "cherry", "sweetfish", "perch"].filter((k) => keys({ hour: 12, month }).includes(k)).length), [1, 1, 1, 1]);
+  expect("언제 나오는지 안내", [availabilityText(catchByKey("catfish")!), availabilityText(catchByKey("smelt")!), availabilityText(catchByKey("carp")!)], ["밤 19시~5시에만", "겨울(12·1·2월)에만", null]);
+  // 타이밍을 맞추면 희귀·전설 몫이 늘고 잡동사니 몫이 준다
+  const share = (good: boolean, tier: string) => {
+    const p = catchPool(day, good);
+    return p.filter((x) => x.c.tier === tier).reduce((n, x) => n + x.w, 0) / poolTotal(p);
+  };
+  expect("타이밍 성공: 희귀·전설↑ 잡동사니↓", [share(true, "rare") > share(false, "rare"), share(true, "legendary") > share(false, "legendary"), share(true, "junk") < share(false, "junk")], [true, true, true]);
+  // 길이·코인
+  const carp = catchByKey("carp")!;
+  expect("길이: 범위 양 끝", [rollSize(carp, 0), rollSize(carp, 0.999999)], [300, 700]);
+  expect("길이: 타이밍 성공이면 둘 중 큰 쪽", rollSize(carp, 0.1, 0.9), rollSize(carp, 0.9));
+  expect("물고기가 아니면 길이 없음", [rollSize(catchByKey("boot")!, 0.5), rollSize(catchByKey("chest")!, 0.5)], [null, null]);
+  expect("코인: 가장 작으면 기본, 가장 크면 × 1.5", [catchCoins(carp, 300), catchCoins(carp, 700), catchCoins(catchByKey("boot")!, null)], [20, 30, 1]);
+  expect("길이 표시", [formatSize(45), formatSize(1000)], ["4.5cm", "100.0cm"]);
+  expect("타이밍 판정", [judgeTiming(-1000), judgeTiming(-100), judgeTiming(800), judgeTiming(FISHING_RULES.hitWindowMs + 1)], ["early", "good", "good", "late"]);
+  // 균형: 모든 시각·달에서 한 번 평균 8~20코인, 타이밍을 맞추면 더 받지만 1.6배를 넘지 않고, 하루(3번, 모두 성공) 66을 넘지 않는다 (글 보상 하루 최대 90보다 작게)
+  const evs: [number, number][] = [];
+  for (let month = 1; month <= 12; month++) for (let hour = 0; hour < 24; hour++) evs.push([expectedCoinsPerCast({ hour, month }, false), expectedCoinsPerCast({ hour, month }, true)]);
+  const normal = evs.map((e) => e[0]);
+  const good = evs.map((e) => e[1]);
+  console.log(`  (낚시 한 번 평균 코인: 평소 ${Math.min(...normal).toFixed(1)}~${Math.max(...normal).toFixed(1)}, 타이밍 성공 ${Math.min(...good).toFixed(1)}~${Math.max(...good).toFixed(1)})`);
+  expect("한 번 평균 코인 8~20", normal.every((v) => v >= 8 && v <= 20), true);
+  expect("타이밍 성공이 더 많지만 1.6배 이하", evs.every(([n, g]) => g > n && g <= n * 1.6), true);
+  expect("하루 최대 평균(3번 모두 성공) 66 이하", Math.max(...good) * FISHING_RULES.castsPerDay <= 66, true);
+  expect("하루 횟수 3 (DB CHECK cast_no 1~3과 같다)", FISHING_RULES.castsPerDay, 3);
+  // 실제 뽑기로도 확인 (무게대로 나오는지): 정해진 r을 고르게 돌리면 무게 비율과 같다
+  const counts = new Map<string, number>();
+  for (let r = 0; r < poolTotal(pool); r++) counts.set(pickCatch(r, pool).key, (counts.get(pickCatch(r, pool).key) ?? 0) + 1);
+  expect("뽑기 결과 비율 = 무게", pool.every((p) => counts.get(p.c.key) === p.w), true);
+  expect("이번 주 월요일", [weekStart("2026-10-12"), weekStart("2026-10-18"), weekStart("2026-10-11")], ["2026-10-12", "2026-10-12", "2026-10-05"]);
+  expect("한국 시각: 2026-10-12T15:30Z → 13일 0시, 10월", kstClock(new Date("2026-10-12T15:30:00Z")), { hour: 0, month: 10 });
+}
 
 if (failed) {
   console.log(`\n${failed}개 실패`);

@@ -69,7 +69,7 @@ check("글쓰기: 아래 탭 숨김", (await tabs.count()) === 0 || !(await tabs
 await p.goto(`${BASE}/@${ME}`);
 const main = p.locator("main");
 // 주인 버튼은 주인 도구 막대 (프로필 카드는 없앰, 2026-10-11)
-for (const name of ["새 글 쓰기", "옷장 꾸미기", "글 관리"]) {
+for (const name of ["새 글 쓰기", "꾸미기", "글 관리"]) {
   const box = await main.getByRole("navigation", { name: "내 블로그 관리" }).getByRole("link", { name: new RegExp(name) }).first().boundingBox();
   check(`이슈 #5 '${name}' 버튼이 한 줄`, box.height < 60, `높이 ${Math.round(box.height)}px`); // 새 글 쓰기는 큰 버튼(48px)
 }
