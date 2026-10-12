@@ -1,4 +1,5 @@
 import type { AnimalDisplaySize, AnimalForm, AnimalSex } from "@/lib/farm";
+import type { TownThemeKey } from "@/lib/art/town-theme";
 
 export type TownHouse = {
   slug: string;
@@ -13,6 +14,10 @@ export type TownHouse = {
   level: number;
   /** 우체통에서 보는 최근 공개 글 (최대 3개) */
   recentPosts: { id: number; title: string }[];
+  /** 마을에서 말을 걸면 보일 말풍선 후보: 마을 한마디 하나, 없으면 최근 공개 글의 문장들 (lib/town-talk.ts). 비면 말풍선 없음 */
+  talk?: string[];
+  /** 집 주인이 블로그에 전시한 다 키운 동물: 이웃(NPC)이 마을을 걸을 때 데리고 다닌다 (사용자 요청 2026-10-12). 없으면 null */
+  pet?: TownPet | null;
 };
 
 /** 마을에 집이 선 이웃 (집 자리 번호 lot 1~10) */
@@ -35,6 +40,11 @@ export type TownData = {
   host: { nickname: string; slug: string } | null;
   /** 나(player)를 따라다니는 동물: 내 블로그에 전시한 다 키운 동물 (친구 마을에서도 내 동물). 없으면 null */
   pet: TownPet | null;
+  /**
+   * 마을 테마 (사용자 요청 2026-10-12): 이 마을 주인(내 마을은 나, 친구 마을은 host)이 꾸미기에서 고른 배경에 맞춘 계절·분위기
+   * (src/lib/art/town-theme.ts). 방문자 광장·없으면 기본(초원)
+   */
+  theme?: TownThemeKey;
 };
 
 /** 따라다니는 동물 (그림 키 = animal_species.asset_key. skinKey = 입힌 스킨 animal_skins.asset_key,

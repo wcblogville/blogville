@@ -281,6 +281,13 @@
       "when": 1791783122132,
       "tag": "0039_animal_rarity",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1791783123132,
+      "tag": "0040_profile_greeting",
+      "breakpoints": true
     }
   ]
 }

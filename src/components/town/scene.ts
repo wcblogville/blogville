@@ -29,12 +29,14 @@ import {
   treeSvg,
 } from "@/lib/art/town";
 import { HOUSE_SLOTS, houseAt, houseSlot, START_POS, townSpots, WORLD } from "./layout";
-import { bakeGround, GROUND_SIZE, HAZE_COLOR, hazeAt } from "./ground";
+import { bakeGround, GROUND_SIZE, hazeAt } from "./ground";
 import { boxWalkable, stairCrossings, terrain, TERRAIN_FEET } from "./terrain";
 import { houseKey, npcGraph, segmentClear, solidBox, stageOf, townLayout, townProps, walkKey, type Entrance, type Structure } from "./structures";
 import type { TownData, TownNeighbor, TownPet, TownTarget } from "./types";
-import { PIXEL } from "@/lib/art/pixel";
+import { PIXEL, rgbOf } from "@/lib/art/pixel";
 import { WALK_DIRS, WALK_FPS, walkDirOf, walkFrameIndex, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
+import { IDLE_AFTER_MS, IDLE_FRAME, IDLE_GAP_MS, IDLE_MOTIONS, idleFrameAt, idleFrameIndex, idleOriginY, idleSheetDataUri, pickIdleMotion, type IdleMotion } from "@/lib/art/idle";
+import { townTheme, type Weather } from "@/lib/art/town-theme";
 
 type PhaserLib = typeof PhaserNS;
 
@@ -51,6 +53,13 @@ const JOYSTICK = { radius: 56, thumb: 26, margin: 28, deadZone: 8 };
 /** 이웃(NPC) 걷는 빠르기 (px/초)와 이름표가 보이는 거리 */
 const NPC_SPEED = 68;
 const NPC_NEAR = 170;
+/** 이웃에게 말을 걸 수 있는 거리(px)와 말풍선이 떠 있는 시간 (글자가 길면 조금 더, ms) */
+const NPC_TALK = 90;
+const talkMs = (line: string) => Math.min(7000, 3200 + [...line].length * 45);
+/** 말풍선 깊이: 날씨 알갱이 위, Space 안내 아래 */
+const BUBBLE_DEPTH = 99000;
+/** 가만히 그림판(24×32)이 걷기 그림판(24×24)보다 위로 긴 만큼 (이름표를 올린다) */
+const IDLE_LIFT = (IDLE_FRAME.h - IDLE_FRAME.w) * PIXEL;
 /** 이웃이 서 있지 않는 내 집 앞 반지름 */
 const NPC_AVOID_HOME = 190;
 /** 그림이름표·안내는 모든 그림 위 */
@@ -93,17 +102,67 @@ const PET_WALK_OFF = 8;
 /** 걷기 그림 한 칸마다 걷는 거리(px, 내 빠르기로 90ms)와 숨쉬기 한 칸 시간(ms). 뛰는 높이는 PET_WALK_LIFT × PIXEL */
 const PET_HOP_PX = (SPEED * 90) / 1000;
 const PET_BREATH_MS = 600;
-/** 동물 그림판 이름 (동물·스킨·크기·암수·특별 진화·모습마다 다르다) */
-const petKey = (pet: TownPet) => `pet:${pet.assetKey}:${pet.skinKey ?? ""}:${pet.size ?? "normal"}:${pet.sex ?? ""}:${pet.variant ?? ""}:${pet.form ?? "adult"}`;
+/**
+ * 동물 그림판 이름과 그림 (동물·스킨·크기·암수·특별 진화·모습마다 다르다). 내 동물·이웃이 데리고 다니는 동물이 같이 쓴다.
+ * 동물 그림 조건(예: 아기/어른 모습·성별·무늬)이 늘면 이 두 함수만 고친다
+ */
+export const petKey = (pet: TownPet) => `pet:${pet.assetKey}:${pet.skinKey ?? ""}:${pet.size ?? "normal"}:${pet.sex ?? ""}:${pet.variant ?? ""}:${pet.form ?? "adult"}`;
+const petSheet = (pet: TownPet) => petSheetDataUri(pet.assetKey, pet.skinKey, PIXEL, pet.size, pet);
+
+/** 따라다니는 동물 하나 (나의 동물, 이웃의 동물): 그림, 발 위치, 주인이 걸어온 자취 (발 위치 목록, 오래된 것부터) */
+type Follower = {
+  img: PhaserNS.GameObjects.Image;
+  x: number;
+  y: number;
+  /** 걸은 거리(px, 걷기 그림 넘기기)와 서 있은 시간(ms, 숨쉬기) */
+  hop: number;
+  idle: number;
+  /** 부드럽게 잰 속도 (px/초)와 걷는 중인지 (문턱 두 개) */
+  vx: number;
+  vy: number;
+  walking: boolean;
+  face: "right" | "left";
+  gap: number;
+  side: number;
+  trail: { x: number; y: number }[];
+  frame: number;
+};
 /** 이만큼 넘게 떨어지면(순간 이동 등) 바로 옆으로 옮긴다 */
 const PET_SNAP = 420;
+/** 걷기 그림판 원점 (발밑): 가만히 동작 그림판(8줄 더 높다)도 같은 발 위치에 선다 */
+const WALK_ORIGIN_Y = 0.94;
+const IDLE_ORIGIN_Y = idleOriginY(WALK_ORIGIN_Y);
+/**
+ * 날씨 알갱이 (마을 테마, town-theme.ts): 도트 그림 한 장 × PIXEL. 화면 넓이 몇 px²마다 하나, 빠르기(px/초).
+ * 알갱이 자리는 마을에 붙어 있어(카메라가 움직이면 같이 지나간다) 화면 크기로 되풀이한다
+ */
+const WEATHER: Record<Weather, { per: number; rows: string[]; colors: Record<string, string> }> = {
+  snow: { per: 9000, rows: ["ww", "ws"], colors: { w: "#ffffff", s: "#dfe8f3" } },
+  petals: { per: 16000, rows: ["pP", ".p"], colors: { p: "#ffb3cf", P: "#ff8fb8" } },
+  fireflies: { per: 30000, rows: [".y.", "yYy", ".y."], colors: { Y: "#fffbd0", y: "#ffe066" } },
+  stars: { per: 22000, rows: [".s.", "sWs", ".s."], colors: { W: "#ffffff", s: "#e9d5ff" } },
+  glints: { per: 40000, rows: [".g.", "gWg", ".g."], colors: { W: "#ffffff", g: "#fff3c4" } },
+};
+const WEATHER_DEPTH = 95000;
+const IDLE_MOTIONS_BY_KEY = new Map(IDLE_MOTIONS.map((m) => [m.key, m]));
 const TREE_KINDS = ["round", "pine", "bush", "blossom", "oak", "cherry", "rock", "boulder"] as const;
 
-/** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 */
-export function townTextures(data: TownData) {
+/**
+ * 그림 종류 (마을 테마 색 보정을 얼마나 입힐지): world = 건물·나무·장식 (테마 그대로, 눈 테마면 윗면에 눈),
+ * plain = 분수처럼 눈을 얹지 않는 장식, character = 캐릭터·동물 (보정을 약하게)
+ */
+export type TextureKind = "world" | "plain" | "character";
+
+/** 가만히 동작 그림판 이름 (걷기 그림판과 같은 차림 키) */
+export const idleKey = (asset: string, outfit: string[] = []) => `idle:${walkKey(asset, outfit).slice(5)}`;
+
+/** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 (kind에 맞춰 테마 색을 입힌다) */
+export function townTextures(data: TownData): { key: string; uri: string; kind: TextureKind }[] {
   const list = new Map<string, string>();
   const player = data.player?.characterAsset ?? VISITOR_CHARACTER;
   list.set(walkKey(player, data.player?.outfit), walkSheetDataUri(player, data.player?.outfit ?? [], PIXEL));
+  // 가만히 서 있을 때 하는 동작 그림판 (나만, idle.ts)
+  list.set(idleKey(player, data.player?.outfit), idleSheetDataUri(player, data.player?.outfit ?? [], PIXEL));
   for (const h of [data.myHouse, ...data.neighbors]) {
     if (!h) continue;
     list.set(houseKey(stageOf(h), h.roof), toDataUri(houseSvg(stageOf(h), h.roof)));
@@ -112,7 +171,12 @@ export function townTextures(data: TownData) {
   for (const h of data.neighbors) list.set(walkKey(h.characterAsset, h.outfit), walkSheetDataUri(h.characterAsset, h.outfit, PIXEL));
   // 따라다니는 동물 (내가 블로그에 전시한 다 키운 동물, 어른 단계)
   // 그림판: 서 있기·숨쉬기·착지·기욺·뛰어오름 5칸 × 오른쪽·왼쪽 2줄 (animals.ts petSheetSvg), 스킨을 입힌 색
-  if (data.pet) list.set(petKey(data.pet), petSheetDataUri(data.pet.assetKey, data.pet.skinKey, PIXEL, data.pet.size, data.pet));
+  if (data.pet) list.set(petKey(data.pet), petSheet(data.pet));
+  // 이웃(NPC)이 데리고 다니는 전시 동물과 이웃의 가만히 동작 그림판
+  for (const h of data.neighbors) {
+    if (h.pet) list.set(petKey(h.pet), petSheet(h.pet));
+    list.set(idleKey(h.characterAsset, h.outfit), idleSheetDataUri(h.characterAsset, h.outfit, PIXEL));
+  }
   list.set("board", toDataUri(boardSvg()));
   list.set("shop", toDataUri(shopSvg()));
   list.set("salon", toDataUri(salonSvg()));
@@ -127,7 +191,8 @@ export function townTextures(data: TownData) {
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
   for (const kind of TREE_KINDS) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
-  return [...list].map(([key, uri]) => ({ key, uri }));
+  const kindOf = (key: string): TextureKind => (/^(walk|idle|pet):/.test(key) ? "character" : key === "fountain" ? "plain" : "world");
+  return [...list].map(([key, uri]) => ({ key, uri, kind: kindOf(key) }));
 }
 
 type Npc = {
@@ -140,6 +205,15 @@ type Npc = {
   to: number | null; // 가는 중인 마디
   wait: number; // 남은 쉬는 시간 (ms)
   dir: WalkDir;
+  /** 말풍선 (말을 걸면 몇 초 동안, 그동안은 멈춰 서서 나를 본다) */
+  bubble: PhaserNS.GameObjects.Container | null;
+  talkUntil: number;
+  lastLine: string | null;
+  /** 데리고 다니는 전시 동물 (없으면 null) */
+  pet: Follower | null;
+  /** 가끔 멈춰서 하는 가만히 동작 (그림판 이름, 하는 중인 동작) */
+  idleSheet: string;
+  act: { motion: IdleMotion; start: number; hold?: number } | null;
 };
 
 export function createTownScene(
@@ -161,6 +235,8 @@ export function createTownScene(
     return [...places, ...houses, ...stairs];
   })();
   const font = (style: PhaserNS.Types.GameObjects.Text.TextStyle = {}) => ({ fontFamily, ...style });
+  /** 마을 테마 (이 마을 주인의 꾸미기 배경): 바닥 색·공기 색·날씨 */
+  const theme = townTheme(data.theme);
 
   return class TownScene extends Phaser.Scene {
     private feet!: PhaserNS.GameObjects.Zone; // 부딪힘을 계산하는 발밑 상자
@@ -180,23 +256,18 @@ export function createTownScene(
     private npcs: Npc[] = [];
     private graph: { nodes: { x: number; y: number }[]; links: number[][] } = { nodes: [], links: [] };
     private hoverNpc: Npc | null = null;
-    /** 따라다니는 동물 그림과 발 위치, 내가 걸어온 자취 (발 위치 목록, 오래된 것부터) */
-    private pet: {
-      img: PhaserNS.GameObjects.Image;
-      x: number;
-      y: number;
-      /** 걸은 거리(px, 걷기 그림 넘기기)와 서 있은 시간(ms, 숨쉬기) */
-      hop: number;
-      idle: number;
-      /** 부드럽게 잰 속도 (px/초)와 걷는 중인지 (문턱 두 개) */
-      vx: number;
-      vy: number;
-      walking: boolean;
-      face: "right" | "left";
-      gap: number;
-      side: number;
-    } | null = null;
-    private trail: { x: number; y: number }[] = [];
+    /** 나를 따라다니는 동물 (내가 걸어온 자취를 밟아 온다) */
+    private pet: Follower | null = null;
+    /** 가만히 동작 (idle.ts): 서 있은 시간, 다음 동작을 시작할 때, 지금 하는 동작 */
+    private idleSheet = idleKey(data.player?.characterAsset ?? VISITOR_CHARACTER, data.player?.outfit);
+    private still = 0;
+    private stillSince = 0;
+    private nextIdleAt = IDLE_AFTER_MS;
+    private idle: { motion: IdleMotion; start: number; hold?: number } | null = null;
+    private lastIdle: string | null = null;
+    /** 움직임 줄이기 설정이면 가만히 동작·날씨를 하지 않는다 */
+    private reduceMotion = false;
+    private weather: { img: PhaserNS.GameObjects.Image; x: number; y: number; vx: number; vy: number; phase: number }[] = [];
     private joystick: {
       base: PhaserNS.GameObjects.Arc;
       thumb: PhaserNS.GameObjects.Arc;
@@ -214,6 +285,7 @@ export function createTownScene(
         // 걷기 그림판은 칸(24칸 틀 × PIXEL)마다 잘라 쓴다
         if (key.startsWith("walk:")) this.textures.addSpriteSheet(key, img, { frameWidth: PLAYER_SIZE, frameHeight: PLAYER_SIZE });
         // 분수 그림판: 3칸을 가로로 이었다 (물만 조금씩 다르다)
+        else if (key.startsWith("idle:")) this.textures.addSpriteSheet(key, img, { frameWidth: IDLE_FRAME.w * PIXEL, frameHeight: IDLE_FRAME.h * PIXEL });
         else if (key.startsWith("pet:")) this.textures.addSpriteSheet(key, img, { frameWidth: PET_SIZE, frameHeight: PET_SIZE });
         else if (key === "fountain") this.textures.addSpriteSheet(key, img, { frameWidth: FOUNTAIN_SIZE.width, frameHeight: FOUNTAIN_SIZE.height });
         else this.textures.addImage(key, img);
@@ -239,7 +311,8 @@ export function createTownScene(
       this.playerBody = this.feet.body as PhaserNS.Physics.Arcade.Body;
       this.playerBody.setCollideWorldBounds(true);
       this.physics.add.collider(this.feet, walls);
-      this.player = this.add.sprite(0, 0, this.sheet, walkFrameIndex("down", 0)).setOrigin(0.5, 0.94);
+      this.player = this.add.sprite(0, 0, this.sheet, walkFrameIndex("down", 0)).setOrigin(0.5, WALK_ORIGIN_Y);
+      this.reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
       this.createPet(start);
 
       this.nameTag = this.add
@@ -266,11 +339,12 @@ export function createTownScene(
 
       this.createNpcs([...structures, ...props]);
       this.createHaze();
+      this.createWeather();
 
       // 카메라
       this.cameras.main.setBounds(0, 0, WORLD.width, WORLD.height);
       this.cameras.main.startFollow(this.feet, true, 0.12, 0.12, 0, 20);
-      this.cameras.main.setBackgroundColor("#8fd18a");
+      this.cameras.main.setBackgroundColor(theme.bg);
 
       // 입력: 방향키, WASD, Space/Enter, 클릭·터치
       const keyboard = this.input.keyboard!;
@@ -298,9 +372,13 @@ export function createTownScene(
           this.moveJoystick(pointer);
           return;
         }
-        // 걸어 다니는 이웃을 누르면 그 집 우체통(새 글·집에 들어가기)을 연다
+        // 걸어 다니는 이웃을 누르면 말풍선으로 한마디 (사용자 요청 2026-10-12). 말풍선이 떠 있을 때 한 번 더 누르거나
+        // 할 말이 없으면 그 집 우체통(새 글·집에 들어가기)을 연다
         const npc = this.npcAt(pointer.worldX, pointer.worldY);
-        if (npc) return onEnter({ kind: "mailbox", slot: npc.house.lot });
+        if (npc) {
+          if (npc.bubble || !npc.house.talk?.length) return onEnter({ kind: "mailbox", slot: npc.house.lot });
+          return this.talkTo(npc);
+        }
         const hit = this.entranceAt(pointer.worldX, pointer.worldY);
         if (hit) {
           // 가까우면 바로 들어가고, 멀면 그 입구 앞까지 걸어간다
@@ -339,9 +417,45 @@ export function createTownScene(
       const fromTest = (e: Event) => teleport(String((e as CustomEvent).detail));
       canvas.addEventListener("bv-teleport", fromTest);
       canvas.dataset.stairs = JSON.stringify(stairCrossings().map((c) => [c.a.x, c.a.y, c.b.x, c.b.y]));
+      // 시험(e2e)·스크린샷용: bv-idle 이벤트(detail = 동작 key, "key@칸"이면 그 칸에서 멈춰 둔다)를 보내면 서 있을 때 그 동작을 바로 한다
+      const idleFromTest = (e: Event) => {
+        const [key, hold] = String((e as CustomEvent).detail).split("@");
+        const motion = IDLE_MOTIONS_BY_KEY.get(key);
+        if (!motion || !this.texturesReady()) return;
+        this.startIdle(motion);
+        if (hold && this.idle) this.idle.hold = Number(hold);
+      };
+      canvas.addEventListener("bv-idle", idleFromTest);
+      // 시험용: bv-npc-come(detail = 집 자리 번호) → 그 이웃을 내 오른쪽 옆에 세워 둔다 (말 걸기 시험). 자리는 data-npc-here
+      const npcFromTest = (e: Event) => {
+        const n = this.npcs.find((x) => x.house.lot === Number((e as CustomEvent).detail));
+        if (!n) return;
+        n.to = null;
+        n.wait = 60000;
+        if (n.act) this.endNpcAct(n);
+        n.sprite.stop().setPosition(Math.round(this.feet.x + 60), Math.round(this.feet.y + 8));
+        canvas.dataset.npcHere = `${Math.round(n.sprite.x)},${Math.round(n.sprite.y)}`;
+      };
+      canvas.addEventListener("bv-npc-come", npcFromTest);
+      // 시험용: bv-npc-act(detail = "자리:동작", "자리:동작@칸"이면 그 칸에서 멈춰 둔다) → 그 이웃이 그 자리에서 그 동작을 바로 한다
+      const npcActFromTest = (e: Event) => {
+        const [lot, rest] = String((e as CustomEvent).detail).split(":");
+        const [key, hold] = (rest ?? "").split("@");
+        const n = this.npcs.find((x) => x.house.lot === Number(lot));
+        const motion = IDLE_MOTIONS_BY_KEY.get(key);
+        if (!n || !motion || n.bubble || !this.textures.exists(n.idleSheet)) return;
+        n.to = null;
+        n.act = { motion, start: this.time.now, hold: hold ? Number(hold) : undefined };
+      };
+      canvas.addEventListener("bv-npc-act", npcActFromTest);
+      canvas.dataset.theme = theme.key;
+      canvas.dataset.idle = "";
       this.events.once("shutdown", () => {
         this.game.events.off("teleport", teleport);
         canvas.removeEventListener("bv-teleport", fromTest);
+        canvas.removeEventListener("bv-idle", idleFromTest);
+        canvas.removeEventListener("bv-npc-come", npcFromTest);
+        canvas.removeEventListener("bv-npc-act", npcActFromTest);
       });
     }
 
@@ -400,7 +514,7 @@ export function createTownScene(
       j.thumb.setPosition(j.base.x, j.base.y);
     }
 
-    update(_time: number, delta: number) {
+    update(time: number, delta: number) {
       const left = this.cursors.left.isDown || this.wasd.A.isDown;
       const right = this.cursors.right.isDown || this.wasd.D.isDown;
       const up = this.cursors.up.isDown || this.wasd.W.isDown;
@@ -463,9 +577,20 @@ export function createTownScene(
       // 벽에 막혀 제자리걸음일 때는 걷지 않는다 (속도는 남아도 실제로 움직이지 않는다)
       const { velocity } = this.playerBody;
       const dir = this.playerBody.speed > 1 && (this.playerBody.deltaAbsX() > 0.2 || this.playerBody.deltaAbsY() > 0.2) ? walkDirOf(velocity.x, velocity.y) : null;
+      // 가만히 서 있으면(누르는 키·조이스틱·가는 곳이 없을 때) 잠시 뒤 재미있는 동작을 하나 한다. 움직이면 바로 멈춘다
+      const pressing = left || right || up || down || !!this.moveTarget || (this.joystick?.vector.lengthSq() ?? 0) > 0;
+      // 시간은 실제 시각(time)으로 잰다: 화면이 느리면 Phaser가 프레임 사이 시간(delta)을 줄여 주어 몇 배 늦어진다
+      if (dir || pressing) {
+        this.stopIdle();
+        this.stillSince = time;
+        this.nextIdleAt = IDLE_AFTER_MS;
+      }
+      this.still = time - this.stillSince;
       if (dir) {
         this.facing = dir;
         this.player.play(`${this.sheet}:${dir}`, true);
+      } else if (this.idle || (!this.reduceMotion && this.still >= this.nextIdleAt && this.texturesReady())) {
+        this.updateIdle(time);
       } else if (this.player.anims.isPlaying || this.player.frame.name !== String(walkFrameIndex(this.facing, 0))) {
         this.player.stop();
         this.player.setFrame(walkFrameIndex(this.facing, 0));
@@ -473,11 +598,15 @@ export function createTownScene(
       // 시험(e2e)이 읽는 걷기 상태: "walk-left" / "idle-down"
       const walk = `${dir ? "walk" : "idle"}-${this.facing}`;
       if (this.game.canvas.dataset.walk !== walk) this.game.canvas.dataset.walk = walk;
+      // 시험(e2e)이 읽는 카메라 위치 "x,y" (월드 → 화면)
+      const cam = `${Math.round(this.cameras.main.scrollX)},${Math.round(this.cameras.main.scrollY)}`;
+      if (this.game.canvas.dataset.cam !== cam) this.game.canvas.dataset.cam = cam;
       // 시험(e2e)이 읽는 발 위치 "x,y"
       const feetAt = `${Math.round(this.feet.x)},${Math.round(this.feet.y)}`;
       if (this.game.canvas.dataset.feet !== feetAt) this.game.canvas.dataset.feet = feetAt;
       this.player.setPosition(this.feet.x, this.feet.y + 8);
-      this.nameTag.setPosition(this.feet.x, this.feet.y - PLAYER_SIZE - 4);
+      // 가만히 동작 중에는 그림판이 위로 더 길어(하트·음표) 이름표를 그만큼 올린다
+      this.nameTag.setPosition(this.feet.x, this.feet.y - PLAYER_SIZE - 4 - (this.idle ? IDLE_LIFT : 0));
       // 아래쪽에 있을수록 앞에 그린다 (y-sorting)
       this.player.setDepth(this.feet.y + 8);
       this.hazeTint(this.player, this.feet.y);
@@ -486,14 +615,130 @@ export function createTownScene(
       this.updatePet(delta);
       this.updateNpcs(delta);
       this.updatePrompt();
+      this.updateWeather(delta);
+    }
+
+    // ===== 가만히 동작 (사용자 요청 2026-10-12) =====
+    private texturesReady() {
+      return this.textures.exists(this.idleSheet);
+    }
+
+    /** 동작 시작: 가만히 그림판으로 바꾸고 (발 위치가 같도록 원점도) 처음 칸부터 */
+    private startIdle(motion: IdleMotion) {
+      this.player.stop();
+      this.idle = { motion, start: this.time.now };
+      this.lastIdle = motion.key;
+      this.player.setTexture(this.idleSheet, idleFrameIndex(motion.key, 0)).setOrigin(0.5, IDLE_ORIGIN_Y);
+      this.game.canvas.dataset.idle = motion.key;
+      this.updateIdle(this.time.now);
+    }
+
+    /** 동작 그만: 걷기 그림판의 서 있기 칸으로 (보던 방향 그대로) */
+    private stopIdle() {
+      if (!this.idle) return;
+      this.idle = null;
+      this.player.setTexture(this.sheet, walkFrameIndex(this.facing, 0)).setOrigin(0.5, WALK_ORIGIN_Y);
+      this.game.canvas.dataset.idle = "";
+      delete this.game.canvas.dataset.idleFrame;
+    }
+
+    private updateIdle(now: number) {
+      if (!this.idle) {
+        this.startIdle(pickIdleMotion(Math.random(), this.lastIdle));
+        return;
+      }
+      const f = this.idle.hold ?? idleFrameAt(this.idle.motion, now - this.idle.start);
+      if (f === null) {
+        // 끝나면 한동안 쉬었다가 다른 동작
+        this.stopIdle();
+        this.nextIdleAt = this.still + IDLE_GAP_MS[0] + Math.random() * (IDLE_GAP_MS[1] - IDLE_GAP_MS[0]);
+        return;
+      }
+      const index = idleFrameIndex(this.idle.motion.key, f);
+      if (this.player.frame.name !== String(index)) this.player.setFrame(index);
+      const at = `${this.idle.motion.key}:${f}`;
+      if (this.game.canvas.dataset.idleFrame !== at) this.game.canvas.dataset.idleFrame = at;
+    }
+
+    // ===== 날씨 (마을 테마) =====
+    private createWeather() {
+      const kind = theme.weather;
+      this.game.canvas.dataset.weather = kind && !this.reduceMotion ? kind : "";
+      if (!kind || this.reduceMotion) return;
+      const spec = WEATHER[kind];
+      const key = `fx:${kind}`;
+      if (!this.textures.exists(key)) {
+        const canvas = document.createElement("canvas");
+        canvas.width = spec.rows[0].length;
+        canvas.height = spec.rows.length;
+        const ctx = canvas.getContext("2d")!;
+        spec.rows.forEach((row, y) =>
+          [...row].forEach((ch, x) => {
+            if (ch === ".") return;
+            ctx.fillStyle = spec.colors[ch];
+            ctx.fillRect(x, y, 1, 1);
+          }),
+        );
+        this.textures.addCanvas(key, canvas);
+      }
+      // 화면이 커져도 넉넉하게 (가장 큰 화면 기준으로 한 번 만든다)
+      const count = Math.round((Math.max(this.scale.width, 1280) * Math.max(this.scale.height, 800)) / spec.per);
+      for (let i = 0; i < count; i++) {
+        const img = this.add.image(0, 0, key).setOrigin(0, 0).setScale(PIXEL).setScrollFactor(0).setDepth(WEATHER_DEPTH);
+        // 눈송이는 크기가 둘 (반은 도트 한 칸)
+        if (kind === "snow" && i % 2) img.setCrop(0, 0, 1, 1);
+        const slow = kind === "fireflies" || kind === "stars" || kind === "glints";
+        this.weather.push({
+          img,
+          x: Math.random() * 4000,
+          y: Math.random() * 4000,
+          vx: kind === "petals" ? 18 + Math.random() * 22 : slow ? 0 : (Math.random() - 0.5) * 8,
+          vy: kind === "snow" ? 26 + Math.random() * 30 : kind === "petals" ? 30 + Math.random() * 25 : 0,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+      this.game.canvas.dataset.weatherCount = String(count);
+    }
+
+    private updateWeather(delta: number) {
+      if (!this.weather.length) return;
+      const dt = Math.min(delta, 60) / 1000;
+      const now = this.time.now / 1000;
+      const kind = theme.weather!;
+      const { width, height } = this.scale;
+      const cam = this.cameras.main;
+      const wrap = (v: number, n: number) => ((v % n) + n) % n;
+      for (const p of this.weather) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (kind === "snow") p.x += Math.sin(now * 1.3 + p.phase) * 14 * dt;
+        if (kind === "fireflies") {
+          p.x += Math.sin(now * 0.7 + p.phase) * 16 * dt;
+          p.y += Math.cos(now * 0.9 + p.phase * 1.7) * 12 * dt;
+        }
+        // 마을에 붙은 자리: 카메라가 움직이면 같이 지나간다. 화면 크기로 되풀이 (도트 칸에 맞춘 정수 자리)
+        const sx = wrap(p.x - cam.scrollX, width + 12) - 6;
+        const sy = wrap(p.y - cam.scrollY, height + 12) - 6;
+        p.img.setPosition(Math.round(sx), Math.round(sy));
+        if (kind === "petals") p.img.setFlipX(Math.sin(now * 4 + p.phase) > 0);
+        else if (kind !== "snow") p.img.setAlpha(Math.max(0, Math.sin(now * (kind === "fireflies" ? 1.6 : 2.2) + p.phase)) ** 2);
+      }
     }
 
     // ===== 따라다니는 동물 =====
+    /** 동물 하나를 만든다 (그림이 없으면 null). 발바닥(32칸 중 30번째 줄)이 발 위치에 오게, 캐릭터처럼 발 위치 + 8에 그린다 */
+    private makeFollower(pet: TownPet, at: { x: number; y: number }): Follower | null {
+      if (!this.textures.exists(petKey(pet))) return null;
+      const img = this.add.image(0, 0, petKey(pet), 0).setOrigin(0.5, 30 / 32);
+      const f: Follower = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", trail: [], frame: 0, ...petGaps(pet.assetKey, pet.size, pet) };
+      this.placeFollower(f, at);
+      return f;
+    }
+
     private createPet(start: { x: number; y: number }) {
-      if (!data.pet || !this.textures.exists(petKey(data.pet))) return;
-      // 발바닥(32칸 중 30번째 줄)이 발 위치에 오게. 캐릭터처럼 발 위치 + 8에 그린다
-      const img = this.add.image(0, 0, petKey(data.pet), 0).setOrigin(0.5, 30 / 32);
-      this.pet = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", ...petGaps(data.pet.assetKey, data.pet.size, data.pet) };
+      if (!data.pet) return;
+      this.pet = this.makeFollower(data.pet, start);
+      if (!this.pet) return;
       this.game.canvas.dataset.pet = data.pet.assetKey;
       this.game.canvas.dataset.petSize = ANIMAL_SIZE[data.pet.assetKey]?.tier ?? "medium";
       this.game.canvas.dataset.petSkin = data.pet.skinKey ?? "";
@@ -501,49 +746,64 @@ export function createTownScene(
       this.game.canvas.dataset.petDisplayForm = data.pet.form ?? "adult";
       this.game.canvas.dataset.petSex = data.pet.sex ?? "";
       this.game.canvas.dataset.petVariant = data.pet.variant ?? "";
-      this.placePet(start);
     }
 
-    /** 내 옆(왼쪽 조금 위)에 바로 놓고 자취를 새로 시작한다 (처음·순간 이동) */
+    /** 내 동물을 내 옆에 바로 놓는다 (처음·순간 이동) */
     private placePet(at: { x: number; y: number }) {
-      this.trail = [{ x: at.x, y: at.y }];
-      if (!this.pet) return;
-      this.pet.x = at.x - this.pet.gap;
-      this.pet.y = at.y + 6; // 조금 앞(아래)에 둬서 큰 동물 머리가 내 이름표에 가리지 않게
+      if (this.pet) this.placeFollower(this.pet, at);
+    }
+
+    /** 주인 옆(왼쪽 조금 앞)에 바로 놓고 자취를 새로 시작한다 */
+    private placeFollower(f: Follower, at: { x: number; y: number }) {
+      f.x = at.x - f.gap;
+      f.y = at.y + 6; // 조금 앞(아래)에 둬서 큰 동물 머리가 주인 이름표에 가리지 않게
       // 자취를 동물 자리에서 시작해 첫걸음부터 바로 따라온다 (자취가 gap만큼 쌓일 때까지 기다렸다 뛰어오지 않게)
-      this.trail = [{ x: this.pet.x, y: this.pet.y }, { x: at.x, y: at.y }];
-      Object.assign(this.pet, { hop: 0, vx: 0, vy: 0, walking: false });
+      f.trail = [{ x: f.x, y: f.y }, { x: at.x, y: at.y }];
+      Object.assign(f, { hop: 0, vx: 0, vy: 0, walking: false });
     }
 
     private updatePet(delta: number) {
       const pet = this.pet;
       if (!pet) return;
+      this.stepFollower(pet, { x: this.feet.x, y: this.feet.y }, delta);
+      // 시험(e2e)이 읽는 동물 발 위치 "x,y"와 걷는지
+      const at = `${Math.round(pet.x)},${Math.round(pet.y)}`;
+      const canvas = this.game.canvas;
+      if (canvas.dataset.petAt !== at) canvas.dataset.petAt = at;
+      const state = pet.walking ? "walk" : "idle";
+      if (canvas.dataset.petFace !== pet.face) canvas.dataset.petFace = pet.face;
+      if (canvas.dataset.petFrame !== String(pet.frame)) canvas.dataset.petFrame = String(pet.frame);
+      if (canvas.dataset.petWalk !== state) canvas.dataset.petWalk = state;
+    }
+
+    /** 동물 한 마리를 주인(me = 주인 발 위치) 뒤로 한 프레임 따라오게 한다 */
+    private stepFollower(pet: Follower, me: { x: number; y: number }, delta: number) {
       const dt = Math.min(delta, 50);
-      const me = { x: this.feet.x, y: this.feet.y };
+      const trail = pet.trail;
       // 자취: 1px 넘게 움직일 때마다 점을 찍는다 (촘촘해야 목표가 뚝뚝 끊기지 않는다)
-      const last = this.trail[this.trail.length - 1];
+      const last = trail[trail.length - 1];
       if (!last || Math.hypot(me.x - last.x, me.y - last.y) >= 1) {
-        this.trail.push(me);
-        if (this.trail.length > 600) this.trail.shift();
+        trail.push(me);
+        if (trail.length > 600) trail.shift();
       }
       // 자취를 내 발에서 거꾸로 pet.gap만큼 되짚은 정확한 점 (두 자취 점 사이를 잇는다). 자취가 짧으면 맨 끝 점
       let target: { x: number; y: number } | null = null;
       let walked = 0;
       let prev = me;
-      for (let i = this.trail.length - 1; i >= 0; i--) {
-        const pt = this.trail[i];
+      for (let i = trail.length - 1; i >= 0; i--) {
+        const pt = trail[i];
         const seg = Math.hypot(prev.x - pt.x, prev.y - pt.y);
         if (walked + seg >= pet.gap) {
           const k = seg > 0 ? (pet.gap - walked) / seg : 0;
           target = { x: prev.x + (pt.x - prev.x) * k, y: prev.y + (pt.y - prev.y) * k };
           // 더 오래된 자취는 필요 없다 (이 점까지는 남긴다)
-          if (i > 0) this.trail.splice(0, i);
+          if (i > 0) trail.splice(0, i);
           break;
         }
         walked += seg;
         prev = pt;
       }
-      if (!target && this.trail.length > 0 && walked > pet.gap * 0.5) target = this.trail[0];
+      if (!target && trail.length > 0 && walked > pet.gap * 0.5) target = trail[0];
       // 위아래로 따라올 때는 내 바로 위(이름표 자리)에 가려지지 않게 옆으로 비켜 나란히 걷는다 (위쪽으로는 PET_UP까지만 처진다)
       if (target && Math.abs(me.y - target.y) > Math.abs(me.x - target.x)) {
         target = { x: me.x + (pet.x <= me.x ? -pet.side : pet.side), y: Math.max(target.y, me.y - PET_UP) };
@@ -587,19 +847,13 @@ export function createTownScene(
       else if (!moving && Math.abs(dxMe) > 12) pet.face = dxMe < 0 ? "left" : "right";
       const step = Math.floor(pet.hop / PET_HOP_PX) % PET_WALK_FRAMES.length;
       const frame = moving ? PET_WALK_FRAMES[step] : PET_IDLE_FRAMES[Math.floor(pet.idle / PET_BREATH_MS) % PET_IDLE_FRAMES.length];
-      pet.img.setFrame(frame + (pet.face === "left" ? PET_SHEET_FRAMES : 0));
+      const index = frame + (pet.face === "left" ? PET_SHEET_FRAMES : 0);
+      if (pet.img.frame.name !== String(index)) pet.img.setFrame(index);
+      pet.frame = frame;
       const lift = moving ? -PET_WALK_LIFT[step] * PIXEL : 0;
       // 캐릭터처럼 소수 자리 그대로 둔다 (roundPixels가 카메라와 함께 맞춘다. 따로 반올림하면 카메라와 1px씩 어긋나 떨린다)
       pet.img.setPosition(pet.x, pet.y + 8 + lift).setDepth(pet.y + 8);
       this.hazeTint(pet.img, pet.y);
-      // 시험(e2e)이 읽는 동물 발 위치 "x,y"와 걷는지
-      const at = `${Math.round(pet.x)},${Math.round(pet.y)}`;
-      const canvas = this.game.canvas;
-      if (canvas.dataset.petAt !== at) canvas.dataset.petAt = at;
-      const state = moving ? "walk" : "idle";
-      if (canvas.dataset.petFace !== pet.face) canvas.dataset.petFace = pet.face;
-      if (canvas.dataset.petFrame !== String(frame)) canvas.dataset.petFrame = String(frame);
-      if (canvas.dataset.petWalk !== state) canvas.dataset.petWalk = state;
     }
 
     private updatePrompt() {
@@ -612,11 +866,17 @@ export function createTownScene(
           closest = e;
         }
       }
+      // 규칙: 건물·집 입구 안내가 떠 있으면 Space는 들어가기. 입구가 없을 때만 가까운(NPC_TALK 안) 이웃에게 말을 건다
+      const npc = closest ? null : this.nearestNpc();
       if (closest) {
         const verb = closest.target.kind === "login" ? "로그인하고 이용하기" : (closest.verb ?? "들어가기");
         this.prompt.setText(`${closest.emoji} ${closest.label} · Space ${verb}`);
         this.prompt.setPosition(closest.x, closest.promptY).setVisible(true);
         if (this.actionQueued) onEnter(closest.target);
+      } else if (npc) {
+        this.prompt.setText(`💬 ${npc.house.nickname} · Space 말 걸기`);
+        this.prompt.setPosition(npc.sprite.x, npc.sprite.y + 34).setVisible(!npc.bubble);
+        if (this.actionQueued) this.talkTo(npc);
       } else {
         this.prompt.setVisible(false);
       }
@@ -664,7 +924,7 @@ export function createTownScene(
         if (obj.tintMode !== Phaser.TintModes.MULTIPLY) obj.clearTint().setTintMode(Phaser.TintModes.MULTIPLY);
         return;
       }
-      const c = Phaser.Display.Color.HexStringToColor(HAZE_COLOR);
+      const c = Phaser.Display.Color.HexStringToColor(theme.haze);
       obj.setTint(Phaser.Display.Color.GetColor(c.red * a, c.green * a, c.blue * a)).setTintMode(Phaser.TintModes.SCREEN);
     }
 
@@ -697,15 +957,16 @@ export function createTownScene(
      * 게임 설정의 pixelArt(가까운 픽셀로 키우기) 덕분에 흐려지지 않는다
      */
     private drawGround() {
-      if (!this.textures.exists("ground")) {
+      const ground = `ground:${theme.key}`;
+      if (!this.textures.exists(ground)) {
         const canvas = document.createElement("canvas");
         canvas.width = GROUND_SIZE.w;
         canvas.height = GROUND_SIZE.h;
         const ctx = canvas.getContext("2d")!;
-        ctx.putImageData(new ImageData(bakeGround() as Uint8ClampedArray<ArrayBuffer>, GROUND_SIZE.w, GROUND_SIZE.h), 0, 0);
-        this.textures.addCanvas("ground", canvas);
+        ctx.putImageData(new ImageData(bakeGround(theme.key) as Uint8ClampedArray<ArrayBuffer>, GROUND_SIZE.w, GROUND_SIZE.h), 0, 0);
+        this.textures.addCanvas(ground, canvas);
       }
-      this.add.image(0, 0, "ground").setOrigin(0, 0).setScale(PIXEL).setDepth(-10);
+      this.add.image(0, 0, ground).setOrigin(0, 0).setScale(PIXEL).setDepth(-10);
     }
 
     /**
@@ -713,7 +974,9 @@ export function createTownScene(
      * 화면에 붙어 있어(scrollFactor 0) 어디서든 화면 위쪽이 먼 곳처럼 보인다. 아래 가장자리는 아주 살짝 어둡게
      */
     private createHaze() {
-      if (!this.textures.exists("haze")) {
+      const hazeKey = `haze:${theme.key}`;
+      const [hr, hg, hb] = rgbOf(theme.haze);
+      if (!this.textures.exists(hazeKey)) {
         const canvas = document.createElement("canvas");
         canvas.width = 1;
         canvas.height = 32;
@@ -723,12 +986,12 @@ export function createTownScene(
           // 위 45%: 하늘빛, 맨 아래 10%: 그늘
           const top = Math.max(0, 1 - t / 0.45) ** 1.6 * 0.3;
           const bottom = Math.max(0, (t - 0.88) / 0.12) ** 2 * 0.12;
-          ctx.fillStyle = top > 0 ? `rgba(214,236,248,${top.toFixed(3)})` : `rgba(30,40,40,${bottom.toFixed(3)})`;
+          ctx.fillStyle = top > 0 ? `rgba(${hr},${hg},${hb},${top.toFixed(3)})` : `rgba(30,40,40,${bottom.toFixed(3)})`;
           ctx.fillRect(0, y, 1, 1);
         }
-        this.textures.addCanvas("haze", canvas);
+        this.textures.addCanvas(hazeKey, canvas);
       }
-      this.haze = this.add.image(0, 0, "haze").setOrigin(0, 0).setScrollFactor(0).setDepth(HAZE_DEPTH);
+      this.haze = this.add.image(0, 0, hazeKey).setOrigin(0, 0).setScrollFactor(0).setDepth(HAZE_DEPTH);
       const fit = () => this.haze.setDisplaySize(this.scale.width, this.scale.height);
       fit();
       this.scale.on("resize", fit);
@@ -758,17 +1021,44 @@ export function createTownScene(
           .text(p.x, p.y - PLAYER_SIZE - 2, house.nickname, font({ fontSize: "12px", fontStyle: "bold", color: "#2b2118", backgroundColor: "#fff8ecd9", padding: { x: 6, y: 2 } }))
           .setOrigin(0.5)
           .setVisible(false);
-        this.npcs.push({ house, sprite, tag, sheet, at: start, prev: -1, to: null, wait: 400 + Math.random() * 2500, dir: "down" });
+        const idleSheet = idleKey(house.characterAsset, house.outfit);
+        const pet = house.pet ? this.makeFollower(house.pet, p) : null;
+        this.npcs.push({ house, sprite, tag, sheet, at: start, prev: -1, to: null, wait: 400 + Math.random() * 2500, dir: "down", bubble: null, talkUntil: 0, lastLine: null, pet, idleSheet, act: null });
       }
       this.game.canvas.dataset.npcs = String(this.npcs.length);
+      // 시험(e2e)이 읽는 이웃이 데리고 다니는 동물 수
+      this.game.canvas.dataset.npcPets = String(this.npcs.filter((n) => n.pet).length);
     }
 
     private updateNpcs(delta: number) {
       const g = this.graph;
       let walking = 0;
+      let acting = 0;
       for (const n of this.npcs) {
         const pos = { x: n.sprite.x, y: n.sprite.y - 8 };
-        if (n.to === null) {
+        // 말하는 동안은 멈춰 서서 나를 본다. 다 말하면 말풍선을 치우고 다시 걷는다
+        if (n.bubble) {
+          if (this.time.now < n.talkUntil) {
+            n.bubble.setPosition(Math.round(n.sprite.x), Math.round(n.sprite.y - PLAYER_SIZE - 8));
+            n.tag.setVisible(false);
+            if (n.pet) this.stepFollower(n.pet, { x: n.sprite.x, y: n.sprite.y - 8 }, delta);
+            continue;
+          }
+          n.bubble.destroy();
+          n.bubble = null;
+          if (this.game.canvas.dataset.npcSay) this.game.canvas.dataset.npcSay = "";
+        }
+        if (n.to === null && n.act) {
+          // 멈춰서 동작 중: 끝날 때까지 떠나지 않는다 (실제 시각으로 재생)
+          const f = n.act.hold ?? idleFrameAt(n.act.motion, this.time.now - n.act.start);
+          if (f === null) this.endNpcAct(n);
+          else {
+            const index = idleFrameIndex(n.act.motion.key, f);
+            if (n.sprite.texture.key !== n.idleSheet) n.sprite.stop().setTexture(n.idleSheet, index).setOrigin(0.5, IDLE_ORIGIN_Y);
+            else if (n.sprite.frame.name !== String(index)) n.sprite.setFrame(index);
+            acting++;
+          }
+        } else if (n.to === null) {
           n.wait -= delta;
           if (n.wait <= 0) {
             const options = g.links[n.at];
@@ -794,7 +1084,12 @@ export function createTownScene(
             // 갈림길에서는 잠깐 둘러보고, 막다른 곳(집 앞 등)은 짧게, 길 중간 마디는 그냥 지나간다
             const ways = g.links[n.at].length;
             n.wait = ways > 2 ? 1000 + Math.random() * 3000 : ways === 1 ? 300 + Math.random() * 700 : Math.random() < 0.06 ? 1500 + Math.random() * 2500 : 0;
+            // 가끔(쉬는 곳의 40%) 멈춰서 재미있는 동작을 하나 하고 다시 걷는다 (사용자 요청 2026-10-12 "가끔 멈춰서 다른 모션도")
+            if (!this.reduceMotion && this.textures.exists(n.idleSheet) && (n.wait >= 1000 || Math.random() < 0.08) && Math.random() < 0.4) {
+              n.act = { motion: pickIdleMotion(Math.random(), n.act?.motion.key ?? null), start: this.time.now };
+            }
           } else {
+            if (n.act) this.endNpcAct(n);
             n.sprite.setPosition(pos.x + (dx / dist) * step, pos.y + (dy / dist) * step + 8);
             const dir = walkDirOf(dx, dy);
             if (dir) n.dir = dir;
@@ -802,7 +1097,8 @@ export function createTownScene(
             walking++;
           }
         }
-        if (n.to === null && n.sprite.anims.isPlaying) {
+        if (n.pet) this.stepFollower(n.pet, { x: n.sprite.x, y: n.sprite.y - 8 }, delta);
+        if (n.to === null && !n.act && n.sprite.anims.isPlaying) {
           n.sprite.stop();
           n.sprite.setFrame(walkFrameIndex(n.dir === "up" ? "down" : n.dir, 0));
         }
@@ -810,10 +1106,66 @@ export function createTownScene(
         this.hazeTint(n.sprite, n.sprite.y);
         // 이름표: 가까이 가거나 마우스를 올리면
         const near = Math.hypot(n.sprite.x - this.feet.x, n.sprite.y - 8 - this.feet.y) < NPC_NEAR;
-        n.tag.setVisible(near || this.hoverNpc === n).setPosition(n.sprite.x, n.sprite.y - PLAYER_SIZE - 6).setDepth(LABEL_DEPTH + n.sprite.y);
+        n.tag.setVisible(near || this.hoverNpc === n).setPosition(n.sprite.x, n.sprite.y - PLAYER_SIZE - 6 - (n.act ? IDLE_LIFT : 0)).setDepth(LABEL_DEPTH + n.sprite.y);
       }
       const state = String(walking);
       if (this.game.canvas.dataset.npcWalking !== state) this.game.canvas.dataset.npcWalking = state;
+      // 시험(e2e)이 읽는 지금 동작 중인 이웃 수
+      if (this.game.canvas.dataset.npcActing !== String(acting)) this.game.canvas.dataset.npcActing = String(acting);
+    }
+
+    /** 이웃의 가만히 동작 끝: 걷기 그림판의 서 있기로 */
+    private endNpcAct(n: Npc) {
+      n.act = null;
+      n.sprite.setTexture(n.sheet, walkFrameIndex(n.dir === "up" ? "down" : n.dir, 0)).setOrigin(0.5, WALK_ORIGIN_Y);
+    }
+
+    /** 말을 걸 수 있는 가장 가까운 이웃 (할 말이 있는 이웃만) */
+    private nearestNpc() {
+      let best: Npc | null = null;
+      let bestD = NPC_TALK;
+      for (const n of this.npcs) {
+        if (!n.house.talk?.length) continue;
+        const d = Math.hypot(n.sprite.x - this.feet.x, n.sprite.y - 8 - this.feet.y);
+        if (d <= bestD) [best, bestD] = [n, d];
+      }
+      return best;
+    }
+
+    /**
+     * 말 걸기: 이웃의 말풍선 후보(마을 한마디, 없으면 공개 글의 문장) 중 하나를 무작위로 (바로 앞 문장은 되도록 피한다).
+     * 말풍선은 도트 상자(흰 바탕 + 3px 외곽선 + 계단 꼬리)와 Phaser 글자라 HTML로 해석되지 않는다
+     */
+    private talkTo(n: Npc) {
+      const lines = n.house.talk ?? [];
+      if (!lines.length) return;
+      const pool = lines.length > 1 ? lines.filter((l) => l !== n.lastLine) : lines;
+      const line = pool[Math.floor(Math.random() * pool.length)];
+      n.lastLine = line;
+      if (n.act) this.endNpcAct(n);
+      n.bubble?.destroy();
+      const text = this.add.text(0, 0, line, font({ fontSize: "13px", color: "#2b2118", lineSpacing: 2, wordWrap: { width: 186, useAdvancedWrap: true } }));
+      const P = PIXEL;
+      // 상자 크기는 도트 칸(3px)의 배수
+      const w = Math.ceil((text.width + 16) / P) * P;
+      const h = Math.ceil((text.height + 12) / P) * P;
+      const g = this.add.graphics();
+      const ink = 0x4a3426;
+      // 외곽선 (모서리 한 칸은 깎는다) → 흰 바탕 → 아래 가운데 계단 꼬리
+      g.fillStyle(ink).fillRect(-w / 2 + P, -h - 3 * P, w - 2 * P, h).fillRect(-w / 2, -h - 2 * P, w, h - 2 * P);
+      g.fillStyle(0xfffaf0).fillRect(-w / 2 + P, -h - 2 * P, w - 2 * P, h - 2 * P);
+      g.fillStyle(ink).fillRect(-2 * P, -3 * P, 4 * P, P).fillRect(-P, -2 * P, 3 * P, P).fillRect(0, -P, P, P);
+      g.fillStyle(0xfffaf0).fillRect(-P, -3 * P, 2 * P, P).fillRect(0, -2 * P, P, P);
+      text.setPosition(Math.round(-text.width / 2), Math.round(-h - 2 * P + (h - 2 * P - text.height) / 2));
+      n.bubble = this.add.container(Math.round(n.sprite.x), Math.round(n.sprite.y - PLAYER_SIZE - 8), [g, text]).setDepth(BUBBLE_DEPTH);
+      n.talkUntil = this.time.now + talkMs(line);
+      // 멈춰 서서 나를 본다
+      n.sprite.stop();
+      const dir = walkDirOf(this.feet.x - n.sprite.x, this.feet.y - (n.sprite.y - 8)) ?? "down";
+      n.sprite.setFrame(walkFrameIndex(dir === "up" ? "down" : dir, 0));
+      // 시험(e2e)이 읽는 말풍선 글과 그 이웃 자리
+      this.game.canvas.dataset.npcSay = line;
+      this.game.canvas.dataset.npcSayLot = String(n.house.lot);
     }
 
     /** 그 자리(월드 좌표)에 있는 이웃 */

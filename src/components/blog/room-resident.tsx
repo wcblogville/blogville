@@ -26,6 +26,7 @@ import { WALK_FPS, WALK_FRAMES, walkSheetDataUri, type WalkDir } from "@/lib/art
 import type { TownPet } from "@/components/town/types";
 import type { AnimalDisplaySize } from "@/lib/farm";
 import { footprintOf } from "@/lib/house";
+import { IDLE_AFTER_MS, IDLE_COLS, IDLE_FRAME, IDLE_GAP_MS, IDLE_MOTIONS, idleDuration, idleFrameAt, idleFrameIndex, idleSheetDataUri, pickIdleMotion, type IdleMotion } from "@/lib/art/idle";
 import { ACTION_LABEL, actionOf, blockedTiles, findPath, layoutDepth, ON_FURNITURE, planUse, type RoomAction, type RoomPiece, seatTile, type Tile } from "@/lib/room-walk";
 
 /** 카메라를 재기 전 도트 크기 (방 그림 좌표 px): 캐릭터 4배(96px), 동물 3배(96px) */
@@ -117,6 +118,7 @@ export function RoomResident({
 }) {
   const meRef = useRef<HTMLDivElement>(null);
   const poseRef = useRef<HTMLDivElement>(null);
+  const idleRef = useRef<HTMLSpanElement>(null);
   const petRef = useRef<HTMLSpanElement>(null);
   const fxRef = useRef<HTMLDivElement>(null);
   const lightRef = useRef<HTMLDivElement>(null);
@@ -129,6 +131,9 @@ export function RoomResident({
   const PET_BOX = 32 * petScale;
   const sheet = useMemo(() => walkSheetDataUri(characterAsset, outfit, scale), [characterAsset, outfit, scale]);
   const poseSheet = useMemo(() => poseSheetDataUri(characterAsset, outfit, scale), [characterAsset, outfit, scale]);
+  // 가만히 동작 그림판 (idle.ts, 사용자 요청 2026-10-12): 서 있는 동안(가구와 놀지 않을 때) 가끔 동작을 하나 한다. 칸이 걷기 칸보다 위로 높다
+  const idleSheet = useMemo(() => idleSheetDataUri(characterAsset, outfit, scale), [characterAsset, outfit, scale]);
+  const idleH = (BOX / IDLE_FRAME.w) * IDLE_FRAME.h;
   const gap = shown ? petGap(shown.assetKey, shown.size, shown) : 0;
   const piecesKey = pieces.map((p) => `${p.itemId}:${p.assetKey}:${p.x},${p.y}${p.flip ? "~" : ""}`).join(";");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 가구가 실제로 바뀔 때만 (배열은 렌더마다 새로 온다)
@@ -146,6 +151,9 @@ export function RoomResident({
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     const fxSpans = [...fxEl.children] as HTMLElement[];
     const fxBox = PARTICLE_SIZE * scale;
+    const idleEl = idleRef.current;
+    const walkBg = me.style.backgroundImage;
+    const gapMs = () => IDLE_GAP_MS[0] + Math.random() * (IDLE_GAP_MS[1] - IDLE_GAP_MS[0]);
 
     const s = {
       pos: center(start.me),
@@ -178,6 +186,16 @@ export function RoomResident({
       idle: 0,
       face: "right" as "left" | "right",
       clock: 0,
+      // 가만히 동작: 다음 동작까지 남은 시간(ms)과 하는 중인 동작
+      idleIn: IDLE_AFTER_MS,
+      idleAct: null as { m: IdleMotion; t: number } | null,
+      idleFrame: null as number | null,
+    };
+    /** 가만히 동작을 멈추고 서 있는 시간을 처음부터 잰다 (걷기·가구와 놀기를 시작할 때, 걷기를 마칠 때) */
+    const resetIdle = () => {
+      s.idleAct = null;
+      s.idleFrame = null;
+      s.idleIn = IDLE_AFTER_MS;
     };
     const resetTrail = () => {
       const g = Math.hypot(s.pos.x - s.petPos.x, s.pos.y - s.petPos.y);
@@ -237,6 +255,7 @@ export function RoomResident({
 
     const endAct = () => {
       s.act = null;
+      resetIdle();
       me.dataset.pose = "";
       poseEl.dataset.pose = "";
       for (const f of fxSpans) f.style.opacity = "0";
@@ -244,6 +263,7 @@ export function RoomResident({
 
     const startAct = (piece: RoomPiece, stand: Tile) => {
       const action = actionOf(piece.assetKey);
+      resetIdle();
       const c = pieceCenter(piece);
       s.dir = dirOf(c.x - s.pos.x, c.y - s.pos.y, "down");
       let at: P = { ...s.pos };
@@ -357,6 +377,16 @@ export function RoomResident({
         me.style.zIndex = String(depth.pointZ(s.pos));
         me.style.backgroundPosition = `-${frame * BOX}px -${ROWS[dir] * BOX}px`;
       }
+      if (idleEl) {
+        const f = !a && s.idleAct ? s.idleFrame : null;
+        idleEl.style.display = f === null ? "none" : "block";
+        me.style.backgroundImage = f === null ? walkBg : "none";
+        me.dataset.idle = f === null ? "" : s.idleAct!.m.key;
+        if (f !== null) {
+          const i = idleFrameIndex(s.idleAct!.m.key, f);
+          idleEl.style.backgroundPosition = `-${(i % IDLE_COLS) * BOX}px -${Math.floor(i / IDLE_COLS) * idleH}px`;
+        }
+      }
       me.dataset.walk = `${s.path.length ? "walk" : "idle"}-${s.dir}`;
       me.dataset.tile = `${Math.floor(s.pos.x)},${Math.floor(s.pos.y)}`;
 
@@ -435,6 +465,19 @@ export function RoomResident({
           frame = 1 + (Math.floor(s.t * WALK_FPS) % (WALK_FRAMES - 1));
         }
       }
+      // 서 있고 가구와 놀지 않을 때: 가끔 가만히 동작 하나 (끝까지 하고, 다음까지 4~8초 쉰다)
+      if (!s.path.length && !s.act) {
+        if (s.idleAct) {
+          s.idleAct.t += dtMs;
+          s.idleFrame = idleFrameAt(s.idleAct.m, s.idleAct.t);
+          if (s.idleFrame === null) s.idleAct = null;
+        } else if ((s.idleIn -= dtMs) <= 0) {
+          const m = pickIdleMotion(Math.random(), null);
+          s.idleAct = { m, t: 0 };
+          s.idleFrame = idleFrameAt(m, 0);
+          s.idleIn = idleDuration(m) + gapMs();
+        }
+      }
       // 잠깐 하는 행동은 끝나면 선다 (불은 켜진 채로)
       const short = s.act && SHORT_MS[s.act.action];
       if (short && s.clock - s.act!.since > short) {
@@ -474,7 +517,7 @@ export function RoomResident({
       cancelAnimationFrame(raf);
       if (controlRef) controlRef.current = null;
     };
-  }, [gap, room, start, blocked, depth, layout, BOX, PET_BOX, scale, petScale, snap, hidden, controlRef]);
+  }, [gap, room, start, blocked, depth, layout, BOX, PET_BOX, scale, petScale, snap, hidden, controlRef, idleH]);
 
   // 첫 그림(서버·하이드레이션 전)도 처음 자리(칸 가운데)에 둔다
   const first = (p: Tile, box: number) => ({ transform: spot(room, center(p), box, snap), zIndex: depth.pointZ(center(p)) });
@@ -539,7 +582,21 @@ export function RoomResident({
           backgroundRepeat: "no-repeat",
           backgroundPosition: "0 0",
         }}
-      />
+      >
+        {/* 가만히 동작 (서 있을 때 가끔): 걷기 칸보다 위로 높은 그림판, 발밑을 맞춘다 */}
+        <span
+          ref={idleRef}
+          className="pointer-events-none absolute bottom-0 left-0"
+          style={{
+            display: "none",
+            width: BOX,
+            height: idleH,
+            backgroundImage: `url("${idleSheet}")`,
+            backgroundSize: `${BOX * IDLE_COLS}px ${idleH * IDLE_MOTIONS.length}px`,
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+      </div>
       {/* 앉기·눕기·책·글·물뿌리개 몸짓 (행동할 때만 보인다) */}
       <div
         ref={poseRef}

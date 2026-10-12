@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.21 (2026-10-12, 동물 암수·특별 진화·데리고 다닐 모습: `user_animals.sex`(알은 NULL, 깨어나면 `female`/`male`, CHECK `user_animals_sex_check`, 기존 동물은 반반으로 채움)·`variant`(특별 진화 키, 다 자란 동물만 CHECK)·`display_form`(기본 `adult`, CHECK `adult`·`baby`), 알 확률은 `animal_species.hatch_weight` 만분율(아홉 종류 모두 0보다 큼), 마이그레이션 0039). 1.20 (2026-10-12, 이웃 추가 알림: `notification_kind`에 `follow`(글 없음), `notifications_shape_check`에 follow 모양, 같은 사람에게서 한 번만 `notifications_follow_uq`, 마이그레이션 0038, SOC-06). 1.19 (2026-10-12, 이웃 공개 글: `visibility`에 `neighbors` 더함(`public` < `neighbors` < `private`), 마이그레이션 0037, 3.29). 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.22 (2026-10-12, 마을 한마디: `profiles.greeting` 텍스트 NULL 허용, CHECK `profiles_greeting_check` 1~60자, 마이그레이션 0040, 3.30). 1.21 (2026-10-12, 동물 암수·특별 진화·데리고 다닐 모습: `user_animals.sex`(알은 NULL, 깨어나면 `female`/`male`, CHECK `user_animals_sex_check`, 기존 동물은 반반으로 채움)·`variant`(특별 진화 키, 다 자란 동물만 CHECK)·`display_form`(기본 `adult`, CHECK `adult`·`baby`), 알 확률은 `animal_species.hatch_weight` 만분율(아홉 종류 모두 0보다 큼), 마이그레이션 0039). 1.20 (2026-10-12, 이웃 추가 알림: `notification_kind`에 `follow`(글 없음), `notifications_shape_check`에 follow 모양, 같은 사람에게서 한 번만 `notifications_follow_uq`, 마이그레이션 0038, SOC-06). 1.19 (2026-10-12, 이웃 공개 글: `visibility`에 `neighbors` 더함(`public` < `neighbors` < `private`), 마이그레이션 0037, 3.29). 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -119,6 +119,7 @@ erDiagram
         varchar nickname UK "2~20자, 가입 때 아이디로 자동"
         int character_item_id FK
         char photo_key FK "프로필 사진, NULL 허용"
+        text greeting "마을 한마디 1~60자, NULL 허용"
         timestamptz created_at
     }
     blogs {
@@ -774,6 +775,13 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 블로그 안 조건은 보는 사람의 자리(`PostAccess` = owner·neighbor·guest)로 정한다 (`src/server/blog.ts` `visibleFor`). 인덱스는 그대로 `posts (visibility, created_at DESC)`.
 - 글쓰기 보상(GAME-05)은 지금처럼 `public` 새 글만.
 
+### 3.30 마을 한마디 (사용자 요청 2026-10-12, TOWN-24, `0040_profile_greeting`)
+
+- 마을에서 이웃(NPC)에게 말을 걸면 그 회원이 정한 한마디를 말풍선으로 보여 준다. `profiles.greeting`(NULL 허용) + CHECK `profiles_greeting_check`: `greeting IS NULL OR char_length(greeting) BETWEEN 1 AND 60`. 빈 칸으로 저장하면 NULL(앞뒤 공백을 지운 뒤, `src/lib/town-talk.ts` `normalizeGreeting`).
+- 한마디가 없으면 그 회원의 **공개 글** 본문(`posts.content_text`)에서 한 문장(5~80자)을 골라 보여 준다. 문장은 저장하지 않고 마을을 그릴 때 최근 공개 글 5개에서 뽑는다 (비공개 글은 읽지 않는다).
+- 프로필은 회원과 1:1이라 새 표 없이 칸 하나를 더했다. 말풍선 글자는 Phaser 글자로 그려 HTML로 해석되지 않는다.
+- 마을 분위기(배경 → 눈 쌓인 마을 등)·가만히 동작·이웃이 데리고 다니는 동물은 이미 있는 `blogs.background_item_id`·`blogs.showcase_animal_id`와 그림 코드로 정해 DB를 바꾸지 않았다.
+
 ## 4. 데이터 마이그레이션
 
 구조가 아니라 **데이터**를 바꿔야 할 때도 마이그레이션 파일로 남긴다. 그래야 팀원 각자의 DB와 배포 DB에 똑같이 적용된다.
@@ -849,6 +857,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `verifications.identifier` | `VARCHAR(255)` | |
 | `verifications.value` | `TEXT` | 소셜 로그인 확인 값은 길어질 수 있다 |
 | `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
+| `profiles.greeting` | `TEXT` | 1~60자 (CHECK `profiles_greeting_check`, TOWN-24) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
 | `blogs.description` | `VARCHAR(160)` | 0~160자 (CHECK `blogs_description_check`) |
@@ -867,4 +876,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`·`skin_id`, `animal_species.price`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `profiles.greeting`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`·`skin_id`, `animal_species.price`

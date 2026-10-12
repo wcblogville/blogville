@@ -7,9 +7,11 @@ import { animalSkins, animalSpecies, blogs, blogVisits, follows, items, pointLed
 import { hasAnimalArt } from "@/lib/art/animals";
 import { ROOF_HEX } from "@/lib/art/town";
 import { type AnimalDisplaySize, type AnimalForm, type AnimalSex, animalName } from "@/lib/farm";
+import { townThemeOf, type TownThemeKey } from "@/lib/art/town-theme";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
 import { assignLots } from "@/lib/town-lots";
+import { talkLines } from "@/lib/town-talk";
 import { getHeaderNotifications, listNotifications } from "@/server/notifications";
 import { getWallet } from "@/server/points";
 import type { TownHudMember } from "@/components/town/town-hud";
@@ -21,6 +23,9 @@ const characterItem = alias(items, "character_item");
 export const FAVORITE_LIMIT = 10;
 /** 방문자 광장은 인기 블로그 이만큼 중에서 고른다 (TOWN-04) */
 const POPULAR_POOL = 100;
+/** 이웃 말풍선 문장을 고르는 최근 공개 글 수와 글마다 읽는 글자 수 */
+const TALK_POSTS = 5;
+const TALK_READ = 2000;
 /** 우체통에서 보여 줄 최근 공개 글 수 */
 const RECENT_POSTS = 3;
 /** 메뉴 알림 창에 보여 줄 최근 알림 수 */
@@ -42,6 +47,7 @@ function houseQuery() {
   return db
     .select({
       blogId: blogs.id,
+      ownerId: blogs.ownerId,
       slug: blogs.slug,
       title: blogs.title,
       nickname: profiles.nickname,
@@ -49,6 +55,7 @@ function houseQuery() {
       outfit: outfitOf(blogs.ownerId),
       roofColor: blogs.roofColor,
       exp: ownerExp,
+      greeting: profiles.greeting,
     })
     .from(blogs)
     .innerJoin(profiles, eq(profiles.userId, blogs.ownerId))
@@ -66,19 +73,29 @@ async function toHouses(rows: HouseRow[]): Promise<TownHouse[]> {
       id: posts.id,
       blogId: posts.blogId,
       title: posts.title,
+      // 말풍선 문장 후보 (공개 글만, 앞부분만 읽는다)
+      text: sql<string>`LEFT(${posts.contentText}, ${TALK_READ})`.as("talk_text"),
       rank: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${posts.blogId} ORDER BY ${posts.createdAt} DESC, ${posts.id} DESC)`.as("rank"),
     })
     .from(posts)
     .where(and(inArray(posts.blogId, rows.map((r) => r.blogId)), eq(posts.visibility, "public")))
     .as("ranked");
-  const recent = await db.select().from(ranked).where(sql`${ranked.rank} <= ${RECENT_POSTS}`).orderBy(asc(ranked.rank));
+  const pets = await getShowcasePets(rows.map((r) => r.ownerId));
+  const recent = await db.select().from(ranked).where(sql`${ranked.rank} <= ${Math.max(RECENT_POSTS, TALK_POSTS)}`).orderBy(asc(ranked.rank));
 
-  return rows.map(({ blogId, exp, roofColor, ...h }) => ({
-    ...h,
-    roof: ROOF_HEX[currentRoof(blogId, roofColor)],
-    level: levelFromExp(exp),
-    recentPosts: recent.filter((p) => p.blogId === blogId).map((p) => ({ id: p.id, title: p.title })),
-  }));
+  return rows.map(({ blogId, ownerId, exp, roofColor, greeting, ...h }) => {
+    const mine = recent.filter((p) => p.blogId === blogId);
+    return {
+      ...h,
+      roof: ROOF_HEX[currentRoof(blogId, roofColor)],
+      level: levelFromExp(exp),
+      recentPosts: mine.slice(0, RECENT_POSTS).map((p) => ({ id: p.id, title: p.title })),
+      // 마을 말풍선: 마을 한마디가 있으면 그것, 없으면 최근 공개 글의 문장들 (비공개 글은 위 조건으로 빠진다)
+      talk: talkLines(greeting, mine.slice(0, TALK_POSTS).map((p) => p.text)),
+      // 마을을 걸을 때 데리고 다니는 전시 동물 (사용자 요청 2026-10-12 "전시해둔 펫 데리고 다니게")
+      pet: pets.get(ownerId) ?? null,
+    };
+  });
 }
 
 /** 블로그 누적 방문자 수 (BLOG-06: 같은 사람은 하루 1번) */
@@ -135,8 +152,15 @@ export async function getMyHouse(userId: string): Promise<TownHouse | null> {
  * 전시하지 않았거나, 다 자라지 않았거나, 그림이 없으면 null (블로그의 전시 자리와 같은 규칙)
  */
 export async function getTownPet(userId: string): Promise<TownPet | null> {
-  const [row] = await db
+  return (await getShowcasePets([userId])).get(userId) ?? null;
+}
+
+/** 여러 회원의 전시 동물을 한 번에 (이웃 NPC가 데리고 다니는 동물도 같은 규칙). 회원 id → 동물 */
+async function getShowcasePets(userIds: string[]): Promise<Map<string, TownPet>> {
+  if (!userIds.length) return new Map();
+  const rows = await db
     .select({
+      userId: blogs.ownerId,
       assetKey: animalSpecies.assetKey,
       name: animalSpecies.name,
       skinKey: animalSkins.assetKey,
@@ -149,8 +173,21 @@ export async function getTownPet(userId: string): Promise<TownPet | null> {
     .innerJoin(userAnimals, and(eq(userAnimals.id, blogs.showcaseAnimalId), eq(userAnimals.userId, blogs.ownerId)))
     .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
     .leftJoin(animalSkins, eq(animalSkins.id, userAnimals.skinId))
-    .where(and(eq(blogs.ownerId, userId), eq(userAnimals.status, "grown")));
-  return row && hasAnimalArt(row.assetKey) ? { ...row, name: animalName(row.name, row.variant) } : null;
+    .where(and(inArray(blogs.ownerId, userIds), eq(userAnimals.status, "grown")));
+  return new Map(rows.filter((r) => hasAnimalArt(r.assetKey)).map(({ userId, ...pet }) => [userId, { ...pet, name: animalName(pet.name, pet.variant) }]));
+}
+
+/**
+ * 마을 테마 (사용자 요청 2026-10-12 "눈배경이다 하면 마을에 눈쌓여있고"): 그 회원의 블로그 배경(꾸미기에서 고른 것) → 테마.
+ * 블로그가 없거나 모르는 배경이면 기본(초원)
+ */
+export async function getTownTheme(userId: string): Promise<TownThemeKey> {
+  const [row] = await db
+    .select({ assetKey: items.assetKey })
+    .from(blogs)
+    .innerJoin(items, eq(items.id, blogs.backgroundItemId))
+    .where(eq(blogs.ownerId, userId));
+  return townThemeOf(row?.assetKey);
 }
 
 /** 친구 목록: 내가 이웃으로 추가한 사람 (즐겨찾기 먼저, 그다음 닉네임 순). followsBack = 서로 이웃 */
@@ -215,4 +252,10 @@ export async function getHudMember(
     notifications: list.rows.slice(0, MENU_NOTIFICATIONS),
     friends,
   };
+}
+
+/** 내 마을 한마디 (내 정보 화면) */
+export async function getGreeting(userId: string): Promise<string | null> {
+  const [row] = await db.select({ greeting: profiles.greeting }).from(profiles).where(eq(profiles.userId, userId));
+  return row?.greeting ?? null;
 }

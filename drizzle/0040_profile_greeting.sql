@@ -1,0 +1,2 @@
+ALTER TABLE "profiles" ADD COLUMN "greeting" text;--> statement-breakpoint
+ALTER TABLE "profiles" ADD CONSTRAINT "profiles_greeting_check" CHECK ("profiles"."greeting" IS NULL OR char_length("profiles"."greeting") BETWEEN 1 AND 60);

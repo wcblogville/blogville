@@ -11,6 +11,8 @@ import { isSocialProvider, SOCIAL_LABEL } from "@/lib/social";
 import { getSocialLogins } from "@/server/account";
 import { requireMember } from "@/server/dal";
 import { DeleteAccountForm, LinkSocialButton, UnlinkSocialButton } from "./account-forms";
+import { getGreeting } from "@/server/town";
+import { GreetingForm } from "./greeting-form";
 import { NicknameForm } from "./nickname-form";
 import { PasswordForm } from "./password-form";
 import { PhotoForm } from "./photo-form";
@@ -25,7 +27,7 @@ const ALREADY_LINKED_ERROR = "account_already_linked_to_different_user";
 
 export default async function AccountSettingsPage({ searchParams }: PageProps<"/settings/account">) {
   const viewer = await requireMember();
-  const [logins, params] = await Promise.all([getSocialLogins(viewer.userId), searchParams]);
+  const [logins, params, greeting] = await Promise.all([getSocialLogins(viewer.userId), searchParams, getGreeting(viewer.userId)]);
 
   // 소셜 서비스에서 돌아왔을 때의 문구. 연동 성공은 실제로 그 연동 행이 있을 때만 (주소를 손으로 만든 경우 제외).
   // 취소·동의 안 함 등 그 밖의 오류는 문구 없이 그대로 (spec Edge Case)
@@ -88,6 +90,10 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
           닉네임
         </h2>
         <NicknameForm nickname={viewer.profile.nickname} />
+        {/* 마을 한마디 (사용자 요청 2026-10-12): 마을에서 이웃이 말을 걸면 보이는 말풍선 */}
+        <div className="mt-6 border-t-2 border-dashed border-[#e2c9a0] pt-4" data-section="greeting">
+          <GreetingForm greeting={greeting} />
+        </div>
       </section>
 
       {/* 비밀번호 변경 (AUTH-11). 바꾸면 다른 기기의 로그인은 끊긴다 */}
