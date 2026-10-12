@@ -35,14 +35,14 @@ await a.getByLabel("대분류").selectOption({ label: "카테고리 없음" });
 
 await a.getByPlaceholder("제목").fill("Git 충돌 해결해 본 날");
 await a.locator(".ProseMirror").click();
-await a.getByRole("button", { name: "H2" }).click();
+await a.getByRole("button", { name: "큰 제목" }).click();
 await a.keyboard.type("오늘 배운 것");
 await a.keyboard.press("Enter");
 await a.keyboard.type(
   "두 브랜치가 같은 줄을 서로 다르게 고치면 merge할 때 충돌이 난다. 충돌 표시를 읽고 남길 내용을 고른 다음 표시 세 줄을 지우고 add, commit 하면 끝이다. 생각보다 무섭지 않았다!",
 );
 await a.keyboard.press("Enter");
-await a.getByRole("button", { name: "B", exact: true }).click();
+await a.getByRole("button", { name: "굵게", exact: true }).click();
 await a.keyboard.type("핵심: git merge --abort 로 언제든 되돌릴 수 있다.");
 await a.getByPlaceholder(/태그/).fill("git, merge, 회고");
 await a.screenshot({ path: `${outDir}/10-write.png`, fullPage: true });
