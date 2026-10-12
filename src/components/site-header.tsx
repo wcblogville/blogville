@@ -64,7 +64,7 @@ export async function SiteHeader() {
             {/* 로그인 유지 세션만 7일 연장 (AUTH-09 / FR-021) */}
             {member.rememberMe && <SessionKeeper />}
             {/* 로그아웃 때 이 브라우저의 임시 글도 지운다 (POST-08 / FR-063) */}
-            <SignOutButton userId={member.userId} />
+            <SignOutButton userId={member.userId} compact />
             </div>
             {/* 안 본 레벨업 팝업 (GAME-06 / FR-038), 0시를 넘긴 화면의 자동 출석 (GAME-04). 마을에서도 눌러야 해서 pointer-events를 되살린다 */}
             <div className="contents group-data-[town]:pointer-events-auto">
