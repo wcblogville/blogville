@@ -3,6 +3,7 @@ import { PinnedNoticeCard } from "@/components/blog/pinned-notice";
 import { PostCard, type PostCardData } from "@/components/blog/post-card";
 import type { PinnedNotice } from "@/server/blog";
 import { Pagination } from "@/components/pagination";
+import { PixelIcon, IconText } from "@/components/pixel-icon";
 
 type Tag = { name: string; count: number };
 
@@ -39,18 +40,18 @@ export function FeedView({
         {tab && (
           <div className="mt-5 flex flex-wrap gap-3 px-[3px]">
             <Link href="/feed" aria-current={tab === "all" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
-              🏘 마을 전체
+              <IconText icon="house">마을 전체</IconText>
             </Link>
             {showFollowingTab && (
               <Link href="/feed/following" aria-current={tab === "following" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
-                💛 이웃 새 글
+                <IconText icon="heartGold">이웃 새 글</IconText>
               </Link>
             )}
             <Link href="/feed/all" aria-current={tab === "everyone" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
-              🌐 모든 글
+              <IconText icon="globe">모든 글</IconText>
             </Link>
             <Link href="/feed/releases" aria-current={tab === "releases" ? "page" : undefined} className="pixel-tab whitespace-nowrap text-sm">
-              📜 릴리스 노트
+              <IconText icon="scroll">릴리스 노트</IconText>
             </Link>
           </div>
         )}
@@ -58,23 +59,23 @@ export function FeedView({
           // 모든 글 탭 설명 (사용자 요청 2026-10-12 "모든 글 볼 수 있게 설명해주고 … 여기 안 나오게 … 이웃에게만 공개")
           <div className="pixel-paper mt-4 p-4 text-sm leading-relaxed" data-feed-hint>
             <p>
-              <b>🌐 Blogville 모든 회원의 전체 공개 글</b>이 최신순으로 모여요. 이웃이 아니어도 누구의 글이든 여기서 구경할 수 있어요.
+              <b>Blogville 모든 회원의 전체 공개 글</b>이 최신순으로 모여요. 이웃이 아니어도 누구의 글이든 여기서 구경할 수 있어요.
             </p>
             <p className="mt-1 text-ink-soft">
-              이웃에게만 보여 주고 싶은 글은 글쓰기에서 <b className="text-ink">👥 이웃 공개</b>를 고르세요. 여기와 태그·검색에는 나오지 않고, 나를 이웃 추가한 회원만 볼 수 있어요.
+              이웃에게만 보여 주고 싶은 글은 글쓰기에서 <b className="text-ink">이웃 공개</b>를 고르세요. 여기와 태그·검색에는 나오지 않고, 나를 이웃 추가한 회원만 볼 수 있어요.
             </p>
             <p className="mt-1 text-ink-soft" data-feed-manners>
-              📢 전체 공개 글은 모두가 읽어요. 다른 사람을 불쾌하게 하는 말이나 개인정보는 쓰지 말아 주세요.
+              전체 공개 글은 모두가 읽어요. 다른 사람을 불쾌하게 하는 말이나 개인정보는 쓰지 말아 주세요.
             </p>
           </div>
         ) : (
           tab && (
             <p className="mt-4 px-1 text-sm text-ink-soft" data-feed-hint>
               {tab === "all"
-                ? "⭐ 즐겨찾기한 이웃의 새 글만 모여요"
+                ? "즐겨찾기한 이웃의 새 글만 모여요"
                 : tab === "following"
-                  ? "💛 이웃 추가한 모든 이웃의 새 글이 모여요 (즐겨찾기 이웃의 최근 7일 글이 맨 위)"
-                  : "📜 Blogville에 새로 생긴 기능을 버전별로 알려 드려요"}
+                  ? "이웃 추가한 모든 이웃의 새 글이 모여요 (즐겨찾기 이웃의 최근 7일 글이 맨 위)"
+                  : "Blogville에 새로 생긴 기능을 버전별로 알려 드려요"}
             </p>
           )
         )}
@@ -86,7 +87,9 @@ export function FeedView({
 
       <aside className="md:sticky md:top-20 md:self-start">
         <div className="pixel-card">
-          <h2 className="pb-plank px-4 py-2 font-display text-lg">🏷 인기 태그</h2>
+          <h2 className="pb-plank flex items-center gap-2 px-4 py-2 font-display text-lg">
+            <PixelIcon name="tag" scale={2} />인기 태그
+          </h2>
           <div className="p-3">
           {tags.length ? (
             <ul className="flex flex-wrap gap-2">

@@ -236,11 +236,12 @@ export async function getHudMember(
   isAdmin: boolean,
   profile: { photoKey: string | null; blogTitle: string; blogSlug: string },
 ): Promise<TownHudMember> {
-  const [wallet, header, list, friends] = await Promise.all([
+  const [wallet, header, list, friends, greeting] = await Promise.all([
     getWallet(userId),
     getHeaderNotifications(userId),
     listNotifications(userId, 1),
     getFriends(userId),
+    getGreeting(userId),
   ]);
   return {
     userId,
@@ -248,6 +249,7 @@ export async function getHudMember(
     slug: profile.blogSlug,
     photoKey: profile.photoKey,
     blogTitle: profile.blogTitle,
+    greeting,
     wallet: { coins: wallet.coins, level: wallet.level, current: wallet.current, needed: wallet.needed, isMax: wallet.isMax },
     unread: header.unread,
     notifications: list.rows.slice(0, MENU_NOTIFICATIONS),

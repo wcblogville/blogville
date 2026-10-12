@@ -103,7 +103,7 @@ await page.screenshot({ path: `${outDir}/92-farm-grown.png`, fullPage: true });
   const openBtn = page.locator("[data-collection-open]");
   const dialog = page.locator("dialog[data-collection]");
   const room = page.locator("[data-house-room]");
-  check("우리 집 방 도구 줄에 [🏅 도감 1] 버튼", (await room.locator("[data-collection-open]").innerText()).replace(/\s+/g, " ").trim() === "🏅 도감 1", await openBtn.innerText());
+  check("우리 집 방 도구 줄에 [🏅 도감 1] 버튼", (await room.locator("[data-collection-open]").innerText()).replace(/\s+/g, " ").trim() === "도감 1", await openBtn.innerText());
   check("처음엔 방 안에 주인 캐릭터만 (전시 동물 없음)", (await room.locator("[data-room-resident]").count()) === 1 && (await room.locator("[data-showcase]").count()) === 0);
   check("도감 창은 처음에 닫혀 있다", !(await dialog.isVisible()));
   await openBtn.click();

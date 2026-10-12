@@ -118,6 +118,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         className="pixel-banner mt-4 h-60"
       />
       <p role="status" aria-live="polite" className={`mt-3 min-h-6 text-center font-bold ${message?.ok ? "text-leaf-dark" : "text-berry"}`}>
+        {message?.ok && <PixelIcon name="check" scale={1} className="mr-1.5 align-[-1px]" />}
         {message?.text}
       </p>
 

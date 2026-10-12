@@ -3,6 +3,7 @@
 // 공감 버튼 (SOC-03 / FR-026~FR-030)
 import { useOptimistic, useTransition } from "react";
 import { toggleLike } from "@/app/blog/actions";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export function LikeButton({ postId, count, liked, canLike }: { postId: number; count: number; liked: boolean; canLike: boolean }) {
   const [pending, startTransition] = useTransition();
@@ -25,7 +26,7 @@ export function LikeButton({ postId, count, liked, canLike }: { postId: number; 
         }
         className={`pixel-btn min-h-12 px-6 text-lg ${state.liked ? "bg-[#ffe1e1] text-berry" : "bg-[#fffaf0] text-ink"}`}
       >
-        {state.liked ? "♥" : "♡"} 공감 {state.count}
+        <PixelIcon name={state.liked ? "heart" : "heartEmpty"} scale={2} />공감 {state.count}
       </button>
       {/* 비활성 버튼은 마우스를 올려도 title이 안 보여서(pointer-events: none) 글자로 보여 준다 (research R14) */}
       {!canLike && (

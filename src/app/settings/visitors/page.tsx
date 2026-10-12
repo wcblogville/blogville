@@ -38,7 +38,9 @@ export default async function VisitorsPage(props: PageProps<"/settings/visitors"
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="pixel-sign text-2xl sm:text-3xl">👣 방문자 기록</h1>
+        <h1 className="pixel-sign text-2xl sm:text-3xl">
+          <PixelIcon name="foot" scale={2} />방문자 기록
+        </h1>
         <Link
           href={`/@${viewer.profile.blogSlug}`}
           className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap px-1 text-sm text-ink-soft hover:text-ink"

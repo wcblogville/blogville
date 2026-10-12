@@ -71,7 +71,7 @@ const guestErrors = collectErrors(guest);
 await guest.goto(`${BASE}/feed`);
 check("US1-1 방문자 탭 제목 `마을 소식 | Blogville`", (await guest.title()) === "마을 소식 | Blogville", await guest.title());
 check("US1-1 방문자 [🏘 마을 전체]만, [💛 이웃 새 글] 없음",
-  (await guest.getByRole("link", { name: "🏘 마을 전체" }).count()) === 1 && (await guest.getByRole("link", { name: "💛 이웃 새 글" }).count()) === 0);
+  (await guest.getByRole("link", { name: "마을 전체", exact: true }).count()) === 1 && (await guest.getByRole("link", { name: "이웃 새 글", exact: true }).count()) === 0);
 check("US1-1 방문자: 글 목록 없음(모르는 사람 글 0)·로그인 안내", (await titles(guest)).length === 0 && (await guest.getByText("로그인하면 즐겨찾기한 이웃의 새 글을").isVisible()));
 const pinned = guest.locator("[data-pinned-notice]");
 check("공지: 방문자도 맨 위 공지 카드·제목", (await pinned.count()) === 1 && (await pinned.getByRole("heading").innerText()) === notice?.title);
@@ -85,7 +85,7 @@ check("US1-2 마을 전체: 즐겨찾는 이웃 F의 공개 글만 8개 최신�
 check("US1-2 마을 전체: 모르는 사람·즐겨찾기 아닌 이웃·내 글·공지 블로그 글 없음",
   ["S 모르는 사람 글", "N 이웃 글", "R 내 글", notice?.title].every((t) => !first.includes(t)) &&
   (await r.locator(`article a[href$="/${strangerPost}"], article a[href$="/${neighborPost}"], article a[href$="/${ownPost}"]`).count()) === 0);
-check("US1-2 비공개 배지 없음", (await r.getByText("🔒 비공개").count()) === 0);
+check("US1-2 비공개 배지 없음", (await r.getByText("비공개", { exact: true }).count()) === 0);
 const order = await r.evaluate(() => {
   const main = document.querySelector("main") ?? document.body;
   const at = (el) => (el ? el.getBoundingClientRect().top : Infinity);
@@ -102,7 +102,7 @@ await card.locator("h3").click();
 await r.waitForURL(new RegExp(`/@${F}/${fPosts[8]}$`));
 check("US1-3 카드 클릭 1번 → 글 상세 (SC-008)", true);
 await r.goto(`${BASE}/feed?page=999`);
-check("US1-5 빈 쪽 문구 (즐겨찾기 안내)", await r.getByText("⭐ 즐겨찾기한 이웃의 새 글이 아직 없어요.").isVisible());
+check("US1-5 빈 쪽 문구 (즐겨찾기 안내)", await r.getByText("즐겨찾기한 이웃의 새 글이 아직 없어요.").isVisible());
 // 페이지 번호 줄만 본다: 마을 소식 탭([🏘 마을 전체])도 지금 탭이라 aria-current="page"를 단다 (도트 탭, 2026-10-12)
 check("US1-5 빈 쪽 현재 페이지 표시 없음", (await r.locator('nav[aria-label="페이지"] [aria-current="page"]').count()) === 0);
 // 이웃 새 글: 즐겨찾기 F + 이웃 N, 모르는 사람 S·내 글·공지 블로그는 없음
@@ -125,7 +125,7 @@ await r.goto(`${BASE}/feed`);
 const overflow = await r.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 check("US1-8 375px 가로 스크롤 없음", overflow <= 0, `${overflow}px`);
 const lastCard = await r.locator("article").last().boundingBox();
-const tagBox = await r.getByRole("heading", { name: "🏷 인기 태그" }).boundingBox();
+const tagBox = await r.getByRole("heading", { name: "인기 태그" }).boundingBox();
 check("US1-8 375px 인기 태그 칸이 목록 아래", tagBox.y > lastCard.y);
 const nb = await r.locator("[data-pinned-notice]").boundingBox();
 check("공지: 375px 화면 너비 안", nb && nb.x >= 0 && nb.x + nb.width <= 375, nb && `${Math.round(nb.x)}+${Math.round(nb.width)}`);
@@ -152,7 +152,7 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   const noCat = await adminPost(`분류 없는 관리자 글 ${n}`, null);
   await guest.goto(`${BASE}/feed/releases`);
   const rel = await titles(guest);
-  check("릴리스 노트: 방문자도 탭·탭 제목", (await guest.getByRole("link", { name: "📜 릴리스 노트" }).getAttribute("aria-current")) === "page" && (await guest.title()) === "릴리스 노트 | Blogville", await guest.title());
+  check("릴리스 노트: 방문자도 탭·탭 제목", (await guest.getByRole("link", { name: "릴리스 노트", exact: true }).getAttribute("aria-current")) === "page" && (await guest.title()) === "릴리스 노트 | Blogville", await guest.title());
   check("릴리스 노트: 관리자가 그 분류로 직접 쓴 글이 맨 위", rel[0] === `손으로 쓴 릴리스 노트 ${n}`, rel.join());
   const vs = rel.filter((t) => /^v\d/.test(t)).map((t) => t.split(" ")[0]);
   // 버전이 늘면 v0.1이 2쪽으로 넘어가므로 순서만 본다 (v0.11 > v0.7: 숫자로 비교)
@@ -173,7 +173,7 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   await guest.screenshot({ path: `${outDir}/feed-releases-375.png`, fullPage: true });
   await guest.setViewportSize({ width: 1280, height: 900 });
   await r.goto(`${BASE}/feed`);
-  check("릴리스 노트: 회원 마을 소식에 네 탭 (🌐 모든 글 1.37)", (await r.locator("a.pixel-tab").allInnerTexts()).join() === "🏘 마을 전체,💛 이웃 새 글,🌐 모든 글,📜 릴리스 노트");
+  check("릴리스 노트: 회원 마을 소식에 네 탭 (🌐 모든 글 1.37)", (await r.locator("a.pixel-tab").allInnerTexts()).join() === "마을 전체,이웃 새 글,모든 글,릴리스 노트");
   await db.query("DELETE FROM posts WHERE id = ANY($1)", [[hand, handPrivate, otherCat, noCat]]);
 }
 
@@ -202,13 +202,13 @@ const likeReq = G.page.waitForRequest((r) => r.method() === "POST" && !!r.header
 await likeBtn(G.page).click();
 const likeAction = await likeReq;
 await G.page.waitForLoadState("networkidle");
-check("US3-1 공감 → `♥ 공감 1`·aria-pressed", (await likeBtn(G.page).innerText()) === "♥ 공감 1" && (await likeBtn(G.page).getAttribute("aria-pressed")) === "true");
+check("US3-1 공감 → `♥ 공감 1`·aria-pressed", (await likeBtn(G.page).innerText()) === "공감 1" && (await likeBtn(G.page).getAttribute("aria-pressed")) === "true");
 check("US3-1 H 코인 +2", (await hCoins()) === coinsBefore + 2);
 // 새로고침 안 한 다른 탭에서 [♡ 공감 0]을 눌러도 서버는 취소로 처리
 const tab2 = await G.ctx.newPage();
 await tab2.goto(`${BASE}/@${H}/${LP}`);
 await clickLike(G.page);
-check("US3-2 다시 누르면 `♡ 공감 0`", (await likeBtn(G.page).innerText()) === "♡ 공감 0" && (await likeRows()) === 0);
+check("US3-2 다시 누르면 `♡ 공감 0`", (await likeBtn(G.page).innerText()) === "공감 0" && (await likeRows()) === 0);
 await clickLike(G.page);
 check("US3-3 공감 → 취소 → 공감 → 1행·보상 1번", (await likeRows()) === 1 && (await likeLedger()) === 1 && (await hCoins()) === coinsBefore + 2);
 await clickLike(tab2); // tab2는 공감 직후 화면(♥ 공감 1)이지만 서버 상태(공감 있음) 기준으로 취소
@@ -250,7 +250,7 @@ await G.page.goto(`${BASE}/@${H}/${LP}`);
 const detail = Number((await likeBtn(G.page).innerText()).replace(/\D/g, ""));
 await G.page.goto(`${BASE}/@${H}`);
 const cardText = await G.page.locator("article", { hasText: "공감 받을 글" }).innerText();
-check("US3-8 카드 ♥ N = 상세 공감 N", cardText.includes(`♥ ${detail}`), `${detail} / ${cardText.replace(/\n/g, " ").slice(0, 80)}`);
+check("US3-8 카드 ♥ N = 상세 공감 N", (await G.page.locator("article", { hasText: "공감 받을 글" }).locator("[data-like-count]").innerText()).trim() === String(detail), `${detail} / ${cardText.replace(/\n/g, " ").slice(0, 80)}`);
 const dup = await db.query("INSERT INTO post_likes (post_id, user_id) SELECT post_id, user_id FROM post_likes WHERE post_id = $1 LIMIT 1", [LP]).then(() => "ok").catch((e) => e.code);
 check("DB 직접 같은 공감 두 번 → 23505", dup === "23505", dup);
 const dupReward = await db
@@ -326,7 +326,7 @@ check("DB 직접 자기 자신 이웃 → 23514", selfFollow === "23514", selfFo
 // 내 블로그 홈: 주인 버튼만
 await X.page.goto(`${BASE}/@scx${n}`);
 check("US4-5 내 블로그 홈 → 주인 도구 막대 [✏️ 새 글 쓰기]·이웃 버튼 없음",
-  (await X.page.getByRole("link", { name: "✏️ 새 글 쓰기" }).isVisible()) && (await X.page.getByRole("button", { name: /이웃/ }).count()) === 0);
+  (await X.page.getByRole("link", { name: "새 글 쓰기" }).isVisible()) && (await X.page.getByRole("button", { name: /이웃/ }).count()) === 0);
 
 // 즐겨찾는 이웃 최근 7일 글이 맨 위 (FR-042)
 await db.query("DELETE FROM posts WHERE blog_id = ANY($1)", [[await blogOf(Bn), await blogOf(Cn)]]);

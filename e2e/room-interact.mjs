@@ -78,7 +78,7 @@ const waitTile = (t, pg = page, timeout = 12000) =>
 await page.goto(`${BASE}/@${H}`);
 await room.locator("[data-room-grid][data-room-dot]").waitFor();
 check("4단계 방 9×9칸, 가구 8개까지", (await room.locator("[data-furniture-count]").innerText()).includes("방 9×9칸"));
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 // 기본 화분(0,1)은 먼저 앞쪽(0,7)으로 옮겨 둔다 (뒤에 두면 큰 침대 머리판에 가려 잡기 어렵다)
 await dragTo("plant", 0, 7);
 await dragTo("chair", 6, 6);
@@ -111,7 +111,7 @@ const meBox = await me().boundingBox();
 check("침대 그림이 사람보다 크다 (너비 1.5배 넘게)", bedBox.width > meBox.width * 1.5, `${Math.round(bedBox.width)} vs ${Math.round(meBox.width)}`);
 
 // 나머지 가구를 놓는다: 소파 6,0 · 스탠드 0,3 · 옷장 8,4
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 // 하나씩 넣고 바로 옮긴다 (뒤 모서리에 쌓이면 키 큰 그림이 뒤 가구를 가린다)
 for (const [name, code, x, y] of [[/푹신한 소파/, "sofa", 6, 0], [/스탠드 조명/, "lamp", 0, 3], [/옷장/, "wardrobe", 8, 4]]) {
   await room.getByRole("button", { name }).click();
@@ -197,7 +197,7 @@ await shot("09-chair-sit-1280");
   check("방문자도 침대를 누르면 눕는다", await waitPose("sleep", gp));
   await g.close();
   await page.reload();
-  await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+  await room.getByRole("button", { name: "가구 놓기" }).click();
   check("주인 편집: 옮긴 가구 안내", (await room.getByRole("status").innerText()).includes("빈 자리로 옮겼어요"));
   await save();
   check("주인이 저장하면 DB도 고쳐짐 (의자가 침대 칸 밖)", !(await placed()).includes("3,4:fur_chair"), await placed());

@@ -13,6 +13,8 @@ import { ColorTools } from "./color-tools";
 import { FileCard } from "./file-card";
 import { ToolTip } from "./tool-tip";
 import { filesFrom, useAttachmentUpload } from "./use-attachment-upload";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
+import type { IconName } from "@/lib/art/icons";
 
 const IMAGE_ACCEPT = Object.keys(IMAGE_TYPES).map((e) => `.${e}`).join(",");
 const FILE_ACCEPT = Object.keys(FILE_TYPES).map((e) => `.${e}`).join(",");
@@ -41,6 +43,8 @@ type ToolButton = {
   keys?: string;
   /** 기호를 그 기능 모양으로 보이게 (굵게는 굵게, 밑줄은 밑줄) */
   glyph?: string;
+  /** 글자 앞 도트 아이콘 */
+  icon?: IconName;
   run: (e: Editor) => void;
   active?: (e: Editor) => boolean;
 };
@@ -61,7 +65,8 @@ const TOOLS: (ToolButton | "sep" | "colors")[] = [
   { label: "</> 코드", title: "코드 블록", hint: "프로그램 코드를 고정폭 글씨 상자에 넣어요", keys: "Ctrl(⌘)+Alt+C", run: (e) => e.chain().focus().toggleCodeBlock().run(), active: (e) => e.isActive("codeBlock") },
   { label: "― 구분선", title: "구분선", hint: "가로줄을 넣어 내용을 나눠요", run: (e) => e.chain().focus().setHorizontalRule().run() },
   {
-    label: "🔗 링크",
+    label: "링크",
+    icon: "link",
     title: "링크",
     hint: "고른 글자에 인터넷 주소를 걸어요 (비우면 해제)",
     run: (e) => {
@@ -106,7 +111,7 @@ export function RichEditor({
       TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
-      Placeholder.configure({ placeholder: "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️" }),
+      Placeholder.configure({ placeholder: "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요" }),
     ],
     content: initialHtml,
     immediatelyRender: false, // 서버 렌더링과 어긋나지 않게 브라우저에서 처음 그린다
@@ -207,7 +212,8 @@ export function RichEditor({
                 active?.[i] ? "pb-tab-on" : "bg-[#fff3d6] text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white"
               }`}
             >
-              <span className={`leading-none ${tool.glyph ?? ""}`} aria-hidden>
+              <span className={`inline-flex items-center gap-1 leading-none ${tool.glyph ?? ""}`} aria-hidden>
+                {tool.icon && <PixelIcon name={tool.icon} scale={1} />}
                 {tool.label}
               </span>
               {tool.caption && (
@@ -227,7 +233,7 @@ export function RichEditor({
           onClick={() => imageInput.current?.click()}
           className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap bg-[#fff3d6] px-2.5 text-sm font-bold text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white disabled:opacity-40"
         >
-          🖼 사진
+          <IconText icon="frame">사진</IconText>
         </button>
         <button
           type="button"
@@ -236,7 +242,7 @@ export function RichEditor({
           onClick={() => fileInput.current?.click()}
           className="inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap bg-[#fff3d6] px-2.5 text-sm font-bold text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white disabled:opacity-40"
         >
-          📎 파일
+          <IconText icon="file">파일</IconText>
         </button>
         <input ref={imageInput} type="file" accept={IMAGE_ACCEPT} multiple hidden aria-label="사진 고르기" onChange={(e) => pick(e.currentTarget)} />
         <input ref={fileInput} type="file" accept={FILE_ACCEPT} multiple hidden aria-label="파일 고르기" onChange={(e) => pick(e.currentTarget)} />

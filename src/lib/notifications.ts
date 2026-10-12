@@ -1,6 +1,7 @@
 // 알림 문구·표시 규칙 (GAME-06·GAME-08 / FR-038·042·043·045). DB를 쓰지 않는 순수 함수만 둔다
 import { MAX_LEVEL } from "@/lib/game";
 import { withJosa } from "@/lib/josa";
+import type { IconName } from "@/lib/art/icons";
 
 export type NotificationKind = "level_up" | "like" | "comment" | "reply" | "follow";
 
@@ -42,17 +43,26 @@ export function notificationTime(createdAt: Date, now: Date = new Date()): strin
 export function notificationText(row: NotificationRow): string {
   switch (row.kind) {
     case "level_up":
-      return `🎉 Lv.${withJosa(String(row.level), "이/가")} 되었어요!`;
+      return `Lv.${withJosa(String(row.level), "이/가")} 되었어요!`;
     case "like":
-      return `❤️ ${row.actorNickname}님이 「${row.postTitle}」에 공감했어요`;
+      return `${row.actorNickname}님이 「${row.postTitle}」에 공감했어요`;
     case "comment":
-      return `💬 ${row.actorNickname}님이 「${row.postTitle}」에 댓글을 달았어요`;
+      return `${row.actorNickname}님이 「${row.postTitle}」에 댓글을 달았어요`;
     case "reply":
-      return `💬 ${row.actorNickname}님이 내 댓글에 답글을 달았어요`;
+      return `${row.actorNickname}님이 내 댓글에 답글을 달았어요`;
     case "follow":
-      return `👫 ${row.actorNickname}님이 나를 이웃으로 추가했어요`;
+      return `${row.actorNickname}님이 나를 이웃으로 추가했어요`;
   }
 }
+
+/** 알림 종류마다 앞에 붙는 도트 아이콘 (문구의 그림 글자 대신, 2026-10-12) */
+export const NOTIFICATION_ICON = {
+  level_up: "party",
+  like: "heart",
+  comment: "chat",
+  reply: "chat",
+  follow: "people",
+} as const satisfies Record<NotificationRow["kind"], IconName>;
 
 /** 알림을 누르면 가는 곳 */
 export function notificationHref(row: Pick<NotificationRow, "kind" | "postId" | "blogSlug" | "actorSlug">): string {

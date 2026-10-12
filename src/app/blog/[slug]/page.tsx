@@ -39,6 +39,7 @@ import { getViewer } from "@/server/dal";
 import { getOwnedFurniture, getPlacedFurniture } from "@/server/house";
 import { getNeighborCounts, listNeighbors, NEIGHBOR_PREVIEW } from "@/server/neighbors";
 import { getWallet } from "@/server/points";
+import { PixelIcon, IconText } from "@/components/pixel-icon";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
   const { slug } = await props.params;
@@ -136,15 +137,13 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
     <div className="mx-auto max-w-6xl px-4 py-6">
       {welcome && (
         <div className="pixel-panel mb-6 flex items-start gap-3 bg-[#fff3d6] p-4" data-welcome>
-          <span className="text-3xl" aria-hidden>
-            🎉
-          </span>
+          <PixelIcon name="party" scale={3} />
           <p className="flex-1 text-sm sm:text-base">
-            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물 🪙 {REWARD_RULES.signup.coins}에 첫 출석 보상까지 받았어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.{" "}
+            <b>{blog.nickname}</b>님, Blogville에 오신 걸 환영해요! 가입 선물 <IconText icon="coin">{REWARD_RULES.signup.coins}</IconText>코인에 첫 출석 보상까지 받았어요. 여기는 {blog.nickname}님의 블로그이자 집 안이에요.{" "}
             <span className="phone:hidden">
-              아래 <b>우리 집</b>의 <b>🚪 문</b>을 눌러 밖으로 나가 마을을 구경해 보세요.
+              아래 <b>우리 집</b>의 <b>문</b>을 눌러 밖으로 나가 마을을 구경해 보세요.
             </span>
-            <span className="hidden phone:inline">화면 아래 탭으로 마을 소식·상점·알림을 오가고, ☰ 메뉴에서 출석·농장·낚시터에 갈 수 있어요.</span>
+            <span className="hidden phone:inline">화면 아래 탭으로 마을 소식·상점·알림을 오가고, 메뉴에서 출석·농장·낚시터에 갈 수 있어요.</span>
           </p>
         </div>
       )}
@@ -184,7 +183,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                 <h2 className="pixel-wood px-3 pt-1 pb-1.5 font-display text-xl break-words" data-list-heading>
                   {find ? (
-                    <>🔍 &apos;{find.q}&apos; 블로그 검색</>
+                    <IconText icon="search" scale={2}>&apos;{find.q}&apos; 블로그 검색</IconText>
                   ) : tag ? (
                     <>#{tag}</>
                   ) : currentSub ? (
@@ -214,7 +213,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
                 <p className="pixel-card p-10 text-center text-ink-soft">이 블로그에서 찾은 글이 없어요</p>
               ) : (
                 <div className="pixel-card p-10 text-center text-ink-soft">
-                  <p className="text-4xl">🌱</p>
+                  <PixelIcon name="sprout" scale={4} className="mx-auto" />
                   <p className="mt-2">아직 글이 없어요.</p>
                   {isOwner && (
                     <Link href="/write" className="pixel-btn mt-5 min-h-11 min-w-11 whitespace-nowrap bg-leaf px-5 text-white">

@@ -2,6 +2,7 @@
 // 큰 [✏️ 새 글 쓰기]와 글 관리·카테고리 관리·블로그 설정·꾸미기. 있는 화면으로만 잇는다.
 // 주인 버튼은 여기 한 곳이다 (프로필 카드의 [✏️ 글쓰기] [🎨 꾸미기] [⚙️ 관리]는 카드와 함께 없앰, 2026-10-11)
 import Link from "next/link";
+import { PixelIcon } from "@/components/pixel-icon";
 
 const tool = "pixel-btn pixel-btn-sm min-w-11 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink";
 
@@ -9,20 +10,20 @@ export function OwnerToolbar({ postCount, nonPublicCount }: { postCount: number;
   return (
     <nav className="pixel-panel mt-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center" aria-label="내 블로그 관리" data-owner-toolbar>
       <Link href="/write" className="pixel-btn min-h-12 shrink-0 bg-leaf px-6 text-white">
-        ✏️ 새 글 쓰기
+        <PixelIcon name="pencil" scale={2} />새 글 쓰기
       </Link>
       <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-3.5 sm:flex sm:flex-wrap sm:items-center">
         <Link href="/settings/posts" className={tool}>
-          📝 글 관리 <span className="pb-chip-muted px-1 font-sans text-xs">{postCount + nonPublicCount}</span>
+          <PixelIcon name="file" scale={1} />글 관리 <span className="pb-chip-muted px-1 font-sans text-xs">{postCount + nonPublicCount}</span>
         </Link>
         <Link href="/settings/blog#categories" className={tool}>
-          🗂 카테고리 관리
+          <PixelIcon name="folder" scale={1} />카테고리 관리
         </Link>
         <Link href="/settings/blog" className={tool}>
-          ⚙️ 블로그 설정
+          <PixelIcon name="gear" scale={1} />블로그 설정
         </Link>
         <Link href="/closet" className={tool}>
-          🎨 꾸미기
+          <PixelIcon name="palette" scale={1} />꾸미기
         </Link>
       </div>
     </nav>

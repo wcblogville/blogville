@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getBlogByOwner, getBlogVisitDays, getBlogVisitStats, getCategories } from "@/server/blog";
 import { requireMember } from "@/server/dal";
 import { BlogInfoForm, BlogSlugForm, CategoryManager } from "./settings-forms";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "블로그 관리" };
 
@@ -19,7 +20,9 @@ export default async function BlogSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="pixel-sign text-2xl sm:text-3xl">⚙️ 블로그 관리</h1>
+        <h1 className="pixel-sign text-2xl sm:text-3xl">
+          <PixelIcon name="gear" scale={2} />블로그 관리
+        </h1>
         <Link href={`/@${blog.slug}`} className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap px-1 text-sm text-ink-soft hover:text-ink">
           내 블로그로 →
         </Link>
@@ -32,7 +35,7 @@ export default async function BlogSettingsPage() {
         </Link>
         에서 바꿀 수 있어요. 쓴 글은{" "}
         <Link href="/settings/posts" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline-offset-2 hover:underline">
-          📝 글 관리
+          글 관리
         </Link>
         에서 한눈에 고치고 지울 수 있어요.
       </p>

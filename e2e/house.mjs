@@ -61,12 +61,12 @@ const small1280 = await sizes();
 check("1280px 6×6: 방 도트 4px, 주인 캐릭터 96px", small1280.dot === 4 && small1280.me === 96, JSON.stringify(small1280));
 
 // 지붕 색 (TOWN-07): 1단계는 처음 받은 무작위 색 1개만 열려 있고 9개는 잠김
-const roofButton = room.getByRole("button", { name: "🏠 지붕 색" });
+const roofButton = room.getByRole("button", { name: "지붕 색" });
 const roofPicker = room.locator("[data-roof-picker]");
 await roofButton.click();
 const openRoofs = async () => roofPicker.locator("[data-roof]").evaluateAll((els) => els.map((e) => e.getAttribute("data-roof")));
 const firstRoofs = await openRoofs();
-check("1단계 지붕 색: 1개 열림, 9개 잠김", firstRoofs.length === 1 && (await roofPicker.getByText("🔒").count()) === 9, firstRoofs.join(","));
+check("1단계 지붕 색: 1개 열림, 9개 잠김", firstRoofs.length === 1 && (await roofPicker.locator('li[title$="에 열려요"]').count()) === 9, firstRoofs.join(","));
 check("안 고른 지붕은 처음 색이 선택됨", (await roofPicker.locator('[data-roof][aria-pressed="true"]').count()) === 1);
 await page.screenshot({ path: `${outDir}/house-roof-1.png` });
 await room.getByRole("button", { name: /다 골랐어요/ }).click();
@@ -104,7 +104,7 @@ const save = async (pg = page) => {
 };
 const countText = async () => (await room.locator("[data-furniture-count]").innerText()).trim();
 
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 check("편집: 바닥 칸 눈금·가진 가구 목록·[저장]·[취소]", (await room.locator("[data-furniture-tray]").isVisible()) && (await room.getByRole("button", { name: /저장/ }).isVisible()) && (await room.getByRole("button", { name: /취소/ }).isVisible()));
 check("편집 중에는 캐릭터가 숨는다 (가구를 가리지 않게)", !(await room.locator("[data-room-resident]").isVisible()));
 
@@ -116,7 +116,7 @@ await room.getByRole("button", { name: /취소/ }).click();
 check("[취소] → 처음 배치로", (await tileOf("chair")) === "2,0" && (await room.locator("[data-furniture-tray]").count()) === 0, await tileOf("chair"));
 
 // 저장: 의자를 3,3으로 끌기(끄는 중 화면), 화분을 의자 칸에 끌면 막힘, 방향키·F로 화분 옮기고 뒤집기
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 await dragTo("chair", 3, 3, `${outDir}/03-edit-dragging.png`);
 check("끄는 중 놓을 칸이 초록으로 표시됨 (스크린샷)", (await tileOf("chair")) === "3,3", await tileOf("chair"));
 await dragTo("plant", 3, 3);
@@ -141,7 +141,7 @@ await page.waitForTimeout(1500);
 await room.screenshot({ path: `${outDir}/04-after-save.png` });
 
 // 빼기: 고른 가구 [📦 빼기] → 저장하면 사라짐, 목록에서 누르면 빈 칸에 다시 놓임
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 {
   const g = await grabPoint("plant");
   await page.mouse.click(g.x, g.y);
@@ -174,7 +174,7 @@ check("가구 산 안내", (await page.getByRole("status").innerText()).includes
 await db.query("INSERT INTO user_items (user_id, item_id) SELECT $1, id FROM items WHERE code = ANY($2) ON CONFLICT DO NOTHING", [uid, ["fur_rug", "fur_stool", "fur_cactus", "fur_crate"]]);
 const unplacedButtons = () => room.locator('[data-furniture-tray] button[data-owned][aria-pressed="false"]');
 await page.goto(`${BASE}/@${H}`);
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 await unplacedButtons().first().click();
 await unplacedButtons().first().click();
 const disabled = await unplacedButtons().evaluateAll((els) => els.map((e) => e.disabled));
@@ -194,7 +194,7 @@ check("Lv.10 → 2단계 창문 많은 집, 6개, 방 7×7칸", (await room.inne
 check("2단계: Lv.20에 다음 단계", (await room.innerText()).includes("Lv.20에 집이 커져요"));
 
 // 2단계 → 지붕 색 하나 더 열림. 새 색을 고르면 저장된다
-await room.getByRole("button", { name: "🏠 지붕 색" }).click();
+await room.getByRole("button", { name: "지붕 색" }).click();
 const secondRoofs = await openRoofs();
 check("2단계 지붕 색: 2개 열림 (처음 색 + 1)", secondRoofs.length === 2 && secondRoofs[0] === firstRoofs[0], secondRoofs.join(","));
 await roofPicker.locator(`[data-roof="${secondRoofs[1]}"]`).click();
@@ -205,7 +205,7 @@ await page.screenshot({ path: `${outDir}/house-roof-2.png` });
 await room.getByRole("button", { name: /다 골랐어요/ }).click();
 
 // 2단계 편집: 탁자(2×1칸)를 넣어 7×7 방의 맨 앞 줄(5,6 → 5~6칸)로, 가구 6개 저장
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 await room.getByRole("button", { name: /둥근 탁자/ }).click();
 await dragTo("table", 5, 6);
 for (let i = 0; i < 3; i++) await unplacedButtons().first().click();
@@ -215,7 +215,7 @@ const six = await placed();
 check("2단계: 7×7 방 맨 앞 줄(5,6)에 탁자(2칸), 가구 6개 저장", six.includes("5,6:fur_table") && six.split(" ").length === 6, six);
 
 // 서버도 개수를 다시 센다: 화면은 2단계(6개)인데 그사이 레벨이 1단계로 내려갔다고 치면 저장을 막는다 (원장 행을 잠깐 지움)
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 await db.query("DELETE FROM point_ledger WHERE id = $1", [bonus]);
 await room.getByRole("button", { name: /저장/ }).click();
 await room.getByRole("alert").waitFor({ timeout: 10000 });
@@ -258,7 +258,7 @@ check("5단계: 방 10×10칸, 가구 8개까지", (await countText()).includes(
   const stage = await room.locator("[data-room-grid]").evaluate((el) => el.getBoundingClientRect().width / el.offsetWidth);
   check("1280px 10×10: 카메라가 물러나 방·가구·주인이 함께 3/4 (도트 3px, 캐릭터 72px)", big.dot === 3 && stage === 0.75 && big.me === 72 && big.me < small1280.me, `${JSON.stringify(big)}, 배율 ${stage}`);
 }
-await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
+await room.getByRole("button", { name: "가구 놓기" }).click();
 await unplacedButtons().first().click();
 await dragTo("table", 8, 9);
 await dragTo("chair", 6, 2);
@@ -346,7 +346,7 @@ await page.screenshot({ path: `${outDir}/house-door-town.png` });
   check("375px 10×10: 주인 캐릭터 36px (예전 48px), 동물은 그보다 작은 도트", ms.dot === 2 && ms.me === 36 && ms.pet !== null && ms.pet < 48, JSON.stringify(ms));
   await mp.locator("[data-house-room]").screenshot({ path: `${outDir}/02-room-375.png` });
   // 휴대폰에서도 끌어 옮기기 (줄인 배율로 칸 계산)
-  await mp.locator("[data-house-room]").getByRole("button", { name: "🛋 가구 놓기" }).click();
+  await mp.locator("[data-house-room]").getByRole("button", { name: "가구 놓기" }).click();
   await dragTo("chair", 7, 3, null, mp);
   check("375px 편집: 끌어 옮기기 (의자 6,2 → 7,3)", (await tileOf("chair", mp)) === "7,3", await tileOf("chair", mp));
   await mp.locator("[data-house-room]").screenshot({ path: `${outDir}/07-edit-375.png` });

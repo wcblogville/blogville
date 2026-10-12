@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { formatDate } from "@/lib/format";
-import { VISIBILITY_BADGE, type Visibility } from "@/lib/visibility";
+import { VISIBILITY_BADGE, VISIBILITY_ICON, type Visibility } from "@/lib/visibility";
+import { IconText } from "@/components/pixel-icon";
 
 export type PostCardData = {
   id: number;
@@ -47,19 +48,25 @@ export function PostCard({ post, showAuthor = false }: { post: PostCardData; sho
           )}
           {VISIBILITY_BADGE[post.visibility] && (
             <span className="pb-chip pb-chip-muted" data-visibility-badge={post.visibility}>
-              {VISIBILITY_BADGE[post.visibility]}
+              <IconText icon={VISIBILITY_ICON[post.visibility]}>{VISIBILITY_BADGE[post.visibility]}</IconText>
             </span>
           )}
-          {post.pinned && <span className="pb-chip">⭐ 즐겨찾는 이웃</span>}
+          {post.pinned && (
+            <span className="pb-chip">
+              <IconText icon="star">즐겨찾는 이웃</IconText>
+            </span>
+          )}
         </div>
         <h3 className="pb-title font-display text-xl leading-snug">{post.title}</h3>
         <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink-soft">{post.excerpt}</p>
         <div className="pb-dash mt-3" aria-hidden />
         <p className="mt-2 flex flex-wrap gap-x-3 text-xs text-ink-soft">
           <span>{formatDate(post.createdAt)}</span>
-          <span>♥ {post.likeCount}</span>
-          <span>💬 {post.commentCount}</span>
-          <span>👀 {post.viewCount}</span>
+          <span data-like-count>
+            <IconText icon="heart" label="공감">{post.likeCount}</IconText>
+          </span>
+          <IconText icon="chat" label="댓글">{post.commentCount}</IconText>
+          <IconText icon="eye" label="조회수">{post.viewCount}</IconText>
         </p>
       </Link>
     </article>

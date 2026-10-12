@@ -67,24 +67,24 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   await page.waitForTimeout(300);
   check("새로고침해도 다시 뜨지 않게 ?board=1을 지움", !new URL(page.url()).searchParams.has("board"), page.url());
   const text = await win.innerText();
-  check("창: `오늘 3일차 출석 완료 ✅`", text.includes("오늘 3일차 출석 완료 ✅"), text.slice(0, 120).replace(/\n/g, " "));
-  check("창: 받은 보상 = 3일차 보상", (await win.locator("[data-attendance-got]").innerText()).includes(`✨ ${reward3.exp}`) && (await win.locator("[data-attendance-got]").innerText()).includes(`🪙 ${reward3.coins}`));
+  check("창: `오늘 3일차 출석 완료 ✅`", text.includes("오늘 3일차 출석 완료"), text.slice(0, 120).replace(/\n/g, " "));
+  check("창: 받은 보상 = 3일차 보상", (await win.locator("[data-attendance-got]").innerText()).replace(/\s+/g, " ").includes(`받은 보상 ${reward3.exp} · ${reward3.coins}`));
   const cells = await win.locator("[data-reward-day]").allInnerTexts();
   check("창: 1~7일차 보상표", cells.length === 7 && cells[0].includes("1일차") && cells[6].includes("7일차"), String(cells.length));
   check("창: 지난 일차 `받음`, 오늘 `오늘`, 다음 `내일`", cells[0].includes("받음") && cells[1].includes("받음") && cells[2].includes("오늘") && cells[3].includes("내일"), cells.slice(0, 4).join(" | ").replace(/\n/g, " "));
-  check("창: 내일 받을 보상 안내", (await win.locator("[data-attendance-next]").innerText()).includes(`4일차 보상 ✨ ${reward4.exp} · 🪙 ${reward4.coins}`));
+  check("창: 내일 받을 보상 안내", (await win.locator("[data-attendance-next]").innerText()).replace(/\s+/g, " ").includes(`4일차 보상 ${reward4.exp} · ${reward4.coins}`));
   const todayCell = win.locator(`[data-date="${TODAY}"]`);
-  check("창: 이번 달 달력 오늘 칸 🌟 도장", (await todayCell.innerText()) === "🌟");
+  check("창: 이번 달 달력 오늘 칸 🌟 도장", (await todayCell.getByRole("img", { name: /출석/ }).count()) === 1);
   const month = await one("SELECT count(*)::int AS n FROM attendances WHERE user_id = $1 AND date >= $2", [uid, `${TODAY.slice(0, 7)}-01`]);
-  check("창: 달력 도장 수 = 이번 달 출석 수", (await win.locator("[data-date]").filter({ hasText: "🌟" }).count()) === month.n, `${month.n}`);
+  check("창: 달력 도장 수 = 이번 달 출석 수", (await win.locator("[data-date]").filter({ has: page.getByRole("img", { name: /출석/ }) }).count()) === month.n, `${month.n}`);
   check("창: [출석하기] 버튼 없음 (자동 출석)", (await win.getByRole("button", { name: /출석하기/ }).count()) === 0);
   await page.screenshot({ path: `${outDir}/board-attendance-1280.png` });
 
   await win.getByRole("button", { name: "출석 체크 창 닫기" }).click();
-  check("[✕ 닫기] → 창 닫힘, 마을 소식 보임", !(await win.isVisible()) && (await page.getByRole("heading", { name: "📋 마을 소식" }).isVisible()));
+  check("[✕ 닫기] → 창 닫힘, 마을 소식 보임", !(await win.isVisible()) && (await page.getByRole("heading", { name: "마을 소식" }).isVisible()));
   const strip = page.locator("[data-attendance-strip]");
-  check("제목 아래 출석 띠 `오늘 출석 완료 ✅`", (await strip.innerText()).includes("오늘 출석 완료 ✅"));
-  await strip.getByRole("button", { name: "📅 출석부 열기" }).click();
+  check("제목 아래 출석 띠 `오늘 출석 완료 ✅`", (await strip.innerText()).includes("오늘 출석 완료"));
+  await strip.getByRole("button", { name: "출석부 열기" }).click();
   check("[📅 출석부 열기] → 창 다시 열림", await win.isVisible());
   await page.keyboard.press("Escape");
   check("Esc → 창 닫힘", !(await win.isVisible()));
@@ -101,7 +101,7 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   await tab2.waitForTimeout(1200);
   check("하루 한 번: 다른 탭에서도 열리지 않음", !(await tab2.locator("dialog[data-attendance-window]").isVisible()));
   await tab2.close();
-  await page.locator("[data-attendance-strip]").getByRole("button", { name: "📅 출석부 열기" }).click();
+  await page.locator("[data-attendance-strip]").getByRole("button", { name: "출석부 열기" }).click();
   check("하루 한 번: [📅 출석부 열기]로는 언제든 열림", await win.isVisible());
   await page.keyboard.press("Escape");
   const ledger = await one("SELECT count(*)::int AS n FROM point_ledger WHERE user_id = $1 AND reason = 'attendance' AND ref_id = $2", [uid, TODAY]);
@@ -179,14 +179,14 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   const bar = page.getByRole("navigation", { name: "내 블로그 관리" });
   const hrefOf = (name) => bar.getByRole("link", { name }).getAttribute("href");
   const tools = {
-    write: await hrefOf("✏️ 새 글 쓰기"),
-    manage: await hrefOf(/📝 글 관리/),
-    cats: await hrefOf("🗂 카테고리 관리"),
-    settings: await hrefOf("⚙️ 블로그 설정"),
-    closet: await hrefOf("🎨 꾸미기"),
+    write: await hrefOf("새 글 쓰기"),
+    manage: await hrefOf(/글 관리/),
+    cats: await hrefOf("카테고리 관리"),
+    settings: await hrefOf("블로그 설정"),
+    closet: await hrefOf("꾸미기"),
   };
   check("주인 도구 막대: 새 글 쓰기·글 관리·카테고리 관리·블로그 설정·꾸미기", JSON.stringify(tools) === JSON.stringify({ write: "/write", manage: "/settings/posts", cats: "/settings/blog#categories", settings: "/settings/blog", closet: "/closet" }), JSON.stringify(tools));
-  const writeBox = await bar.getByRole("link", { name: "✏️ 새 글 쓰기" }).boundingBox();
+  const writeBox = await bar.getByRole("link", { name: "새 글 쓰기" }).boundingBox();
   check("[✏️ 새 글 쓰기]가 크게 (높이 44px 이상)", writeBox.height >= 44 && writeBox.width >= 120, `${Math.round(writeBox.width)}×${Math.round(writeBox.height)}`);
   for (const path of Object.values(tools)) {
     const res = await page.request.get(`${BASE}${path.split("#")[0]}`);
@@ -198,7 +198,7 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   const order = await sidebar(page).locator(":scope > *").evaluateAll((els) => els.map((e) => e.getAttribute("data-widget")));
   check("옆 칸 위젯 순서", order.join() === "search,village-search,categories,recent,popular,comments,neighbors,tags,visitors", order.join());
   const ownRecent = await widgetText(page, "recent");
-  check("주인 최근 글: 비공개 글도 (🔒)", ownRecent.includes(`🔒 비밀 ${KEY} 일기`), ownRecent.slice(0, 80));
+  check("주인 최근 글: 비공개 글도 (🔒)", ownRecent.includes(`비밀 ${KEY} 일기`) && (await sidebar(page).locator('[data-widget="recent"]').getByRole("img", { name: "비공개" }).count()) > 0, ownRecent.slice(0, 80));
   const popularTitles = await sidebar(page).locator('[data-widget="popular"] li').allInnerTexts();
   check("주인 인기 글: 조회수 순 (비공개 500 → 99 → 18)", popularTitles[0].includes("비밀") && popularTitles[1].includes("인기 많은 글") && popularTitles[2].includes("보통 글 6"), popularTitles.join(" | ").replace(/\n/g, " "));
   const ownComments = await widgetText(page, "comments");
@@ -217,7 +217,7 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   await page.locator("[data-list-heading]").filter({ hasText: "블로그 검색" }).waitFor();
   const ownFound = await page.locator('section[aria-label="글 목록"] article h3').allInnerTexts();
   check("주인 블로그 검색: 제목·본문 일치, 비공개 글도", ownFound.length === 2 && ownFound.includes(`비밀 ${KEY} 일기`) && ownFound.includes("인기 많은 글"), ownFound.join(" | "));
-  check("블로그 검색 제목 `🔍 '검색어' 블로그 검색 2개`", (await page.locator("[data-list-heading]").innerText()).replace(/\s+/g, " ") === `🔍 '${KEY}' 블로그 검색 2개`);
+  check("블로그 검색 제목 `🔍 '검색어' 블로그 검색 2개`", (await page.locator("[data-list-heading]").innerText()).replace(/\s+/g, " ").trim() === `'${KEY}' 블로그 검색 2개`);
   await page.goto(`${base}?s=%25`);
   check("블로그 검색 `%`는 글자 그대로 (0개)", (await page.locator('section[aria-label="글 목록"] article').count()) === 0 && (await page.getByText("이 블로그에서 찾은 글이 없어요").isVisible()));
   await page.goto(`${base}?s=${encodeURIComponent("  ")}`);
@@ -228,7 +228,7 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   const total = Number((await page.locator("[data-manage-total]").innerText()).replace(/[^0-9]/g, ""));
   const dbTotal = (await one("SELECT count(*)::int AS n FROM posts WHERE blog_id = $1", [blogId])).n;
   check("글 관리: 내 글 수 = 공개 + 비공개", total === dbTotal, `${total} / ${dbTotal}`);
-  await page.getByRole("navigation", { name: "공개 범위" }).getByRole("link", { name: "🔒 비공개" }).click();
+  await page.getByRole("navigation", { name: "공개 범위" }).getByRole("link", { name: "비공개" }).click();
   await page.waitForURL(/vis=private/);
   const privRows = await page.locator("[data-manage-post]").allInnerTexts();
   check("글 관리: 비공개만 거르기", privRows.length === 1 && privRows[0].includes(`비밀 ${KEY} 일기`), privRows.join(" | ").replace(/\n/g, " "));

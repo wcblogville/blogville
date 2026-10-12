@@ -2,6 +2,7 @@ import { FeedView } from "@/components/blog/feed-view";
 import { parsePage } from "@/components/pagination";
 import { getAllTags, getPinnedNotice, listAllPosts } from "@/server/blog";
 import { getViewer } from "@/server/dal";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "모든 글" };
 
@@ -16,7 +17,11 @@ export default async function AllPostsPage(props: PageProps<"/feed/all">) {
   const [list, tags, notice] = await Promise.all([listAllPosts(page), getAllTags(), getPinnedNotice()]);
   return (
     <FeedView
-      title="📋 마을 소식"
+      title={
+        <>
+          <PixelIcon name="board" scale={2} />마을 소식
+        </>
+      }
       tab="everyone"
       list={list}
       tags={tags}

@@ -16,6 +16,7 @@ import { GreetingForm } from "./greeting-form";
 import { NicknameForm } from "./nickname-form";
 import { PasswordForm } from "./password-form";
 import { PhotoForm } from "./photo-form";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "회원정보 수정" };
 
@@ -42,7 +43,9 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="pixel-sign text-2xl sm:text-3xl">🙂 회원정보 수정</h1>
+      <h1 className="pixel-sign text-2xl sm:text-3xl">
+        <PixelIcon name="user" scale={2} />회원정보 수정
+      </h1>
 
       <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="basic-title" data-section="basic">
         <h2 id="basic-title" className={PLANK}>

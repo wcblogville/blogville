@@ -8,6 +8,7 @@ import { LoginButtons } from "@/components/login-buttons";
 import { houseIconDataUri, titleDataUri, TITLE_SIZE } from "@/lib/art/landing";
 import { enabledProviders } from "@/lib/auth";
 import { getViewer } from "@/server/dal";
+import { IconText } from "@/components/pixel-icon";
 
 // 소셜 로그인에서 돌아온 오류 코드 중 "연동된 계정이 없음"으로 보여줄 것 (FR-033, better-auth 1.7.7 callback.mjs로 확인)
 // - signup_disabled: 어떤 회원에도 연동되지 않은 소셜 계정 (disableSignUp)
@@ -70,7 +71,7 @@ export default async function LandingPage({ searchParams }: PageProps<"/">) {
             <p className="pixel-wood absolute -top-4 left-4 px-3 py-0.5 font-display text-sm">이장 멍멍이</p>
             <p className="pt-2 pb-3 leading-relaxed text-ink">
               어서 와요! 가입하면 <b>내 블로그가 곧 내 집</b>이 돼요. 문을 열고 나가면 이웃들이 사는 마을이 나와요.
-              글을 쓰고 출석하면 🪙 코인과 경험치가 쌓이고, 옷·가구·동물로 집을 꾸밀 수 있어요.
+              글을 쓰고 출석하면 <IconText icon="coin">코인</IconText>과 경험치가 쌓이고, 옷·가구·동물로 집을 꾸밀 수 있어요.
             </p>
             <span className="absolute right-4 bottom-1.5 text-xs text-ink-soft motion-safe:animate-[blink_1s_steps(1)_infinite]" aria-hidden>
               ▼

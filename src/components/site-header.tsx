@@ -41,7 +41,7 @@ export async function SiteHeader() {
             <Link href="/wallet" title="코인" data-coins={wallet.coins} className="group/coin grid min-h-11 shrink-0 place-items-center px-0.5 max-sm:px-0 focus-visible:outline-2 focus-visible:outline-sky">
               <span className="pixel-badge bg-[#fff3d6] pl-1 text-xs group-hover/coin:bg-[#ffe7a3] max-sm:pr-1 sm:text-sm">
                 {/* 휴대폰은 큰 수를 줄여 쓴다 (1.2만): 다 쓰면 헤더가 화면 밖으로 넘쳤다 (AUTH-10 테스트 지급) */}
-                <PixelIcon name="coin" scale={1} label="🪙" />
+                <PixelIcon name="coin" scale={1} label="코인" />
                 <span className="max-sm:hidden">{wallet.coins.toLocaleString()}</span>
                 <span className="sm:hidden">{formatCoinsShort(wallet.coins)}</span>
               </span>

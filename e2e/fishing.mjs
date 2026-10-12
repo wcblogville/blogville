@@ -138,7 +138,7 @@ await page.screenshot({ path: `${outDir}/fishing-done-1280.png`, fullPage: true 
 // 지갑 내역에 🎣 낚시 (코인을 받았을 때)
 if (row1.coins > 0 || coinRows > 0) {
   await page.goto(`${BASE}/wallet`);
-  check("지갑 내역에 🎣 낚시", (await page.locator("main").innerText()).includes("🎣 낚시"));
+  check("지갑 내역에 🎣 낚시", (await page.locator("main").innerText()).includes("낚시"));
 }
 
 // 로그인하지 않으면 첫 화면으로

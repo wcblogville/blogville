@@ -7,11 +7,12 @@ import { OwnerAvatar } from "@/components/blog/blog-header";
 import { Widget } from "@/components/blog/blog-sidebar";
 import { PostCard, type PostCardData } from "@/components/blog/post-card";
 import { SEARCH_QUERY_MAX } from "@/lib/blog";
+import { PixelIcon } from "@/components/pixel-icon";
 
 /** 검색창: GET으로 /@{내 주소}?q=검색어 (next/form, 화면 안 이동). 옆 칸의 `🏘 마을 검색` 위젯 (주인만) */
 export function BlogSearchBox({ base, q }: { base: string; q: string }) {
   return (
-    <Widget title="🏘 마을 검색" label="마을 검색" data-widget="village-search">
+    <Widget icon="house" title="마을 검색" label="마을 검색" data-widget="village-search">
       <Form action={base} className="flex gap-3 p-[3px]" role="search" aria-label="마을 검색">
         <input
           name="q"
@@ -46,7 +47,10 @@ export function BlogSearchResults({
   if (empty) return <p className="pixel-card p-10 text-center text-ink-soft">검색어를 적어 주세요</p>;
   return (
     <div>
-      <h2 className="pb-title mb-4 font-display text-xl break-words">🔍 &apos;{q}&apos; 검색 결과</h2>
+      <h2 className="pb-title mb-4 flex items-center gap-2 font-display text-xl break-words">
+        <PixelIcon name="search" scale={2} />
+        <span className="min-w-0">&apos;{q}&apos; 검색 결과</span>
+      </h2>
       {blogs.length === 0 && total === 0 ? (
         <p className="pixel-card p-10 text-center text-ink-soft">검색 결과가 없어요</p>
       ) : (

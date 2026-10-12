@@ -6,6 +6,7 @@ import { TownScreen } from "@/components/town/town-screen";
 import type { TownData } from "@/components/town/types";
 import { getViewer } from "@/server/dal";
 import { getFavoriteHouses, getGuestHouses, getHudMember, getMyHouse, getTownPet, getTownTheme } from "@/server/town";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "중앙 광장" };
 
@@ -58,9 +59,9 @@ export default async function TownPage(props: PageProps<"/town">) {
 
       {welcome && member?.profile && (
         <div className="card absolute inset-x-3 bottom-14 z-10 mx-auto flex max-w-2xl items-start gap-3 border-sun bg-[#fff3d6] p-4 phone:hidden">
-          <span className="text-3xl">🎉</span>
+          <PixelIcon name="party" scale={3} />
           <p className="flex-1 text-sm sm:text-base">
-            <b>{member.profile.nickname}</b>님, 마을에 처음 나왔어요! 뒤에 있는 <b>내 집</b>에 다시 들어가면 글을 쓸 수 있어요. 왼쪽 위 <b>☰ 메뉴</b>의 텔레포트로 즐겨찾기한 이웃 집에 바로 갈 수 있고, 프로필·알림·친구 목록도 볼 수 있어요.
+            <b>{member.profile.nickname}</b>님, 마을에 처음 나왔어요! 뒤에 있는 <b>내 집</b>에 다시 들어가면 글을 쓸 수 있어요. 왼쪽 위 <b>메뉴</b>의 텔레포트로 즐겨찾기한 이웃 집에 바로 갈 수 있고, 프로필·알림·친구 목록도 볼 수 있어요.
           </p>
           <Link href="/town" className="shrink-0 rounded-lg px-2 py-1 text-ink-soft hover:bg-white" aria-label="환영 문구 닫기">
             ✕

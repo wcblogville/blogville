@@ -158,12 +158,12 @@ async function viewOf(page) {
   const has = async (role, name) => (await main.getByRole(role, { name }).count()) > 0;
   return {
     // 주인 버튼은 주인 도구 막대 (프로필 카드는 없앰, 2026-10-11)
-    write: await has("link", "✏️ 새 글 쓰기"),
-    closet: await has("link", "🎨 꾸미기"),
-    manage: await has("link", "⚙️ 블로그 설정"),
+    write: await has("link", "새 글 쓰기"),
+    closet: await has("link", "꾸미기"),
+    manage: await has("link", "블로그 설정"),
     follow: (await has("button", "+ 이웃 추가")) || (await has("button", "✓ 이웃")),
     privatePost: (await main.getByText("비밀 일기").count()) > 0,
-    badge: (await main.getByText("🔒 비공개").count()) > 0,
+    badge: (await main.getByText("비공개", { exact: true }).count()) > 0,
     daily: (await main.getByRole("navigation", { name: "카테고리" }).getByRole("link", { name: /일상/ }).innerText()).replace(/\s+/g, " "),
     total: (await main.getByRole("navigation", { name: "카테고리" }).getByRole("link", { name: /전체 글/ }).innerText()).replace(/\s+/g, " "),
     title: await page.title(),
@@ -245,7 +245,7 @@ await own.page.screenshot({ path: `${outDir}/bh-02-owner.png`, fullPage: true })
   const firstGuest = await guest.page.getByRole("link", { name: "첫 글 쓰기" }).count();
   await oth.page.goto(`${BASE}/@${OTHER}`);
   const firstOwner = await oth.page.getByRole("link", { name: "첫 글 쓰기" }).getAttribute("href");
-  check("US2-7 글 없는 블로그 `🌱 아직 글이 없어요.`", emptyGuest && (await guest.page.getByText("🌱").isVisible()));
+  check("US2-7 글 없는 블로그 `🌱 아직 글이 없어요.`", emptyGuest && (await guest.page.getByText("아직 글이 없어요.").isVisible()));
   check("US2-7 [첫 글 쓰기]는 주인만 (→ /write)", firstGuest === 0 && firstOwner === "/write", `방문자 ${firstGuest}개, 주인 ${firstOwner}`);
 }
 
@@ -260,7 +260,7 @@ await own.page.screenshot({ path: `${outDir}/bh-02-owner.png`, fullPage: true })
   const overflow = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check("US2-8 375px 블로그 홈 가로 스크롤 0", overflow <= 0, `${overflow}px`);
   const main = p.locator("main");
-  for (const name of ["✏️ 새 글 쓰기", "🎨 꾸미기", "⚙️ 블로그 설정"]) {
+  for (const name of ["새 글 쓰기", "꾸미기", "블로그 설정"]) {
     const b = await size(main.getByRole("link", { name }));
     check(`US2-8 375px 주인 버튼 ${name} 한 줄·44×44px 이상`, big(b) && b.h < 60, `${b.w}×${b.h}`);
   }

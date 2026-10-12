@@ -10,6 +10,7 @@ import { AnimalArt } from "@/components/character";
 import { setShowcaseAnimal } from "@/app/settings/blog/actions";
 import { SexMark } from "@/components/game/sex-mark";
 import type { AnimalSex } from "@/lib/farm";
+import { PixelIcon, IconText } from "@/components/pixel-icon";
 
 /** 도감 카드. 특별 진화한 동물(variant)은 그 이름·반짝이로 따로 보인다 (2026-10-12) */
 export type CollectionCard = { id: number; name: string; assetKey: string; skinKey?: string | null; sex?: AnimalSex | null; variant?: string | null; grownDate: string };
@@ -26,7 +27,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
         className="pixel-btn pixel-btn-sm shrink-0 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink"
         data-collection-open
       >
-        🏅 도감 <span className="text-ink-soft">{animals.length}</span>
+        <PixelIcon name="medal" scale={1} />도감 <span className="text-ink-soft">{animals.length}</span>
       </button>
       <dialog
         ref={ref}
@@ -41,7 +42,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
         <div className="p-5">
           <div className="pb-plank -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
             <h2 id="collection-title" className="font-display text-xl">
-              🏅 동물 도감 <span className="text-sm text-[#fff3d6]">{animals.length}마리</span>
+              <IconText icon="medal" scale={2}>동물 도감</IconText> <span className="text-sm text-[#fff3d6]">{animals.length}마리</span>
             </h2>
             <button type="button" onClick={() => ref.current?.close()} aria-label="도감 닫기" className="pixel-btn pixel-btn-sm min-w-11 bg-[#fffaf0] px-3 text-ink [text-shadow:none]">
               ✕
@@ -63,7 +64,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
                       className={`flex w-28 flex-col items-center p-2 text-center ${shown ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}
                     >
                       <AnimalArt assetKey={a.assetKey} skinKey={a.skinKey} sex={a.sex} variant={a.variant} size={64} />
-                      {a.variant && <span className="pixel-badge bg-[#fff0a8] px-1.5 text-[10px] font-bold">✨ 특별</span>}
+                      {a.variant && <span className="pixel-badge bg-[#fff0a8] px-1.5 text-[10px] font-bold"><IconText icon="sparkle">특별</IconText></span>}
                       <span className="font-display leading-tight">
                         {a.name}
                         <SexMark sex={a.sex} className="ml-0.5 text-sm" />

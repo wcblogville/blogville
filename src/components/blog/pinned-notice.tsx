@@ -22,7 +22,7 @@ export function PinnedNoticeCard({ notice }: { notice: PinnedNotice }) {
       <p className="mt-2 line-clamp-3 whitespace-pre-line break-words text-sm leading-relaxed text-ink-soft">{notice.excerpt}</p>
       <div className="mt-3 flex justify-end">
         <Link href={href} className="pixel-btn pixel-btn-sm min-h-11 bg-[#fffaf0] text-ink">
-          📖 전체 읽기 →
+          <PixelIcon name="book" scale={1} />전체 읽기 →
         </Link>
       </div>
     </section>

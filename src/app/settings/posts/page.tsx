@@ -7,18 +7,20 @@ import { DeletePostButton } from "@/components/blog/delete-post-button";
 import { Pagination, parsePage } from "@/components/pagination";
 import { parseSearchQuery, SEARCH_QUERY_MAX } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
-import { isVisibility, VISIBILITY_BADGE } from "@/lib/visibility";
+import { isVisibility, VISIBILITY_BADGE, VISIBILITY_ICON } from "@/lib/visibility";
 import { listBlogPosts } from "@/server/blog";
 import { requireMember } from "@/server/dal";
+import { IconText } from "@/components/pixel-icon";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "글 관리" };
 
 const MANAGE_PAGE_SIZE = 15;
 const FILTERS = [
-  { key: "all", label: "전체" },
-  { key: "public", label: "🌐 공개" },
-  { key: "neighbors", label: "👥 이웃 공개" },
-  { key: "private", label: "🔒 비공개" },
+  { key: "all", label: "전체", icon: null },
+  { key: "public", label: "공개", icon: "globe" },
+  { key: "neighbors", label: "이웃 공개", icon: "people" },
+  { key: "private", label: "비공개", icon: "lock" },
 ] as const;
 
 export default async function ManagePostsPage(props: PageProps<"/settings/posts">) {
@@ -42,7 +44,9 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="pixel-sign text-2xl sm:text-3xl">📝 글 관리</h1>
+        <h1 className="pixel-sign text-2xl sm:text-3xl">
+          <PixelIcon name="file" scale={2} />글 관리
+        </h1>
         <Link href={`/@${viewer.profile.blogSlug}`} className="inline-flex min-h-11 min-w-11 items-center whitespace-nowrap px-1 text-sm text-ink-soft hover:text-ink">
           내 블로그로 →
         </Link>
@@ -50,7 +54,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
 
       <div className="pixel-panel mt-6 flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
         <Link href="/write" className="pixel-btn min-h-12 shrink-0 bg-leaf px-5 text-white">
-          ✏️ 새 글 쓰기
+          <PixelIcon name="pencil" scale={2} />새 글 쓰기
         </Link>
         <Form action="/settings/posts" className="flex min-w-0 flex-1 gap-3 p-[3px]" role="search" aria-label="내 글 찾기">
           {vis && <input type="hidden" name="vis" value={vis} />}
@@ -76,7 +80,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
               aria-current={on ? "page" : undefined}
               className="pixel-tab whitespace-nowrap text-sm"
             >
-              {f.label}
+              {f.icon ? <IconText icon={f.icon}>{f.label}</IconText> : f.label}
             </Link>
           );
         })}
@@ -93,7 +97,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
             <li key={p.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-3" data-manage-post={p.id}>
               <div className="min-w-0 flex-1">
                 <Link href={`/@${viewer.profile.blogSlug}/${p.id}`} className="flex min-h-11 min-w-0 items-center gap-2 hover:text-leaf-dark">
-                  {VISIBILITY_BADGE[p.visibility] && <span className="pb-chip pb-chip-muted shrink-0 text-xs font-bold">{VISIBILITY_BADGE[p.visibility]}</span>}
+                  {VISIBILITY_BADGE[p.visibility] && <span className="pb-chip pb-chip-muted shrink-0 text-xs font-bold"><IconText icon={VISIBILITY_ICON[p.visibility]}>{VISIBILITY_BADGE[p.visibility]}</IconText></span>}
                   <span className="truncate font-bold">{p.title}</span>
                 </Link>
                 <p className="flex flex-wrap gap-x-3 text-xs text-ink-soft">
@@ -104,9 +108,9 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
                       {p.subcategoryName && ` › ${p.subcategoryName}`}
                     </span>
                   )}
-                  <span>👀 {p.viewCount}</span>
-                  <span>♥ {p.likeCount}</span>
-                  <span>💬 {p.commentCount}</span>
+                  <IconText icon="eye" label="조회수">{p.viewCount}</IconText>
+                  <IconText icon="heart" label="공감">{p.likeCount}</IconText>
+                  <IconText icon="chat" label="댓글">{p.commentCount}</IconText>
                 </p>
               </div>
               <div className="flex shrink-0 gap-3 p-[3px]">
@@ -120,7 +124,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
         </ul>
       ) : (
         <div className="pixel-card mt-3 p-10 text-center text-ink-soft">
-          <p className="text-4xl">🌱</p>
+          <PixelIcon name="sprout" scale={4} className="mx-auto" />
           <p className="mt-2">{q || vis ? "맞는 글이 없어요." : "아직 쓴 글이 없어요."}</p>
         </div>
       )}

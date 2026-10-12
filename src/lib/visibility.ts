@@ -3,20 +3,25 @@
 // 이웃 공개 글은 마을 소식 [🏘 마을 전체]·[💛 이웃 새 글](이미 이웃 글만 모이는 곳)과 그 이웃이 보는 블로그에만 나온다.
 // [🌐 모든 글]·태그별 글·마을 검색·인기 태그·광장 집에는 공개 글만 나온다
 
+import type { IconName } from "./art/icons";
+
 export const VISIBILITIES = ["public", "neighbors", "private"] as const;
 export type Visibility = (typeof VISIBILITIES)[number];
 
 export const VISIBILITY_LABEL: Record<Visibility, string> = {
-  public: "🌍 공개",
-  neighbors: "👥 이웃 공개",
-  private: "🔒 비공개",
+  public: "공개",
+  neighbors: "이웃 공개",
+  private: "비공개",
 };
+
+/** 공개 범위 도트 아이콘 (그림 글자 🌍 👥 🔒 대신, 2026-10-12) */
+export const VISIBILITY_ICON = { public: "globe", neighbors: "people", private: "lock" } as const satisfies Record<Visibility, IconName>;
 
 /** 목록·상세 배지. 공개 글은 배지가 없다 */
 export const VISIBILITY_BADGE: Record<Visibility, string | null> = {
   public: null,
-  neighbors: "👥 이웃 공개",
-  private: "🔒 비공개",
+  neighbors: "이웃 공개",
+  private: "비공개",
 };
 
 export function isVisibility(v: unknown): v is Visibility {

@@ -2,6 +2,7 @@ import { FeedView } from "@/components/blog/feed-view";
 import { parsePage } from "@/components/pagination";
 import { getAllTags, getPinnedNotice, listReleaseNotes } from "@/server/blog";
 import { getViewer } from "@/server/dal";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "릴리스 노트" };
 
@@ -15,7 +16,11 @@ export default async function ReleaseNotesPage(props: PageProps<"/feed/releases"
   const [list, tags, notice] = await Promise.all([listReleaseNotes(page), getAllTags(), getPinnedNotice()]);
   return (
     <FeedView
-      title="📋 마을 소식"
+      title={
+        <>
+          <PixelIcon name="board" scale={2} />마을 소식
+        </>
+      }
       tab="releases"
       list={list}
       tags={tags}
