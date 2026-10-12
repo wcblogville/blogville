@@ -19,6 +19,7 @@ import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
 import { parseSearchQuery } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
+import { animalName } from "@/lib/farm";
 import { REWARD_RULES } from "@/lib/game";
 import { currentRoof, houseInfo, roofOrder } from "@/lib/house";
 import { parseId } from "@/lib/ids";
@@ -160,11 +161,11 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
         resident={{ characterAsset: blog.characterAsset, outfit: blog.outfit }}
         // 꾸미기에서 고른 배경은 창밖 풍경으로 보인다
         view={blog.backgroundAsset}
-        pet={shown && { assetKey: shown.assetKey, name: shown.name, skinKey: shown.skinKey, size: shown.size }}
+        pet={shown && { assetKey: shown.assetKey, name: animalName(shown.name, shown.variant), skinKey: shown.skinKey, size: shown.size, sex: shown.sex, variant: shown.variant, form: shown.form }}
         collection={
           // 도감: [🏅 도감] 버튼 → 다 키운 동물 창 (FR-029, research R-20). 누구에게나, 전시 버튼은 주인에게만
           <AnimalCollection
-            animals={grown.map((a) => ({ id: a.id, name: a.name, assetKey: a.assetKey, skinKey: a.skinKey, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
+            animals={grown.map((a) => ({ id: a.id, name: animalName(a.name, a.variant), assetKey: a.assetKey, skinKey: a.skinKey, sex: a.sex, variant: a.variant, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
             showcaseId={shown?.id ?? null}
             isOwner={isOwner}
           />

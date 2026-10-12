@@ -1,8 +1,19 @@
 import "server-only";
+import { randomInt } from "node:crypto";
 import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { animalCares, animalSkins, animalSpecies, userAnimalSkins, userAnimals } from "@/db/schema";
-import { type AnimalDisplaySize, type CareAction, levelEggLevels, MAX_ACTIVE_ANIMALS, POST_GROWTH } from "@/lib/farm";
+import {
+  ANIMAL_SEXES,
+  type AnimalDisplaySize,
+  type AnimalForm,
+  type AnimalSex,
+  type CareAction,
+  levelEggLevels,
+  MAX_ACTIVE_ANIMALS,
+  pickSpecial,
+  POST_GROWTH,
+} from "@/lib/farm";
 import { todayKST } from "@/lib/game";
 import { addLedgerEntry, type Tx } from "@/server/points";
 
@@ -16,6 +27,12 @@ export type FarmAnimal = {
   skinKey: string | null;
   /** 다 키운 동물 크기 (주인이 고른다, 2026-10-12) */
   displaySize: AnimalDisplaySize;
+  /** 암수 (알이면 null), 특별 진화 키 (보통이면 null), 데리고 다닐 모습 (2026-10-12) */
+  sex: AnimalSex | null;
+  variant: string | null;
+  displayForm: AnimalForm;
+  /** 종류 코드 (animal_species.code, 알이면 null) */
+  code: string | null;
   name: string | null;
   assetKey: string | null;
   growExp: number | null;
@@ -39,6 +56,10 @@ export async function getFarm(userId: string, level: number) {
       skinId: userAnimals.skinId,
       skinKey: animalSkins.assetKey,
       displaySize: sql<AnimalDisplaySize>`${userAnimals.displaySize}`,
+      sex: sql<AnimalSex | null>`${userAnimals.sex}`,
+      variant: userAnimals.variant,
+      displayForm: sql<AnimalForm>`${userAnimals.displayForm}`,
+      code: animalSpecies.code,
       name: animalSpecies.name,
       assetKey: animalSpecies.assetKey,
       growExp: animalSpecies.growExp,
@@ -74,8 +95,23 @@ export async function getFarm(userId: string, level: number) {
       .map((l) => ({ kind: "level" as const, level: l, label: `레벨 ${l} 보상 알` })),
   ];
 
-  const [adoptable, skins] = await Promise.all([listAdoptable(), listSkins(userId)]);
-  return { active, grown, freeEggs, slotsLeft: MAX_ACTIVE_ANIMALS - active.length, adoptable, skins };
+  const [adoptable, skins, hatchOdds] = await Promise.all([listAdoptable(), listSkins(userId), listHatchOdds()]);
+  return { active, grown, freeEggs, slotsLeft: MAX_ACTIVE_ANIMALS - active.length, adoptable, skins, hatchOdds };
+}
+
+export type HatchOdds = { code: string; name: string; assetKey: string; hatchWeight: number };
+
+/** 알에서 나오는 종류와 비중 (부화와 같은 표를 ⓘ 안내 창에 보여 준다. 비중 합으로 나누면 확률) */
+export async function listHatchOdds(): Promise<HatchOdds[]> {
+  return db
+    .select({ code: animalSpecies.code, name: animalSpecies.name, assetKey: animalSpecies.assetKey, hatchWeight: animalSpecies.hatchWeight })
+    .from(animalSpecies)
+    .orderBy(sql`${animalSpecies.hatchWeight} DESC`, asc(animalSpecies.id));
+}
+
+/** 부화·분양할 때 암수 (반반, node:crypto) */
+export function randomSex(): AnimalSex {
+  return ANIMAL_SEXES[randomInt(ANIMAL_SEXES.length)];
 }
 
 export type AdoptableSpecies = { id: number; code: string; name: string; assetKey: string; price: number; growExp: number };
@@ -117,7 +153,8 @@ export async function countActive(tx: Tx, userId: string) {
   return n;
 }
 
-export type GrownAnimal = { id: number; name: string; rewardExp: number; rewardCoins: number };
+/** 다 자란 동물. special = 특별 진화한 모습의 이름 (보통이면 null) */
+export type GrownAnimal = { id: number; name: string; rewardExp: number; rewardCoins: number; special: string | null };
 
 /**
  * 동물에게 성장치를 더하고, 다 자라면 보상을 준다. lockUser를 건 트랜잭션 안에서 호출한다.
@@ -144,16 +181,18 @@ export async function addGrowth(tx: Tx, userId: string, amount: number, animalId
   for (const u of updated) {
     const sp = species.find((s) => s.id === u.speciesId)!;
     if (u.growth < sp.growExp) continue;
+    // 특별 진화 (2026-10-12): 다 자라는 순간 낮은 확률로 (src/lib/farm.ts SPECIAL_VARIANTS). 특별한 동물은 스킨을 벗는다 (제 모습이 특별한 색)
+    const special = pickSpecial(sp.code, randomInt(1_000_000) / 1_000_000);
     await tx
       .update(userAnimals)
-      .set({ status: "grown", growth: sp.growExp, grownAt: new Date() })
+      .set({ status: "grown", growth: sp.growExp, grownAt: new Date(), ...(special ? { variant: special.key, skinId: null } : {}) })
       .where(eq(userAnimals.id, u.id));
     // 다 키운 보상은 종류마다 달라서 REWARD_RULES가 아니라 종류 표의 숫자로 기록한다
     if (sp.rewardExp || sp.rewardCoins) {
       // 경험치가 생기므로 레벨업 알림도 함께 남기는 addLedgerEntry로 (GAME-06 / FR-037)
       await addLedgerEntry(tx, { userId, reason: "farm_grown", expDelta: sp.rewardExp, coinDelta: sp.rewardCoins, refId: u.id });
     }
-    grown.push({ id: u.id, name: sp.name, rewardExp: sp.rewardExp, rewardCoins: sp.rewardCoins });
+    grown.push({ id: u.id, name: sp.name, rewardExp: sp.rewardExp, rewardCoins: sp.rewardCoins, special: special?.name ?? null });
   }
   return grown;
 }

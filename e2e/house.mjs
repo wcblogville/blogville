@@ -270,8 +270,8 @@ await room.screenshot({ path: `${outDir}/05-stage5-10x10.png` });
 // 전시 동물: 주인을 따라 걸을 때 멈칫거리지 않는다 (걷기 ↔ 서기가 프레임마다 뒤바뀌지 않고, 한 프레임에 크게 튀지 않음)
 {
   const animal = await one(
-    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
-     VALUES ($1, (SELECT id FROM animal_species WHERE code = 'puppy'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
+    `INSERT INTO user_animals (user_id, sex, species_id, status, growth, source, hatched_at, grown_at)
+     VALUES ($1, 'female', (SELECT id FROM animal_species WHERE code = 'puppy'), 'grown', 0, 'shop', now(), now()) RETURNING id`,
     [uid],
   );
   await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, animal.id]);

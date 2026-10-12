@@ -1,5 +1,6 @@
 import { backgroundDataUri, backgroundSky, characterDataUri, lookKey } from "@/lib/assets";
 import { animalSvg, hasAnimalArt, toAnimalDataUri } from "@/lib/art/animals";
+import type { AnimalSex } from "@/lib/farm";
 
 /** 동그란 캐릭터 얼굴 (헤더, 댓글, 글 목록) */
 export function CharacterBadge({ asset, size = 36, outfit = [] }: { asset: string; size?: number; outfit?: string[] }) {
@@ -42,10 +43,24 @@ export function CharacterArt({
   );
 }
 
-/** 다 키운 동물 그림 (도감 카드, 미니룸 전시). 어른 단계로 그린다. size는 32의 배수(64 등)여야 도트가 고르다 */
-export function AnimalArt({ assetKey, skinKey = null, size = 64, className = "" }: { assetKey: string; skinKey?: string | null; size?: number; className?: string }) {
+/** 다 키운 동물 그림 (도감 카드, 미니룸 전시). 어른 단계로 그린다 (암수·특별 진화 모습, 2026-10-12). size는 32의 배수(64 등)여야 도트가 고르다 */
+export function AnimalArt({
+  assetKey,
+  skinKey = null,
+  sex = null,
+  variant = null,
+  size = 64,
+  className = "",
+}: {
+  assetKey: string;
+  skinKey?: string | null;
+  sex?: AnimalSex | null;
+  variant?: string | null;
+  size?: number;
+  className?: string;
+}) {
   // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
-  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size, skinKey))} alt="" width={size} height={size} className={`pixelated ${className}`} aria-hidden />;
+  return <img src={toAnimalDataUri(animalSvg(assetKey, "adult", size, skinKey, "normal", { sex, variant }))} alt="" width={size} height={size} className={`pixelated ${className}`} aria-hidden />;
 }
 
 /** 미니룸: 장착한 배경 장면 위에 캐릭터가 서 있는 작은 방.

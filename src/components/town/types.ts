@@ -1,4 +1,4 @@
-import type { AnimalDisplaySize } from "@/lib/farm";
+import type { AnimalDisplaySize, AnimalForm, AnimalSex } from "@/lib/farm";
 
 export type TownHouse = {
   slug: string;
@@ -37,9 +37,18 @@ export type TownData = {
   pet: TownPet | null;
 };
 
-/** 따라다니는 동물 (그림 키 = animal_species.asset_key, 어른 단계로 그린다. skinKey = 입힌 스킨 animal_skins.asset_key,
- *  size = 주인이 고른 크기 user_animals.display_size) */
-export type TownPet = { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize };
+/** 따라다니는 동물 (그림 키 = animal_species.asset_key. skinKey = 입힌 스킨 animal_skins.asset_key,
+ *  size = 주인이 고른 크기 user_animals.display_size, sex·variant = 암수·특별 진화, form = 다 자란 모습/아기 모습 (2026-10-12)).
+ *  우리 집 방(room-resident.tsx)도 같은 모양을 쓴다 */
+export type TownPet = {
+  assetKey: string;
+  name: string;
+  skinKey?: string | null;
+  size?: AnimalDisplaySize;
+  sex?: AnimalSex | null;
+  variant?: string | null;
+  form?: AnimalForm;
+};
 
 /** 광장에서 들어가거나 눌렀을 때 일어날 일 */
 export type TownTarget =

@@ -8,8 +8,11 @@
 import { useRef, useTransition } from "react";
 import { AnimalArt } from "@/components/character";
 import { setShowcaseAnimal } from "@/app/settings/blog/actions";
+import { SexMark } from "@/components/game/sex-mark";
+import type { AnimalSex } from "@/lib/farm";
 
-export type CollectionCard = { id: number; name: string; assetKey: string; skinKey?: string | null; grownDate: string };
+/** 도감 카드. 특별 진화한 동물(variant)은 그 이름·반짝이로 따로 보인다 (2026-10-12) */
+export type CollectionCard = { id: number; name: string; assetKey: string; skinKey?: string | null; sex?: AnimalSex | null; variant?: string | null; grownDate: string };
 
 export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: CollectionCard[]; showcaseId: number | null; isOwner: boolean }) {
   const [pending, start] = useTransition();
@@ -56,10 +59,15 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
                     <li
                       key={a.id}
                       data-animal-card
+                      data-variant={a.variant ?? undefined}
                       className={`flex w-28 flex-col items-center p-2 text-center ${shown ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}
                     >
-                      <AnimalArt assetKey={a.assetKey} skinKey={a.skinKey} size={64} />
-                      <span className="font-display leading-tight">{a.name}</span>
+                      <AnimalArt assetKey={a.assetKey} skinKey={a.skinKey} sex={a.sex} variant={a.variant} size={64} />
+                      {a.variant && <span className="pixel-badge bg-[#fff0a8] px-1.5 text-[10px] font-bold">✨ 특별</span>}
+                      <span className="font-display leading-tight">
+                        {a.name}
+                        <SexMark sex={a.sex} className="ml-0.5 text-sm" />
+                      </span>
                       <span className="text-[11px] text-ink-soft">{a.grownDate}</span>
                       {shown && <span className="mt-1 text-xs font-bold text-sun-dark">전시 중</span>}
                       {isOwner && (

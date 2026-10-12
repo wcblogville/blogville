@@ -41,8 +41,8 @@ const other = await one("SELECT u.id FROM users u WHERE u.username = $1", [OTHER
 // 다 키운 동물 3마리(병아리·토끼·아기 돼지, 다 키운 순서대로) + 알 1개, 다른 회원의 다 키운 동물 1마리
 const addAnimal = (userId, code, status, minsAgo) =>
   one(
-    `INSERT INTO user_animals (user_id, species_id, status, growth, source, hatched_at, grown_at)
-     VALUES ($1, (SELECT id FROM animal_species WHERE code = $2), $3::animal_status, 0, 'shop', now(),
+    `INSERT INTO user_animals (user_id, sex, species_id, status, growth, source, hatched_at, grown_at)
+     VALUES ($1, 'female', (SELECT id FROM animal_species WHERE code = $2), $3::animal_status, 0, 'shop', now(),
              CASE WHEN $3::animal_status = 'grown' THEN now() - make_interval(mins => $4) END) RETURNING id`,
     [userId, code, status, minsAgo],
   ).then((r) => r.id);
@@ -74,7 +74,8 @@ async function viewOf(page, slug = OWNER) {
     profileImg: await main.locator("[data-blog-title-bar]").locator('img[src^="/files/"]').count(),
     nickname: (await main.locator("[data-owner-nickname]").innerText()).trim(),
     // 카드 글자 (주인에게만 있는 버튼 글자는 뺀다)
-    cards: (await main.locator("[data-animal-card]").allInnerTexts()).map((t) => t.split("\n").map((l) => l.trim()).filter((l) => l && !/^전시(하기| 빼기)$/.test(l))),
+    // 이름 뒤 암수 표시(♀/♂, 2026-10-12)는 떼고 이름만
+    cards: (await main.locator("[data-animal-card]").allInnerTexts()).map((t) => t.split("\n").map((l) => l.trim().replace(/\s*[♀♂](암컷|수컷)?$/, "")).filter((l) => l && !/^전시(하기| 빼기)$/.test(l))),
     showButtons: await main.getByRole("button", { name: /전시하기|전시 빼기/ }).count(),
   };
 }

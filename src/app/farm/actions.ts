@@ -5,16 +5,40 @@ import { and, eq, gt } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { animalCares, animalSkins, animalSpecies, pointLedger, userAnimalSkins, userAnimals } from "@/db/schema";
-import { CARE_ACTIONS, type CareAction, DISPLAY_SIZE_LABEL, EGG_PRICE, isDisplaySize, levelEggLevels, MAX_ACTIVE_ANIMALS, pickWeighted, subject } from "@/lib/farm";
+import {
+  CARE_ACTIONS,
+  type CareAction,
+  DISPLAY_SIZE_LABEL,
+  EGG_PRICE,
+  FORM_LABEL,
+  HATCH_RARITY,
+  isAnimalForm,
+  isDisplaySize,
+  levelEggLevels,
+  MAX_ACTIVE_ANIMALS,
+  pickWeighted,
+  RARITY_LABEL,
+  SEX_LABEL,
+  SEX_MARK,
+  subject,
+  toward,
+} from "@/lib/farm";
 import { todayKST } from "@/lib/game";
 import { parseId } from "@/lib/ids";
 import { requireMember } from "@/server/dal";
 import { uniqueViolation } from "@/server/db-errors";
-import { addGrowth, countActive } from "@/server/farm";
+import { addGrowth, countActive, type GrownAnimal, randomSex } from "@/server/farm";
 import { consumeGrowthItem } from "@/server/inventory";
 import { getWallet, grantReward, lockUser } from "@/server/points";
 
 export type FarmResult = { ok: true; text: string } | { ok: false; text: string };
+
+/** 다 자랐을 때 문구 (특별 진화면 크게 알려 준다) */
+function grownText(grown: GrownAnimal) {
+  const reward = `경험치 +${grown.rewardExp}, 🪙 +${grown.rewardCoins}`;
+  if (grown.special) return `✨ 특별한 일이 생겼어요! ${subject(grown.name)} ${toward(grown.special)} 자랐어요! ${reward}`;
+  return `🎉 ${subject(grown.name)} 다 자랐어요! ${reward}`;
+}
 
 const FULL = `한 번에 ${MAX_ACTIVE_ANIMALS}마리까지 키울 수 있어요. 다 키운 뒤에 새 알을 받아 주세요`;
 
@@ -62,24 +86,27 @@ export async function buyEgg(): Promise<FarmResult> {
   return result;
 }
 
-/** 알 부화: 종류는 비중에 따라 랜덤 */
+/** 알 부화: 종류는 비중(일반·희귀·아주 희귀, src/lib/farm.ts HATCH_RARITY)에 따라 랜덤, 암수는 반반 (node:crypto) */
 export async function hatchEgg(animalId: number): Promise<FarmResult> {
   const viewer = await requireMember();
   const id = parseId(animalId);
   if (id === null) return { ok: false, text: "잘못된 요청이에요" };
   const result = await db.transaction(async (tx): Promise<FarmResult> => {
     await lockUser(tx, viewer.userId);
-    // 분양 동물(hatch_weight 0)은 알에서 나오지 않는다
+    // 비중이 0인 종류는 알에서 나오지 않는다
     const species = await tx.select().from(animalSpecies).where(gt(animalSpecies.hatchWeight, 0));
     if (!species.length) return { ok: false, text: "동물 종류가 없어요. npm run db:seed 를 실행해 주세요" };
     const sp = pickWeighted(species, randomInt(1_000_000) / 1_000_000);
+    const sex = randomSex();
     const [hatched] = await tx
       .update(userAnimals)
-      .set({ status: "growing", speciesId: sp.id, hatchedAt: new Date() })
+      .set({ status: "growing", speciesId: sp.id, sex, hatchedAt: new Date() })
       .where(and(eq(userAnimals.id, id), eq(userAnimals.userId, viewer.userId), eq(userAnimals.status, "egg")))
       .returning({ id: userAnimals.id });
     if (!hatched) return { ok: false, text: "부화시킬 수 있는 알이 아니에요" };
-    return { ok: true, text: `🐣 ${subject(sp.name)} 태어났어요!` };
+    const rarity = HATCH_RARITY[sp.code];
+    const tag = rarity && rarity !== "common" ? `${rarity === "epic" ? "🌟" : "⭐"} ${RARITY_LABEL[rarity]}! ` : "";
+    return { ok: true, text: `🐣 ${tag}${SEX_MARK[sex]} ${SEX_LABEL[sex]} ${subject(sp.name)} 태어났어요!` };
   });
   revalidatePath("/farm");
   return result;
@@ -102,9 +129,7 @@ export async function careAnimal(animalId: number, action: CareAction): Promise<
       await tx.insert(animalCares).values({ animalId: id, action, date: todayKST() });
       await grantReward(tx, viewer.userId, "farm_care", id);
       const [grown] = await addGrowth(tx, viewer.userId, care.growth, [id]);
-      if (grown) {
-        return { ok: true, text: `🎉 ${subject(grown.name)} 다 자랐어요! 경험치 +${grown.rewardExp}, 🪙 +${grown.rewardCoins}` };
-      }
+      if (grown) return { ok: true, text: grownText(grown) };
       return { ok: true, text: `${care.emoji} ${care.label} 완료! 성장 +${care.growth}` };
     });
     revalidatePath("/", "layout");
@@ -131,9 +156,7 @@ export async function feedGrowthItem(animalId: unknown, itemId: unknown): Promis
     const used = await consumeGrowthItem(tx, viewer.userId, item);
     if (!used) return { ok: false, text: "가지고 있는 성장 아이템이 없어요" };
     const [grown] = await addGrowth(tx, viewer.userId, used.growthValue, [id]);
-    if (grown) {
-      return { ok: true, text: `🎉 ${subject(grown.name)} 다 자랐어요! 경험치 +${grown.rewardExp}, 🪙 +${grown.rewardCoins}` };
-    }
+    if (grown) return { ok: true, text: grownText(grown) };
     return { ok: true, text: `🌱 ${used.name} 먹였어요! 성장 +${used.growthValue}` };
   });
   if (result.ok) revalidatePath("/", "layout");
@@ -157,10 +180,11 @@ export async function adoptAnimal(speciesId: unknown): Promise<FarmResult> {
     if (wallet.coins < sp.price) return { ok: false, text: `코인이 ${sp.price - wallet.coins}개 부족해요` };
     const [animal] = await tx
       .insert(userAnimals)
-      .values({ userId: viewer.userId, speciesId: sp.id, status: "growing", source: "adopt", hatchedAt: new Date() })
-      .returning({ id: userAnimals.id });
+      .values({ userId: viewer.userId, speciesId: sp.id, sex: randomSex(), status: "growing", source: "adopt", hatchedAt: new Date() })
+      .returning({ id: userAnimals.id, sex: userAnimals.sex });
     await tx.insert(pointLedger).values({ userId: viewer.userId, reason: "animal_adopt", coinDelta: -sp.price, refId: String(animal.id) });
-    return { ok: true, text: `🐾 ${subject(sp.name)} 왔어요! (🪙 −${sp.price})` };
+    const sex = animal.sex === "male" ? "male" : "female";
+    return { ok: true, text: `🐾 ${SEX_MARK[sex]} ${SEX_LABEL[sex]} ${subject(sp.name)} 왔어요! (🪙 −${sp.price})` };
   });
   if (result.ok) revalidatePath("/", "layout");
   return result;
@@ -178,10 +202,12 @@ export async function wearSkin(animalId: unknown, skinId: unknown): Promise<Farm
   const result = await db.transaction(async (tx): Promise<FarmResult> => {
     await lockUser(tx, viewer.userId);
     const [animal] = await tx
-      .select({ id: userAnimals.id, speciesId: userAnimals.speciesId })
+      .select({ id: userAnimals.id, speciesId: userAnimals.speciesId, variant: userAnimals.variant })
       .from(userAnimals)
       .where(and(eq(userAnimals.id, id), eq(userAnimals.userId, viewer.userId)));
     if (!animal || animal.speciesId === null) return { ok: false, text: "스킨을 입힐 수 있는 동물이 아니에요" };
+    // 특별 진화한 동물은 제 모습이 특별한 색이라 스킨을 입지 않는다 (2026-10-12)
+    if (animal.variant !== null) return { ok: false, text: "특별한 동물은 스킨을 입지 않아요" };
     if (skin === null) {
       await tx.update(userAnimals).set({ skinId: null }).where(eq(userAnimals.id, id));
       return { ok: true, text: "기본 색으로 돌아왔어요" };
@@ -225,4 +251,22 @@ export async function setAnimalSize(animalId: unknown, size: unknown): Promise<F
   // 광장 동물·블로그 방 동물이 바뀐다
   revalidatePath("/", "layout");
   return { ok: true, text: `크기를 ${size === "normal" ? "보통으로" : DISPLAY_SIZE_LABEL[size]} 바꿨어요` };
+}
+
+/**
+ * 데리고 다닐 모습 바꾸기 (사용자 요청 2026-10-12 "아기 형태로 데리고 다닐 수도 있게"): 다 자란 모습 / 아기 모습. 무료, 언제든 바꾼다.
+ * 내 동물이고 다 자란 동물만. 광장에서 따라다니는 동물·우리 집 방 동물·농장 카드가 이 모습으로 그려진다 (크기 설정도 그대로 쓴다)
+ */
+export async function setAnimalForm(animalId: unknown, form: unknown): Promise<FarmResult> {
+  const viewer = await requireMember();
+  const id = parseId(animalId);
+  if (id === null || !isAnimalForm(form)) return { ok: false, text: "잘못된 요청이에요" };
+  const [row] = await db
+    .update(userAnimals)
+    .set({ displayForm: form })
+    .where(and(eq(userAnimals.id, id), eq(userAnimals.userId, viewer.userId), eq(userAnimals.status, "grown")))
+    .returning({ id: userAnimals.id });
+  if (!row) return { ok: false, text: "다 키운 내 동물만 모습을 바꿀 수 있어요" };
+  revalidatePath("/", "layout");
+  return { ok: true, text: `${FORM_LABEL[form]}으로 데리고 다녀요` };
 }

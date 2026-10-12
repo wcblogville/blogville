@@ -10,7 +10,7 @@ import { artHit, roomFurnitureArt } from "@/lib/art/room-furniture";
 import { floorToScreen, isoRoom, isoRoomDataUri, ROOM_PIXEL, roomCamera, screenToFloor, type IsoRoom, type RoomCamera } from "@/lib/art/room";
 import { HOUSE_STAGE_LEVELS, houseSvg, ROOF_HEX, toDataUri, type HouseStage } from "@/lib/art/town";
 import type { RoofColor } from "@/lib/blog";
-import type { AnimalDisplaySize } from "@/lib/farm";
+import type { TownPet } from "@/components/town/types";
 import { checkLayout, findFreeSpot, fitsRoom, footprintOf, footprintTiles, repairLayout, roomGrid, ROOF_LABELS, WALKABLE_FURNITURE, type FurnitureSpot } from "@/lib/house";
 import { ACTION_LABEL, actionOf, layoutDepth } from "@/lib/room-walk";
 import { type ResidentControl, RoomResident } from "./room-resident";
@@ -56,7 +56,7 @@ export function HouseRoom({
   /** 창밖 풍경: 주인이 고른 배경 장면 (blogs.background_item_id의 asset_key) */
   view: string;
   /** 전시 동물: 주인을 따라 걷는다 */
-  pet?: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
+  pet?: TownPet | null;
   /** [🏅 도감] 버튼 (다 키운 동물 창). 누구에게나 */
   collection: React.ReactNode;
   className?: string;
@@ -344,7 +344,7 @@ function RoomStage({
   resident: { characterAsset: string; outfit: string[] };
   /** 저장된(편집 전) 가구: 캐릭터가 길을 찾고 쓰는 가구 */
   residentPieces: Spot[];
-  pet: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
+  pet: TownPet | null;
   camera: RoomCamera | null;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);

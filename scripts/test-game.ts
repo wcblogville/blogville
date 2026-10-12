@@ -15,12 +15,33 @@ import { FURNITURE_KEYS, furnitureRows } from "../src/lib/art/furniture";
 import { artHit, ISO_FURNITURE_KEYS, roomFurnitureArt } from "../src/lib/art/room-furniture";
 import { POSES, poseFrame } from "../src/lib/art/poses";
 import { actionOf, blockedTiles, depthRanks, findPath, layoutDepth, planUse, seatTile } from "../src/lib/room-walk";
-import { ANIMAL_SIZE, ANIMAL_SKINS, animalHalfWidth, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits } from "../src/lib/art/animals";
+import { ANIMAL_SIZE, ANIMAL_SKINS, ANIMAL_VARIANT_ART, animalHalfWidth, animalHeight, animalRadius, animalSvg, displaySizeChoices, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetSvg, skinFits, variantFits } from "../src/lib/art/animals";
 import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, RIPPLE, SPLASH } from "../src/lib/art/catches";
 import { CATCHES, pickCatch } from "../src/lib/fishing";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
-import { ANIMAL_DISPLAY_SIZES, animalStage, isDisplaySize, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
+import {
+  ANIMAL_DISPLAY_SIZES,
+  animalName,
+  animalStage,
+  HATCH_RARITY,
+  HATCH_WEIGHT_TOTAL,
+  hatchPercent,
+  hatchWeightOf,
+  isAnimalForm,
+  isDisplaySize,
+  isSex,
+  levelEggLevels,
+  pickSpecial,
+  pickWeighted,
+  RARITY_ODDS,
+  SEX_LOOKS,
+  SPECIAL_VARIANTS,
+  specialPercent,
+  subject,
+  toward,
+  variantsFor,
+} from "../src/lib/farm";
 import { formatCoinsShort } from "../src/lib/format";
 import { boardSeenValue, shouldAutoOpenBoard } from "../src/lib/attendance-window";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
@@ -368,6 +389,73 @@ expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), is
   };
   // (조랑말은 다리·목·몸이 함께 길어져 폭/키 비율은 비슷하다. 머리가 작아지는 것은 그림으로 확인)
   expect("네발 동물은 어른이 아기보다 길쭉하거나 다리가 길다 (폭/키 비율이 다르다)", ["animal.piglet", "animal.puppy", "animal.kitten", "animal.calf", "animal.lamb"].filter((k) => Math.abs(box(k, "adult") - box(k, "baby")) < 0.05), []);
+}
+
+// 알 확률·암수·특별 진화·아기 모습 (2026-10-12 "노말한 동물들이랑 희귀한 애들이랑 확률 다르게", "암/수 별로", "유니콘이나 페가수스", "아기 형태로 데리고 다닐 수도")
+{
+  const codes = Object.keys(HATCH_RARITY);
+  const assetCodes = Object.keys(ANIMAL_SIZE).map((k) => k.replace("animal.", ""));
+  expect("등급 확률 합 100%", Object.values(RARITY_ODDS).reduce((a, b) => a + b, 0), 100);
+  expect("종류별 알 확률 합 100%", Math.round(codes.reduce((a, c) => a + hatchPercent(c), 0) * 1000) / 1000, 100);
+  expect("시드 비중(만분율) 합 10,000이고 모두 정수", [codes.reduce((a, c) => a + hatchWeightOf(c), 0), codes.every((c) => Number.isInteger(hatchWeightOf(c)) && hatchWeightOf(c) > 0)], [HATCH_WEIGHT_TOTAL, true]);
+  expect("그림이 있는 아홉 종류 모두 알 등급이 있다", [...assetCodes].sort(), [...codes].sort());
+  expect("일반 > 희귀 > 아주 희귀 (종류 하나 확률)", hatchPercent("chick") > hatchPercent("piglet") && hatchPercent("piglet") > hatchPercent("pony"), true);
+  expect("병아리 20%, 고양이 8%, 조랑말 4%", ["chick", "kitten", "pony"].map(hatchPercent), [20, 8, 4]);
+  // 분포: 시드 비중으로 0~1을 고르게 나눠 뽑으면 확률대로 나온다
+  const list = codes.map((code) => ({ code, hatchWeight: hatchWeightOf(code) }));
+  const N = 100_000;
+  const counts = new Map<string, number>();
+  for (let i = 0; i < N; i++) {
+    const c = pickWeighted(list, (i + 0.5) / N).code;
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  expect("알 뽑기 분포가 표와 같다 (±0.1%p)", codes.filter((c) => Math.abs(((counts.get(c) ?? 0) / N) * 100 - hatchPercent(c)) > 0.1), []);
+  // 무작위 뽑기도 대충 맞는다 (Math.random 20만 번, ±0.6%p)
+  const rc = new Map<string, number>();
+  for (let i = 0; i < 200_000; i++) {
+    const c = pickWeighted(list, Math.random()).code;
+    rc.set(c, (rc.get(c) ?? 0) + 1);
+  }
+  expect("무작위 알 뽑기 분포 (±0.6%p)", codes.filter((c) => Math.abs(((rc.get(c) ?? 0) / 200_000) * 100 - hatchPercent(c)) > 0.6), []);
+
+  expect("특별 진화: 종류마다 하나 이상, 조랑말은 유니콘·페가수스", [codes.filter((c) => variantsFor(c).length === 0), variantsFor("pony").map((v) => v.key)], [[], ["unicorn", "pegasus"]]);
+  expect("특별 진화 키는 겹치지 않고 그림이 그 종류에 맞다", [new Set(SPECIAL_VARIANTS.map((v) => v.key)).size === SPECIAL_VARIANTS.length, SPECIAL_VARIANTS.filter((v) => !variantFits(v.key, `animal.${v.species}`))], [true, []]);
+  expect("그림만 있고 표에 없는 특별 진화 없음", Object.keys(ANIMAL_VARIANT_ART).filter((k) => !SPECIAL_VARIANTS.some((v) => v.key === k)), []);
+  expect("특별 진화 확률은 낮다 (종류마다 합 10% 이하)", codes.filter((c) => specialPercent(c) <= 0 || specialPercent(c) > 10), []);
+  expect("특별 진화 뽑기 경계: 조랑말 0 → 유니콘, 0.03 → 페가수스, 0.06 → 보통", [pickSpecial("pony", 0)?.key, pickSpecial("pony", 0.0299)?.key, pickSpecial("pony", 0.03)?.key, pickSpecial("pony", 0.06)], ["unicorn", "unicorn", "pegasus", null]);
+  let specials = 0;
+  for (let i = 0; i < N; i++) if (pickSpecial("calf", (i + 0.5) / N)) specials++;
+  expect("송아지 특별 진화 분포 4%", Math.round((specials / N) * 1000) / 10, 4);
+  expect("이름: 특별 진화면 그 이름", [animalName("조랑말", "unicorn"), animalName("조랑말", null), animalName("조랑말", "nope")], ["유니콘", "조랑말", "조랑말"]);
+  expect("조사 (으)로", [toward("유니콘"), toward("페가수스"), toward("황금 닭"), toward("아기 모습"), toward("물")], ["유니콘으로", "페가수스로", "황금 닭으로", "아기 모습으로", "물로"]);
+  expect("암수·모습 검사", [isSex("female"), isSex("male"), isSex("x"), isAnimalForm("baby"), isAnimalForm("adult"), isAnimalForm("teen")], [true, true, false, true, true, false]);
+  expect("암수 모습 설명이 모든 종류에", [...codes].sort(), Object.keys(SEX_LOOKS).sort());
+
+  // 그림: 암수 어른은 서로 다르고(아기는 같다), 특별 진화는 보통과 다르고 반짝이가 있다, 스킨은 특별 진화에 안 입는다
+  expect("어른 암컷 ≠ 수컷 (모든 종류)", Object.keys(ANIMAL_SIZE).filter((k) => animalSvg(k, "adult", 96, null, "normal", { sex: "female" }) === animalSvg(k, "adult", 96, null, "normal", { sex: "male" })), []);
+  expect("아기·청소년은 암수가 같은 모습", Object.keys(ANIMAL_SIZE).filter((k) => (["baby", "teen"] as const).some((st) => animalSvg(k, st, 96, null, "normal", { sex: "female" }) !== animalSvg(k, st, 96, null, "normal", { sex: "male" }))), []);
+  expect("특별 진화는 보통 모습과 다르다 (어른·아기)", SPECIAL_VARIANTS.filter((v) => (["adult", "baby"] as const).some((st) => animalSvg(`animal.${v.species}`, st, 96, null, "normal", { variant: v.key }) === animalSvg(`animal.${v.species}`, st, 96))).map((v) => v.key), []);
+  expect("다른 종류의 특별 진화 키는 보통 모습", animalSvg("animal.chick", "adult", 96, null, "normal", { variant: "unicorn" }) === animalSvg("animal.chick", "adult", 96), true);
+  expect("특별 진화는 스킨을 입지 않는다", animalSvg("animal.calf", "adult", 96, "skin.calf.hanwoo", "normal", { variant: "strawberry_calf" }) === animalSvg("animal.calf", "adult", 96, null, "normal", { variant: "strawberry_calf" }), true);
+  // 모든 종류 × 보통·특별 진화 × 암수 × 크기 × 단계가 32칸 안 (좌우 끝 칸·맨 위 줄이 비었다, 반짝이 포함)
+  const clipped = new Set<string>();
+  for (const k of Object.keys(ANIMAL_SIZE))
+    for (const variant of [null, ...SPECIAL_VARIANTS.filter((v) => `animal.${v.species}` === k).map((v) => v.key)])
+      for (const sex of [null, "female", "male"] as const)
+        for (const z of ANIMAL_DISPLAY_SIZES)
+          for (const st of ["baby", "teen", "adult"] as const) {
+            const svg = animalSvg(k, st, 32, null, z, { sex, variant });
+            for (const [, c, d] of svg.matchAll(/fill="([^"]+)"(?: fill-opacity="[^"]+")? d="([^"]+)"/g)) {
+              if (c === "#3a2a1e") continue;
+              for (const m of d.matchAll(/M(\d+) (\d+)h(\d+)/g)) if (+m[1] === 0 || +m[1] + +m[3] >= 32 || +m[2] === 0) clipped.add(`${k}:${variant}:${sex}:${z}:${st}`);
+            }
+          }
+  expect("모든 암수·특별 진화·크기·단계가 도화지 안에 들어간다", [...clipped], []);
+  // 아기 모습으로 데리고 다니기: 그림판은 아기 그림, 크기 고르기는 그 모습에서 달라 보이는 것만, 반폭은 어른보다 작다
+  expect("아기 모습 그림판 ≠ 어른 그림판", petSheetSvg("animal.pony", null, 3, "normal", { form: "baby" }) !== petSheetSvg("animal.pony", null, 3), true);
+  expect("아기 모습 반폭 < 어른 반폭 (따라오는 거리)", animalHalfWidth("animal.pony", "normal", { form: "baby" }) < animalHalfWidth("animal.pony"), true);
+  expect("아기 모습 크기: 조랑말은 아주 작게~크게, 햄스터는 보통만", [displaySizeChoices("animal.pony", "baby"), displaySizeChoices("animal.hamster", "baby")], [["tiny", "small", "normal", "large"], ["normal"]]);
+  expect("아기 모습 크기가 커질수록 크다 (조랑말)", (["tiny", "small", "normal", "large"] as const).map((z) => animalRadius("animal.pony", "baby", z)), [3, 5, 6, 8]);
 }
 // 낚시터 도트 그림 (2026-10-12 "낚을 수 있는 것들도 도트로"): 낚을 것마다 20×20칸 그림, 연출 그림은 줄 길이가 고르다
 expect("낚을 것마다 20×20 도트 그림", CATCHES.filter((c) => { const r = catchRows(c.key); return !r || r.length !== CATCH_CELLS || r.some((x) => x.length !== CATCH_CELLS); }).map((c) => c.key), []);

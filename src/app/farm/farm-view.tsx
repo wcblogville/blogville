@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { PixelIcon } from "@/components/pixel-icon";
 import { useState, useTransition } from "react";
+import { SexMark } from "@/components/game/sex-mark";
 import { ANIMAL_SIZE, type AnimalTier, animalSvg, displaySizeChoices, eggSvg, toAnimalDataUri } from "@/lib/art/animals";
 import { growthDataUri } from "@/lib/art/growth";
-import { animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, STAGE_LABEL } from "@/lib/farm";
+import { ANIMAL_FORMS, animalName, animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, FORM_LABEL, HATCH_RARITY, RARITY_LABEL, STAGE_LABEL } from "@/lib/farm";
 import type { AdoptableSpecies, FarmAnimal, FarmSkin } from "@/server/farm";
-import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalSize, wearSkin } from "./actions";
+import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalForm, setAnimalSize, wearSkin } from "./actions";
 
 const TIER_LABEL: Record<AnimalTier, string> = { small: "작은 동물", medium: "중간 동물", large: "큰 동물" };
 
@@ -15,10 +16,13 @@ type FreeEgg = { kind: "starter"; label: string } | { kind: "level"; level: numb
 
 /* eslint-disable @next/next/no-img-element -- 코드로 만든 SVG(data URI)라 next/image 최적화가 필요 없다 */
 function AnimalImage({ animal, size }: { animal: FarmAnimal; size: number }) {
+  const grown = animal.status === "grown";
+  // 다 키운 동물은 주인이 고른 모습(다 자란·아기)과 크기로, 키우는 동물은 지금 단계로 (암수·특별 진화 모습, 2026-10-12)
+  const stage = !animal.growExp ? "baby" : grown && animal.displayForm === "baby" ? "baby" : animalStage(animal.growth, animal.growExp);
   const svg =
     animal.status === "egg" || !animal.assetKey || !animal.growExp
       ? eggSvg(size)
-      : animalSvg(animal.assetKey, animalStage(animal.growth, animal.growExp), size, animal.skinKey, animal.status === "grown" ? animal.displaySize : "normal");
+      : animalSvg(animal.assetKey, stage, size, animal.skinKey, grown ? animal.displaySize : "normal", { sex: animal.sex, variant: animal.variant });
   return <img src={toAnimalDataUri(svg)} alt="" width={size} height={size} className="pixelated" aria-hidden />;
 }
 
@@ -55,7 +59,8 @@ export function FarmView({
   skins?: FarmSkin[];
 }) {
   const [pending, start] = useTransition();
-  const dressable = [...active, ...grown].filter((a) => a.status !== "egg" && a.assetKey && a.speciesId !== null);
+  // 특별 진화한 동물은 스킨을 입지 않는다 (2026-10-12)
+  const dressable = [...active, ...grown].filter((a) => a.status !== "egg" && a.assetKey && a.speciesId !== null && !a.variant);
   const [dressId, setDressId] = useState<number | null>(null);
   const dressing = dressable.find((a) => a.id === dressId) ?? dressable[0] ?? null;
   const [message, setMessage] = useState<FarmResult | null>(null);
@@ -184,16 +189,22 @@ export function FarmView({
                 {a.status === "egg" ? (
                   <>
                     <h3 className="font-display text-lg">알</h3>
-                    <p className="text-xs text-ink-soft">무엇이 나올지 몰라요</p>
+                    <p className="text-xs text-ink-soft">무엇이 나올지 몰라요 (확률은 위 ⓘ)</p>
                     <button type="button" disabled={pending} onClick={() => run(() => hatchEgg(a.id))} className="pixel-btn pixel-btn-sm mt-3 bg-leaf-dark text-white">
                       🐣 부화시키기
                     </button>
                   </>
                 ) : (
                   <>
-                    <h3 className="font-display text-lg">
-                      {a.name} <span className="text-sm text-ink-soft">· {STAGE_LABEL[animalStage(a.growth, a.growExp!)]}</span>
+                    <h3 className="font-display text-lg" data-animal-title={a.id}>
+                      {a.name} <SexMark sex={a.sex} label className="text-sm" />{" "}
+                      <span className="text-sm text-ink-soft">· {STAGE_LABEL[animalStage(a.growth, a.growExp!)]}</span>
                     </h3>
+                    {a.code && HATCH_RARITY[a.code] && HATCH_RARITY[a.code] !== "common" && (
+                      <span className="pixel-badge bg-[#fff0c2] text-xs">
+                        {HATCH_RARITY[a.code] === "epic" ? "🌟" : "⭐"} {RARITY_LABEL[HATCH_RARITY[a.code]]}
+                      </span>
+                    )}
                     <div className="pixel-bar mt-3 w-full" role="progressbar" aria-valuenow={a.growth} aria-valuemax={a.growExp!} aria-label="성장">
                       <div className="pixel-bar-fill" style={{ width: `${Math.min(100, (a.growth / a.growExp!) * 100)}%` }} />
                     </div>
@@ -257,7 +268,7 @@ export function FarmView({
             <PixelIcon name="palette" />
             스킨 입히기
           </h2>
-          <p className="mb-3 text-sm text-ink-soft">한 번 산 스킨은 같은 종류의 내 동물 모두에게 입힐 수 있어요. 광장·우리 집에서도 그 색으로 보여요.</p>
+          <p className="mb-3 text-sm text-ink-soft">한 번 산 스킨은 같은 종류의 내 동물 모두에게 입힐 수 있어요. 광장·우리 집에서도 그 색으로 보여요. ✨ 특별 진화한 동물은 제 모습 그대로라 스킨을 입지 않아요.</p>
           <div className="pixel-card p-3">
             <ul className="flex gap-3 overflow-x-auto p-1 pb-2" aria-label="스킨을 입힐 동물">
               {dressable.map((a) => (
@@ -309,14 +320,43 @@ export function FarmView({
         ) : (
           <ul className="flex flex-wrap gap-4 p-1">
             {grown.map((a) => (
-              <li key={a.id} className="pixel-card flex w-36 flex-col items-center p-2 text-center" data-selected data-grown={a.id} data-display-size={a.displaySize}>
+              <li
+                key={a.id}
+                className={`pixel-card flex w-40 flex-col items-center p-2 text-center ${a.variant ? "bg-[#fffbe6] shadow-[inset_0_0_0_3px_#ffd36e]" : ""}`}
+                data-selected
+                data-grown={a.id}
+                data-display-size={a.displaySize}
+                data-display-form={a.displayForm}
+                data-sex={a.sex ?? undefined}
+                data-variant={a.variant ?? undefined}
+              >
                 <AnimalImage animal={a} size={96} />
-                <span className="font-display">{a.name}</span>
+                {a.variant && <span className="pixel-badge bg-[#fff0a8] text-[11px] font-bold">✨ 특별 진화</span>}
+                <span className="font-display">
+                  {animalName(a.name!, a.variant)} <SexMark sex={a.sex} />
+                </span>
                 <span className="text-[11px] text-ink-soft">{a.grownAt ? new Date(a.grownAt).toLocaleDateString("ko-KR") : ""}</span>
-                {/* 크기 고르기 (2026-10-12): 광장·우리 집에서 이 크기로 데리고 다닌다. 이미 가장 큰 동물은 "크게"가 없다 */}
+                {/* 데리고 다닐 모습 (2026-10-12 "아기 형태로 데리고 다닐 수도 있게"): 광장·우리 집에서 이 모습으로 */}
+                <div className="mt-2 grid w-full grid-cols-2 gap-1" role="group" aria-label={`${a.name} 데리고 다닐 모습`}>
+                  {ANIMAL_FORMS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      disabled={pending || a.displayForm === f}
+                      aria-pressed={a.displayForm === f}
+                      onClick={() => run(() => setAnimalForm(a.id, f))}
+                      data-form-choice={f}
+                      className={`pixel-btn pixel-btn-sm px-1 py-0.5 font-sans text-[11px] ${a.displayForm === f ? "bg-leaf font-bold text-white" : "bg-white text-ink"}`}
+                    >
+                      {f === "baby" ? "🍼 " : ""}
+                      {FORM_LABEL[f]}
+                    </button>
+                  ))}
+                </div>
+                {/* 크기 고르기 (2026-10-12): 광장·우리 집에서 이 크기로 데리고 다닌다. 이미 가장 큰 동물은 "크게"가 없다 (모습마다 고를 수 있는 크기가 다르다) */}
                 {a.assetKey && (
-                  <div className="mt-2 grid w-full grid-cols-2 gap-1" role="group" aria-label={`${a.name} 크기`}>
-                    {displaySizeChoices(a.assetKey).map((z) => (
+                  <div className="mt-1 grid w-full grid-cols-2 gap-1" role="group" aria-label={`${a.name} 크기`}>
+                    {displaySizeChoices(a.assetKey, a.displayForm).map((z) => (
                       <button
                         key={z}
                         type="button"

@@ -9,7 +9,7 @@
 // 성숙도 t(아기 0 · 청소년 0.5 · 어른 1)로 섞는다. 아기는 머리가 크고 몸이 동글·다리가 짧고, 어른은 머리가 작아지고
 // 몸·다리·목·꼬리가 그 동물답게 길어진다 (조랑말 긴 다리·목, 송아지 튼튼한 몸, 양 복슬한 몸에 가는 다리,
 // 강아지·고양이 긴 몸·꼬리, 병아리 → 닭 모양, 토끼 긴 귀·몸, 햄스터는 그대로 동글, 돼지 긴 코·몸).
-import { type AnimalDisplaySize, type AnimalStage } from "@/lib/farm";
+import { type AnimalDisplaySize, type AnimalForm, type AnimalSex, type AnimalStage } from "@/lib/farm";
 import { type Colors, fitSvg, flipX, Pix, type Sprite, spriteRects, svgDataUri } from "./pixel";
 
 export type AnimalTier = "small" | "medium" | "large";
@@ -47,14 +47,18 @@ export function animalRadius(assetKey: string, stage: AnimalStage, size: AnimalD
   const want = Math.max(MIN_R, Math.round(base * (DISPLAY_FACTOR[size] ?? 1)));
   const adult = want > base ? Math.min(want, maxRadius(assetKey)) : want;
   if (stage === "adult") return adult;
-  const baby = Math.max(MIN_R, Math.round(adult * 0.55));
+  // 아기는 어른 크기 단위의 0.55배. 고른 크기(아기 모습으로 데리고 다닐 때)는 아기 크기에 바로 곱한다 (도화지 안이라 막을 필요 없다)
+  const baby = Math.max(MIN_R, Math.round(base * 0.55 * (DISPLAY_FACTOR[size] ?? 1)));
   return stage === "baby" ? baby : Math.min(adult, Math.max(baby, Math.round(adult * 0.75)));
 }
 
 const MATURITY: Record<AnimalStage, number> = { baby: 0, teen: 0.5, adult: 1 };
 
-/** 그리는 기준: u = 크기 단위(칸), t = 성숙도 (0 아기 ~ 1 어른) */
-type G = { u: number; t: number };
+/** 그리는 기준: u = 크기 단위(칸), t = 성숙도 (0 아기 ~ 1 어른), sex = 암수 (어른 모습에만 드러난다, 없으면 예전 모습) */
+type G = { u: number; t: number; sex?: AnimalSex | null };
+/** 다 자란 암컷·수컷인지 (아기·청소년은 암수 모습 차이가 없다, 2026-10-12 "암/수 별로 성장했을 때 모습") */
+const isFemale = (g: G) => g.t === 1 && g.sex === "female";
+const isMale = (g: G) => g.t === 1 && g.sex === "male";
 /** 그린 몸의 자리 (무늬·리본·움직임이 쓴다): 몸 가운데 (bx, by)와 반길이·반높이, 머리 가운데와 반지름 */
 export type Geo = { bx: number; by: number; bw: number; bh: number; hx: number; hy: number; hr: number };
 /** [아기, 어른] 비율 (u에 곱한다) */
@@ -73,14 +77,20 @@ function thin(p: Pix, x1: number, y1: number, x2: number, y2: number, c: string)
   for (let i = 0; i <= n; i++) p.px(Math.floor(x1 + ((x2 - x1) * i) / n), Math.floor(y1 + ((y2 - y1) * i) / n), c);
 }
 
-/** 옆모습 눈 (머리가 크면 2칸, 더 크면 2×2에 반짝이) + 볼터치 */
-function eye(p: Pix, x: number, y: number, hr: number, c: string, cheek = true) {
+/** 옆모습 눈 (머리가 크면 2칸, 더 크면 2×2에 반짝이) + 볼터치. lash = 다 자란 암컷의 속눈썹 (눈 앞 위로 한 칸) */
+function eye(p: Pix, x: number, y: number, hr: number, c: string, cheek = true, lash = false) {
   const ex = Math.round(x);
   const ey = Math.round(y);
   if (hr >= 4.5) p.rect(ex, ey - 1, 2, 2, c).px(ex, ey - 1, c === "w" ? "#" : "w");
   else if (hr >= 2.8) p.rect(ex, ey - 1, 1, 2, c);
   else p.px(ex, ey, c);
   if (cheek && hr >= 2.8) p.px(ex - 1, ey + 2, "p");
+  if (lash) {
+    const top = hr >= 2.8 ? ey - 2 : ey - 1;
+    const right = hr >= 4.5 ? ex + 2 : ex + 1;
+    p.px(right, top, "#");
+    if (hr >= 4.5) p.px(right + 1, top - 1, "#");
+  }
 }
 
 /** 네발 동물 비율 (모두 u에 곱하는 [아기, 어른]) */
@@ -143,6 +153,19 @@ function quad(p: Pix, g: G, q: Quad, hooks: Hooks): Geo {
   return geo;
 }
 
+/** 몸 칸(4·5·6)이 시작하는 맨 위 줄 (그 열에 몸이 없으면 -1) */
+function bodyTop(p: Pix, x: number): number {
+  for (let y = 0; y < p.h; y++) if ("456".includes(p.get(x, y))) return y;
+  return -1;
+}
+/** 등줄기 갈기: x1~x2 열마다 몸 맨 위 바로 위에 한 칸씩 (한 칸 걸러) */
+function bristles(p: Pix, x1: number, x2: number, c: string) {
+  for (let x = Math.round(x1); x <= Math.round(x2); x += 2) {
+    const y = bodyTop(p, x);
+    if (y > 0) p.px(x, y - 1, c);
+  }
+}
+
 /** 등에 밝은 면 */
 function shine(p: Pix, geo: Geo) {
   p.ellipse(geo.bx - geo.bw * 0.15, geo.by - geo.bh * 0.55, geo.bw * 0.45, Math.max(0.8, geo.bh * 0.28), "4");
@@ -162,10 +185,16 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
       const hxRel = bw * lerp(0.35, 0.75, t);
       const bx = CX - (hxRel + hr - bw) / 2 + 0.5;
       const geo: Geo = { bx, by, bw, bh, hx: bx + hxRel, hy: by - bh * lerp(0.55, 0.95, t) - sz([0, 0.35], g), hr };
-      // 꽁지깃 (자랄수록 위로 솟는다)
+      // 꽁지깃 (자랄수록 위로 솟는다). 암탉은 짧고, 수탉은 길게 솟고 끝에 짙은 초록 깃
       if (t > 0) {
-        const tl = sz([0, 0.75], g);
-        thick(p, bx - bw * 0.6, by - bh * 0.2, bx - bw - tl * 0.4, by - bh * 0.4 - tl, Math.max(1, g.u * 0.22), "6");
+        const tl = sz([0, isMale(g) ? 1.05 : isFemale(g) ? 0.5 : 0.75], g);
+        const tx = bx - bw - tl * 0.4;
+        const ty = by - bh * 0.4 - tl;
+        thick(p, bx - bw * 0.6, by - bh * 0.2, tx, ty, Math.max(1, g.u * 0.22), "6");
+        if (isMale(g)) {
+          thick(p, bx - bw * 0.7, by - bh * 0.1, tx - g.u * 0.2, ty + g.u * 0.35, Math.max(0.7, g.u * 0.14), "m");
+          p.px(Math.round(tx), Math.round(ty) - 1, "m");
+        }
       }
       // 다리 (가는 주황 다리, 발가락은 앞으로)
       for (const [x, c] of [[Math.round(bx + bw * 0.15), "o"], [Math.round(bx - bw * 0.25), "u"]] as const) {
@@ -180,17 +209,22 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
       const ty = Math.round(geo.hy - hr);
       const hx = Math.round(geo.hx);
       if (t === 0) p.px(hx - 1, ty - 1, "5").px(hx, ty - 2, "5"); // 아기 머리 깃털
-      else {
-        // 볏과 턱볏 (어른은 크게)
+      else if (isFemale(g)) {
+        // 암탉: 작은 볏
+        p.rect(hx - 1, ty - 1, 2, 1, "N").px(hx, ty - 2, "N");
+      } else {
+        // 볏과 턱볏 (어른은 크게, 수탉은 한 줄 더 높게)
         p.rect(hx - 1, ty - 1, t === 1 ? 3 : 2, 1, "N").px(hx, ty - 2, "N");
         if (t === 1) p.px(hx - 1, ty - 2, "N").px(hx + 1, ty - 2, "N");
+        if (isMale(g)) p.px(hx, ty - 3, "N").px(hx - 2, ty - 1, "N");
       }
       // 부리 (앞으로 뾰족)
       const bkx = Math.round(geo.hx + hr);
       const bky = Math.round(geo.hy);
       p.rect(bkx, bky, t === 1 ? 2 : 1, 1, "o").px(bkx, bky + 1, "u");
-      if (t > 0) p.px(bkx - 1, bky + 2, "N");
-      eye(p, geo.hx + hr * 0.3, geo.hy - hr * 0.2, hr, eyeC);
+      if (t > 0 && !isFemale(g)) p.px(bkx - 1, bky + 2, "N");
+      if (isMale(g)) p.px(bkx - 1, bky + 3, "N");
+      eye(p, geo.hx + hr * 0.3, geo.hy - hr * 0.2, hr, eyeC, true, isFemale(g));
       return geo;
     },
   },
@@ -227,9 +261,11 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
       // 앞발
       p.rect(Math.round(bx + bw * 0.55), FEET - 1, 2, 2, "4");
       p.ellipse(geo.hx, geo.hy, hr + 0.3, hr, "5");
+      // 수토끼: 통통한 볼
+      if (isMale(g)) p.ellipse(geo.hx + hr * 0.1, geo.hy + hr * 0.45, hr * 0.6, hr * 0.45, "4");
       shine(p, geo);
       p.px(Math.round(geo.hx + hr), Math.round(geo.hy + hr * 0.2), "o");
-      eye(p, geo.hx + hr * 0.25, geo.hy - hr * 0.15, hr, eyeC);
+      eye(p, geo.hx + hr * 0.25, geo.hy - hr * 0.15, hr, eyeC, true, isFemale(g));
       return geo;
     },
   },
@@ -257,7 +293,12 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
           const sx = Math.round(hx + hr * 0.75);
           const sy = Math.round(hy + hr * 0.05);
           p.rect(sx, sy, len, h, "5").rect(sx + len, sy, 1, h, "o").px(sx + len, sy + Math.floor(h / 2), "#");
-          eye(p, hx + hr * 0.15, hy - hr * 0.25, hr, eyeC);
+          if (isMale(g)) {
+            // 수퇘지: 코 밑 작은 엄니와 등줄기 갈기
+            p.px(sx + Math.max(0, len - 1), sy + h, "w");
+            bristles(p, geo.bx - geo.bw * 0.55, geo.bx + geo.bw * 0.35, "6");
+          }
+          eye(p, hx + hr * 0.15, hy - hr * 0.25, hr, eyeC, true, isFemale(g));
         },
       }),
   },
@@ -282,11 +323,24 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
           p.ellipse(bx + bw * 0.35, by + bh * 0.2, bw * 0.2, bh * 0.3, "D");
           // 옆으로 난 귀와 뿔 (자라면)
           p.ellipse(hx - hr * 0.8, hy - hr * 0.45, Math.max(1.5, hr * 0.5), 1, "5");
-          if (g.t > 0) p.rect(Math.round(hx - hr * 0.3), Math.round(hy - hr) - (g.t === 1 ? 2 : 1), 1, g.t === 1 ? 2 : 1, "c");
+          // 뿔: 암소는 작게, 황소는 크게 앞으로 휜다
+          const horn = isFemale(g) ? 1 : g.t === 1 ? 2 : 1;
+          const hornX = Math.round(hx - hr * 0.3);
+          const hornY = Math.round(hy - hr);
+          if (g.t > 0) p.rect(hornX, hornY - horn, 1, horn, "c");
+          if (isMale(g)) p.px(hornX - 1, hornY - 1, "c").px(hornX + 1, hornY - 3, "c").px(hornX, hornY - 3, "c");
+          // 암소: 배 아래 분홍 젖
+          if (isFemale(g)) {
+            const ux = Math.round(bx - bw * 0.05);
+            const uy = Math.round(by + bh) - 1;
+            p.rect(ux - 1, uy, 3, 2, "o").px(ux - 1, uy + 2, "O").px(ux + 1, uy + 2, "O");
+          }
           // 주둥이
           p.ellipse(hx + hr * 0.75, hy + hr * 0.35, Math.max(1.5, hr * 0.55), Math.max(1.2, hr * 0.5), "o");
           p.px(Math.round(hx + hr * 1.1), Math.round(hy + hr * 0.25), "#");
-          eye(p, hx + hr * 0.05, hy - hr * 0.25, hr, eyeC, false);
+          // 황소: 금빛 코뚜레
+          if (isMale(g)) p.px(Math.round(hx + hr * 1.1), Math.round(hy + hr * 0.25) + 2, "z").px(Math.round(hx + hr * 1.1) + 1, Math.round(hy + hr * 0.25) + 1, "z");
+          eye(p, hx + hr * 0.05, hy - hr * 0.25, hr, eyeC, false, isFemale(g));
         },
       }),
   },
@@ -305,12 +359,13 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
       p.ellipse(bx + bw * 0.1, ty + 0.5, 1.5, 1.5, "6");
       p.ellipse(bx, by, bw + 0.3, bh, "5");
       p.ellipse(bx + bw * 0.3, by + bh * 0.45, bw * 0.55, bh * 0.45, "4");
-      // 볼주머니
-      p.ellipse(bx + bw * 0.55, by + bh * 0.1, Math.max(1, bh * 0.35), Math.max(1, bh * 0.3), "4");
+      // 볼주머니 (수컷은 더 빵빵하게)
+      const pouch = isMale(g) ? 1.35 : 1;
+      p.ellipse(bx + bw * 0.55, by + bh * 0.1, Math.max(1, bh * 0.35 * pouch), Math.max(1, bh * 0.3 * pouch), "4");
       p.ellipse(bx - bw * 0.2, ty + 1, 1.5, 1.5, "5").px(Math.round(bx - bw * 0.2), ty + 1, "o");
       p.px(Math.round(bx + bw), Math.round(by - bh * 0.1), "o");
       p.px(Math.round(bx + bw * 0.4), FEET, "o").px(Math.round(bx - bw * 0.5), FEET, "o");
-      eye(p, bx + bw * 0.55, by - bh * 0.35, hr, eyeC, false);
+      eye(p, bx + bw * 0.55, by - bh * 0.35, hr, eyeC, false, isFemale(g));
       return geo;
     },
   },
@@ -339,10 +394,12 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
           }
           // 이마 줄무늬
           p.px(Math.round(hx - 1), ty + 1, "D").px(Math.round(hx + 1), ty + 1, "D");
+          // 수고양이: 통통한 볼살
+          if (isMale(g)) p.ellipse(hx + hr * 0.1, hy + hr * 0.5, hr * 0.75, hr * 0.5, "5");
           // 주둥이·코
           p.ellipse(hx + hr * 0.7, hy + hr * 0.35, Math.max(1, hr * 0.35), Math.max(1, hr * 0.3), "4");
           p.px(Math.round(hx + hr), Math.round(hy + hr * 0.1), "o");
-          eye(p, hx + hr * 0.25, hy - hr * 0.2, hr, eyeC);
+          eye(p, hx + hr * 0.25, hy - hr * 0.2, hr, eyeC, true, isFemale(g));
         },
       }),
   },
@@ -369,9 +426,16 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
           if (sh >= 3) p.px(sx + len - 1, sy + sh, "o");
           // 눈 얼룩
           p.ellipse(hx + hr * 0.3, hy - hr * 0.25, Math.max(1, hr * 0.28), Math.max(1, hr * 0.28), "D");
-          // 늘어진 귀 (머리 뒤에서 아래로)
-          p.ellipse(hx - hr * 0.45, hy + hr * 0.05, Math.max(1, hr * 0.38), Math.max(1.5, hr * 0.7), "D");
-          eye(p, hx + hr * 0.3, hy - hr * 0.2, hr, eyeC, false);
+          if (isMale(g)) {
+            // 수컷: 쫑긋 선 귀 (머리 위로 세모)
+            const ex = Math.round(hx - hr * 0.55);
+            const ey = Math.round(hy - hr);
+            p.rect(ex, ey - 1, 3, 2, "D").rect(ex, ey - 2, 2, 1, "D").px(ex, ey - 3, "D");
+          } else {
+            // 늘어진 귀 (머리 뒤에서 아래로)
+            p.ellipse(hx - hr * 0.45, hy + hr * 0.05, Math.max(1, hr * 0.38), Math.max(1.5, hr * 0.7), "D");
+          }
+          eye(p, hx + hr * 0.3, hy - hr * 0.2, hr, eyeC, false, isFemale(g));
         },
       }),
   },
@@ -403,7 +467,15 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
             // 옆 귀
             p.ellipse(hx - hr * 0.75, hy, Math.max(1.2, hr * 0.45), 1, "d");
             p.px(Math.round(hx + hr * 0.9), Math.round(hy + hr * 0.45), "d");
-            eye(p, hx + hr * 0.3, hy - hr * 0.05, hr, eyeC);
+            if (isMale(g)) {
+              // 숫양: 귀 위로 돌돌 말린 뿔
+              const r = Math.max(1.5, hr * 0.72);
+              const cx = hx - hr * 0.45;
+              const cy = hy - hr * 0.05;
+              p.ellipse(cx, cy, r, r, "b").ellipse(cx + 0.3, cy + 0.2, Math.max(0.8, r * 0.62), Math.max(0.8, r * 0.62), "B");
+              if (r >= 2) p.px(Math.round(cx + 0.3), Math.round(cy + 0.2), "b");
+            }
+            eye(p, hx + hr * 0.3, hy - hr * 0.05, hr, eyeC, true, isFemale(g));
           },
         },
       ),
@@ -417,8 +489,9 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
           // 꼬리 (뒤로 흘러내림)
           const x = geo.bx - geo.bw * 0.85;
           const y = geo.by - geo.bh * 0.6;
-          const len = sz([0.5, 0.8], g);
-          thick(p, x, y, x - len * 0.3, y + len, Math.max(0.8, g.u * 0.16), "D");
+          // 수말은 꼬리가 더 길고 숱이 많다
+          const len = sz([0.5, isMale(g) ? 0.95 : 0.8], g);
+          thick(p, x, y, x - len * 0.3, y + len, Math.max(0.8, g.u * (isMale(g) ? 0.2 : 0.16)), "D");
         },
         front: (geo) => {
           const { hx, hy, hr, bx, bw, by, bh } = geo;
@@ -426,20 +499,26 @@ const ANIMALS: Record<string, { colors: Colors; draw: (p: Pix, g: G, eyeC: strin
           // 길쭉한 주둥이 (앞 아래로)
           p.ellipse(hx + hr * 0.85, hy + hr * 0.45, Math.max(1.5, hr * 0.62), Math.max(1.2, hr * 0.55), "o");
           p.px(Math.round(hx + hr * 1.25), Math.round(hy + hr * 0.3), "#");
-          // 갈기 (머리 뒤에서 목 등줄기를 따라)
-          thick(p, hx - hr * 0.5, hy - hr * 0.6, bx + bw * 0.4, by - bh * 0.9, Math.max(0.7, g.u * 0.11), "D");
-          p.rect(Math.round(hx), Math.round(hy - hr) - 1, 2, 2, "D");
+          // 갈기 (머리 뒤에서 목 등줄기를 따라). 수말은 굵게 휘날리고, 암말은 분홍 끈으로 땋았다
+          const [mx1, my1, mx2, my2] = [hx - hr * 0.5, hy - hr * 0.6, bx + bw * 0.4, by - bh * 0.9];
+          thick(p, mx1, my1, mx2, my2, Math.max(0.7, g.u * (isMale(g) ? 0.17 : 0.11)), "D");
+          if (isMale(g)) thick(p, mx1 - 1, my1 + 1, mx2 - 1, my2 + 1, Math.max(0.7, g.u * 0.11), "D");
+          if (isFemale(g)) for (let i = 1; i <= 3; i++) p.px(Math.round(lerp(mx1, mx2, i / 4)), Math.round(lerp(my1, my2, i / 4)), "V");
+          p.rect(Math.round(hx), Math.round(hy - hr) - 1, isMale(g) ? 3 : 2, 2, "D");
           // 뾰족 귀
           p.rect(Math.round(hx - hr * 0.35), Math.round(hy - hr) - 2, 1, 2, "5");
-          eye(p, hx + hr * 0.1, hy - hr * 0.15, hr, eyeC, false);
+          eye(p, hx + hr * 0.1, hy - hr * 0.15, hr, eyeC, false, isFemale(g));
         },
       }),
   },
 };
 
 // 어른이 되면 목에 다는 작은 리본 (얼굴을 가리지 않게 납작하게). 작은 동물은 더 작은 리본
+// 암컷은 분홍 리본, 수컷은 파란 나비넥타이 (2026-10-12 암수), 암수를 모르면(미리보기) 분홍 리본
 const RIBBON: Sprite = ["#V#.#V#", "#VVRVV#", "#V#.#V#"];
 const SMALL_RIBBON: Sprite = ["V.V", "VRV", "V.V"];
+const BOWTIE: Sprite = ["#T#.#T#", "#TTtTT#", "#T#.#T#"];
+const SMALL_BOWTIE: Sprite = ["T.T", "TtT", "T.T"];
 
 // ===== 스킨 (사용자 요청 2026-10-11 "펫 종류별로 스킨") =====
 // 동물 종류마다 코인으로 사는 색·무늬. DB(animal_skins.asset_key)에는 키만, 실제 색·무늬는 여기서 그린다.
@@ -509,18 +588,194 @@ export function skinFits(skinKey: string, assetKey: string): boolean {
   return Object.hasOwn(ANIMAL_SKINS, skinKey) && ANIMAL_SKINS[skinKey].species === assetKey;
 }
 
+// ===== 특별 진화 그림 (사용자 요청 2026-10-12 "망아지가 유니콘이나 페가수스 … 딸기 우유 송아지, 얼룩 토끼, 흑돼지") =====
+// 종류·확률·이름은 src/lib/farm.ts SPECIAL_VARIANTS, 여기서는 모습만. 특별한 동물은 스킨을 입지 않는다 (제 모습이 곧 특별한 색·무늬).
+// colors는 그 동물의 색 칸을 바꿔 칠하고, pattern은 몸 칸에 무늬를, extra는 날개·뿔·고리처럼 몸 밖으로 나오는 것을 그린다.
+// 아기 모습으로 데리고 다녀도(display_form = baby) 같은 색·무늬로, 크기만 작게 그린다 (geo·u에 맞춰 그린다)
+type VariantArt = { species: string; colors?: Colors; eye?: string; pattern?: (p: Pix, geo: Geo, g: G) => void; extra?: (p: Pix, geo: Geo, g: G) => void };
+
+/** 머리 위 빈 곳 (고리·뿔 자리): 머리 둘레 열에서 가장 높은 칠한 칸 */
+function headTop(p: Pix, geo: Geo): number {
+  let top = p.h;
+  for (let x = Math.floor(geo.hx - geo.hr); x <= Math.ceil(geo.hx + geo.hr); x++)
+    for (let y = 0; y < p.h; y++)
+      if (p.get(x, y) !== ".") {
+        top = Math.min(top, y);
+        break;
+      }
+  return top;
+}
+/** 날개 (등 위, 바깥 하늘색 + 안쪽 흰 깃). big = 페가수스처럼 위로 크게 */
+function wing(p: Pix, geo: Geo, g: G, big: boolean) {
+  const { bx, by, bw, bh } = geo;
+  const rootX = bx - bw * 0.05;
+  const rootY = by - bh * 0.75;
+  const reach = big ? g.u * 0.95 : g.u * 0.6;
+  const tips = big
+    ? [[rootX - reach * 0.55, rootY - reach], [rootX - reach * 0.85, rootY - reach * 0.6], [rootX - reach * 0.95, rootY - reach * 0.2]]
+    : [[rootX - reach * 0.5, rootY - reach * 0.75], [rootX - reach * 0.85, rootY - reach * 0.35], [rootX - reach * 0.8, rootY + reach * 0.05]];
+  const r = Math.max(0.9, g.u * (big ? 0.13 : 0.15));
+  for (const [x, y] of tips) thick(p, rootX, rootY, x, y, r, "i");
+  for (const [x, y] of tips) thick(p, rootX, rootY, x, y, Math.max(0.5, r - 0.7), "I");
+}
+/** 몸 칸만 다시 칠하기 */
+function paintBody(p: Pix, fn: (x: number, y: number) => string | null) {
+  p.map((c, x, y) => (BODY.has(c) ? (fn(x, y) ?? c) : c));
+}
+const STRIPES = ["V", "K", "z", "L", "i", "U"];
+
+export const ANIMAL_VARIANT_ART: Record<string, VariantArt> = {
+  // 황금 닭: 짙은 금빛 깃털에 반짝이는 무늬
+  golden_hen: {
+    species: "animal.chick",
+    colors: { 4: "#fff1a0", 5: "#f6bf2e", 6: "#c47e16", o: "#e8701a" },
+    pattern: (p, { bx, by, bw, bh }) => paintBody(p, (x, y) => ((x * 3 + y * 5) % 9 === 0 && Math.abs(x + 0.5 - bx) < bw * 0.8 && Math.abs(y + 0.5 - by) < bh * 0.8 ? "Z" : null)),
+  },
+  // 얼룩 토끼 (더치): 얼굴 앞·몸 앞은 하얗고 눈가·귀·엉덩이는 진회색
+  dutch_bunny: {
+    species: "animal.bunny",
+    colors: { 4: "#ffffff", 5: "#fbfaf8", 6: "#dcd8d2", K: "#6e6474" },
+    pattern: (p, { bx, bw, hx, hy, hr }) =>
+      paintBody(p, (x, y) => {
+        const dx = (x + 0.5 - (hx - hr * 0.2)) / (hr * 0.75);
+        const dy = (y + 0.5 - (hy - hr * 0.25)) / (hr * 0.7);
+        if (y < hy - hr * 0.85 || dx * dx + dy * dy <= 1) return "K";
+        return x < bx - bw * 0.1 && y > hy + hr * 0.6 ? "K" : null;
+      }),
+  },
+  // 판다 햄스터: 흰 몸에 까만 눈가·귀·어깨띠
+  panda_hamster: {
+    species: "animal.hamster",
+    colors: { 4: "#ffffff", 5: "#f6f4f2", 6: "#d8d3d0", K: "#3d3843" },
+    eye: "w",
+    pattern: (p, { bx, by, bw, bh }) => {
+      patch(p, bx + bw * 0.58, by - bh * 0.38, Math.max(1.2, bw * 0.24), Math.max(1.2, bh * 0.32), "K");
+      patch(p, bx - bw * 0.35, by + bh * 0.05, Math.max(1, bw * 0.22), bh, "K");
+      paintBody(p, (_x, y) => (y <= Math.round(by - bh) + 1 ? "K" : null));
+    },
+  },
+  // 흑돼지: 새까만 털과 뻣뻣한 등 갈기
+  black_pig: {
+    species: "animal.piglet",
+    colors: { 4: "#5f5466", 5: "#3e3646", 6: "#2b2532", o: "#9a7385", K: "#1f1a24" },
+    eye: "w",
+    extra: (p, { bx, bw }) => {
+      bristles(p, bx - bw * 0.7, bx + bw * 0.45, "K");
+      bristles(p, bx - bw * 0.6, bx + bw * 0.35, "K");
+    },
+  },
+  // 은하수 고양이: 밤하늘색 털에 별
+  galaxy_cat: {
+    species: "animal.kitten",
+    colors: { 4: "#7d77c6", 5: "#514c93", 6: "#3a3672", D: "#a29ae8", o: "#ffb3d9" },
+    eye: "z",
+    pattern: (p) => paintBody(p, (x, y) => ((x * 7 + y * 11) % 13 === 0 ? "Z" : (x * 5 + y * 3) % 17 === 0 ? "w" : null)),
+  },
+  // 천사 강아지: 새하얀 털, 등에 날개, 머리 위 금빛 고리
+  angel_puppy: {
+    species: "animal.puppy",
+    colors: { 4: "#ffffff", 5: "#fffdf8", 6: "#e6e2ee", D: "#f1dcc4" },
+    extra: (p, geo, g) => {
+      wing(p, geo, g, false);
+      const y = headTop(p, geo) - 2;
+      p.hline(Math.round(geo.hx - geo.hr * 0.55), Math.round(geo.hx + geo.hr * 0.35), y, "z");
+    },
+  },
+  // 무지개 양: 털에 일곱 빛깔 줄
+  rainbow_lamb: {
+    species: "animal.lamb",
+    pattern: (p, { by, bh }) => {
+      const top = by - bh - 1;
+      const band = Math.max(1, (bh * 2 + 2) / STRIPES.length);
+      paintBody(p, (_x, y) => STRIPES[Math.min(STRIPES.length - 1, Math.max(0, Math.floor((y - top) / band)))]);
+    },
+  },
+  // 딸기우유 송아지: 분홍 몸에 딸기 무늬(빨간 점 + 노란 씨 + 초록 꼭지)
+  strawberry_calf: {
+    species: "animal.calf",
+    colors: { 4: "#fff4f8", 5: "#ffdbe7", 6: "#f2b1c8", D: "#f0506f", o: "#ffc8d8", O: "#f5a3bb" },
+    pattern: (p, { by, bh }) => {
+      // 몸 무늬에만 (꼬리 끝·발굽은 빼고): 씨 → 꼭지
+      const spot = (y: number) => y < by + bh * 0.6;
+      p.map((c, x, y) => (c === "D" && spot(y) && (x + y) % 3 === 0 && p.get(x, y - 1) === "D" ? "Z" : c));
+      p.map((c, x, y) => (BODY.has(c) && spot(y) && p.get(x, y + 1) === "D" && p.get(x - 1, y + 1) === "D" && p.get(x + 1, y + 1) === "D" ? "l" : c));
+    },
+  },
+  // 유니콘: 하얀 몸, 무지개 갈기·꼬리, 이마에 금빛 뿔
+  unicorn: {
+    species: "animal.pony",
+    colors: { 4: "#ffffff", 5: "#f6f3fb", 6: "#d9d2e6" },
+    pattern: (p) => p.map((c, x, y) => (c === "D" ? ["V", "U", "i"][(x + y) % 3] : c)),
+    extra: (p, { hx, hy, hr }) => {
+      const x0 = Math.round(hx + hr * 0.15);
+      const y0 = Math.round(hy - hr);
+      // 도화지 맨 위(외곽선 한 줄)를 넘지 않게: 큰 조랑말은 뿔이 조금 짧다
+      const len = Math.min(Math.max(2, Math.round(hr * 1.1)), y0 - 2);
+      for (let i = 0; i < len; i++) p.px(x0 + Math.floor((i * 2) / 3), y0 - 1 - i, i % 2 ? "Z" : "z");
+    },
+  },
+  // 페가수스: 하늘색 갈기와 커다란 날개
+  pegasus: {
+    species: "animal.pony",
+    colors: { 4: "#ffffff", 5: "#f1f7ff", 6: "#cbdcf0", D: "#7fb6ea" },
+    extra: (p, geo, g) => wing(p, geo, g, true),
+  },
+};
+
+/** 특별한 동물 반짝이 (도화지 32칸에 잘라 낸 뒤, 빈 칸에만): 가운데 밝은 노랑 + 십자 금빛 */
+const SPARKLE: Sprite = [".z.", "zZz", ".z."];
+function sparkle(out: Pix) {
+  let [l, r, top] = [32, 0, 32];
+  out.rows().forEach((row, y) => {
+    for (let x = 0; x < 32; x++)
+      if (row[x] !== "." && row[x] !== ":") {
+        [l, r] = [Math.min(l, x), Math.max(r, x + 1)];
+        top = Math.min(top, y);
+      }
+  });
+  const fits = (x: number, y: number) =>
+    x >= 1 && y >= 1 && x + 3 <= 31 && SPARKLE.every((row, j) => [...row].every((c, i) => c === "." || out.get(x + i, y + j) === "."));
+  // 왼쪽 위·오른쪽 위·오른쪽 가운데 중 들어가는 곳 두 군데
+  const spots = [
+    [l - 2, top + 1],
+    [r - 1, top + 2],
+    [l - 1, top + 6],
+    [r, top + 7],
+    [l + 1, top - 3],
+  ];
+  let n = 0;
+  for (const [x, y] of spots) {
+    if (n >= 2) break;
+    if (fits(x, y)) {
+      out.stamp(SPARKLE, x, y);
+      n++;
+    }
+  }
+}
+
+/** 동물 모습 (암수·특별 진화). 둘 다 없으면 예전 모습 */
+export type AnimalLook = { sex?: AnimalSex | null; variant?: string | null };
+
+/** 이 특별 진화 그림을 이 동물에 쓸 수 있는지 */
+export function variantFits(variant: string | null | undefined, assetKey: string): boolean {
+  return !!variant && Object.hasOwn(ANIMAL_VARIANT_ART, variant) && ANIMAL_VARIANT_ART[variant].species === assetKey;
+}
+
 /** 넓은 도화지에 그린다 (리본·그림자 전). 그린 칸의 왼쪽·오른쪽 끝과 맨 위 줄도 돌려준다 */
-function drawArt(assetKey: string, g: G, skin: Skin | null, ribbon: boolean) {
+function drawArt(assetKey: string, g: G, skin: Skin | null, ribbon: boolean, variant: VariantArt | null = null) {
   const art = ANIMALS[assetKey] ?? ANIMALS["animal.chick"];
   const p = new Pix(W, 32);
-  const geo = art.draw(p, g, skin?.eye ?? "#");
-  skin?.pattern?.(p, geo);
+  const look = variant ?? skin;
+  const geo = art.draw(p, g, look?.eye ?? "#");
+  look?.pattern?.(p, geo, g);
   // 몸 아래 가장자리에 그늘 (밖과 맞닿은 칸)
   p.map((c, x, y) => (c === "5" && (p.get(x + 1, y + 1) === "." || p.get(x, y + 1) === ".") ? "6" : c));
+  variant?.extra?.(p, geo, g);
   p.outline();
   if (ribbon) {
-    // 목(머리와 몸 사이)에 리본
-    const rb = geo.hr >= 3.5 ? RIBBON : SMALL_RIBBON;
+    // 목(머리와 몸 사이)에 리본 (수컷은 나비넥타이)
+    const big = geo.hr >= 3.5;
+    const rb = g.sex === "male" ? (big ? BOWTIE : SMALL_BOWTIE) : big ? RIBBON : SMALL_RIBBON;
     const nx = lerp(geo.hx, geo.bx + geo.bw * 0.5, 0.45);
     const ny = lerp(geo.hy, geo.by - geo.bh * 0.25, 0.45) + geo.hr * 0.35;
     p.stamp(rb, Math.round(nx) - Math.floor(rb[0].length / 2), Math.round(ny) - Math.floor(rb.length / 2));
@@ -533,43 +788,59 @@ function drawArt(assetKey: string, g: G, skin: Skin | null, ribbon: boolean) {
         top = Math.min(top, y);
       }
   });
-  return { p, geo, l, r, top, colors: { ...art.colors, ...skin?.colors } };
+  return { p, geo, l, r, top, colors: { ...art.colors, ...look?.colors } };
+}
+
+/** 이 동물에게 있을 수 있는 모든 모습 (암수 모름·암·수 × 보통·특별 진화). 도화지에 다 들어가는지 잴 때 쓴다 */
+function allLooks(assetKey: string): { sex: AnimalSex | null; variant: VariantArt | null }[] {
+  const variants = [null, ...Object.values(ANIMAL_VARIANT_ART).filter((v) => v.species === assetKey)];
+  return variants.flatMap((variant) => ([null, "female", "male"] as const).map((sex) => ({ sex, variant })));
 }
 
 const maxR = new Map<string, number>();
-/** 이 동물을 32칸 도화지에 다 담을 수 있는 가장 큰 크기 단위 (좌우 그림자 칸 + 맨 위 빈 줄을 남긴다) */
+/** 이 동물을 32칸 도화지에 다 담을 수 있는 가장 큰 크기 단위 (좌우 그림자 칸 + 맨 위 빈 줄을 남긴다). 암수·특별 진화 모습 모두 */
 function maxRadius(assetKey: string): number {
   let best = maxR.get(assetKey);
   if (best !== undefined) return best;
   best = (ANIMAL_SIZE[assetKey] ?? DEFAULT_SIZE).r;
-  for (let u = best + 1; u <= MAX_R; u++) {
-    const { l, r, top } = drawArt(assetKey, { u, t: 1 }, null, true);
-    if (r - l > 30 || top < 1) break;
+  grow: for (let u = best + 1; u <= MAX_R; u++) {
+    for (const look of allLooks(assetKey)) {
+      const { l, r, top } = drawArt(assetKey, { u, t: 1, sex: look.sex }, null, true, look.variant);
+      if (r - l > 30 || top < 1) break grow;
+    }
     best = u;
   }
   maxR.set(assetKey, best);
   return best;
 }
 
-/** 이 동물에게 고를 수 있는 크기 (모양이 앞 크기와 같으면 뺀다: 이미 가장 큰 동물은 "크게"가 없다) */
-export function displaySizeChoices(assetKey: string): AnimalDisplaySize[] {
+/** 이 동물에게 고를 수 있는 크기 (모양이 앞 크기와 같으면 뺀다: 이미 가장 큰 동물은 "크게"가 없다).
+ *  form = 데리고 다닐 모습 (아기 모습은 작아서 고를 수 있는 크기가 적다) */
+export function displaySizeChoices(assetKey: string, form: AnimalForm = "adult"): AnimalDisplaySize[] {
   const out: AnimalDisplaySize[] = [];
   let prev = -1;
   for (const z of ["tiny", "small", "normal", "large"] as const) {
-    const u = animalRadius(assetKey, "adult", z);
+    const u = animalRadius(assetKey, form === "baby" ? "baby" : "adult", z);
     if (u !== prev || z === "normal") out.push(z);
     prev = u;
   }
-  return out;
+  // "보통"과 같은 크기는 빼고 보통만 남긴다 (아기 모습의 작은 동물은 더 작게 그릴 수 없다)
+  const normal = animalRadius(assetKey, form === "baby" ? "baby" : "adult", "normal");
+  return out.filter((z) => z === "normal" || animalRadius(assetKey, form === "baby" ? "baby" : "adult", z) !== normal);
 }
 
-const rowsCache = new Map<string, { rows: string[]; colors: Colors; mid: number }>();
-function animalRows(assetKey: string, stage: AnimalStage, skinKey?: string | null, size: AnimalDisplaySize = "normal"): { rows: string[]; colors: Colors; mid: number } {
-  const key = `${assetKey}|${stage}|${skinKey ?? ""}|${size}`;
+type Rows = { rows: string[]; colors: Colors; mid: number };
+const rowsCache = new Map<string, Rows>();
+function animalRows(assetKey: string, stage: AnimalStage, skinKey?: string | null, size: AnimalDisplaySize = "normal", look: AnimalLook = {}): Rows {
+  const variantKey = variantFits(look.variant, assetKey) ? look.variant! : null;
+  const sex = look.sex ?? null;
+  const key = `${assetKey}|${stage}|${skinKey ?? ""}|${size}|${sex ?? ""}|${variantKey ?? ""}`;
   const hit = rowsCache.get(key);
   if (hit) return hit;
-  const skin = skinKey && skinFits(skinKey, assetKey) ? ANIMAL_SKINS[skinKey] : null;
-  const { p, geo, l, r, colors } = drawArt(assetKey, { u: animalRadius(assetKey, stage, size), t: MATURITY[stage] }, skin, stage === "adult");
+  const variant = variantKey ? ANIMAL_VARIANT_ART[variantKey] : null;
+  // 특별한 동물은 스킨을 입지 않는다
+  const skin = !variant && skinKey && skinFits(skinKey, assetKey) ? ANIMAL_SKINS[skinKey] : null;
+  const { p, geo, l, r, colors } = drawArt(assetKey, { u: animalRadius(assetKey, stage, size), t: MATURITY[stage], sex }, skin, stage === "adult", variant);
   // 그린 칸의 가운데를 32칸 도화지 가운데로
   const start = Math.max(0, Math.min(W - 32, Math.round((l + r) / 2 - 16)));
   const out32 = new Pix(32, 32).stamp(
@@ -579,6 +850,7 @@ function animalRows(assetKey: string, stage: AnimalStage, skinKey?: string | nul
   );
   const half = (Math.min(r, start + 32) - Math.max(l, start)) / 2;
   out32.shadow(16, FEET + 1.5, half + 1, 1.5);
+  if (variant) sparkle(out32);
   const out = { rows: out32.rows(), colors, mid: Math.round(geo.by) };
   rowsCache.set(key, out);
   return out;
@@ -590,21 +862,25 @@ export function hasAnimalArt(assetKey: string): boolean {
 }
 
 /** 동물 SVG. 단계가 낮을수록, 작은 동물일수록 작다 (발바닥 기준, ANIMAL_SIZE). size = 화면에 보일 한 변 px (32의 배수면 도트가 고르다).
- *  skinKey: 입힌 스킨 (없거나 종류가 안 맞으면 기본 색), displaySize: 주인이 고른 다 키운 동물 크기 */
-export function animalSvg(assetKey: string, stage: AnimalStage, size = 64, skinKey?: string | null, displaySize: AnimalDisplaySize = "normal"): string {
-  const { rows, colors } = animalRows(assetKey, stage, skinKey, displaySize);
+ *  skinKey: 입힌 스킨 (없거나 종류가 안 맞으면 기본 색), displaySize: 주인이 고른 다 키운 동물 크기, look: 암수·특별 진화 */
+export function animalSvg(assetKey: string, stage: AnimalStage, size = 64, skinKey?: string | null, displaySize: AnimalDisplaySize = "normal", look: AnimalLook = {}): string {
+  const { rows, colors } = animalRows(assetKey, stage, skinKey, displaySize, look);
   return fitSvg(rows, size, { colors });
 }
 
+/** 데리고 다니는 모습 (광장·우리 집·농장 카드): 다 자란 동물의 모습 선택(form)까지 */
+export type PetLook = AnimalLook & { form?: AnimalForm | null };
+const petStage = (look: PetLook): AnimalStage => (look.form === "baby" ? "baby" : "adult");
+
 const extents = new Map<string, { half: number; height: number }>();
-/** 어른 동물이 도화지(32칸)에서 실제로 차지하는 반폭(가운데에서 가장 먼 칸까지)과 키(발바닥에서 맨 위 칸까지), 그림자 빼고 */
-function animalExtent(assetKey: string, size: AnimalDisplaySize = "normal") {
-  const key = `${assetKey}|${size}`;
+/** 데리고 다니는 동물이 도화지(32칸)에서 실제로 차지하는 반폭(가운데에서 가장 먼 칸까지)과 키(발바닥에서 맨 위 칸까지), 그림자 빼고 */
+function animalExtent(assetKey: string, size: AnimalDisplaySize = "normal", look: PetLook = {}) {
+  const key = `${assetKey}|${size}|${look.sex ?? ""}|${look.variant ?? ""}|${petStage(look)}`;
   const cached = extents.get(key);
   if (cached) return cached;
   let half = 0;
   let top = FEET;
-  animalRows(assetKey, "adult", null, size).rows.forEach((row, y) => {
+  animalRows(assetKey, petStage(look), null, size, look).rows.forEach((row, y) => {
     for (let x = 0; x < row.length; x++)
       if (row[x] !== "." && row[x] !== ":") {
         half = Math.max(half, Math.abs(x + 0.5 - 16));
@@ -617,13 +893,13 @@ function animalExtent(assetKey: string, size: AnimalDisplaySize = "normal") {
 }
 
 /** 반폭(칸). 따라다니는 거리를 정할 때 쓴다 (귀·꼬리까지 그린 그대로 잰다) */
-export function animalHalfWidth(assetKey: string, size: AnimalDisplaySize = "normal"): number {
-  return animalExtent(assetKey, size).half;
+export function animalHalfWidth(assetKey: string, size: AnimalDisplaySize = "normal", look: PetLook = {}): number {
+  return animalExtent(assetKey, size, look).half;
 }
 
 /** 키(칸). 캐릭터(약 20칸)보다 크면 옆에 설 때 이름표에 머리가 닿지 않게 더 떨어진다 */
-export function animalHeight(assetKey: string, size: AnimalDisplaySize = "normal"): number {
-  return animalExtent(assetKey, size).height;
+export function animalHeight(assetKey: string, size: AnimalDisplaySize = "normal", look: PetLook = {}): number {
+  return animalExtent(assetKey, size, look).height;
 }
 
 // ===== 따라다니는 움직임 (사용자 요청 2026-10-11 "펫 따라다니는 모션") =====
@@ -653,8 +929,8 @@ function petFrame(rows: string[], mid: number, frame: number): string[] {
 }
 
 /** 따라다니는 동물 그림판 SVG (가로 5칸 × 세로 2줄, 한 칸 32칸 × scale) */
-export function petSheetSvg(assetKey: string, skinKey: string | null | undefined, scale: number, size: AnimalDisplaySize = "normal"): string {
-  const { rows, colors, mid } = animalRows(assetKey, "adult", skinKey, size);
+export function petSheetSvg(assetKey: string, skinKey: string | null | undefined, scale: number, size: AnimalDisplaySize = "normal", look: PetLook = {}): string {
+  const { rows, colors, mid } = animalRows(assetKey, petStage(look), skinKey, size, look);
   let body = "";
   for (let f = 0; f < PET_SHEET_FRAMES; f++) {
     const right = petFrame(rows, mid, f);
@@ -664,8 +940,8 @@ export function petSheetSvg(assetKey: string, skinKey: string | null | undefined
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} 64" width="${w * scale}" height="${64 * scale}" shape-rendering="crispEdges">${body}</svg>`;
 }
 
-export function petSheetDataUri(assetKey: string, skinKey: string | null | undefined, scale: number, size: AnimalDisplaySize = "normal"): string {
-  return svgDataUri(petSheetSvg(assetKey, skinKey, scale, size));
+export function petSheetDataUri(assetKey: string, skinKey: string | null | undefined, scale: number, size: AnimalDisplaySize = "normal", look: PetLook = {}): string {
+  return svgDataUri(petSheetSvg(assetKey, skinKey, scale, size, look));
 }
 
 const EGG: Sprite = (() => {
