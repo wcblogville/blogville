@@ -77,6 +77,40 @@ if (failed) process.exit(1);
   if (bad) process.exit(1);
 }
 
+// 글꼴 색·바탕색 (사용자 요청 2026-10-12): span은 color, mark는 background-color 하나만, 안전한 색 값(#hex·rgb())일 때만 남는다
+{
+  let bad = 0;
+  const expect = (name: string, html: string, want: string) => {
+    const got = sanitizePostHtml(html);
+    const ok = got === want;
+    if (!ok) bad++;
+    console.log(`${ok ? "✅" : "❌"} ${name.padEnd(22)} → ${got}${ok ? "" : `  (기대: ${want})`}`);
+  };
+  // 남는 것
+  expect("글꼴 색 hex", '<p><span style="color: #D63C3C">빨강</span></p>', '<p><span style="color:#d63c3c">빨강</span></p>');
+  expect("글꼴 색 짧은 hex", '<p><span style="color:#f00">빨강</span></p>', '<p><span style="color:#f00">빨강</span></p>');
+  expect("글꼴 색 rgb() → hex", '<p><span style="color: rgb(214, 60, 60);">빨강</span></p>', '<p><span style="color:#d63c3c">빨강</span></p>');
+  expect(
+    "바탕색 mark",
+    '<p><mark data-color="#fff176" style="background-color: #fff176; color: inherit">노랑</mark></p>',
+    '<p><mark data-color="#fff176" style="background-color:#fff176;color:inherit">노랑</mark></p>',
+  );
+  expect("바탕색 style만", '<p><mark style="background-color: rgb(255, 241, 118); color: inherit;">노랑</mark></p>', '<p><mark data-color="#fff176" style="background-color:#fff176;color:inherit">노랑</mark></p>');
+  expect("색 없는 mark", "<p><mark>형광</mark></p>", "<p><mark>형광</mark></p>");
+  // 막는 것: 다른 속성·다른 CSS·위험한 값
+  expect("url() 색", '<p><span style="color: url(javascript:alert(1))">x</span></p>', "<p><span>x</span></p>");
+  expect("expression()", '<p><span style="color: expression(alert(1))">x</span></p>', "<p><span>x</span></p>");
+  expect("이름 색·var()", '<p><span style="color: red">a</span><span style="color: var(--x)">b</span></p>', "<p><span>a</span><span>b</span></p>");
+  expect("다른 CSS 섞기", '<p><span style="position: fixed; top: 0; color: #00ff00; font-size: 90px">x</span></p>', '<p><span style="color:#00ff00">x</span></p>');
+  expect("배경 이미지", '<p><span style="background: url(https://evil.example/x.png)">x</span></p>', "<p><span>x</span></p>");
+  expect("rgb 범위 밖", '<p><span style="color: rgb(999, 0, 0)">x</span></p>', "<p><span>x</span></p>");
+  expect("세미콜론 끼우기", '<p><span style="color: #fff; } body { display:none">x</span></p>', '<p><span style="color:#fff">x</span></p>');
+  expect("mark 가짜 data-color", '<p><mark data-color="red;position:fixed" style="background-color: #fff176">x</mark></p>', '<p><mark data-color="#fff176" style="background-color:#fff176;color:inherit">x</mark></p>');
+  expect("mark onclick·class", '<p><mark class="x" onclick="alert(1)" style="background-color: #fff176">x</mark></p>', '<p><mark data-color="#fff176" style="background-color:#fff176;color:inherit">x</mark></p>');
+  expect("p·h2 style 막기", '<p style="color:#f00">x</p><h2 style="background-color:#f00">y</h2>', "<p>x</p><h2>y</h2>");
+  if (bad) process.exit(1);
+}
+
 // 첫 공지 "사용법 안내" (사용자 요청 2026-10-12): 시드가 정화 없이 넣으므로 정화해도 그대로이고, 요약 글자도 htmlToText와 같아야 한다
 {
   const same = sanitizePostHtml(WELCOME_NOTICE_HTML) === WELCOME_NOTICE_HTML;

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, notInArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -82,15 +82,24 @@ export async function savePost(_prev: SavePostState, formData: FormData): Promis
 
       await syncPostAttachments(tx, id, attachmentKeysIn(contentHtml));
 
-      // 태그: 없는 태그는 만들고, 글과의 연결을 새로 맞춘다 (FR-041·042)
+      // 태그: 없는 태그는 만들고, 글과의 연결을 새로 맞춘다 (FR-041·042).
+      // 순서는 글쓴이가 적은(바꾼) 순서 그대로 position에 적는다. 이미 붙은 태그도 순서를 고친다 (사용자 요청 2026-10-12)
       if (tagNames.length) {
         await tx.insert(tags).values(tagNames.map((name) => ({ name }))).onConflictDoNothing();
       }
-      const tagRows = tagNames.length ? await tx.select({ id: tags.id }).from(tags).where(inArray(tags.name, tagNames)) : [];
-      const tagIds = tagRows.map((t) => t.id);
+      const tagRows = tagNames.length ? await tx.select({ id: tags.id, name: tags.name }).from(tags).where(inArray(tags.name, tagNames)) : [];
+      const idByName = new Map(tagRows.map((t) => [t.name, t.id]));
+      const ordered = tagNames.flatMap((name, position) => {
+        const tagId = idByName.get(name);
+        return tagId === undefined ? [] : [{ postId: id, tagId, position }];
+      });
+      const tagIds = ordered.map((t) => t.tagId);
       await tx.delete(postTags).where(and(eq(postTags.postId, id), tagIds.length ? notInArray(postTags.tagId, tagIds) : undefined));
-      if (tagIds.length) {
-        await tx.insert(postTags).values(tagIds.map((tagId) => ({ postId: id, tagId }))).onConflictDoNothing();
+      if (ordered.length) {
+        await tx
+          .insert(postTags)
+          .values(ordered)
+          .onConflictDoUpdate({ target: [postTags.postId, postTags.tagId], set: { position: sql`excluded.position` } });
       }
       return id;
     });

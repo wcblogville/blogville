@@ -88,7 +88,7 @@ await a.locator(".ProseMirror").evaluate((el, html) => {
   el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
 }, `<p><img src="${img.url}" alt=""></p>`);
 await a.waitForTimeout(800);
-await a.getByLabel("태그").fill(tag);
+await a.getByLabel("태그", { exact: true }).fill(tag);
 await a.screenshot({ path: `${outDir}/write-visibility-1280.png`, fullPage: false });
 await a.setViewportSize({ width: 375, height: 800 });
 await a.locator('[role="radiogroup"]').scrollIntoViewIfNeeded();

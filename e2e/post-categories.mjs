@@ -103,12 +103,12 @@ check("US5-5 카테고리 없음 → 배지 없음", (await a.locator(`a[href*="
 await openWrite();
 await a.getByLabel("대분류").selectOption({ label: "일상" });
 await fill("엇갈린 소분류");
-await a.getByLabel("태그").fill("남는다");
+await a.getByLabel("태그", { exact: true }).fill("남는다");
 await forceOption("소분류", git);
 await a.getByRole("button", { name: "발행하기" }).click();
 await a.getByText("잘못된 요청이에요").waitFor({ timeout: 10000 }).catch(() => {});
 check("US5-6 다른 대분류 소분류 조작 → `잘못된 요청이에요`", (await a.getByText("잘못된 요청이에요").isVisible()) && a.url().endsWith("/write"));
-check("US5-6 입력값 유지", (await a.getByPlaceholder("제목").inputValue()) === "엇갈린 소분류" && (await a.getByLabel("태그").inputValue()) === "남는다");
+check("US5-6 입력값 유지", (await a.getByPlaceholder("제목").inputValue()) === "엇갈린 소분류" && (await a.getByLabel("태그", { exact: true }).inputValue()) === "남는다");
 // 범위 밖 번호
 await openWrite();
 await fill("범위 밖 소분류");

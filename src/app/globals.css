@@ -95,6 +95,8 @@ body {
   & pre code { background: none; padding: 0; color: inherit; }
   & hr { border: none; border-top: 2px dashed var(--color-line); margin: 2em 0; }
   & img { max-width: 100%; border-radius: 0.8rem; }
+  /* 글꼴 바탕색 (mark): 고른 색은 style로 덮인다. 색 없이 칠한 것은 노랑 형광펜 */
+  & mark { background: #fff176; color: inherit; padding: 0 0.08em; border-radius: 0.15em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 
   /* 파일 카드 (POST-09): 아이콘·이름·크기는 data 속성으로 그린다. 글자가 아니라서 보상 글자 수에 들어가지 않는다 */
   & a[data-file] {

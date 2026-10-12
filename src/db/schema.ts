@@ -439,6 +439,8 @@ export const postTags = pgTable(
     tagId: integer("tag_id")
       .notNull()
       .references(() => tags.id, { onDelete: "cascade" }),
+    // 글쓴이가 적은 순서 (0부터). 글·수정 화면은 이 순서로 보여 준다 (가나다 순 X, 사용자 요청 2026-10-12)
+    position: smallint("position").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.postId, t.tagId] }), index("post_tags_tag_idx").on(t.tagId)],
 );

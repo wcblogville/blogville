@@ -40,7 +40,7 @@ await a.getByRole("radio", { name: "🔒 비공개" }).click();
 await a.locator(".ProseMirror").click();
 await a.keyboard.press("Control+b");
 await a.keyboard.type("굵은 본문");
-await a.getByLabel("태그").fill("임시, 태그");
+await a.getByLabel("태그", { exact: true }).fill("임시, 태그");
 await a.waitForTimeout(2600);
 const kst = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
 const st = await draftStatus();
@@ -53,7 +53,7 @@ check("US10-2 불러오기 질문", (await openWrite(a, true)) === "작성 중�
 check("US10-2 제목", (await a.getByPlaceholder("제목").inputValue()) === "임시 제목");
 check("US10-2 본문 서식", (await a.locator(".ProseMirror strong").innerText()) === "굵은 본문");
 check("US10-2 공개 설정", (await a.getByRole("radio", { name: "🔒 비공개" }).getAttribute("aria-checked")) === "true");
-check("US10-2 태그", (await a.getByLabel("태그").inputValue()) === "임시, 태그");
+check("US10-2 태그", (await a.getByLabel("태그", { exact: true }).inputValue()) === "임시, 태그");
 // US10-3 취소 → 빈 화면 (임시 글은 남음)
 await openWrite(a, false);
 check("US10-3 취소 → 빈 화면", (await a.getByPlaceholder("제목").inputValue()) === "");
@@ -62,7 +62,7 @@ check("US10-3 취소해도 바로 지우지 않음", (await draftKeys(a)).length
 // US10-4 제목·본문이 비면 쓰지 않음
 await a.evaluate(() => Object.keys(localStorage).forEach((k) => localStorage.removeItem(k)));
 await openWrite(a, true);
-await a.getByLabel("태그").fill("태그만");
+await a.getByLabel("태그", { exact: true }).fill("태그만");
 await a.waitForTimeout(2600);
 check("US10-4 제목·본문이 비면 저장 안 함", (await draftKeys(a)).length === 0);
 

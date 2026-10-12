@@ -4,10 +4,14 @@ import { Placeholder } from "@tiptap/extensions";
 import { EditorContent, useEditor, useEditorState, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { postTextLength } from "@/lib/text-length";
+import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
+import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { useEffect, useRef } from "react";
 import { attachmentPath, FILE_TYPES, IMAGE_TYPES } from "@/lib/attachments";
+import { ColorTools } from "./color-tools";
 import { FileCard } from "./file-card";
+import { ToolTip } from "./tool-tip";
 import { filesFrom, useAttachmentUpload } from "./use-attachment-upload";
 
 const IMAGE_ACCEPT = Object.keys(IMAGE_TYPES).map((e) => `.${e}`).join(",");
@@ -41,7 +45,7 @@ type ToolButton = {
   active?: (e: Editor) => boolean;
 };
 
-const TOOLS: (ToolButton | "sep")[] = [
+const TOOLS: (ToolButton | "sep" | "colors")[] = [
   { label: "H2", title: "큰 제목", caption: "큰 제목", hint: "줄을 큰 소제목으로 바꿔요", keys: "Ctrl(⌘)+Alt+2", glyph: "text-base", run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(), active: (e) => e.isActive("heading", { level: 2 }) },
   { label: "H3", title: "작은 제목", caption: "작은 제목", hint: "줄을 작은 소제목으로 바꿔요", keys: "Ctrl(⌘)+Alt+3", run: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(), active: (e) => e.isActive("heading", { level: 3 }) },
   "sep",
@@ -49,6 +53,7 @@ const TOOLS: (ToolButton | "sep")[] = [
   { label: "I", title: "기울임", caption: "기울임", hint: "고른 글자를 비스듬히 기울여요", keys: "Ctrl(⌘)+I", glyph: "italic font-serif", run: (e) => e.chain().focus().toggleItalic().run(), active: (e) => e.isActive("italic") },
   { label: "U", title: "밑줄", caption: "밑줄", hint: "고른 글자 아래에 줄을 그어요", keys: "Ctrl(⌘)+U", glyph: "underline underline-offset-2", run: (e) => e.chain().focus().toggleUnderline().run(), active: (e) => e.isActive("underline") },
   { label: "S", title: "취소선", caption: "취소선", hint: "고른 글자 가운데에 줄을 그어요", keys: "Ctrl(⌘)+Shift+S", glyph: "line-through", run: (e) => e.chain().focus().toggleStrike().run(), active: (e) => e.isActive("strike") },
+  "colors", // 글꼴 색 · 바탕색 · 이모티콘 (color-tools.tsx)
   "sep",
   { label: "• 목록", title: "글머리 목록", hint: "점(•)으로 시작하는 목록을 만들어요", keys: "Ctrl(⌘)+Shift+8", run: (e) => e.chain().focus().toggleBulletList().run(), active: (e) => e.isActive("bulletList") },
   { label: "1. 목록", title: "번호 목록", hint: "1, 2, 3 번호가 붙는 목록을 만들어요", keys: "Ctrl(⌘)+Shift+7", run: (e) => e.chain().focus().toggleOrderedList().run(), active: (e) => e.isActive("orderedList") },
@@ -72,19 +77,6 @@ const TOOLS: (ToolButton | "sep")[] = [
   { label: "↶", title: "되돌리기", caption: "되돌리기", hint: "방금 한 일을 취소해요", keys: "Ctrl(⌘)+Z", glyph: "text-lg", run: (e) => e.chain().focus().undo().run() },
   { label: "↷", title: "다시 실행", caption: "다시 실행", hint: "취소한 일을 다시 해요", keys: "Ctrl(⌘)+Shift+Z", glyph: "text-lg", run: (e) => e.chain().focus().redo().run() },
 ];
-
-/** 마우스를 올리거나 키보드로 고르면 곧바로 뜨는 말풍선 (브라우저 title 말풍선은 늦게 뜨고 휴대폰에 없다) */
-function ToolTip({ title, hint, keys }: { title: string; hint: string; keys?: string }) {
-  return (
-    <span
-      role="tooltip"
-      className="pointer-events-none absolute left-0 top-full z-20 mt-1.5 hidden w-max max-w-56 whitespace-normal bg-ink px-2.5 py-1.5 text-left text-xs font-normal leading-snug text-white shadow-[3px_3px_0_0_#0000003d] group-hover:block group-focus-visible:block"
-    >
-      <b className="font-bold text-[#ffd36e]">{title}</b> · {hint}
-      {keys && <span className="mt-0.5 block font-mono text-[11px] text-white/70">{keys}</span>}
-    </span>
-  );
-}
 
 /** 붙여 넣는 HTML 안의 이 사이트 첨부 주소 (/files/키) */
 const ATTACHMENT_IN_HTML = /\/files\/[a-f0-9]{32}/;
@@ -110,6 +102,10 @@ export function RichEditor({
       PostImage.configure({ inline: false, allowBase64: false }), // 사진 (POST-07)
       FileCard, // 파일 카드 (POST-09)
       StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: true } }),
+      // 글꼴 색(span style="color")·바탕색(mark). 저장할 때 sanitize.ts가 안전한 색 값만 남긴다 (사용자 요청 2026-10-12)
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
       Placeholder.configure({ placeholder: "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요 ✏️" }),
     ],
     content: initialHtml,
@@ -186,15 +182,17 @@ export function RichEditor({
   const active = useEditorState({
     editor,
     selector: ({ editor }) =>
-      editor ? TOOLS.map((t) => (t !== "sep" && t.active ? t.active(editor) : false)) : [],
+      editor ? TOOLS.map((t) => (typeof t === "object" && t.active ? t.active(editor) : false)) : [],
   });
 
   return (
     <div data-rich-editor className="pixel-card bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
-      <div className="pb-plank flex flex-wrap items-center gap-1 p-2 [text-shadow:none]" role="toolbar" aria-label="글꼴 도구">
+      <div className="pb-plank relative flex flex-wrap items-center gap-1 p-2 [text-shadow:none]" role="toolbar" aria-label="글꼴 도구">
         {TOOLS.map((tool, i) =>
           tool === "sep" ? (
             <span key={i} className="mx-1 h-6 w-[3px] bg-[#ad7445]" aria-hidden />
+          ) : tool === "colors" ? (
+            <ColorTools key="colors" editor={editor} />
           ) : (
             <button
               key={tool.title}
