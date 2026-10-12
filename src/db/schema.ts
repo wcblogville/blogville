@@ -293,22 +293,26 @@ export const blogs = pgTable(
   ],
 );
 
-// 집 안 가구 (마을 개편 2차, 사용자 요청 2026-10-08). 블로그의 "우리 집" 구역에 칸(slot)마다 가구 하나.
-// 칸 수는 집 단계(주인 레벨)로 정한다: 1단계 4칸, 2단계 6칸, 3단계 8칸 (src/lib/house.ts). 가진 가구만, 같은 가구는 한 칸에만
+// 집 안 가구 (마을 개편 2차, 사용자 요청 2026-10-08). 블로그의 "우리 집" 방 바닥 칸(tile_x, tile_y)마다 가구 하나.
+// 2026-10-12 "가구 배치 내 마음대로": 줄 선 칸(slot) 대신 아이소메트릭 바닥 칸에 자유롭게 놓는다 (0035, 옛 칸은 DEFAULT_TILES로 옮김).
+// 놓을 수 있는 개수는 집 단계(주인 레벨)로 정한다: 1단계 4개, 2단계 6개, 3단계부터 8개, 방 크기는 6×6~10×10 (src/lib/house.ts).
+// 가진 가구만, 같은 가구는 한 번만(PK), 한 칸에는 하나만(tile_uq)
 export const houseFurniture = pgTable(
   "house_furniture",
   {
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    slot: integer("slot").notNull(),
     itemId: integer("item_id").notNull(),
+    tileX: integer("tile_x").notNull(),
+    tileY: integer("tile_y").notNull(),
+    flipped: boolean("flipped").notNull().default(false),
     placedAt: timestamp("placed_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.userId, t.slot] }),
-    unique("house_furniture_item_uq").on(t.userId, t.itemId),
-    check("house_furniture_slot_check", sql`${t.slot} BETWEEN 0 AND 7`),
+    primaryKey({ columns: [t.userId, t.itemId] }),
+    unique("house_furniture_tile_uq").on(t.userId, t.tileX, t.tileY),
+    check("house_furniture_tile_check", sql`${t.tileX} BETWEEN 0 AND 9 AND ${t.tileY} BETWEEN 0 AND 9`),
     foreignKey({
       name: "house_furniture_owned_fk",
       columns: [t.userId, t.itemId],

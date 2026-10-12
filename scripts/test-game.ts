@@ -19,7 +19,8 @@ import { animalStage, levelEggLevels, pickWeighted, subject } from "../src/lib/f
 import { formatCoinsShort } from "../src/lib/format";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
-import { currentRoof, decorationSlots, decoSlotLevel, furnitureSlots, houseInfo, MAX_DECO_SLOTS, roofOrder, unlockedRoofs } from "../src/lib/house";
+import { checkLayout, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
+import { floorToScreen, isoRoom, isoRoomDataUri, screenToFloor } from "../src/lib/art/room";
 
 let failed = 0;
 function expect(name: string, got: unknown, want: unknown) {
@@ -43,6 +44,37 @@ expect("Lv.1·9·10·19·20·89·90·99 → 집 단계", [1, 9, 10, 19, 20, 89, 
 expect("가구 칸: 1단계 4, 2단계 6, 3단계부터 8", ([1, 2, 3, 10] as const).map(furnitureSlots), [4, 6, 8, 8]);
 expect("Lv.15 집: 2단계, 다음은 Lv.20", [houseInfo(15).stage, houseInfo(15).nextLevel], [2, 20]);
 expect("Lv.95 집: 10단계, 다음 없음", [houseInfo(95).stage, houseInfo(95).nextLevel], [10, null]);
+
+// 우리 집 정육면체 방·가구 자유 배치 (2026-10-12): 방 크기, 기본 자리, 배치 검사(개수 → 같은 가구 → 방 밖 → 겹침)
+expect("방 크기: 1단계 6×6, 2단계 7×7, 5단계부터 10×10", ([1, 2, 3, 4, 5, 10] as const).map(roomGrid), [6, 7, 8, 9, 10, 10]);
+expect("방 크기는 DB 칸 범위(0~9) 안", roomGrid(10) <= MAX_ROOM_GRID && MAX_ROOM_GRID === 10, true);
+expect(
+  "옛 칸 자리(DEFAULT_TILES): 8개, 가장 작은 방 안, 서로 겹치지 않음",
+  [DEFAULT_TILES.length === MAX_FURNITURE_SLOTS, DEFAULT_TILES.every(([x, y]) => x < roomGrid(1) && y < roomGrid(1)), new Set(DEFAULT_TILES.map((t) => t.join())).size],
+  [true, true, 8],
+);
+{
+  const spot = (itemId: number, x: number, y: number) => ({ itemId, x, y, flip: false });
+  const rule = { grid: 6, limit: 4 };
+  expect("배치: 빈 방·정상 배치 통과", [checkLayout([], rule), checkLayout([spot(1, 0, 0), spot(2, 5, 5)], rule)], [null, null]);
+  expect("배치: 개수 넘침", checkLayout([1, 2, 3, 4, 5].map((i) => spot(i, i, 0)), rule), "지금 집에는 가구를 4개까지 놓을 수 있어요.");
+  expect("배치: 같은 가구 두 번", checkLayout([spot(1, 0, 0), spot(1, 1, 0)], rule), "같은 가구는 한 번만 놓을 수 있어요.");
+  expect("배치: 방 밖(6, -1, 0.5)", [spot(1, 6, 0), spot(1, 0, -1), spot(1, 0.5, 0)].map((s) => checkLayout([s], rule)), Array(3).fill("방 밖에는 놓을 수 없어요."));
+  expect("배치: 한 칸에 둘", checkLayout([spot(1, 2, 2), spot(2, 2, 2)], rule), "한 칸에는 가구 하나만 놓을 수 있어요.");
+  expect("배치 값 읽기: 모양이 틀리면 null", [parseLayout(null), parseLayout([{ itemId: "1", x: 0, y: 0 }]), parseLayout([{ itemId: 0, x: 0, y: 0 }]), parseLayout("x")], [null, null, null, null]);
+  expect("배치 값 읽기: flip은 true만 true", parseLayout([{ itemId: 3, x: 1, y: 2, flip: "yes" }]), [{ itemId: 3, x: 1, y: 2, flip: false }]);
+}
+{
+  // 아이소메트릭 좌표: 바닥 칸 64×32px, 화면 ↔ 바닥이 서로 되돌려진다, 방 그림은 크기마다 한 장
+  const room = isoRoom(6);
+  const back = floorToScreen(room, 0, 0);
+  const p = floorToScreen(room, 3.25, 1.5);
+  const q = screenToFloor(room, p.x, p.y);
+  expect("방 6×6: 바닥 칸 64×32, 뒤 모서리 = origin", [room.tile, back.x === room.origin.x && back.y === room.origin.y], [{ w: 64, h: 32 }, true]);
+  expect("화면 → 바닥 되돌리기", [q.x, q.y].map((v) => Math.round(v * 1000) / 1000), [3.25, 1.5]);
+  expect("방 그림 크기 = 4배 도트 (가로 6칸 × 64 + 여백)", [room.width % 4, room.height % 4, room.width], [0, 0, 6 * 64 + 16]);
+  expect("방 그림은 같은 크기면 한 번만 만든다", isoRoomDataUri(6) === isoRoomDataUri(6) && isoRoomDataUri(6) !== isoRoomDataUri(7), true);
+}
 
 // 도트 그림 (2026-10-09 "도트로 바꾸기"): 글자 줄 길이가 고르고, 광장 크기는 PIXEL의 정수배
 {
