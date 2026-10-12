@@ -10,7 +10,7 @@ import type { CommentAuthor, CommentThread, CommentView, ReplyView } from "@/ser
 
 // 누르는 영역 44px, 글자 한 줄, 키보드 선택 표시 (FR-004, FR-005)
 const smallButton =
-  "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2 text-sm text-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-sun";
+  "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap px-2 font-display text-sm text-ink-soft hover:bg-[#fff3d6] hover:text-ink focus-visible:outline-2 focus-visible:outline-sun";
 
 function Form({
   kind,
@@ -47,7 +47,7 @@ function Form({
         const data = new FormData(e.currentTarget);
         startTransition(() => action(data));
       }}
-      className="flex flex-col gap-2"
+      className="flex flex-col gap-3 p-[3px]"
     >
       <input type="hidden" name="postId" value={postId} />
       {reply && <input type="hidden" name="commentId" value={commentId} />}
@@ -57,9 +57,9 @@ function Form({
         rows={reply ? 2 : 3}
         aria-label={reply ? "답글" : "댓글"}
         placeholder={reply ? "답글을 남겨 주세요" : "따뜻한 댓글을 남겨 주세요 💬"}
-        className="w-full resize-y rounded-xl border-2 border-line bg-white px-3 py-2 outline-none focus:border-sun"
+        className="pixel-input resize-y"
       />
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {state.error && (
           <span role="alert" className="text-sm text-berry">
             {state.error}
@@ -72,7 +72,7 @@ function Form({
         )}
         <button
           disabled={pending}
-          className="btn min-h-11 whitespace-nowrap bg-ink py-1.5 text-sm text-cream focus-visible:outline-2 focus-visible:outline-sun"
+          className="pixel-btn pixel-btn-sm whitespace-nowrap bg-leaf px-4 text-white"
         >
           {pending ? "등록 중..." : reply ? "답글 등록" : "댓글 등록"}
         </button>
@@ -97,11 +97,13 @@ function Line({
   // 탈퇴 자리: 문구만 (캐릭터·닉네임·시각 없음)
   if (!author) return <p className="py-3 italic text-ink-soft">삭제된 댓글이에요</p>;
   return (
-    <div className="flex gap-3 py-2">
-      <CharacterBadge asset={author.characterAsset} size={34} />
+    <div className="flex gap-3 py-3">
+      <span className="pixel-slot h-fit shrink-0 p-1">
+        <CharacterBadge asset={author.characterAsset} size={34} />
+      </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-2 text-sm">
-          <Link href={`/@${author.blogSlug}`} className="inline-flex min-h-11 items-center font-bold hover:text-leaf-dark">
+          <Link href={`/@${author.blogSlug}`} className="inline-flex min-h-11 min-w-11 items-center font-bold hover:text-leaf-dark">
             {author.nickname}
           </Link>
           <span className="text-ink-soft">{createdAtText}</span>
@@ -129,7 +131,7 @@ function DeleteButton({ onDelete }: { onDelete: () => Promise<void> }) {
 
 function ReplyLine({ r }: { r: ReplyView }) {
   return (
-    <div id={`reply-${r.id}`} className="ml-10 border-l-2 border-line pl-4">
+    <div id={`reply-${r.id}`} className="ml-6 border-l-2 border-[#d9b98a] pl-4 shadow-[inset_1px_0_0_0_#d9b98a] sm:ml-12">
       <Line author={r.author} createdAtText={r.createdAtText} deleted={r.deleted} content={r.content}>
         {r.canDelete && (
           <div className="flex gap-1">
@@ -172,8 +174,8 @@ function CommentLine({ c, postId }: { c: CommentView; postId: number }) {
 export function CommentSection({ postId, thread, isMember }: { postId: number; thread: CommentThread; isMember: boolean }) {
   return (
     <section id="comments" className="mt-10 scroll-mt-20" aria-label="댓글">
-      <h2 className="mb-2 font-display text-xl">💬 댓글 {thread.count}</h2>
-      <div className="divide-y-2 divide-line/60">
+      <h2 className="pixel-wood mb-3 inline-block px-3 pt-1 pb-1.5 font-display text-xl">💬 댓글 {thread.count}</h2>
+      <div className="divide-y-2 divide-dashed divide-[#e2c9a0]">
         {thread.comments.map((c) => (
           <CommentLine key={c.id} c={c} postId={postId} />
         ))}
@@ -182,7 +184,7 @@ export function CommentSection({ postId, thread, isMember }: { postId: number; t
         {isMember ? (
           <Form kind="comment" postId={postId} />
         ) : (
-          <p className="rounded-xl bg-white p-4 text-center text-ink-soft">
+          <p className="pixel-slot p-4 text-center text-ink-soft">
             <Link href="/" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline">
               로그인
             </Link>

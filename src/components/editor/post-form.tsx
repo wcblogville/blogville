@@ -160,7 +160,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-6">
       {initial.postId && <input type="hidden" name="postId" value={initial.postId} />}
       <input type="hidden" name="contentHtml" value={html} />
       <input type="hidden" name="visibility" value={visibility} />
@@ -171,11 +171,11 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
         onChange={(e) => edit(setTitle)(e.target.value)}
         placeholder="제목"
         maxLength={TITLE_MAX}
-        className="w-full border-b-2 border-line bg-transparent px-1 py-3 font-display text-3xl outline-none focus:border-sun"
+        className="pixel-input py-3 font-display text-2xl sm:text-3xl"
       />
 
       {/* 375px에서는 줄바꿈되어 가로 스크롤이 없다 (FR-066) */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-4 px-[3px]">
         <select
           name="categoryId"
           value={categoryId}
@@ -184,7 +184,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
             edit(setCategoryId)(e.target.value);
             setSubcategoryId("");
           }}
-          className="min-h-11 max-w-full rounded-xl border-2 border-line bg-white px-3 py-2"
+          className="pixel-select max-w-full"
           aria-label="대분류"
         >
           <option value="">카테고리 없음</option>
@@ -199,7 +199,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
           value={subcategoryId}
           onChange={(e) => edit(setSubcategoryId)(e.target.value)}
           disabled={!categoryId}
-          className="min-h-11 max-w-full rounded-xl border-2 border-line bg-white px-3 py-2 disabled:opacity-50"
+          className="pixel-select max-w-full disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="소분류"
         >
           <option value="">소분류 없음</option>
@@ -210,7 +210,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
           ))}
         </select>
 
-        <div className="flex rounded-xl border-2 border-line bg-white p-0.5" role="radiogroup" aria-label="공개 설정">
+        <div className="pixel-input flex w-auto gap-1 p-1" role="radiogroup" aria-label="공개 설정">
           {(["public", "private"] as const).map((v) => (
             <button
               key={v}
@@ -218,7 +218,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
               role="radio"
               aria-checked={visibility === v}
               onClick={() => edit(setVisibility)(v)}
-              className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-3 text-sm font-bold ${visibility === v ? "bg-ink text-cream" : "text-ink-soft"}`}
+              className={`inline-flex min-h-11 items-center whitespace-nowrap px-3 font-display text-sm ${visibility === v ? "pb-tab-on" : "text-ink-soft hover:bg-[#fff3d6]"}`}
             >
               {v === "public" ? "🌍 공개" : "🔒 비공개"}
             </button>
@@ -246,12 +246,12 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
         value={tags}
         onChange={(e) => edit(setTags)(e.target.value)}
         placeholder="태그 (쉼표로 구분, 최대 10개)  예: git, 회고"
-        className="w-full rounded-xl border-2 border-line bg-white px-3 py-2.5"
+        className="pixel-input"
         aria-label="태그"
         maxLength={TAGS_MAX}
       />
 
-      <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
+      <div className="pixel-panel flex flex-wrap items-center justify-between gap-3 p-4">
         <div className="text-sm text-ink-soft">
           <p>
             {length.toLocaleString("ko-KR")}자 ·{" "}
@@ -277,7 +277,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
         </div>
         <div className="flex items-center gap-3">
           {error && <span className="text-sm font-bold text-berry">{error}</span>}
-          <button type="submit" disabled={pending || uploading} className="btn bg-leaf text-white">
+          <button type="submit" disabled={pending || uploading} className="pixel-btn min-h-12 bg-leaf px-6 text-white">
             {uploading ? "첨부를 올리는 중..." : pending ? "저장하는 중..." : isNew ? "발행하기" : "수정 완료"}
           </button>
         </div>

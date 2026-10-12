@@ -4,6 +4,8 @@ import { MobileTabs } from "@/components/mobile-tabs";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import "./globals.css";
+// 블로그·글쓰기 화면 도트 조각. 화면마다 따로 불러오면 옮겨 갈 때 CSS를 기다리느라 제목이 늦게 바뀌어 한 번에 불러온다
+import "./pixel-blog.css";
 
 // 제목용 동글동글한 글꼴 + 본문용 읽기 편한 글꼴
 const jua = Jua({ weight: "400", variable: "--font-jua", preload: false });

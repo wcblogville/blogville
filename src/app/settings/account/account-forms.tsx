@@ -6,8 +6,7 @@ import { useFormStatus } from "react-dom";
 import type { SocialProvider } from "@/lib/social";
 import { deleteAccount, startLinkSocial, unlinkSocial, type DeleteAccountState } from "./actions";
 
-// 누르는 영역 44×44px 이상, 글자 한 줄, 키보드 초점 표시 (FR-054)
-const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky focus-visible:ring-offset-2";
+// 누르는 영역 44×44px 이상, 글자 한 줄. 키보드 초점 표시는 pixel-btn(globals.css)이 그린다 (FR-054)
 
 function LinkSubmit({ label, ready }: { label: string; ready: boolean }) {
   const { pending } = useFormStatus();
@@ -16,8 +15,8 @@ function LinkSubmit({ label, ready }: { label: string; ready: boolean }) {
       type="submit"
       disabled={!ready || pending}
       title={ready ? undefined : "아직 연결 준비 중이에요"}
-      // 비활성이어도 마우스를 올리면 안내(title)가 보이게 한다 (.btn:disabled의 pointer-events: none을 되돌림)
-      className={`btn min-h-11 whitespace-nowrap bg-leaf px-3 py-2 text-sm text-white disabled:pointer-events-auto disabled:cursor-not-allowed ${focusRing}`}
+      // 비활성이어도 마우스를 올리면 안내(title)가 보인다 (pixel-btn:disabled는 누를 수만 없고 pointer-events는 그대로)
+      className="pixel-btn pixel-btn-sm whitespace-nowrap bg-leaf px-3 text-white"
     >
       {pending ? "이동하는 중..." : `${label} 연동하기`}
     </button>
@@ -40,7 +39,7 @@ export function UnlinkSocialButton({ provider, label }: { provider: SocialProvid
     <button
       type="button"
       disabled={pending}
-      className={`inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center whitespace-nowrap rounded-lg border-2 border-line bg-white px-3 text-sm font-bold text-berry hover:bg-cream disabled:opacity-50 ${focusRing}`}
+      className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-[#fffaf0] px-3 text-berry"
       onClick={() => confirm(`${label} 연동을 해제할까요? 아이디 로그인은 그대로 쓸 수 있어요`) && start(() => unlinkSocial(provider))}
     >
       {pending ? "해제하는 중..." : "연동 해제"}
@@ -55,8 +54,8 @@ export function UnlinkSocialButton({ provider, label }: { provider: SocialProvid
 export function DeleteAccountForm() {
   const [state, action, pending] = useActionState<DeleteAccountState, FormData>(deleteAccount, {});
   return (
-    <form action={action} className="mt-4 flex flex-col gap-3">
-      <label className="flex flex-col gap-1">
+    <form action={action} className="mt-4 flex flex-col gap-4">
+      <label className="flex flex-col gap-2 px-[3px]">
         <span className="text-sm font-bold">비밀번호</span>
         <input
           type="password"
@@ -65,7 +64,7 @@ export function DeleteAccountForm() {
           maxLength={64}
           aria-invalid={state.error ? true : undefined}
           aria-describedby={state.error ? "delete-account-error" : undefined}
-          className="min-h-11 w-full rounded-xl border-2 border-line bg-white px-3 py-2 outline-none focus:border-sun"
+          className="pixel-input"
         />
       </label>
       {state.error && (
@@ -77,7 +76,7 @@ export function DeleteAccountForm() {
         <button
           type="submit"
           disabled={pending}
-          className={`btn min-h-11 min-w-11 whitespace-nowrap bg-berry px-4 py-2 text-sm text-white disabled:opacity-50 ${focusRing}`}
+          className="pixel-btn pixel-btn-sm min-w-11 whitespace-nowrap bg-berry px-4 text-white"
         >
           {pending ? "탈퇴하는 중..." : "회원 탈퇴"}
         </button>

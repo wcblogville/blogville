@@ -1,3 +1,4 @@
+import { PlaceHeader, WalletChips } from "@/components/place-banner";
 import { StyleStudio } from "@/components/style-studio";
 import { AVATAR_PARTS, type AvatarSlot } from "@/lib/art/avatar";
 import { hasHair } from "@/lib/art/characters";
@@ -21,21 +22,10 @@ export default async function SalonPage() {
   const baseOutfit = viewer.profile.outfit.filter((k) => !slots.includes(AVATAR_PARTS[k]?.slot));
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl">💇 반짝 미용실</h1>
-          <p className="mt-1 max-w-2xl text-ink-soft">머리 모양과 머리 색을 골라 보세요. 거울 속 내 캐릭터에 바로 입혀 보고, 마음에 들면 적용해요. 기본 머리와 기본 색은 무료예요.</p>
-        </div>
-        <div className="card flex gap-4 px-4 py-2 text-sm">
-          <span>
-            Lv.<b>{wallet.level}</b>
-          </span>
-          <span>
-            🪙 <b>{wallet.coins.toLocaleString()}</b>
-          </span>
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="salon" icon="scissors" title="반짝 미용실" aside={<WalletChips level={wallet.level} coins={wallet.coins} />}>
+        <p className="max-w-2xl">머리 모양과 머리 색을 골라 보세요. 거울 속 내 캐릭터에 바로 입혀 보고, 마음에 들면 적용해요. 기본 머리와 기본 색은 무료예요.</p>
+      </PlaceHeader>
       <StyleStudio
         place={place}
         items={items}

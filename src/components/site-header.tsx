@@ -4,6 +4,7 @@ import { ExitButton, HomeLogo } from "@/components/exit-button";
 import { AttendanceDayWatcher } from "@/components/game/attendance-day-watcher";
 import { LevelUpPopup } from "@/components/game/level-up-popup";
 import { NotificationBell } from "@/components/game/notification-bell";
+import { PixelIcon } from "@/components/pixel-icon";
 import { SessionKeeper } from "@/components/session-keeper";
 import { SignOutButton } from "@/components/sign-out-button";
 import { formatCoinsShort } from "@/lib/format";
@@ -21,8 +22,8 @@ export async function SiteHeader() {
 
   return (
     <HeaderFrame>
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-2 px-3 group-data-[town]:justify-center sm:gap-3 sm:px-4">
-        <HomeLogo href={member ? "/town" : "/"} member={Boolean(member)} />
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-1.5 px-2.5 group-data-[town]:justify-center sm:gap-3 sm:px-4">
+        <HomeLogo href={member ? "/town" : "/"} member={Boolean(member)} compact={member?.user.role === "admin"} />
 
         <div className="flex min-w-0 flex-1 group-data-[town]:hidden">
           <ExitButton member={Boolean(member)} />
@@ -33,14 +34,15 @@ export async function SiteHeader() {
             {/* 마을에서는 숨긴다: 같은 기능이 ☰ 메뉴에 있다 (사용자 요청 2026-10-08) */}
             <div className="contents group-data-[town]:hidden">
             {/* 좁은 화면에서도 레벨이 보이게 글씨와 여백만 줄인다 (GAME-02, 이슈 #5) */}
-            <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm" title="레벨">
+            <span className="pixel-badge bg-[#e9f6e4] text-xs max-sm:px-1 sm:text-sm" title="레벨">
               Lv.{wallet.level}
             </span>
             {/* 누르는 영역은 44px, 보이는 알약은 그대로 (NF-06) */}
-            <Link href="/wallet" title="코인" data-coins={wallet.coins} className="grid min-h-11 shrink-0 place-items-center rounded-full hover:text-leaf-dark focus-visible:outline-2 focus-visible:outline-sky">
-              <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-xs font-bold shadow-sm sm:px-2.5 sm:text-sm">
+            <Link href="/wallet" title="코인" data-coins={wallet.coins} className="group/coin grid min-h-11 shrink-0 place-items-center px-0.5 max-sm:px-0 focus-visible:outline-2 focus-visible:outline-sky">
+              <span className="pixel-badge bg-[#fff3d6] pl-1 text-xs group-hover/coin:bg-[#ffe7a3] max-sm:pr-1 sm:text-sm">
                 {/* 휴대폰은 큰 수를 줄여 쓴다 (1.2만): 다 쓰면 헤더가 화면 밖으로 넘쳤다 (AUTH-10 테스트 지급) */}
-                🪙 <span className="max-sm:hidden">{wallet.coins.toLocaleString()}</span>
+                <PixelIcon name="coin" scale={1} label="🪙" />
+                <span className="max-sm:hidden">{wallet.coins.toLocaleString()}</span>
                 <span className="sm:hidden">{formatCoinsShort(wallet.coins)}</span>
               </span>
             </Link>
@@ -48,9 +50,10 @@ export async function SiteHeader() {
             <NotificationBell unread={alerts.unread} />
             {member.user.role === "admin" && (
               // 휴대폰에서는 👑만: 글자까지 두면 [← 나가기]가 레벨 배지에 가렸다
-              <Link href="/admin" aria-label="관리자" title="관리자" className="grid min-h-11 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-sky">
-                <span className="whitespace-nowrap rounded-full bg-ink px-2 py-1 text-xs font-bold text-cream sm:px-2.5">
-                  👑<span className="max-sm:hidden"> 관리자</span>
+              <Link href="/admin" aria-label="관리자" title="관리자" className="grid min-h-11 min-w-11 shrink-0 place-items-center focus-visible:outline-2 focus-visible:outline-sky">
+                <span className="pixel-badge bg-ink px-1 text-xs text-cream sm:px-1.5">
+                  <PixelIcon name="crown" scale={1} />
+                  <span className="max-sm:hidden">관리자</span>
                 </span>
               </Link>
             )}
@@ -61,7 +64,7 @@ export async function SiteHeader() {
             {/* 로그인 유지 세션만 7일 연장 (AUTH-09 / FR-021) */}
             {member.rememberMe && <SessionKeeper />}
             {/* 로그아웃 때 이 브라우저의 임시 글도 지운다 (POST-08 / FR-063) */}
-            <SignOutButton userId={member.userId} />
+            <SignOutButton userId={member.userId} compact />
             </div>
             {/* 안 본 레벨업 팝업 (GAME-06 / FR-038), 0시를 넘긴 화면의 자동 출석 (GAME-04). 마을에서도 눌러야 해서 pointer-events를 되살린다 */}
             <div className="contents group-data-[town]:pointer-events-auto">

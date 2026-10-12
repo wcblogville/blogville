@@ -6,12 +6,11 @@ import { useActionState } from "react";
 import type { FormState } from "@/app/settings/blog/actions";
 import { updateNickname } from "./nickname-actions";
 
-const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky focus-visible:ring-offset-2";
 
 export function NicknameForm({ nickname }: { nickname: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateNickname, {});
   return (
-    <form action={action} className="mt-3 space-y-2">
+    <form action={action} className="mt-3 space-y-4 px-[3px]">
       {/* 카드 제목도 "닉네임"이라 라벨은 화면 읽기 프로그램에만 */}
       <label htmlFor="nickname" className="sr-only">
         닉네임
@@ -26,7 +25,7 @@ export function NicknameForm({ nickname }: { nickname: string }) {
         autoComplete="nickname"
         aria-invalid={state.error ? true : undefined}
         aria-describedby={state.error ? "nickname-error" : undefined}
-        className="min-h-11 w-full rounded-xl border-2 border-line bg-white px-3 py-2 outline-none focus:border-sun"
+        className="pixel-input"
       />
       <div className="flex items-center justify-end gap-3">
         {state.error ? (
@@ -41,7 +40,7 @@ export function NicknameForm({ nickname }: { nickname: string }) {
         <button
           type="submit"
           disabled={pending}
-          className={`btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 py-2 text-sm text-white disabled:opacity-50 ${focusRing}`}
+          className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 text-white"
         >
           저장
         </button>

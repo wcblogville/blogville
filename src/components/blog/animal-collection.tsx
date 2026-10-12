@@ -20,7 +20,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
         type="button"
         onClick={() => ref.current?.showModal()}
         aria-haspopup="dialog"
-        className="btn min-h-11 shrink-0 gap-1 whitespace-nowrap bg-white px-3 text-sm text-ink"
+        className="pixel-btn pixel-btn-sm shrink-0 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink"
         data-collection-open
       >
         🏅 도감 <span className="text-ink-soft">{animals.length}</span>
@@ -33,14 +33,14 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
         onClick={(e) => {
           if (e.target === e.currentTarget) e.currentTarget.close();
         }}
-        className="m-auto max-h-[85dvh] overflow-y-auto w-[min(92vw,40rem)] rounded-3xl border-4 border-line bg-cream p-0 shadow-2xl backdrop:bg-black/50"
+        className="pixel-dialog m-auto max-h-[85dvh] w-[min(92vw,40rem)] overflow-y-auto p-0 backdrop:bg-[#2b2118]/60"
       >
         <div className="p-5">
-          <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="pb-plank -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
             <h2 id="collection-title" className="font-display text-xl">
-              🏅 동물 도감 <span className="text-sm text-ink-soft">{animals.length}마리</span>
+              🏅 동물 도감 <span className="text-sm text-[#fff3d6]">{animals.length}마리</span>
             </h2>
-            <button type="button" onClick={() => ref.current?.close()} aria-label="도감 닫기" className="btn min-h-11 min-w-11 bg-white px-3 text-ink">
+            <button type="button" onClick={() => ref.current?.close()} aria-label="도감 닫기" className="pixel-btn pixel-btn-sm min-w-11 bg-[#fffaf0] px-3 text-ink [text-shadow:none]">
               ✕
             </button>
           </div>
@@ -49,14 +49,14 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
           ) : (
             <>
               {isOwner && <p className="mb-2 text-sm text-ink-soft">한 마리를 골라 우리 집에 전시하면 방 안에서, 그리고 마을을 돌아다닐 때 나를 따라다녀요.</p>}
-              <ul className="flex flex-wrap gap-2">
+              <ul className="flex flex-wrap gap-2.5">
                 {animals.map((a) => {
                   const shown = a.id === showcaseId;
                   return (
                     <li
                       key={a.id}
                       data-animal-card
-                      className={`flex w-28 flex-col items-center rounded-xl border-2 p-2 text-center ${shown ? "border-sun bg-[#fff3d6]" : "border-line bg-white"}`}
+                      className={`flex w-28 flex-col items-center p-2 text-center ${shown ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}
                     >
                       <AnimalArt assetKey={a.assetKey} skinKey={a.skinKey} size={64} />
                       <span className="font-display leading-tight">{a.name}</span>
@@ -67,7 +67,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner }: { animals: Co
                           type="button"
                           disabled={pending}
                           onClick={() => start(() => setShowcaseAnimal(shown ? null : a.id))}
-                          className={`btn mt-1 min-h-11 min-w-11 whitespace-nowrap px-2 text-sm ${shown ? "bg-white text-ink" : "bg-leaf text-white"}`}
+                          className={`pixel-btn pixel-btn-sm mt-2 mb-1 min-w-11 whitespace-nowrap px-2 ${shown ? "bg-[#fffaf0] text-ink" : "bg-leaf text-white"}`}
                         >
                           {shown ? "전시 빼기" : "전시하기"}
                         </button>

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PostForm } from "@/components/editor/post-form";
+import { PixelIcon } from "@/components/pixel-icon";
 import { parseId } from "@/lib/ids";
 import { getPost, getPostTags } from "@/server/blog";
 import { requireMember } from "@/server/dal";
@@ -21,6 +22,10 @@ export default async function EditPostPage(props: PageProps<"/write/[postId]">) 
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      <h1 className="pixel-sign mb-8 text-2xl sm:text-3xl">
+        <PixelIcon name="pencil" scale={2} />
+        글 고치기
+      </h1>
       {/* 수정 화면에는 임시 저장이 없다 (FR-064). 지워진 대분류·소분류는 비어 있다 (FR-031) */}
       <PostForm
         categories={categories}

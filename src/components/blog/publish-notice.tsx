@@ -19,7 +19,7 @@ export function PublishNotice({ kind, userId }: { kind: "reward" | "noReward"; u
   }, [userId]);
 
   return (
-    <div className="card mb-6 border-sun bg-[#fff3d6] p-4 text-center" role="status">
+    <div className="pixel-panel mb-8 bg-[#fff3d6] p-4 text-center" role="status">
       🎉 글을 발행했어요!{" "}
       {kind === "reward" ? (
         <b>

@@ -1,3 +1,4 @@
+import { PlaceHeader, WalletChips } from "@/components/place-banner";
 import { requireMember } from "@/server/dal";
 import { listShopItems } from "@/server/inventory";
 import { getWallet } from "@/server/points";
@@ -10,21 +11,10 @@ export default async function ShopPage() {
   const [items, wallet] = await Promise.all([listShopItems(viewer.userId), getWallet(viewer.userId)]);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl">🏪 마을 상점</h1>
-          <p className="mt-1 text-ink-soft">글을 쓰고 출석해서 모은 코인으로 내 캐릭터와 우리 집을 꾸며 보세요.</p>
-        </div>
-        <div className="card flex gap-4 px-4 py-2 text-sm" data-shop-wallet>
-          <span>
-            Lv.<b>{wallet.level}</b>
-          </span>
-          <span>
-            🪙 <b>{wallet.coins.toLocaleString()}</b>
-          </span>
-        </div>
-      </div>
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
+      <PlaceHeader place="shop" icon="shop" title="마을 상점" aside={<WalletChips level={wallet.level} coins={wallet.coins} />}>
+        <p>글을 쓰고 출석해서 모은 코인으로 내 캐릭터와 우리 집을 꾸며 보세요.</p>
+      </PlaceHeader>
       <ShopView items={items} level={wallet.level} coins={wallet.coins} blogSlug={viewer.profile.blogSlug} />
     </div>
   );

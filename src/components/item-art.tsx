@@ -16,7 +16,7 @@ export function ItemArt({
 }) {
   if (type === "character") {
     return (
-      <div className={`grid place-items-center rounded-xl bg-cream ${className}`} aria-hidden>
+      <div className={`pixel-slot grid place-items-center ${className}`} aria-hidden>
         <CharacterArt asset={assetKey} size={characterSize} />
       </div>
     );
@@ -25,7 +25,7 @@ export function ItemArt({
   if (type === "avatar") {
     const look = previewLook(assetKey);
     return (
-      <div className={`grid place-items-center rounded-xl bg-cream ${className}`} aria-hidden>
+      <div className={`pixel-slot grid place-items-center ${className}`} aria-hidden>
         <CharacterArt asset={look.asset} outfit={look.outfit} size={characterSize} />
       </div>
     );
@@ -33,7 +33,7 @@ export function ItemArt({
   if (type === "furniture" || type === "growth" || type === "deco") {
     const uri = type === "furniture" ? furnitureDataUri(assetKey, characterSize) : type === "deco" ? decoDataUri(assetKey, characterSize) : growthDataUri(assetKey, characterSize);
     return (
-      <div className={`grid place-items-center rounded-xl ${type === "furniture" ? "bg-[#f6ead7]" : type === "deco" ? "bg-[#e3f3dd]" : "bg-[#e9f6e4]"} ${className}`} aria-hidden>
+      <div className={`pixel-slot grid place-items-center ${type === "furniture" ? "bg-[#f6ead7]!" : type === "deco" ? "bg-[#e3f3dd]!" : "bg-[#e9f6e4]!"} ${className}`} aria-hidden>
         {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
         <img src={uri} alt="" width={characterSize} height={characterSize} className="pixelated" />
       </div>
@@ -41,7 +41,7 @@ export function ItemArt({
   }
   return (
     <div
-      className={`pixelated rounded-xl border-2 border-line bg-bottom ${className}`}
+      className={`pixelated bg-bottom shadow-[inset_0_0_0_3px_#4a342633] ${className}`}
       // 2배 도트 그대로 아래 가운데에 (늘이지 않는다)
       style={{ backgroundImage: `url("${backgroundDataUri(assetKey)}")`, backgroundColor: backgroundSky(assetKey) }}
       aria-hidden

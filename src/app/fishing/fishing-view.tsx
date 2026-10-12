@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { PixelIcon } from "@/components/pixel-icon";
 import { catchByKey } from "@/lib/fishing";
 import { withJosa } from "@/lib/josa";
 import { castLine } from "./actions";
@@ -13,9 +14,9 @@ export function FishingView({ todayKey }: { todayKey: string | null }) {
   const caught = key ? catchByKey(key) : null;
 
   return (
-    <div className="card mt-6 flex flex-col items-center gap-3 bg-[#e6f6fb] p-6 text-center">
-      <div className={`text-6xl ${pending ? "motion-safe:animate-bounce" : ""}`} aria-hidden>
-        {caught ? caught.emoji : "🎣"}
+    <div className="pixel-card mt-4 flex flex-col items-center gap-3 bg-[#e6f6fb]! p-6 text-center">
+      <div className={`grid size-20 place-items-center text-6xl ${pending ? "motion-safe:animate-[hop_0.5s_steps(2)_infinite]" : ""}`} aria-hidden>
+        {caught ? caught.emoji : <PixelIcon name="rod" scale={6} />}
       </div>
       {caught ? (
         <>
@@ -42,7 +43,7 @@ export function FishingView({ todayKey }: { todayKey: string | null }) {
                 } else setError(r.error);
               })
             }
-            className="btn min-h-11 bg-sky px-6 text-white"
+            className="pixel-btn bg-[#2f78b8] px-6 text-white"
           >
             {pending ? "기다리는 중…" : "🎣 낚싯대 던지기"}
           </button>

@@ -11,7 +11,7 @@ export function LikeButton({ postId, count, liked, canLike }: { postId: number; 
   const hintId = `like-hint-${postId}`;
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-3">
       <button
         type="button"
         disabled={!canLike || pending}
@@ -23,7 +23,7 @@ export function LikeButton({ postId, count, liked, canLike }: { postId: number; 
             await toggleLike(postId);
           })
         }
-        className={`btn min-h-11 border-2 px-6 text-lg ${state.liked ? "border-berry bg-[#ffecec] text-berry" : "border-line bg-white text-ink"}`}
+        className={`pixel-btn min-h-12 px-6 text-lg ${state.liked ? "bg-[#ffe1e1] text-berry" : "bg-[#fffaf0] text-ink"}`}
       >
         {state.liked ? "♥" : "♡"} 공감 {state.count}
       </button>

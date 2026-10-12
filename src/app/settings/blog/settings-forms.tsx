@@ -15,7 +15,8 @@ import {
   type FormState,
 } from "./actions";
 
-const input = "w-full rounded-xl border-2 border-line bg-white px-3 py-2 outline-none focus:border-sun";
+// 도트 입력 칸 (globals.css pixel-input). 테두리가 바깥 3px에 그려져 감싼 폼에 p-[3px]을 둔다
+const input = "pixel-input";
 
 /** 폼 결과 한 줄: 버튼 왼쪽에 빨간 오류 또는 초록 성공 (FR-016·017) */
 function FormResult({ state, id }: { state: FormState; id: string }) {
@@ -39,13 +40,13 @@ export function BlogInfoForm({ title, description }: { title: string; descriptio
   const [state, action, pending] = useActionState<FormState, FormData>(updateBlogInfo, {});
   const invalid = state.error ? { "aria-invalid": true, "aria-describedby": "blog-info-error" } : {};
   return (
-    <form action={action} className="space-y-3">
+    <form action={action} className="space-y-4 px-[3px]">
       <label className="block">
-        <span className="mb-1 block font-bold">블로그 이름</span>
+        <span className="mb-2 block font-bold">블로그 이름</span>
         <input name="title" defaultValue={state.values?.title ?? title} maxLength={40} required className={input} {...invalid} />
       </label>
       <label className="block">
-        <span className="mb-1 block font-bold">소개</span>
+        <span className="mb-2 block font-bold">소개</span>
         <textarea
           name="description"
           defaultValue={state.values?.description ?? description}
@@ -58,7 +59,7 @@ export function BlogInfoForm({ title, description }: { title: string; descriptio
       </label>
       <div className="flex items-center justify-end gap-3">
         <FormResult state={state} id="blog-info-error" />
-        <button disabled={pending} className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-leaf text-white">
+        <button disabled={pending} className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-leaf px-4 text-white">
           저장
         </button>
       </div>
@@ -74,11 +75,12 @@ export function BlogInfoForm({ title, description }: { title: string; descriptio
 export function BlogSlugForm({ slug }: { slug: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(updateBlogSlug, {});
   return (
-    <form action={action} className="mt-5 space-y-2 border-t-2 border-line/60 pt-4">
+    <form action={action} className="mt-6 space-y-3 px-[3px]">
+      <div className="pb-dash mb-5" aria-hidden />
       <label htmlFor="blog-slug" className="block font-bold">
         블로그 주소
       </label>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <span className="font-bold text-ink-soft">/@</span>
         <input
           id="blog-slug"
@@ -96,7 +98,7 @@ export function BlogSlugForm({ slug }: { slug: string }) {
       </div>
       <div className="flex items-center justify-end gap-3">
         <FormResult state={state} id="blog-slug-error" />
-        <button disabled={pending} className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink text-cream">
+        <button disabled={pending} className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-4 text-cream">
           주소 바꾸기
         </button>
       </div>
@@ -107,7 +109,7 @@ export function BlogSlugForm({ slug }: { slug: string }) {
 type Sub = { id: number; name: string; postCount: number | null };
 type Category = { id: number; name: string; postCount: number; subcategories: Sub[] };
 
-const small = "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap rounded-lg px-2 text-sm";
+const small = "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap px-2 text-sm hover:bg-[#fff3d6]";
 
 /**
  * 카테고리 한 줄 (대분류·소분류 같은 모양, BLOG-05 / FR-033~039, research R-24):
@@ -148,7 +150,7 @@ function Row({
         <button type="button" disabled={last || pending} onClick={() => start(() => onMove(1))} className={`${small} disabled:opacity-30`} aria-label={`${current} 아래로`}>▼</button>
       </div>
       {editing ? (
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} className={`${input} w-auto min-w-24 flex-1 py-1`} aria-label={label} autoFocus />
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} className={`${input} mx-[3px] w-auto min-w-24 flex-1 py-1`} aria-label={label} autoFocus />
       ) : (
         // 이름 칸은 6rem보다 좁아지지 않는다. 좁은 휴대폰에서 이름이 "일/상"처럼 한 글자씩 쪼개지던 것을 막고 버튼 묶음이 다음 줄로 간다
         <span className="min-w-24 flex-1 break-words">
@@ -208,7 +210,7 @@ function AddForm({ action: serverAction, placeholder, label, autoFocus = false }
   return (
     <div>
       {/* React가 처리 뒤 폼을 초기화하면 칸은 defaultValue로 돌아간다: 성공이면 빈 칸, 오류면 보낸 값 */}
-      <form action={action} className="flex gap-2">
+      <form action={action} className="flex gap-3 px-[3px]">
         <input
           name="name"
           maxLength={20}
@@ -220,7 +222,7 @@ function AddForm({ action: serverAction, placeholder, label, autoFocus = false }
           aria-invalid={state.error ? true : undefined}
           autoFocus={autoFocus}
         />
-        <button disabled={pending} className="btn min-h-11 min-w-11 shrink-0 whitespace-nowrap bg-ink text-cream">추가</button>
+        <button disabled={pending} className="pixel-btn pixel-btn-sm min-w-11 shrink-0 whitespace-nowrap bg-ink px-4 text-cream">추가</button>
       </form>
       {state.error && <p role="alert" className="mt-1 text-sm text-berry">{state.error}</p>}
     </div>
@@ -248,7 +250,7 @@ function CategoryBlock({ c, first, last }: { c: Category; first: boolean; last: 
         </button>
       </Row>
       {(c.subcategories.length > 0 || adding) && (
-        <ul className="ml-6 border-l-2 border-line/60 pl-2">
+        <ul className="ml-6 border-l-[3px] border-dotted border-[#d9b98a] pl-2">
           {c.subcategories.map((s, i) => (
             <li key={s.id}>
               <Row
@@ -279,12 +281,12 @@ function CategoryBlock({ c, first, last }: { c: Category; first: boolean; last: 
 export function CategoryManager({ categories }: { categories: Category[] }) {
   return (
     <div>
-      <ul className="divide-y-2 divide-line/60">
+      <ul className="divide-y-2 divide-dashed divide-[#e2c9a0]">
         {categories.map((c, i) => (
           <CategoryBlock key={c.id} c={c} first={i === 0} last={i === categories.length - 1} />
         ))}
       </ul>
-      <div className="mt-3">
+      <div className="mt-4">
         <AddForm action={addCategory} placeholder="새 카테고리" label="새 카테고리 이름" />
       </div>
     </div>
