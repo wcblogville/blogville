@@ -10,6 +10,7 @@ import { Pool } from "pg";
 import { accounts, blogs, categories, items, profiles, userItems, users } from "../src/db/schema";
 import { AUTH_ID_LENGTH, newAuthId } from "../src/lib/auth-id";
 import { USERNAME_RE } from "../src/lib/names";
+import { ensureNoticePosts, noticePostsMessage } from "./notice-posts";
 
 config({ path: ".env.local" });
 
@@ -66,7 +67,7 @@ async function main() {
         await tx.insert(accounts).values({ id: newAuthId(), userId: user.id, providerId: "credential", accountId: user.id, password: hash });
       }
 
-      // 3. 기본 캐릭터·초원·프로필·공지사항 블로그 (이미 있으면 건너뜀)
+      // 3. 기본 캐릭터·초원·프로필·공지사항 블로그 (이미 있으면 건너뜀). 첫 공지·릴리스 노트 글은 아래 ensureNoticePosts
       const [profile] = await tx.select({ userId: profiles.userId }).from(profiles).where(eq(profiles.userId, user.id));
       if (!profile) {
         const [character] = await tx.select({ id: items.id }).from(items).where(eq(items.code, "char_boy"));
@@ -86,6 +87,8 @@ async function main() {
       }
     });
     console.log(`✔ 관리자 계정 준비 완료: ${username}`);
+    // 마을 소식 맨 위 첫 공지 "사용법 안내"·릴리스 노트 (이미 있는 글은 건너뜀, 관리자가 고친 글을 덮어쓰지 않는다)
+    console.log(noticePostsMessage(await ensureNoticePosts(db, username)));
     // 예전 스크립트로 만든 관리자는 ID가 UUID(36자)로 남아 있다. ID는 여러 표가 가리키는 키라 여기서 바꾸지 않는다
     if (oldIds.length) {
       console.warn(`⚠ 이미 있던 관리자의 ID가 32자가 아니에요 (${oldIds.join(", ")}, 예전 스크립트의 UUID).`);

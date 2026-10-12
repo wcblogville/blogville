@@ -27,6 +27,7 @@ import { buildCategoryTree, toLikePattern } from "@/lib/blog";
 import { favoriteWindowStart } from "@/lib/social";
 import { liveCommentCountSql } from "@/server/social";
 import { previousDay, todayKST } from "@/lib/game";
+import { NOTICE_CATEGORY, RELEASE_CATEGORY } from "@/lib/welcome-notice";
 
 const characterItem = alias(items, "character_item");
 const backgroundItem = alias(items, "background_item");
@@ -293,13 +294,32 @@ export async function listBlogPosts(opts: {
  * 마을 최신 글 (공개 글만). followerId가 있으면 이웃 글만.
  * search가 있으면 제목·본문 부분 일치 (BLOG-06 검색 / FR-051, research R-16): %·_·\ 는 글자 그대로 찾는다
  */
-export async function listFeed(opts: { page: number; followerId?: string; tag?: string; search?: string }) {
+/** 관리자 블로그(Blogville 공지사항)가 아니다. 공지는 마을 소식 맨 위 카드(getPinnedNotice)로만 보인다 */
+const notNoticeBlog = sql`NOT EXISTS (SELECT 1 FROM ${users} WHERE ${users.id} = ${blogs.ownerId} AND ${users.role} = 'admin')`;
+
+/**
+ * 공개 글 목록. followerId를 주면 그 회원의 이웃 글만 (모르는 사람 글은 없다, 사용자 요청 2026-10-12):
+ * - favoritesOnly: 마을 소식 [🏘 마을 전체] = ⭐ 즐겨찾는 이웃의 글
+ * - 아니면 [💛 이웃 새 글] = 모든 이웃의 글 (즐겨찾는 이웃의 최근 7일 글이 맨 위)
+ * 이웃은 자기 자신이 아니므로(follows_not_self_check) 내 글은 빠지고, 공지 블로그(관리자)도 빠진다.
+ * followerId 없이 부르는 태그 목록·마을 검색은 마을 전체 공개 글이다
+ */
+export async function listFeed(opts: { page: number; followerId?: string; favoritesOnly?: boolean; tag?: string; search?: string }) {
   const pattern = opts.search ? toLikePattern(opts.search) : null;
   const where = and(
     eq(posts.visibility, "public"),
     pattern ? or(sql`${posts.title} ILIKE ${pattern} ESCAPE '\\'`, sql`${posts.contentText} ILIKE ${pattern} ESCAPE '\\'`) : undefined,
     opts.followerId
-      ? inArray(blogs.ownerId, db.select({ id: follows.followeeId }).from(follows).where(eq(follows.followerId, opts.followerId)))
+      ? and(
+          inArray(
+            blogs.ownerId,
+            db
+              .select({ id: follows.followeeId })
+              .from(follows)
+              .where(and(eq(follows.followerId, opts.followerId), opts.favoritesOnly ? eq(follows.isFavorite, true) : undefined)),
+          ),
+          notNoticeBlog,
+        )
       : undefined,
     opts.tag
       ? inArray(
@@ -308,13 +328,54 @@ export async function listFeed(opts: { page: number; followerId?: string; tag?: 
         )
       : undefined,
   );
-  // 이웃 새 글: 최근 7일(한국 날짜, 오늘 포함) 안에 쓴 즐겨찾는 이웃의 글이 맨 위 (SOC-04 / FR-042, D15)
-  const favoriteFirst = opts.followerId
-    ? sql`CASE WHEN ${posts.createdAt} >= (${favoriteWindowStart(todayKST())}::date::timestamp AT TIME ZONE 'Asia/Seoul')
+  // 이웃 새 글: 최근 7일(한국 날짜, 오늘 포함) 안에 쓴 즐겨찾는 이웃의 글이 맨 위 (SOC-04 / FR-042, D15).
+  // 마을 전체는 모두 즐겨찾는 이웃이라 최신순만
+  const favoriteFirst =
+    opts.followerId && !opts.favoritesOnly
+      ? sql`CASE WHEN ${posts.createdAt} >= (${favoriteWindowStart(todayKST())}::date::timestamp AT TIME ZONE 'Asia/Seoul')
         AND EXISTS (SELECT 1 FROM ${follows} WHERE ${follows.followerId} = ${opts.followerId}
           AND ${follows.followeeId} = ${blogs.ownerId} AND ${follows.isFavorite}) THEN 0 ELSE 1 END`
-    : undefined;
+      : undefined;
   return paged(where, opts.page, (q) => q.limit(PAGE_SIZE).offset((opts.page - 1) * PAGE_SIZE), favoriteFirst);
+}
+
+/** 빈 목록 (방문자의 마을 소식: 이웃이 없으니 글을 읽지 않는다) */
+export function emptyFeed(page: number) {
+  return { items: [], total: 0, page, pageCount: 1 };
+}
+
+/**
+ * 마을 소식 [📜 릴리스 노트] (사용자 요청 2026-10-12): 공지 블로그(관리자)의 "릴리스 노트" 분류 공개 글, 최신순.
+ * 시드가 src/content/release-notes.ts에서 넣은 글과 관리자가 그 분류로 직접 쓴 글이 같이 나온다 (다른 분류 글은 없다)
+ */
+export async function listReleaseNotes(page: number) {
+  const releaseCategories = db
+    .select({ id: categories.id })
+    .from(categories)
+    .innerJoin(blogs, eq(blogs.id, categories.blogId))
+    .innerJoin(users, and(eq(users.id, blogs.ownerId), eq(users.role, "admin")))
+    .where(eq(categories.name, RELEASE_CATEGORY));
+  const where = and(eq(posts.visibility, "public"), inArray(posts.categoryId, releaseCategories));
+  return paged(where, page, (q) => q.limit(PAGE_SIZE).offset((page - 1) * PAGE_SIZE));
+}
+
+export type PinnedNotice = { id: number; title: string; excerpt: string; blogSlug: string; createdAt: Date };
+
+/**
+ * 마을 소식 맨 위에 거는 공지 (사용자 요청 2026-10-12): 공지 블로그(관리자)의 "공지" 분류 공개 글 중 가장 최근 글 하나.
+ * 처음에는 시드가 넣은 사용법 안내(src/lib/welcome-notice.ts)이고, 관리자가 공지를 새로 쓰면 그 글로 바뀐다
+ */
+export async function getPinnedNotice(): Promise<PinnedNotice | null> {
+  const [row] = await db
+    .select({ id: posts.id, title: posts.title, excerpt: sql<string>`regexp_replace(left(${posts.contentText}, 300), '\\n{2,}', chr(10), 'g')`, blogSlug: blogs.slug, createdAt: posts.createdAt })
+    .from(posts)
+    .innerJoin(blogs, eq(blogs.id, posts.blogId))
+    .innerJoin(users, and(eq(users.id, blogs.ownerId), eq(users.role, "admin")))
+    .innerJoin(categories, and(eq(categories.id, posts.categoryId), eq(categories.name, NOTICE_CATEGORY)))
+    .where(eq(posts.visibility, "public"))
+    .orderBy(desc(posts.createdAt), desc(posts.id))
+    .limit(1);
+  return row ?? null;
 }
 
 // ===== 블로그 옆 칸 위젯 (사용자 요청 2026-10-11 "내 블로그에 글쓰기랑 다른 부가기능들이 부족") =====
@@ -467,6 +528,8 @@ export async function getAllTags(limit = 30) {
     .from(tags)
     .innerJoin(postTags, eq(postTags.tagId, tags.id))
     .innerJoin(posts, and(eq(posts.id, postTags.postId), eq(posts.visibility, "public")))
+    // 공지 블로그 글의 표시 태그(이용안내·v0.1 …)는 회원 글을 찾는 인기 태그에 넣지 않는다 (1.34)
+    .innerJoin(blogs, and(eq(blogs.id, posts.blogId), notNoticeBlog))
     .groupBy(tags.id)
     .orderBy(desc(sql`COUNT(*)`), asc(tags.name))
     .limit(limit);

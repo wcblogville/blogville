@@ -3,22 +3,25 @@ import { AttendanceCalendar, AttendanceRewards, AttendanceToday, rewardOf } from
 import { AttendanceWindow } from "@/components/game/attendance-window";
 import { parsePage } from "@/components/pagination";
 import { getAttendanceBoard } from "@/server/attendance";
-import { getAllTags, listFeed } from "@/server/blog";
+import Link from "next/link";
+import { emptyFeed, getAllTags, getPinnedNotice, listFeed } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 
 export const metadata = { title: "마을 소식" };
 
 /**
- * 마을 소식 = 광장의 마을 게시판 (TOWN·GAME-04). 회원에게는 제목 아래 출석 체크 띠가 있고,
+ * 마을 소식 = 광장의 마을 게시판 (TOWN·GAME-04). [🏘 마을 전체]는 ⭐ 즐겨찾는 이웃의 글만, 모르는 사람 글은 없다 (사용자 요청 2026-10-12).
+ * 맨 위에는 공지 블로그의 최근 공지 하나가 걸린다 (방문자도 본다). 방문자는 이웃이 없어 글 목록이 비어 있다. 회원에게는 제목 아래 출석 체크 띠가 있고,
  * 게시판으로 들어오면(?board=1) 출석 체크 창이 먼저 열린다 (사용자 요청 2026-10-11). 방문자는 출석이 없어 글만 본다
  */
 export default async function FeedPage(props: PageProps<"/feed">) {
   const sp = await props.searchParams;
   const page = parsePage(sp.page);
   const viewer = await getViewer();
-  const [list, tags, board] = await Promise.all([
-    listFeed({ page }),
+  const [list, tags, notice, board] = await Promise.all([
+    viewer ? listFeed({ page, followerId: viewer.userId, favoritesOnly: true }) : emptyFeed(page),
     getAllTags(),
+    getPinnedNotice(),
     // 출석 기록이 실패한 날에도 마을 소식은 보여 준다 (창만 빠진다)
     viewer ? getAttendanceBoard(viewer).catch(() => null) : null,
   ]);
@@ -31,7 +34,24 @@ export default async function FeedPage(props: PageProps<"/feed">) {
       tags={tags}
       showFollowingTab={Boolean(viewer?.profile)}
       hrefFor={(n) => `/feed?page=${n}`}
-      empty={<>아직 마을에 글이 없어요. 첫 글의 주인공이 되어 보세요! ✏️</>}
+      notice={notice}
+      empty={
+        viewer ? (
+          <>
+            ⭐ 즐겨찾기한 이웃의 새 글이 아직 없어요.
+            <br />
+            블로그에서 [+ 이웃 추가]를 누르고, 광장 메뉴(휴대폰은 ☰ 메뉴)의 👫 친구 목록에서 ☆를 눌러 즐겨찾기해 보세요.
+            <br />
+            <Link href="/feed/following" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline">💛 이웃 새 글</Link>에서는 모든 이웃의 글을 볼 수 있어요.
+          </>
+        ) : (
+          <>
+            로그인하면 즐겨찾기한 이웃의 새 글을 여기서 모아 볼 수 있어요.
+            <br />
+            <Link href="/" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline">로그인하러 가기</Link>
+          </>
+        )
+      }
       top={
         board && (
           <AttendanceWindow

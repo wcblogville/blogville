@@ -103,7 +103,11 @@ for (const path of [`/@${OWNER}`, "/settings/blog", "/closet"]) {
   check("US1-6 admin:create 두 번 실행 성공", ran);
   check("US1-6 /@notice 블로그 1개", rows.length === 1, `${rows.length}개`);
   check("US1-6 이름 `Blogville 공지사항`·소개", notice?.title === "Blogville 공지사항" && notice?.description === "마을 소식과 업데이트를 알려드려요", JSON.stringify(notice));
-  check("US1-6 대분류 \"공지\"", JSON.stringify(noticeCats) === JSON.stringify(["공지"]), JSON.stringify(noticeCats));
+  // "릴리스 노트"는 공지·릴리스 노트 글을 넣을 때(scripts/notice-posts.ts) 생긴다 (2026-10-12)
+  check("US1-6 대분류 \"공지\"·\"릴리스 노트\"", JSON.stringify([...noticeCats].sort()) === JSON.stringify(["공지", "릴리스 노트"]), JSON.stringify(noticeCats));
+  const marked = async (tag) =>
+    (await db.query("SELECT count(*)::int AS n FROM posts p JOIN post_tags pt ON pt.post_id = p.id JOIN tags t ON t.id = pt.tag_id WHERE p.blog_id = $1 AND t.name = $2", [notice.id, tag])).rows[0].n;
+  check("US1-6 admin:create 두 번 → 사용법 공지·v0.1 릴리스 노트 글 1개씩", (await marked("이용안내")) === 1 && (await marked("v0.1")) === 1);
   const res = await own.page.goto(`${BASE}/@notice`);
   check("US1-6 /@notice 200", res.status() === 200, `HTTP ${res.status()}`);
 }
