@@ -58,7 +58,12 @@ const houseButtons = panel().locator('[data-spot^="house:"]');
 // 마을 화면에는 헤더 막대가 없고 Blogville 글자만 뜬다. 내 정보·로그아웃은 ☰ 메뉴 아래 (사용자 요청 2026-10-08)
 {
   const banner = page.getByRole("banner");
-  check("마을 헤더: Blogville 글자만 (레벨·코인·알림·로그아웃 숨김)", (await banner.innerText()).trim() === "Blogville" && !(await banner.getByTitle("코인").isVisible()), (await banner.innerText()).replace(/\n/g, " "));
+  // 로고는 도트 글자 그림이라(2026-10-12) 글자 대신 이름이 Blogville인 링크 하나만 보이고 다른 글자는 없다
+  check(
+    "마을 헤더: Blogville 글자만 (레벨·코인·알림·로그아웃 숨김)",
+    (await banner.innerText()).trim() === "" && (await banner.getByRole("link", { name: "Blogville" }).isVisible()) && !(await banner.getByTitle("코인").isVisible()),
+    (await banner.innerText()).replace(/\n/g, " "),
+  );
   await openMenu();
   const account = await panel().locator("[data-account-links]").innerText();
   check("☰ 메뉴 아래 내 정보·로그아웃", account.includes("내 정보") && account.includes("로그아웃"), account.replace(/\n/g, " "));

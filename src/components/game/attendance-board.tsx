@@ -118,6 +118,7 @@ export function AttendanceCalendar({ data, compact = false }: { data: Attendance
             <span
               key={key}
               data-date={key}
+              data-today={isToday || undefined}
               className={`grid place-items-center ${compact ? "h-9" : "aspect-square"} ${done ? "bg-[#e8f5e9] font-bold" : "bg-[#fbf0dc]"} ${
                 isToday ? "shadow-[inset_0_0_0_3px_#d99a36]" : done ? "shadow-[inset_0_0_0_3px_#64b85a]" : ""
               }`}
