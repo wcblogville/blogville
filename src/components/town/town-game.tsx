@@ -36,12 +36,14 @@ export function TownGame({
       else if (target.kind === "login") router.push("/");
       else townBus.emit("open", target);
     };
-    // 메뉴에서 고른 곳으로 순간 이동, 메뉴 창이 열려 있으면 키보드를 메뉴에 양보
+    // 메뉴에서 고른 곳으로 순간 이동.
+    // 메뉴 창이 열려 있어도 방향키·WASD로 걸을 수 있다 (사용자 요청 2026-10-12 "메뉴 떠 있는 상태에서 방향키랑 wasd가 안 먹는데").
+    // 다만 창 안의 버튼·목록이 키를 쓸 수 있게 키 기본 동작은 막지 않는다 (버튼 위 Enter·Space와 글자 칸은 아래 yieldKeys가 양보)
     const offTeleport = townBus.on("teleport", (spot) => game?.events.emit("teleport", spot));
     const offPanel = townBus.on("panel", (open) => {
       const keyboard = game?.scene.getScene("town")?.input.keyboard;
       if (!keyboard) return;
-      keyboard.enabled = !open;
+      keyboard.enabled = true;
       if (open) keyboard.disableGlobalCapture();
       else keyboard.enableGlobalCapture();
     });
