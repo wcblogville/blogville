@@ -5,6 +5,7 @@ import { savePost, type SavePostState } from "@/app/write/actions";
 import { readDraft, writeDraft, type Draft } from "@/lib/draft";
 import { POST_REWARD_MIN_LENGTH, REWARD_RULES } from "@/lib/game";
 import { checkPostInput, isContentTooLarge, rawPostInput, TAGS_MAX, TITLE_MAX } from "@/lib/post-rules";
+import { VISIBILITIES, VISIBILITY_LABEL, type Visibility } from "@/lib/visibility";
 import { RichEditor } from "./rich-editor";
 
 export type CategoryOption = { id: number; name: string; subcategories: { id: number; name: string }[] };
@@ -16,7 +17,7 @@ export type PostFormValues = {
   categoryId: number | null;
   subcategoryId: number | null;
   tags: string[];
-  visibility: "public" | "private";
+  visibility: Visibility;
 };
 
 /** 임시 저장 시각 `HH:mm` (한국 시간, FR-061) */
@@ -27,6 +28,13 @@ const savedTime = (iso: string) =>
  * 글쓰기·수정 화면 (POST-01~04, POST-08 / contracts/write-actions.md §1).
  * draftOwnerId가 있으면(새 글 화면) 이 브라우저에 회원별로 임시 저장하고, 열 때 불러올지 묻는다 (FR-060~064)
  */
+const VISIBILITY_HINT: Record<Visibility, string> = {
+  // 전체 공개는 모든 글 탭에 나오니 말을 조심해 달라고 알린다 (사용자 요청 2026-10-12 "이상한 말 쓰지 않게 알려줘")
+  public: "📢 전체 공개 글은 마을 소식 [🌐 모든 글]에서 모든 회원에게 보여요. 다른 사람을 불쾌하게 하는 말이나 개인정보는 쓰지 말아 주세요. 이웃에게만 보여 주려면 '👥 이웃 공개'를 고르세요.",
+  neighbors: "👥 나를 이웃 추가한 회원만 볼 수 있어요. 🌐 모든 글·태그·검색에는 나오지 않아요.",
+  private: "🔒 나만 볼 수 있어요.",
+};
+
 export function PostForm({ categories, initial, draftOwnerId }: { categories: CategoryOption[]; initial: PostFormValues; draftOwnerId?: string }) {
   // 임시 글을 불러올지 정하기 전에는 에디터를 그리지 않는다 (에디터는 처음 값으로 한 번 만들어진다)
   const [start, setStart] = useState<PostFormValues | null>(draftOwnerId ? null : initial);
@@ -211,7 +219,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
         </select>
 
         <div className="pixel-input flex w-auto gap-1 p-1" role="radiogroup" aria-label="공개 설정">
-          {(["public", "private"] as const).map((v) => (
+          {VISIBILITIES.map((v) => (
             <button
               key={v}
               type="button"
@@ -220,11 +228,19 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
               onClick={() => edit(setVisibility)(v)}
               className={`inline-flex min-h-11 items-center whitespace-nowrap px-3 font-display text-sm ${visibility === v ? "pb-tab-on" : "text-ink-soft hover:bg-[#fff3d6]"}`}
             >
-              {v === "public" ? "🌍 공개" : "🔒 비공개"}
+              {VISIBILITY_LABEL[v]}
             </button>
           ))}
         </div>
       </div>
+      {/* 고른 공개 범위가 어디에 보이는지 한 줄로 (2026-10-12 사용자 요청 "이웃에게만 공개") */}
+      <p
+        className={visibility === "public" ? "pixel-paper -mt-1 px-3 py-2 text-sm leading-relaxed" : "-mt-1 px-1 text-sm text-ink-soft"}
+        data-visibility-hint={visibility}
+        role={visibility === "public" ? "note" : undefined}
+      >
+        {VISIBILITY_HINT[visibility]}
+      </p>
 
       <RichEditor
         initialHtml={initial.contentHtml}
@@ -262,6 +278,8 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
                 </span>
               ) : visibility === "private" ? (
                 "비공개 글은 보상이 없어요"
+              ) : visibility === "neighbors" ? (
+                "이웃 공개 글은 보상이 없어요"
               ) : (
                 `${POST_REWARD_MIN_LENGTH}자 이상 쓰면 보상을 받아요`
               )

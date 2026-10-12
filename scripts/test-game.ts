@@ -22,6 +22,7 @@ import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
 import { ANIMAL_DISPLAY_SIZES, animalStage, isDisplaySize, levelEggLevels, pickWeighted, subject } from "../src/lib/farm";
 import { formatCoinsShort } from "../src/lib/format";
+import { boardSeenValue, shouldAutoOpenBoard } from "../src/lib/attendance-window";
 import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
 import { checkLayout, findFreeSpot, fitsRoom, footprintOf, footprintTiles, FURNITURE_FOOTPRINT, repairLayout, WALKABLE_FURNITURE, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
@@ -447,5 +448,11 @@ expect("휴대폰 헤더 짧은 코인", [9999, 10017, 12345, 1_000_000, 12_345_
   expect("자는 몸짓은 머리만 (위 11줄은 비었다)", poseFrame("char.boy", [], "sleep", 0).slice(0, 11).every((r) => r.every((c) => c === null)), true);
   expect("앉은 몸짓은 서 있을 때보다 2줄 낮다 (맨 위 2줄 빔)", poseFrame("char.boy", [], "sit", 0).slice(0, 2).every((r) => r.every((c) => c === null)), true);
 }
+// 게시판 출석 창은 회원마다 하루 한 번만 저절로 (2026-10-12)
+expect("출석 창: 처음 게시판 → 연다", shouldAutoOpenBoard(true, undefined, "u1", "2026-10-12"), true);
+expect("출석 창: 오늘 이미 열림 → 안 연다", shouldAutoOpenBoard(true, boardSeenValue("u1", "2026-10-12"), "u1", "2026-10-12"), false);
+expect("출석 창: 어제 열림 → 연다", shouldAutoOpenBoard(true, boardSeenValue("u1", "2026-10-11"), "u1", "2026-10-12"), true);
+expect("출석 창: 다른 회원이 오늘 연 브라우저 → 연다", shouldAutoOpenBoard(true, boardSeenValue("u2", "2026-10-12"), "u1", "2026-10-12"), true);
+expect("출석 창: 게시판 입구가 아니면 안 연다", shouldAutoOpenBoard(false, undefined, "u1", "2026-10-12"), false);
 
 if (failed) process.exit(1);

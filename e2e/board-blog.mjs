@@ -90,11 +90,27 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   check("Esc → 창 닫힘", !(await win.isVisible()));
   await page.reload();
   check("새로고침하면 창은 닫힌 채", !(await page.locator("dialog[data-attendance-window]").isVisible()));
+  // 저절로 열리는 것은 하루 한 번 (쿠키 bv_board_seen = 회원:한국 날짜, 사용자 요청 2026-10-12)
+  const seen = (await own.ctx.cookies()).find((c) => c.name === "bv_board_seen");
+  check("하루 한 번: 창을 연 날 쿠키 `회원:오늘`", decodeURIComponent(seen?.value ?? "") === `${uid}:${TODAY}`, seen?.value);
+  await page.goto(`${BASE}/feed?board=1`);
+  await page.waitForTimeout(1200);
+  check("하루 한 번: 같은 날 게시판으로 다시 들어오면 창이 저절로 열리지 않음", !(await win.isVisible()));
+  const tab2 = await own.ctx.newPage();
+  await tab2.goto(`${BASE}/feed?board=1`);
+  await tab2.waitForTimeout(1200);
+  check("하루 한 번: 다른 탭에서도 열리지 않음", !(await tab2.locator("dialog[data-attendance-window]").isVisible()));
+  await tab2.close();
+  await page.locator("[data-attendance-strip]").getByRole("button", { name: "📅 출석부 열기" }).click();
+  check("하루 한 번: [📅 출석부 열기]로는 언제든 열림", await win.isVisible());
+  await page.keyboard.press("Escape");
   const ledger = await one("SELECT count(*)::int AS n FROM point_ledger WHERE user_id = $1 AND reason = 'attendance' AND ref_id = $2", [uid, TODAY]);
   check("출석 보상은 하루 한 줄", ledger.n === 1, String(ledger.n));
 
   // 휴대폰: 창이 화면 안, 가로 스크롤 없음
-  const m = await fresh(phone, await own.ctx.storageState());
+  // 휴대폰 창 시험은 오늘 연 기록(쿠키)을 빼고 들어간다
+  const ownState = await own.ctx.storageState();
+  const m = await fresh(phone, { ...ownState, cookies: ownState.cookies.filter((c) => c.name !== "bv_board_seen") });
   await m.page.goto(`${BASE}/feed?board=1`);
   const mwin = m.page.locator("dialog[data-attendance-window]");
   check("375px 게시판 주소 → 출석 체크 창", await mwin.waitFor({ state: "visible", timeout: 8000 }).then(() => true, () => false));
@@ -264,7 +280,9 @@ const visitor = await one("SELECT u.id AS user_id FROM users u WHERE u.username 
   await g.ctx.close();
 
   // 주인 375px: 가로 스크롤 없음, 도구 막대가 위, 위젯은 글 목록 아래로 쌓임
-  const m = await fresh(phone, await own.ctx.storageState());
+  // 휴대폰 창 시험은 오늘 연 기록(쿠키)을 빼고 들어간다
+  const ownState = await own.ctx.storageState();
+  const m = await fresh(phone, { ...ownState, cookies: ownState.cookies.filter((c) => c.name !== "bv_board_seen") });
   await m.page.goto(base);
   const overflow = await m.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   check("375px 블로그 홈 가로 스크롤 없음", overflow <= 0, `${overflow}px`);

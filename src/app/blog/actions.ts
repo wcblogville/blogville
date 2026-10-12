@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { blogs, blogVisits, comments, follows, pointLedger, postLikes, posts, replies } from "@/db/schema";
 import { parseId } from "@/lib/ids";
+import { canSeePost } from "@/lib/visibility";
 import { checkComment, SOCIAL_ERRORS } from "@/lib/social";
 import { todayKST } from "@/lib/game";
 import { getBlogVisitStats } from "@/server/blog";
@@ -15,7 +16,7 @@ import { grantReward, lockUser, type Tx } from "@/server/points";
 import { ensureVisitorId } from "@/server/visitor";
 
 /**
- * 볼 수 있는 글(공개 글이거나 내 글)과 그 블로그 주인. 트랜잭션 안에서 글 행을 FOR KEY SHARE로 잠가
+ * 볼 수 있는 글(공개 글, 내 글, 내가 주인을 이웃 추가한 👥 이웃 공개 글)과 그 블로그 주인. 트랜잭션 안에서 글 행을 FOR KEY SHARE로 잠가
  * 확인과 저장 사이에 글이 지워지지 않게 한다 (research R6). 비공개 전환은 막지 않는다
  */
 async function lockVisiblePost(tx: Tx, postId: number, viewerId: string) {
@@ -26,7 +27,15 @@ async function lockVisiblePost(tx: Tx, postId: number, viewerId: string) {
     .where(eq(posts.id, postId))
     .for("key share", { of: posts });
   if (!row) return null;
-  if (row.visibility === "private" && row.ownerId !== viewerId) return null;
+  const isOwner = row.ownerId === viewerId;
+  const isNeighbor =
+    row.visibility === "neighbors" && !isOwner
+      ? (await tx
+          .select({ x: follows.followerId })
+          .from(follows)
+          .where(and(eq(follows.followerId, viewerId), eq(follows.followeeId, row.ownerId)))).length > 0
+      : false;
+  if (!canSeePost(row.visibility, { isOwner, isNeighbor })) return null;
   return row;
 }
 

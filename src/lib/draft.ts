@@ -1,11 +1,13 @@
 // 새 글 임시 저장 (POST-08 / FR-060~064, contracts/write-actions.md §6).
 // 이 브라우저의 localStorage에만 둔다(서버로 보내지 않음). 회원마다 1개. 저장을 쓸 수 없으면 조용히 건너뛴다
 
+import { isVisibility, type Visibility } from "@/lib/visibility";
+
 export type Draft = {
   title: string;
   categoryId: number | null;
   subcategoryId: number | null;
-  visibility: "public" | "private";
+  visibility: Visibility;
   contentHtml: string;
   tags: string;
   savedAt: string; // ISO
@@ -24,7 +26,7 @@ export function readDraft(userId: string): Draft | null {
       title: typeof d.title === "string" ? d.title : "",
       categoryId: id(d.categoryId),
       subcategoryId: id(d.subcategoryId),
-      visibility: d.visibility === "private" ? "private" : "public",
+      visibility: isVisibility(d.visibility) ? d.visibility : "public",
       contentHtml: typeof d.contentHtml === "string" ? d.contentHtml : "",
       tags: typeof d.tags === "string" ? d.tags : "",
       savedAt: typeof d.savedAt === "string" ? d.savedAt : new Date().toISOString(),

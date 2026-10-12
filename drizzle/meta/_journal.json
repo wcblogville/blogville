@@ -260,6 +260,13 @@
       "when": 1791772323690,
       "tag": "0036_animal_display_size",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1791780283822,
+      "tag": "0037_post_visibility_neighbors",
+      "breakpoints": true
     }
   ]
 }

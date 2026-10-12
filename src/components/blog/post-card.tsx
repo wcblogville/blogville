@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { formatDate } from "@/lib/format";
+import { VISIBILITY_BADGE, type Visibility } from "@/lib/visibility";
 
 export type PostCardData = {
   id: number;
   title: string;
   excerpt: string;
-  visibility: "public" | "private";
+  visibility: Visibility;
   createdAt: Date;
   categoryName: string | null;
   subcategoryName?: string | null;
@@ -42,7 +43,11 @@ export function PostCard({ post, showAuthor = false }: { post: PostCardData; sho
               {post.subcategoryName && ` › ${post.subcategoryName}`}
             </span>
           )}
-          {post.visibility === "private" && <span className="pb-chip pb-chip-muted">🔒 비공개</span>}
+          {VISIBILITY_BADGE[post.visibility] && (
+            <span className="pb-chip pb-chip-muted" data-visibility-badge={post.visibility}>
+              {VISIBILITY_BADGE[post.visibility]}
+            </span>
+          )}
           {post.pinned && <span className="pb-chip">⭐ 즐겨찾는 이웃</span>}
         </div>
         <h3 className="pb-title font-display text-xl leading-snug">{post.title}</h3>

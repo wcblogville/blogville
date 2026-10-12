@@ -1,5 +1,5 @@
-// 글 관리 (사용자 요청 2026-10-11 "내 블로그에 글쓰기랑 다른 부가기능들이 부족"): 내 글을 공개·비공개 모두 한눈에.
-// 거르기(전체·공개·비공개)와 제목·본문 찾기, 글마다 [수정] [삭제]. 블로그 홈 주인 도구 막대의 [📝 글 관리]로 온다.
+// 글 관리 (사용자 요청 2026-10-11 "내 블로그에 글쓰기랑 다른 부가기능들이 부족"): 내 글을 공개·이웃 공개·비공개 모두 한눈에.
+// 거르기(전체·공개·이웃 공개·비공개)와 제목·본문 찾기, 글마다 [수정] [삭제]. 블로그 홈 주인 도구 막대의 [📝 글 관리]로 온다.
 // 내 블로그 글만 읽는다 (blogId는 로그인한 회원의 블로그). 삭제는 deletePost가 다시 내 글인지 확인한다
 import Form from "next/form";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { DeletePostButton } from "@/components/blog/delete-post-button";
 import { Pagination, parsePage } from "@/components/pagination";
 import { parseSearchQuery, SEARCH_QUERY_MAX } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
+import { isVisibility, VISIBILITY_BADGE } from "@/lib/visibility";
 import { listBlogPosts } from "@/server/blog";
 import { requireMember } from "@/server/dal";
 
@@ -16,6 +17,7 @@ const MANAGE_PAGE_SIZE = 15;
 const FILTERS = [
   { key: "all", label: "전체" },
   { key: "public", label: "🌐 공개" },
+  { key: "neighbors", label: "👥 이웃 공개" },
   { key: "private", label: "🔒 비공개" },
 ] as const;
 
@@ -23,10 +25,10 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
   const viewer = await requireMember();
   const sp = await props.searchParams;
   const page = parsePage(sp.page);
-  const vis = sp.vis === "public" || sp.vis === "private" ? sp.vis : undefined;
+  const vis = isVisibility(sp.vis) ? sp.vis : undefined;
   const find = parseSearchQuery(sp.s);
   const q = find && !find.empty ? find.q : undefined;
-  const list = await listBlogPosts({ blogId: viewer.profile.blogId, isOwner: true, visibility: vis, search: q, page, pageSize: MANAGE_PAGE_SIZE });
+  const list = await listBlogPosts({ blogId: viewer.profile.blogId, access: "owner", visibility: vis, search: q, page, pageSize: MANAGE_PAGE_SIZE });
   const href = (over: { vis?: string; page?: number }) => {
     const params = new URLSearchParams();
     const v = "vis" in over ? over.vis : vis;
@@ -91,7 +93,7 @@ export default async function ManagePostsPage(props: PageProps<"/settings/posts"
             <li key={p.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-3" data-manage-post={p.id}>
               <div className="min-w-0 flex-1">
                 <Link href={`/@${viewer.profile.blogSlug}/${p.id}`} className="flex min-h-11 min-w-0 items-center gap-2 hover:text-leaf-dark">
-                  {p.visibility === "private" && <span className="pb-chip pb-chip-muted shrink-0 text-xs font-bold">🔒 비공개</span>}
+                  {VISIBILITY_BADGE[p.visibility] && <span className="pb-chip pb-chip-muted shrink-0 text-xs font-bold">{VISIBILITY_BADGE[p.visibility]}</span>}
                   <span className="truncate font-bold">{p.title}</span>
                 </Link>
                 <p className="flex flex-wrap gap-x-3 text-xs text-ink-soft">

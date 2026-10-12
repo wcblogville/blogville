@@ -156,7 +156,7 @@ export default async function AdminPage() {
                   <tr key={p.id}>
                     <td className="py-1"><PostTitle post={p} className={`${linkTap} hover:underline`} /></td>
                     <td>{p.nickname}</td>
-                    <td>{p.visibility === "public" ? "공개" : "🔒"}</td>
+                    <td>{ADMIN_VIS[p.visibility]}</td>
                     <td className="whitespace-nowrap text-ink-soft">{formatDateTime(p.createdAt)}</td>
                     <td className="text-right"><AdminDeletePostButton postId={p.id} title={p.title} /></td>
                   </tr>
@@ -169,7 +169,7 @@ export default async function AdminPage() {
                   <div className="min-w-0 flex-1">
                     <PostTitle post={p} className={`${linkTap} break-all font-bold hover:underline`} />
                     <p className="text-ink-soft">
-                      <span className="break-all">{p.nickname}</span> · {p.visibility === "public" ? "공개" : "🔒"} ·{" "}
+                      <span className="break-all">{p.nickname}</span> · {ADMIN_VIS[p.visibility]} ·{" "}
                       <span className="whitespace-nowrap">{formatDateTime(p.createdAt)}</span>
                     </p>
                   </div>
@@ -187,8 +187,11 @@ export default async function AdminPage() {
 }
 
 /** 글 제목. 비공개 글은 주인만 열 수 있어(관리자도 404) 링크 없이 글자만 둔다 */
+/** "공개" 열: 공개 / 👥(이웃 공개) / 🔒(비공개) */
+const ADMIN_VIS = { public: "공개", neighbors: "👥", private: "🔒" } as const;
+
 function PostTitle({ post, className }: { post: { id: number; slug: string; title: string; visibility: string }; className: string }) {
-  if (post.visibility !== "public") return <span title="비공개 글은 주인만 볼 수 있어요" className="break-all">{post.title}</span>;
+  if (post.visibility !== "public") return <span title="비공개·이웃 공개 글은 관리자가 열 수 없어요" className="break-all">{post.title}</span>;
   return (
     <Link href={`/@${post.slug}/${post.id}`} className={className}>
       {post.title}

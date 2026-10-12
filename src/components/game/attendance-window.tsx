@@ -1,18 +1,25 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { BOARD_SEEN_COOKIE } from "@/lib/attendance-window";
 
 /**
  * 마을 게시판의 출석 체크 창 (GAME-04, 사용자 요청 2026-10-11 "마을 게시판 들어가면 출석체크 창 없음").
  * 광장 게시판으로 들어오면(/feed?board=1) 창이 먼저 열리고, 닫으면 마을 소식이 보인다. 위쪽 띠의 [📅 출석부 열기]로 다시 연다.
- * 창 안 내용(오늘 결과·보상표·달력)은 서버가 그린 children. 네이티브 <dialog>라 Esc로 닫힌다
+ * 창 안 내용(오늘 결과·보상표·달력)은 서버가 그린 children. 네이티브 <dialog>라 Esc로 닫힌다.
+ * 저절로 열리는 것은 회원마다 하루(한국 날짜) 한 번 (사용자 요청 2026-10-12 "출석 창은 하루에 한 번만"):
+ * 열 때 쿠키 BOARD_SEEN_COOKIE = "회원ID:날짜"를 남기고, 마을 소식 페이지(서버)가 같은 값이면 openAtStart를 끈다.
+ * 쿠키라 다른 탭에서도 같다. 손으로 여는 [📅 출석부 열기]는 언제든 된다
  */
 export function AttendanceWindow({
   openAtStart,
+  seenValue,
   summary,
   children,
 }: {
   openAtStart: boolean;
+  /** 저절로 열었을 때 남길 쿠키 값 (boardSeenValue) */
+  seenValue: string;
   summary: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -22,13 +29,15 @@ export function AttendanceWindow({
     if (!openAtStart) return;
     const dialog = ref.current;
     if (dialog && !dialog.open) dialog.showModal();
+    // 오늘은 다시 저절로 열지 않는다 (이틀 뒤 저절로 지워진다. 날짜가 값에 있어 내일이면 다시 열린다)
+    document.cookie = `${BOARD_SEEN_COOKIE}=${encodeURIComponent(seenValue)}; path=/; max-age=${2 * 86400}; samesite=lax`;
     // 새로고침하면 다시 뜨지 않게 ?board=1을 지운다 (DropSearchParam과 같은 방법)
     const url = new URL(window.location.href);
     if (url.searchParams.has("board")) {
       url.searchParams.delete("board");
       window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     }
-  }, [openAtStart]);
+  }, [openAtStart, seenValue]);
 
   return (
     <>
