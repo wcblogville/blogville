@@ -10,7 +10,7 @@ import { todayKST } from "@/lib/game";
 import { getBlogVisitStats } from "@/server/blog";
 import { getViewer, requireMember, type Viewer } from "@/server/dal";
 import { foreignKeyViolation } from "@/server/db-errors";
-import { notifyActivity } from "@/server/notifications";
+import { notifyActivity, notifyFollow } from "@/server/notifications";
 import { grantReward, lockUser, type Tx } from "@/server/points";
 import { ensureVisitorId } from "@/server/visitor";
 
@@ -204,20 +204,23 @@ export async function toggleFollow(followeeId: unknown) {
   if (typeof followeeId !== "string" || followeeId.length < 1 || followeeId.length > 64) return;
   if (followeeId === viewer.userId) return;
 
-  const removed = await db
-    .delete(follows)
-    .where(and(eq(follows.followerId, viewer.userId), eq(follows.followeeId, followeeId)))
-    .returning({ id: follows.followeeId });
-  if (!removed.length) {
-    // 블로그가 있는 회원만 (없는 회원 ID로 조작한 요청은 0행). 동시 요청이면 1행만 (FR-039, FR-040)
-    try {
-      await db.execute(sql`INSERT INTO ${follows} (follower_id, followee_id)
+  try {
+    await db.transaction(async (tx) => {
+      const removed = await tx
+        .delete(follows)
+        .where(and(eq(follows.followerId, viewer.userId), eq(follows.followeeId, followeeId)))
+        .returning({ id: follows.followeeId });
+      if (removed.length) return;
+      // 블로그가 있는 회원만 (없는 회원 ID로 조작한 요청은 0행). 동시 요청이면 1행만 (FR-039, FR-040)
+      const added = await tx.execute(sql`INSERT INTO ${follows} (follower_id, followee_id)
         SELECT ${viewer.userId}, ${blogs.ownerId} FROM ${blogs} WHERE ${blogs.ownerId} = ${followeeId}
         ON CONFLICT DO NOTHING`);
-    } catch (err) {
-      // 그 순간 대상 회원이 지워졌으면 무시 (research R10)
-      if (!foreignKeyViolation(err)) throw err;
-    }
+      // 새로 이웃이 됐으면 상대에게 알림 (SOC-06). 같은 사람에게서는 처음 한 번만
+      if (added.rowCount) await notifyFollow(tx, { recipientId: followeeId, actorId: viewer.userId });
+    });
+  } catch (err) {
+    // 그 순간 대상 회원이 지워졌으면 무시 (research R10)
+    if (!foreignKeyViolation(err)) throw err;
   }
   revalidatePath("/", "layout");
 }

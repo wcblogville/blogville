@@ -13,6 +13,7 @@ import {
 } from "@/components/blog/blog-sidebar";
 import { OwnerToolbar } from "@/components/blog/owner-toolbar";
 import { HouseRoom } from "@/components/blog/house-room";
+import { NeighborsWidget } from "@/components/blog/neighbor-list";
 import { CategoryNav } from "@/components/blog/category-nav";
 import { PostCard } from "@/components/blog/post-card";
 import { Pagination, parsePage } from "@/components/pagination";
@@ -34,6 +35,7 @@ import {
 } from "@/server/blog";
 import { getViewer } from "@/server/dal";
 import { getOwnedFurniture, getPlacedFurniture } from "@/server/house";
+import { getNeighborCounts, listNeighbors, NEIGHBOR_PREVIEW } from "@/server/neighbors";
 import { getWallet } from "@/server/points";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
@@ -68,7 +70,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   const base = `/@${blog.slug}`;
 
   const welcome = isOwner && Boolean(sp.welcome);
-  const [cats, list, following, visits, grown, found, ownerWallet, placed, owned, side] = await Promise.all([
+  const [cats, list, following, visits, grown, found, ownerWallet, placed, owned, side, neighborCounts, neighborPreview] = await Promise.all([
     getCategories(blog.id, isOwner),
     search
       ? search.empty
@@ -89,6 +91,9 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
     getPlacedFurniture(blog.ownerId),
     isOwner ? getOwnedFurniture(blog.ownerId) : null,
     getBlogSidebar(blog.id, isOwner),
+    // 👫 이웃 위젯 (SOC-06): 수는 모두에게, 얼굴(목록)은 회원에게만
+    getNeighborCounts(blog.ownerId),
+    viewerId ? listNeighbors({ ownerId: blog.ownerId, tab: "following", viewerId, limit: NEIGHBOR_PREVIEW }).then((r) => r.rows) : [],
   ]);
   // 문: 마을의 이 집 앞으로 나간다. 처음 가입한 회원은 환영 문구가 있는 마을로 (마을 개편 2차)
   const doorHref = welcome ? "/town?welcome=1" : `/town?at=${blog.slug}`;
@@ -219,7 +224,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
           {list && <Pagination page={list.page} pageCount={list.pageCount} hrefFor={pageHref} />}
         </section>
 
-        {/* 옆 칸 위젯 (티스토리처럼). 검색 → 카테고리 → 최근 글 → 인기 글 → 최근 댓글 → 태그 → 방문자 */}
+        {/* 옆 칸 위젯 (티스토리처럼). 검색 → 카테고리 → 최근 글 → 인기 글 → 최근 댓글 → 이웃 → 태그 → 방문자 */}
         <aside className="grid min-w-0 content-start gap-6" aria-label="블로그 옆 칸" data-blog-sidebar>
           <BlogFindBox base={base} s={find?.q ?? ""} />
           {/* 마을의 글·블로그 검색은 주인에게만 (FR-050) */}
@@ -228,6 +233,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
           <RecentPostsWidget base={base} posts={side.recent} />
           <PopularPostsWidget base={base} posts={side.popular} />
           <RecentCommentsWidget base={base} comments={side.comments} />
+          <NeighborsWidget base={base} counts={neighborCounts} preview={neighborPreview} member={Boolean(viewerId)} />
           <TagsWidget base={base} tags={side.tags} current={tag} />
           <VisitorsWidget blogId={blog.id} initial={visits} isOwner={isOwner} />
         </aside>

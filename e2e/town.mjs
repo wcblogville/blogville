@@ -118,9 +118,10 @@ check("친구 목록: 이웃 없음 안내", await panel().getByText("아직 이
     const [x1, y1] = await feet();
     return [x1 - x0, y1 - y0];
   };
+  // 갔다가 되돌아오는 순서라 막힌 곳에 부딪히지 않는다
   const [ax] = await hold("ArrowLeft");
-  const [, sy] = await hold("s");
   const [dx] = await hold("d");
+  const [, sy] = await hold("s");
   const [, wy] = await hold("w");
   check(
     "메뉴 창이 열린 채로 방향키·WASD로 걷는다",

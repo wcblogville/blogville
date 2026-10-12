@@ -21,8 +21,21 @@ type Blog = {
  * 주인 프로필 사진(48px 원형) 또는 캐릭터 얼굴 (BLOG-04 / FR-028, research R-20·R-21).
  * 사진은 post 소유 /files/{키}가 누구에게나 내려준다 (프로필 사진 첨부는 비공개 글 보호와 별개)
  */
-export function OwnerAvatar({ photoKey, characterAsset, nickname, size = 48 }: { photoKey: string | null; characterAsset: string; nickname: string; size?: number }) {
-  if (!photoKey) return <CharacterBadge asset={characterAsset} size={size} />;
+export function OwnerAvatar({
+  photoKey,
+  characterAsset,
+  nickname,
+  size = 48,
+  outfit,
+}: {
+  photoKey: string | null;
+  characterAsset: string;
+  nickname: string;
+  size?: number;
+  /** 입은 아바타 아이템 (이웃 목록) */
+  outfit?: string[];
+}) {
+  if (!photoKey) return <CharacterBadge asset={characterAsset} size={size} outfit={outfit} />;
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 회원이 올린 사진 첨부(/files)라 next/image 최적화 대상이 아니다
     <img

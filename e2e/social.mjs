@@ -154,7 +154,10 @@ await db.query("DELETE FROM posts WHERE id = ANY($1)", [[strangerPost, neighborP
   check("릴리스 노트: 방문자도 탭·탭 제목", (await guest.getByRole("link", { name: "📜 릴리스 노트" }).getAttribute("aria-current")) === "page" && (await guest.title()) === "릴리스 노트 | Blogville", await guest.title());
   check("릴리스 노트: 관리자가 그 분류로 직접 쓴 글이 맨 위", rel[0] === `손으로 쓴 릴리스 노트 ${n}`, rel.join());
   const vs = rel.filter((t) => /^v\d/.test(t)).map((t) => t.split(" ")[0]);
-  check("릴리스 노트: 시드 버전 최신순 (v0.4 → v0.1)", vs.slice(-4).join() === "v0.4,v0.3,v0.2,v0.1" || vs.slice(0, 4).join() === "v0.4,v0.3,v0.2,v0.1", vs.join());
+  // 버전이 늘면 v0.1이 2쪽으로 넘어가므로 순서만 본다 (v0.11 > v0.7: 숫자로 비교)
+  const num = (v) => v.slice(1).split(".").map(Number);
+  const desc = [...vs].sort((a, b) => num(b)[0] - num(a)[0] || num(b)[1] - num(a)[1]);
+  check("릴리스 노트: 시드 버전 최신순", vs.length >= 4 && vs.join() === desc.join() && vs.includes("v0.4"), vs.join());
   check("릴리스 노트: 비공개·다른 분류·분류 없는 관리자 글은 없음",
     [`비공개 릴리스 노트 ${n}`, `공지 분류 옛 글 ${n}`, `분류 없는 관리자 글 ${n}`, notice?.title].every((t) => !rel.includes(t)));
   check("릴리스 노트: 맨 위 공지 카드도 걸림", (await guest.locator("[data-pinned-notice]").count()) === 1);

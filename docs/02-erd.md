@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.19 (2026-10-12, 이웃 추가 알림: `notification_kind`에 `follow`(글 없음), `notifications_shape_check`에 follow 모양, 같은 사람에게서 한 번만 `notifications_follow_uq`, 마이그레이션 0041, SOC-06). 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -245,9 +245,9 @@ erDiagram
     notifications {
         int id PK
         varchar user_id FK "받는 회원"
-        notification_kind kind "level_up / like / comment / reply"
+        notification_kind kind "level_up / like / comment / reply / follow"
         varchar actor_id FK "행동한 회원, 레벨업은 NULL"
-        int post_id FK "관련 글, 레벨업은 NULL"
+        int post_id FK "관련 글, 레벨업·이웃 추가는 NULL"
         smallint level "레벨업만, 2~99"
         timestamptz created_at
         timestamptz read_at "NULL = 안 읽음"
@@ -592,7 +592,7 @@ COMMIT
 | `animal_status` | `egg`, `growing`, `grown` |
 | `egg_source` | `starter`(농장 첫 알), `level`(5레벨마다), `shop`(코인으로 산 알), `adopt`(코인으로 분양받은 아기, 알 없음) |
 | `care_action` | `feed`(밥), `water`(물), `pet`(쓰다듬기) |
-| `notification_kind` | `level_up`(레벨업), `like`(공감), `comment`(댓글), `reply`(답글) |
+| `notification_kind` | `level_up`(레벨업), `like`(공감), `comment`(댓글), `reply`(답글), `follow`(나를 이웃으로 추가, 1.19) |
 
 ### 3.16 인덱스
 
@@ -611,6 +611,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 | `notifications (user_id, created_at DESC, id DESC)` | 알림함 최신순 (`notifications_user_created_idx`) |
 | `notifications (user_id) WHERE read_at IS NULL` | 안 읽은 알림 수 (`notifications_unread_idx`) |
 | `notifications (post_id) WHERE post_id IS NOT NULL` | 글 삭제 때 CASCADE 대상 찾기 (`notifications_post_idx`) |
+| `notifications (user_id, actor_id) WHERE post_id IS NULL AND actor_id IS NOT NULL` (UNIQUE) | 이웃 추가 알림은 같은 사람에게서 1번 (`notifications_follow_uq`, 1.19) |
 | `point_ledger (user_id, reason, created_at)` | 잔액 계산, 하루 상한 확인 |
 | `point_ledger (user_id, created_at DESC)` | 경험치·코인 내역 최신순 (GAME-07) |
 | `follows (followee_id)` | 나를 이웃 추가한 사람 |
@@ -678,7 +679,7 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 
 **BCNF**: 각 표의 다른 후보 키(`users.email`, `users.username`, `blogs.slug`, `profiles.nickname`, `items.code`, `tags.name`, `categories (blog_id, name)`, `subcategories (category_id, name)`, `accounts (provider_id, account_id)`, `accounts (user_id, provider_id)`, `login_attempts.username`(PK))는 모두 UNIQUE로 걸려 있어, PK가 아닌 결정자가 따로 남지 않는다.
 
-### 3.21 알림 (GAME-06·GAME-08)
+### 3.21 알림 (GAME-06·GAME-08·SOC-06)
 
 - 알림은 종류마다 표를 나누지 않고 **`notifications` 한 표**에 `kind`(`notification_kind`)로 구별한다 (`0025_notifications`). 엔티티라 자기 번호 `id`가 PK (3.7).
 
@@ -688,12 +689,14 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
   | `like` | 글 주인 | 공감한 회원 | 그 글 | NULL |
   | `comment` | 글 주인 | 댓글 단 회원 | 그 글 | NULL |
   | `reply` | 원댓글 작성자 | 답글 단 회원 | 그 글 | NULL |
+  | `follow` (1.19) | 이웃으로 추가된 회원 | 추가한 회원 | NULL | NULL |
 
 - CHECK
-  - `notifications_shape_check`: 위 표의 모양 (레벨업이면 `level`만, 나머지는 `actor_id`·`post_id`만)
+  - `notifications_shape_check`: 위 표의 모양 (레벨업이면 `level`만, 이웃 추가면 `actor_id`만, 나머지는 `actor_id`·`post_id`만). `follow`는 같은 마이그레이션에서 enum에 더한 값이라 `kind::text`로 비교한다 (새 enum 값은 그 트랜잭션이 끝나기 전에 enum으로 못 쓴다)
   - `notifications_level_check`: `level`은 NULL 또는 2~99
   - `notifications_not_self_check`: 자기 활동은 알리지 않는다 (`actor_id <> user_id`)
 - **레벨업 알림은 회원·레벨마다 한 번**: 부분 고유 인덱스 `notifications_level_up_uq (user_id, level) WHERE kind = 'level_up'`. 레벨업 알림은 경험치 원장 기록과 같은 트랜잭션에서 넣는다.
+- **이웃 추가 알림은 같은 사람에게서 한 번** (1.19, 사용자 요청 2026-10-12 "누가 팔로우 하면 알림 가게"): 끊었다 다시 추가해도 다시 보내지 않는다. 부분 고유 인덱스 `notifications_follow_uq (user_id, actor_id) WHERE post_id IS NULL AND actor_id IS NOT NULL` — 모양 CHECK상 이 조건은 `follow` 행뿐이고, 인덱스 조건에는 `kind::text` 같은 바뀔 수 있는 식을 못 써서 이렇게 건다. 이웃 추가(`toggleFollow`)와 같은 트랜잭션에서 `notifyFollow`가 `ON CONFLICT DO NOTHING`으로 넣는다.
 - 삭제: `user_id`·`actor_id`·`post_id` 모두 `ON DELETE CASCADE`. 받는 회원이 탈퇴하면 받은 알림이, 행동한 회원이 탈퇴하면 그 회원이 남긴 알림이, 글을 지우면 그 글 알림이 지워진다. 공감 취소·댓글 삭제로는 지우지 않는다.
 - 문구·닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다 (`profiles.nickname`, `posts.title`, `blogs.slug`) (3.17).
 - `read_at`이 NULL이면 안 읽음. 조회·변경은 늘 `user_id = 로그인한 회원`으로 거른다.

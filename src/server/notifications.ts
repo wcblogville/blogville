@@ -2,10 +2,14 @@
 // 모든 조회·변경은 user_id = 지금 로그인한 회원 조건을 붙인다 (US6-4)
 import "server-only";
 import { and, desc, eq, gte, isNull, lte, ne, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { blogs, items, notifications, posts, profiles } from "@/db/schema";
 import type { NotificationRow } from "@/lib/notifications";
 import type { Tx } from "@/server/points";
+
+// 행동한 회원의 블로그 (이웃 추가 알림이 가는 곳)
+const actorBlog = alias(blogs, "actor_blog");
 
 /** 헤더용 한 쿼리: 안 읽은 수(10에서 멈춤), 안 읽은 레벨업의 가장 높은·낮은 레벨 */
 export async function getHeaderNotifications(userId: string) {
@@ -67,11 +71,13 @@ export async function listNotifications(userId: string, page: number) {
       postId: notifications.postId,
       postTitle: posts.title,
       blogSlug: blogs.slug,
+      actorSlug: actorBlog.slug,
     })
     .from(notifications)
     .leftJoin(profiles, eq(profiles.userId, notifications.actorId))
     .leftJoin(posts, eq(posts.id, notifications.postId))
     .leftJoin(blogs, eq(blogs.id, posts.blogId))
+    .leftJoin(actorBlog, eq(actorBlog.ownerId, notifications.actorId))
     .where(eq(notifications.userId, userId))
     .orderBy(desc(notifications.createdAt), desc(notifications.id))
     .limit(NOTIFICATIONS_PAGE_SIZE)
@@ -87,10 +93,11 @@ export async function listNotifications(userId: string, page: number) {
 /** 알림 하나와 이동할 곳을 만들 값 (본인 것만) */
 export async function getOwnNotification(userId: string, id: number) {
   const [row] = await db
-    .select({ kind: notifications.kind, postId: notifications.postId, blogSlug: blogs.slug })
+    .select({ kind: notifications.kind, postId: notifications.postId, blogSlug: blogs.slug, actorSlug: actorBlog.slug })
     .from(notifications)
     .leftJoin(posts, eq(posts.id, notifications.postId))
     .leftJoin(blogs, eq(blogs.id, posts.blogId))
+    .leftJoin(actorBlog, eq(actorBlog.ownerId, notifications.actorId))
     .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
   return row ?? null;
 }
@@ -126,4 +133,18 @@ export async function notifyActivity(
   }
   await tx.insert(notifications).values({ userId: input.recipientId, kind: input.kind, actorId: input.actorId, postId: input.postId });
   return true;
+}
+
+/**
+ * 이웃 추가 알림 (SOC-06, 사용자 요청 2026-10-12 "누가 팔로우 하면 알림 가게"). 이웃 추가와 같은 트랜잭션 안에서 부른다.
+ * 자기 자신이면 넣지 않는다. 같은 사람에게서는 처음 한 번만 (끊었다 다시 추가해도 다시 안 감, notifications_follow_uq). 넣었으면 true
+ */
+export async function notifyFollow(tx: Tx, input: { recipientId: string; actorId: string }): Promise<boolean> {
+  if (input.recipientId === input.actorId) return false;
+  const rows = await tx
+    .insert(notifications)
+    .values({ userId: input.recipientId, kind: "follow", actorId: input.actorId })
+    .onConflictDoNothing({ target: [notifications.userId, notifications.actorId], where: sql`${notifications.postId} IS NULL AND ${notifications.actorId} IS NOT NULL` })
+    .returning({ id: notifications.id });
+  return rows.length > 0;
 }
