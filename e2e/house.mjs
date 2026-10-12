@@ -6,7 +6,7 @@
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
-import { BASE, collectErrors, loginDev } from "./helpers.mjs";
+import { BASE, collectErrors, loginDev, roomTileCenter, walkInRoom } from "./helpers.mjs";
 
 config({ path: ".env.local", quiet: true });
 const outDir = process.argv[2] ?? "e2e-shots";
@@ -75,27 +75,22 @@ await room.screenshot({ path: `${outDir}/01-room-1280.png` });
 
 // ===== 가구 놓기 (편집): 끌어 놓기 · 겹침 막기 · 방향키 · 뒤집기 · 빼기 · 취소 · 저장 =====
 /** 바닥 칸 (x, y) 가운데의 화면 좌표 (줄인 배율 포함) */
-const tileCenter = async (x, y, pg = page) =>
-  pg.locator("[data-house-room] [data-room-grid]").evaluate(
-    (el, [x, y]) => {
-      const r = el.getBoundingClientRect();
-      const k = r.width / el.offsetWidth;
-      const [ox, oy] = el.dataset.origin.split(",").map(Number);
-      const [tw, th] = el.dataset.tileSize.split(",").map(Number);
-      return { x: r.left + (ox + ((x - y) * tw) / 2) * k, y: r.top + (oy + ((x + y + 1) * th) / 2) * k };
-    },
-    [x, y],
-  );
+const tileCenter = (x, y, pg = page) => roomTileCenter(pg, x, y);
 const piece = (code, pg = page) => pg.locator(`[data-house-room] [data-furniture="furniture.${code}"]`);
 const tileOf = async (code, pg = page) => piece(code, pg).getAttribute("data-tile");
-/** 가구를 끌어 (x, y) 칸에 놓는다. 손가락이 가구 위 어디를 잡든 같은 만큼 옮긴다. shot이면 놓기 전에 찍는다 */
-const dragTo = async (code, x, y, shot, pg = page) => {
+/**
+ * 가구를 끌어 (x, y) 칸에 놓는다. 손가락이 가구 위 어디를 잡든 같은 만큼 옮긴다. shot이면 놓기 전에 찍는다.
+ * 2026-10-12 가구 크기: 가구가 차지하는 뒤 모서리 칸(바닥)을 잡는다 (방이 누른 곳의 그림 도트·바닥 칸으로 가구를 찾는다)
+ */
+const grabPoint = async (code, pg = page) => {
   const [fx, fy] = (await tileOf(code, pg)).split(",").map(Number);
-  const from = await tileCenter(fx, fy, pg);
+  return tileCenter(fx, fy, pg);
+};
+const dragTo = async (code, x, y, shot, pg = page) => {
+  const from = await grabPoint(code, pg);
   const to = await tileCenter(x, y, pg);
-  const box = await piece(code, pg).locator("button").boundingBox();
-  const sx = box.x + box.width / 2;
-  const sy = box.y + box.height * 0.6;
+  const sx = from.x;
+  const sy = from.y;
   await pg.mouse.move(sx, sy);
   await pg.mouse.down();
   await pg.mouse.move(sx + (to.x - from.x) / 2, sy + (to.y - from.y) / 2, { steps: 5 });
@@ -147,7 +142,10 @@ await room.screenshot({ path: `${outDir}/04-after-save.png` });
 
 // 빼기: 고른 가구 [📦 빼기] → 저장하면 사라짐, 목록에서 누르면 빈 칸에 다시 놓임
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
-await piece("plant").locator("button").click();
+{
+  const g = await grabPoint("plant");
+  await page.mouse.click(g.x, g.y);
+}
 await room.getByRole("button", { name: /빼기/ }).click();
 check("[📦 빼기] → 방에서 빠지고 목록에 `＋ 놓기`", (await piece("plant").count()) === 0 && (await room.locator("[data-furniture-tray]").innerText()).includes("＋ 놓기"));
 await room.getByRole("button", { name: /초록 화분/ }).click();
@@ -206,15 +204,15 @@ check("새 지붕 색 저장", savedRoof === secondRoofs[1], String(savedRoof));
 await page.screenshot({ path: `${outDir}/house-roof-2.png` });
 await room.getByRole("button", { name: /다 골랐어요/ }).click();
 
-// 2단계 편집: 탁자를 넣어 7×7 방의 맨 앞 칸(6,6)으로, 가구 6개 저장
+// 2단계 편집: 탁자(2×1칸)를 넣어 7×7 방의 맨 앞 줄(5,6 → 5~6칸)로, 가구 6개 저장
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
 await room.getByRole("button", { name: /둥근 탁자/ }).click();
-await dragTo("table", 6, 6);
+await dragTo("table", 5, 6);
 for (let i = 0; i < 3; i++) await unplacedButtons().first().click();
 check("2단계: 6/6개", (await countText()).includes("가구 6/6개"), await countText());
 await save();
 const six = await placed();
-check("2단계: 7×7 방 맨 앞 칸(6,6)에 탁자, 가구 6개 저장", six.includes("6,6:fur_table") && six.split(" ").length === 6, six);
+check("2단계: 7×7 방 맨 앞 줄(5,6)에 탁자(2칸), 가구 6개 저장", six.includes("5,6:fur_table") && six.split(" ").length === 6, six);
 
 // 서버도 개수를 다시 센다: 화면은 2단계(6개)인데 그사이 레벨이 1단계로 내려갔다고 치면 저장을 막는다 (원장 행을 잠깐 지움)
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
@@ -233,7 +231,7 @@ await setExp(expFor(10));
   await gp.goto(`${BASE}/@${H}`);
   const groom = gp.locator("[data-house-room]");
   const shown = await groom.locator("[data-furniture]").evaluateAll((els) => els.length);
-  check("방문자에게 가구 6개 보임, 탁자는 저장된 칸(6,6)", shown === 6 && (await tileOf("table", gp)) === "6,6", `${shown} ${await tileOf("table", gp)}`);
+  check("방문자에게 가구 6개 보임, 탁자는 저장된 칸(5,6)", shown === 6 && (await tileOf("table", gp)) === "5,6", `${shown} ${await tileOf("table", gp)}`);
   check("방문자에게 가구 놓기 없음", (await groom.getByRole("button", { name: /가구 놓기/ }).count()) === 0);
   check("문 주소 = /town?at=주소", (await groom.locator("[data-house-door]").getAttribute("href")) === `/town?at=${H}`);
   await gp.screenshot({ path: `${outDir}/house-visitor.png` });
@@ -262,10 +260,10 @@ check("5단계: 방 10×10칸, 가구 8개까지", (await countText()).includes(
 }
 await room.getByRole("button", { name: "🛋 가구 놓기" }).click();
 await unplacedButtons().first().click();
-await dragTo("table", 9, 9);
+await dragTo("table", 8, 9);
 await dragTo("chair", 6, 2);
 await save();
-check("5단계: 맨 앞 칸(9,9)에 놓고 저장", (await placed()).includes("9,9:fur_table"), await placed());
+check("5단계: 맨 앞 줄(8,9 → 8~9칸)에 놓고 저장", (await placed()).includes("8,9:fur_table"), await placed());
 await page.waitForTimeout(1500);
 await room.screenshot({ path: `${outDir}/05-stage5-10x10.png` });
 
@@ -284,6 +282,8 @@ await room.screenshot({ path: `${outDir}/05-stage5-10x10.png` });
     // 동물은 캐릭터의 3/4 도트: 캐릭터 3px(24칸 = 72px)이면 동물 2px(32칸 = 64px)
     check("1280px 10×10: 전시 동물도 방과 함께 작아짐 (64px 칸)", z.pet === 64, JSON.stringify(z));
   }
+  // 2026-10-12: 누르면 걷는다. 방 왼쪽 앞 모서리를 눌러 멀리 걷게 한다
+  await walkInRoom(page);
   await page.waitForFunction(() => document.querySelector("[data-room-resident]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 12000 }).catch(() => {});
   const trace = await page.evaluate(
     () =>

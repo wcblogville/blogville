@@ -5,7 +5,7 @@
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
-import { BASE, coins, collectErrors, loginDev } from "./helpers.mjs";
+import { BASE, coins, collectErrors, loginDev, walkInRoom } from "./helpers.mjs";
 
 config({ path: ".env.local", quiet: true });
 const outDir = process.argv[2] ?? "e2e-shots";
@@ -179,6 +179,7 @@ check("공개 글 보상 → 동물 성장 +10", (await one("SELECT growth FROM 
   const pet = page.locator("[data-house-room] [data-showcase]");
   await pet.waitFor();
   check("방 안 전시 동물에 스킨·크기", (await pet.getAttribute("data-skin")) === calico.asset_key && (await pet.getAttribute("data-size")) === "small");
+  await walkInRoom(page);
   const walked = await page
     .waitForFunction(() => document.querySelector("[data-showcase]")?.dataset.walk?.startsWith("walk-"), null, { timeout: 15000 })
     .then(() => true, () => false);

@@ -59,3 +59,27 @@ export async function loginDev(page, devId, character = "남자 주민", passwor
 export async function coins(page) {
   return Number(await page.getByRole("banner").getByTitle("코인").getAttribute("data-coins"));
 }
+
+/** 우리 집 방 바닥 칸 (x, y) 가운데의 화면 좌표 (방 카메라 배율 포함) */
+export async function roomTileCenter(page, x, y) {
+  return page.locator("[data-house-room] [data-room-grid]").evaluate(
+    (el, [x, y]) => {
+      const r = el.getBoundingClientRect();
+      const k = r.width / el.offsetWidth;
+      const [ox, oy] = el.dataset.origin.split(",").map(Number);
+      const [tw, th] = el.dataset.tileSize.split(",").map(Number);
+      return { x: r.left + (ox + ((x - y) * tw) / 2) * k, y: r.top + (oy + ((x + y + 1) * th) / 2) * k };
+    },
+    [x, y],
+  );
+}
+
+/**
+ * 우리 집 방 바닥 칸을 눌러 주인 캐릭터를 걷게 한다 (2026-10-12부터 혼자 돌아다니지 않고 누르면 걷는다).
+ * 기본은 방 왼쪽 앞 모서리 칸 (처음 자리인 방 가운데에서 멀다)
+ */
+export async function walkInRoom(page, x = null, y = null) {
+  const grid = Number(await page.locator("[data-house-room] [data-room-grid]").getAttribute("data-room-grid"));
+  const t = await roomTileCenter(page, x ?? 0, y ?? grid - 1);
+  await page.mouse.click(t.x, t.y);
+}
