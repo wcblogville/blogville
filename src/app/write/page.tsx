@@ -2,7 +2,6 @@ import { PostForm } from "@/components/editor/post-form";
 import { PixelIcon } from "@/components/pixel-icon";
 import { requireMember } from "@/server/dal";
 import { getCategoryOptions } from "@/server/posts";
-import "@/app/pixel-blog.css";
 
 export const metadata = { title: "글쓰기" };
 

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PostCard, type PostCardData } from "@/components/blog/post-card";
 import { Pagination } from "@/components/pagination";
-import "@/app/pixel-blog.css";
 
 type Tag = { name: string; count: number };
 

@@ -5,7 +5,6 @@ import { parseId } from "@/lib/ids";
 import { getPost, getPostTags } from "@/server/blog";
 import { requireMember } from "@/server/dal";
 import { getCategoryOptions } from "@/server/posts";
-import "@/app/pixel-blog.css";
 
 export const metadata = { title: "글 고치기" };
 

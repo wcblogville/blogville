@@ -9,7 +9,6 @@ import { parseSearchQuery, SEARCH_QUERY_MAX } from "@/lib/blog";
 import { formatDate } from "@/lib/format";
 import { listBlogPosts } from "@/server/blog";
 import { requireMember } from "@/server/dal";
-import "@/app/pixel-blog.css";
 
 export const metadata = { title: "글 관리" };
 

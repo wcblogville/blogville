@@ -35,7 +35,6 @@ import {
 import { getViewer } from "@/server/dal";
 import { getOwnedFurniture, getPlacedFurniture } from "@/server/house";
 import { getWallet } from "@/server/points";
-import "@/app/pixel-blog.css";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]">) {
   const { slug } = await props.params;

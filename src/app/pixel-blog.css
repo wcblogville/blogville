@@ -41,15 +41,15 @@
     box-shadow: inset 0 0 0 2px #cdbda6;
   }
 
-  /* 옆 칸 목록 한 줄: 올리면 연한 금색, 고른 줄(aria-current)은 왼쪽 금색 막대 */
+  /* 옆 칸 목록 한 줄: 올리면 연한 크림색, 고른 줄(aria-current)은 노란 바탕(#fff3d6, e2e/blog-home US2-6) + 왼쪽 금색 막대 */
   .pb-row {
     transition: background-color 0.06s steps(1);
   }
   .pb-row:hover {
-    background: #fff3d6;
+    background: #fff8e6;
   }
   .pb-row[aria-current="page"] {
-    background: #ffe7a3;
+    background: #fff3d6;
     box-shadow: inset 4px 0 0 0 #d99a36;
     font-weight: 700;
   }

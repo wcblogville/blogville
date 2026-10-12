@@ -8,7 +8,6 @@ import { getSocialLogins } from "@/server/account";
 import { requireMember } from "@/server/dal";
 import { DeleteAccountForm, LinkSocialButton, UnlinkSocialButton } from "./account-forms";
 import { NicknameForm } from "./nickname-form";
-import "@/app/pixel-blog.css";
 
 export const metadata = { title: "내 정보" };
 

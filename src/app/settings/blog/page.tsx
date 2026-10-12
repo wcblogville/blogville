@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getBlogByOwner, getBlogVisitDays, getBlogVisitStats, getCategories } from "@/server/blog";
 import { requireMember } from "@/server/dal";
 import { BlogInfoForm, BlogSlugForm, CategoryManager } from "./settings-forms";
-import "@/app/pixel-blog.css";
 
 export const metadata = { title: "블로그 관리" };
 

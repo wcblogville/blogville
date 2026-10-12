@@ -20,7 +20,6 @@ import { getViewer } from "@/server/dal";
 import { getPublishNotice, hasViewedToday } from "@/server/posts";
 import { getCommentThread } from "@/server/social";
 import { readVisitorId } from "@/server/visitor";
-import "@/app/pixel-blog.css";
 
 async function load(props: PageProps<"/blog/[slug]/[postId]">) {
   const { slug, postId } = await props.params;

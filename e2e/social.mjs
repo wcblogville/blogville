@@ -66,7 +66,8 @@ await guest.waitForURL(new RegExp(`/@${F}/${fPosts[8]}$`));
 check("US1-3 카드 클릭 1번 → 글 상세 (SC-008)", true);
 await guest.goto(`${BASE}/feed?page=999`);
 check("US1-5 빈 쪽 문구", await guest.getByText("아직 마을에 글이 없어요. 첫 글의 주인공이 되어 보세요! ✏️").isVisible());
-check("US1-5 빈 쪽 현재 페이지 표시 없음", (await guest.locator('[aria-current="page"]').count()) === 0);
+// 페이지 번호 줄만 본다: 마을 소식 탭([🏘 마을 전체])도 지금 탭이라 aria-current="page"를 단다 (도트 탭, 2026-10-12)
+check("US1-5 빈 쪽 현재 페이지 표시 없음", (await guest.locator('nav[aria-label="페이지"] [aria-current="page"]').count()) === 0);
 await guest.goto(`${BASE}/feed`);
 const tagLinks = await guest.locator('a[href^="/tags/"]').count();
 check("US1-6 인기 태그 최대 30개·태그 목록 링크", tagLinks <= 30);
