@@ -56,7 +56,9 @@ export default async function WalletPage(props: PageProps<"/wallet">) {
       <section className="pixel-card mt-8 p-4 sm:p-5">
         <h2 className="pixel-heading mb-2 text-xl">
           <PixelIcon name="book" />
-          기록 <span className="pixel-badge text-sm">{ledger.total}개</span>
+          <span>
+            기록 <span className="pixel-badge ml-1 text-sm">{ledger.total}개</span>
+          </span>
         </h2>
         {ledger.rows.length ? (
           <ul className="pixel-rows">

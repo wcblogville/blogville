@@ -82,7 +82,13 @@ check("FR-026 오늘 일차 칸 강조", ((await main.locator('li[aria-current="
 const month = await db.query("SELECT count(*)::int AS n FROM attendances WHERE user_id = $1 AND date >= $2", [uid, `${TODAY.slice(0, 7)}-01`]);
 check("FR-027 `이번 달 N일 출석 · 현재 4일차`", mainText.includes(`이번 달 ${month.rows[0].n}일 출석 · 현재 4일차`), mainText.match(/이번 달[^\n]*/)?.[0]);
 const todayCell = main.locator(`[data-date="${TODAY}"]`);
-check("US3-10 오늘 칸 🌟 + 노란 테두리", (await todayCell.innerText()) === "🌟" && (await todayCell.getAttribute("class")).includes("border-sun"));
+// 도트 칸이라 테두리는 안쪽 금색 선(box-shadow #d99a36)으로 그린다 (2026-10-12)
+check(
+  "US3-10 오늘 칸 🌟 + 노란 테두리",
+  (await todayCell.innerText()) === "🌟" &&
+    (await todayCell.getAttribute("data-today")) === "true" &&
+    (await todayCell.evaluate((el) => getComputedStyle(el).boxShadow)).includes("rgb(217, 154, 54)"),
+);
 check("US3-10 달력은 이번 달만", (await main.locator("[data-date]").evaluateAll((els) => els.every((e) => e.dataset.date.startsWith(document.querySelector("[data-date]").dataset.date.slice(0, 7))))));
 const oldTexts = ["출석하고 보상 받기", "편지 여는 중", "일 연속", "연속 보너스", "이미 출석했어요", "현재 연속", "연속 출석이 끊겼어요", "아직 출석 기록이 없어요"];
 check("FR-030 옛 문구 없음", oldTexts.every((t) => !mainText.includes(t)), oldTexts.filter((t) => mainText.includes(t)).join(","));
