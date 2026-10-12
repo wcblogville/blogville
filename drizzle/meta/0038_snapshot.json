@@ -1,6 +1,6 @@
 {
   "id": "67aa55c9-4b8c-43b5-920d-770df60e6204",
-  "prevId": "c69fcf39-7da3-41fa-93d6-ef78a5a85c3d",
+  "prevId": "7338527d-d631-4b2f-8f1d-729e00ab040e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3700,6 +3700,7 @@
       "schema": "public",
       "values": [
         "public",
+        "neighbors",
         "private"
       ]
     }

@@ -1,6 +1,6 @@
 {
   "id": "d73b6919-5e03-40e5-a2b3-93fd1614e703",
-  "prevId": "c69fcf39-7da3-41fa-93d6-ef78a5a85c3d",
+  "prevId": "0c1115a9-31a8-47cf-8ecd-7af074f11bd6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1798,6 +1798,28 @@
           "method": "btree",
           "with": {}
         },
+        "notifications_follow_uq": {
+          "name": "notifications_follow_uq",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "actor_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"notifications\".\"post_id\" IS NULL AND \"notifications\".\"actor_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "notifications_user_created_idx": {
           "name": "notifications_user_created_idx",
           "columns": [
@@ -1905,7 +1927,7 @@
       "checkConstraints": {
         "notifications_shape_check": {
           "name": "notifications_shape_check",
-          "value": "(\"notifications\".\"kind\" = 'level_up' AND \"notifications\".\"level\" IS NOT NULL AND \"notifications\".\"actor_id\" IS NULL AND \"notifications\".\"post_id\" IS NULL) OR (\"notifications\".\"kind\" <> 'level_up' AND \"notifications\".\"level\" IS NULL AND \"notifications\".\"actor_id\" IS NOT NULL AND \"notifications\".\"post_id\" IS NOT NULL)"
+          "value": "(\"notifications\".\"kind\" = 'level_up' AND \"notifications\".\"level\" IS NOT NULL AND \"notifications\".\"actor_id\" IS NULL AND \"notifications\".\"post_id\" IS NULL) OR (\"notifications\".\"kind\"::text = 'follow' AND \"notifications\".\"level\" IS NULL AND \"notifications\".\"actor_id\" IS NOT NULL AND \"notifications\".\"post_id\" IS NULL) OR (\"notifications\".\"kind\"::text NOT IN ('level_up', 'follow') AND \"notifications\".\"level\" IS NULL AND \"notifications\".\"actor_id\" IS NOT NULL AND \"notifications\".\"post_id\" IS NOT NULL)"
         },
         "notifications_level_check": {
           "name": "notifications_level_check",
@@ -3210,6 +3232,25 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'normal'"
+        },
+        "sex": {
+          "name": "sex",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "variant": {
+          "name": "variant",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "display_form": {
+          "name": "display_form",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'adult'"
         }
       },
       "indexes": {
@@ -3359,6 +3400,18 @@
         "user_animals_display_size_check": {
           "name": "user_animals_display_size_check",
           "value": "\"user_animals\".\"display_size\" IN ('tiny', 'small', 'normal', 'large')"
+        },
+        "user_animals_sex_check": {
+          "name": "user_animals_sex_check",
+          "value": "(\"user_animals\".\"status\" = 'egg') = (\"user_animals\".\"sex\" IS NULL) AND (\"user_animals\".\"sex\" IS NULL OR \"user_animals\".\"sex\" IN ('female', 'male'))"
+        },
+        "user_animals_variant_check": {
+          "name": "user_animals_variant_check",
+          "value": "\"user_animals\".\"variant\" IS NULL OR \"user_animals\".\"status\" = 'grown'"
+        },
+        "user_animals_display_form_check": {
+          "name": "user_animals_display_form_check",
+          "value": "\"user_animals\".\"display_form\" IN ('adult', 'baby')"
         }
       },
       "isRLSEnabled": false
@@ -3671,7 +3724,8 @@
         "level_up",
         "like",
         "comment",
-        "reply"
+        "reply",
+        "follow"
       ]
     },
     "public.user_role": {
@@ -3687,6 +3741,7 @@
       "schema": "public",
       "values": [
         "public",
+        "neighbors",
         "private"
       ]
     }
