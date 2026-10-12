@@ -1,5 +1,6 @@
-// 내 정보: 소셜 연동·해제 (AUTH-05 / FR-036~FR-042, FR-054, SC-011 / quickstart 4.5의 1~11번)
+// 회원정보 수정: 소셜 연동·해제 (AUTH-05 / FR-036~FR-042, FR-054, SC-011 / quickstart 4.5의 1~11번)
 // 회원 탈퇴 (AUTH-06 / FR-050~FR-052, SC-014 / quickstart 4.5의 12~20번)
+// 회원정보 수정: 비밀번호 변경·프로필 사진 (AUTH-11, 21~24번)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/account.mjs <스크린샷 폴더>
 // 소셜 키 없이 확인한다. "연동됨" 상태는 DB에 소셜 로그인 수단 행을 직접 넣어 만든다 (실제 연동 흐름은 quickstart 6장 수동 확인).
 // DB는 .env.local의 DATABASE_URL로 준비·확인한다. 실행마다 새 아이디를 쓴다.
@@ -79,10 +80,10 @@ if (SOCIAL_KEYS.length) results.push(`ℹ️ 소셜 키가 있는 서비스: ${S
 const { ctx, page, errors } = await fresh();
 await loginDev(page, ID, "남자 주민", PW);
 
-// ── 2) 내 정보: 아이디 로그인 줄(해제 버튼 없음), 카카오·네이버·Google [연동하기] (키가 없어 비활성) ──
+// ── 2) 회원정보 수정: 아이디 로그인 줄(해제 버튼 없음), 카카오·네이버·Google [연동하기] (키가 없어 비활성) ──
 {
   await accountPage(page);
-  check("2 탭 제목 `내 정보`", (await page.title()).includes("내 정보"), await page.title());
+  check("2 탭 제목 `회원정보 수정`", (await page.title()).includes("회원정보 수정"), await page.title());
   const cred = row(page, "credential");
   check("2 `아이디 로그인 · {아이디}`", (await cred.innerText()).trim() === `아이디 로그인 · ${ID}`, await cred.innerText());
   check("2 아이디 로그인 줄에 해제 버튼 없음", (await cred.getByRole("button").count()) === 0);
@@ -99,17 +100,17 @@ await loginDev(page, ID, "남자 주민", PW);
   await page.screenshot({ path: `${outDir}/80-account.png`, fullPage: true });
 }
 
-// ── 3) 블로그 관리의 `내 정보` 링크, 헤더 캐릭터 배지 → /settings/account ──
+// ── 3) 블로그 관리의 `회원정보 수정` 링크, 헤더 캐릭터 배지 → /settings/account ──
 {
   await page.goto(`${BASE}/settings/blog`);
-  await page.getByRole("main").getByRole("link", { name: "내 정보", exact: true }).click();
+  await page.getByRole("main").getByRole("link", { name: "회원정보 수정", exact: true }).click();
   await page.waitForURL(/\/settings\/account$/, { timeout: 10000 }).catch(() => {});
-  check("3 블로그 관리 `내 정보` 링크 → 내 정보", new URL(page.url()).pathname === "/settings/account", page.url());
+  check("3 블로그 관리 `회원정보 수정` 링크 → 회원정보 수정", new URL(page.url()).pathname === "/settings/account", page.url());
   // 마을 화면은 헤더 막대가 없어서(사용자 요청 2026-10-08) 다른 화면의 헤더로 확인한다
   await page.goto(`${BASE}/feed`);
-  await page.getByRole("banner").getByRole("link", { name: "내 정보" }).click();
+  await page.getByRole("banner").getByRole("link", { name: "회원정보 수정" }).click();
   await page.waitForURL(/\/settings\/account$/, { timeout: 10000 }).catch(() => {});
-  check("3 헤더 캐릭터 배지 → 내 정보", new URL(page.url()).pathname === "/settings/account", page.url());
+  check("3 헤더 캐릭터 배지 → 회원정보 수정", new URL(page.url()).pathname === "/settings/account", page.url());
 }
 
 // ── 4) DB에 카카오 연동 행 → `연동됨 ({오늘 날짜})` + [연동 해제] ──
@@ -238,6 +239,128 @@ await ctx.close();
   await mp.screenshot({ path: `${outDir}/82-account-375.png`, fullPage: true });
   await m.close();
 }
+
+// ══ 회원정보 수정: 비밀번호 변경·프로필 사진 (AUTH-11, 2026-10-12) ══
+const NEW_PW = "account-new-5678";
+const pwHash = async () => (await one("SELECT password FROM accounts WHERE user_id = $1 AND provider_id = 'credential'", [await userId()])).password;
+const sessionRows = async () => (await db.query("SELECT remember_me FROM sessions WHERE user_id = $1", [await userId()])).rows;
+/** 첫 화면에서 아이디·비밀번호로 로그인해 본다. 성공하면 true */
+async function tryLogin(p, password) {
+  await p.goto(BASE);
+  await p.getByLabel("아이디").fill(ID);
+  await p.getByLabel("비밀번호", { exact: true }).fill(password);
+  await p.getByRole("button", { name: "로그인", exact: true }).click();
+  return p
+    .locator("canvas, [data-town-menu]:visible")
+    .or(p.getByText("아이디 또는 비밀번호가"))
+    .first()
+    .waitFor({ timeout: 20000 })
+    .then(async () => !(await p.getByText("아이디 또는 비밀번호가").isVisible()));
+}
+
+// ── 21) 비밀번호 변경 입력 오류: 문구, 비밀번호 그대로 ──
+const pw = await fresh();
+await loginDev(pw.page, ID, "남자 주민", PW);
+const other = await fresh();
+await loginDev(other.page, ID, "남자 주민", PW);
+{
+  await accountPage(pw.page);
+  const form = pw.page.locator('section[data-section="password"]');
+  const before = await pwHash();
+  const submit = async (cur, next, confirm, expect) => {
+    await form.getByLabel("지금 비밀번호").fill(cur);
+    await form.getByLabel("새 비밀번호", { exact: true }).fill(next);
+    await form.getByLabel("새 비밀번호 확인").fill(confirm);
+    await form.getByRole("button", { name: "비밀번호 바꾸기" }).click();
+    await form.getByText(expect).waitFor({ timeout: 10000 }).catch(() => {});
+    return form.getByText(expect).isVisible();
+  };
+  check("21 지금 비밀번호 빈 칸 → 문구", await submit("", NEW_PW, NEW_PW, "지금 비밀번호를 적어 주세요"));
+  check("21 새 비밀번호 7자 → `비밀번호는 8자 이상이에요`", await submit(PW, "short77", "short77", "비밀번호는 8자 이상이에요"));
+  check("21 확인이 다름 → `비밀번호가 서로 달라요`", await submit(PW, NEW_PW, `${NEW_PW}x`, "비밀번호가 서로 달라요"));
+  check("21 지금과 같음 → 문구", await submit(PW, PW, PW, "지금과 다른 비밀번호를 적어 주세요"));
+  check("21 틀린 지금 비밀번호 → `지금 비밀번호가 맞지 않아요`", await submit("wrong-pass-0000", NEW_PW, NEW_PW, "지금 비밀번호가 맞지 않아요"));
+  check("21 거부 뒤 칸 비움", (await form.getByLabel("새 비밀번호", { exact: true }).inputValue()) === "");
+  check("21 비밀번호 해시 그대로", (await pwHash()) === before);
+  await pw.page.screenshot({ path: `${outDir}/84-account-password-wrong.png`, fullPage: true });
+}
+
+// ── 22) 맞게 바꿈 → 성공 문구, 이 브라우저는 로그인 유지(같은 유지 설정), 다른 기기 세션은 끊김 ──
+{
+  const rememberBefore = (await sessionRows()).map((r) => r.remember_me);
+  check("22 준비: 세션 2개 (두 브라우저)", rememberBefore.length >= 2, String(rememberBefore.length));
+  const form = pw.page.locator('section[data-section="password"]');
+  await form.getByLabel("지금 비밀번호").fill(PW);
+  await form.getByLabel("새 비밀번호", { exact: true }).fill(NEW_PW);
+  await form.getByLabel("새 비밀번호 확인").fill(NEW_PW);
+  await form.getByRole("button", { name: "비밀번호 바꾸기" }).click();
+  const ok = form.getByText("비밀번호를 바꿨어요");
+  await ok.waitFor({ timeout: 15000 }).catch(() => {});
+  check("22 `비밀번호를 바꿨어요 ✓ …`", await ok.isVisible());
+  const after = await sessionRows();
+  check("22 세션 1개만 남음 (다른 기기 로그아웃)", after.length === 1, String(after.length));
+  check("22 남은 세션의 로그인 유지 설정 그대로 (유지 안 함)", after[0]?.remember_me === false && rememberBefore.every((r) => r === false), JSON.stringify(after));
+  await pw.page.screenshot({ path: `${outDir}/85-account-password-ok.png`, fullPage: true });
+  await pw.page.goto(`${BASE}/settings/account`);
+  check("22 이 브라우저는 그대로 로그인", new URL(pw.page.url()).pathname === "/settings/account", pw.page.url());
+  await other.page.goto(`${BASE}/settings/account`);
+  check("22 다른 브라우저는 로그아웃 → /", new URL(other.page.url()).pathname === "/", other.page.url());
+  await other.ctx.close();
+}
+
+// ── 23) 옛 비밀번호로는 로그인 안 됨, 새 비밀번호로 됨 ──
+{
+  const a = await fresh();
+  check("23 옛 비밀번호 로그인 → 실패", (await tryLogin(a.page, PW)) === false);
+  check("23 새 비밀번호 로그인 → 성공", (await tryLogin(a.page, NEW_PW)) === true);
+  await a.ctx.close();
+}
+
+// ── 24) 프로필 사진: 올리기 → 걸림, 방문자도 열림 / 남의 첨부 키는 거부 / 지우기 ──
+{
+  const page = pw.page;
+  await accountPage(page);
+  const sec = page.locator('section[data-section="profile"]');
+  check("24 처음엔 캐릭터 얼굴 + [사진 올리기]", (await sec.locator('[data-profile-photo="character"]').count()) === 1 && (await sec.getByRole("button", { name: "사진 올리기" }).isVisible()));
+  // 2×2 PNG
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mP8z8Dwn4GBgYGJAQoAAB0MAgEYqnkTAAAAAElFTkSuQmCC",
+    "base64",
+  );
+  const setAction = await captureAction(page, () => sec.getByLabel("프로필 사진 파일").setInputFiles({ name: "me.png", mimeType: "image/png", buffer: png }));
+  await sec.getByText("프로필 사진을 바꿨어요").waitFor({ timeout: 15000 }).catch(() => {});
+  check("24 `프로필 사진을 바꿨어요 ✓`", await sec.getByText("프로필 사진을 바꿨어요").isVisible());
+  const key = (await one("SELECT photo_key FROM profiles WHERE user_id = $1", [await userId()])).photo_key;
+  check("24 profiles.photo_key 걸림", /^[a-f0-9]{32}$/.test(key ?? ""), String(key));
+  await sec.locator('[data-profile-photo="photo"] img').waitFor({ timeout: 10000 }).catch(() => {});
+  check("24 화면에 /files/키 사진", (await sec.locator(`img[src="/files/${key}"]`).count()) === 1);
+  const visitor = await fresh();
+  const res = await visitor.page.request.get(`${BASE}/files/${key}`);
+  check("24 방문자도 프로필 사진 열림 (200)", res.status() === 200, String(res.status()));
+  await visitor.ctx.close();
+  await page.screenshot({ path: `${outDir}/86-account-photo.png`, fullPage: true });
+
+  // 남의 첨부 키로 조작해 보냄 → 거부, 사진 그대로
+  const o = await fresh();
+  await loginDev(o.page, `ap${n}`, "여자 주민");
+  await o.ctx.close();
+  const otherId = (await one("SELECT id FROM users WHERE username = $1", [`ap${n}`])).id;
+  const otherKey = randomUUID().replaceAll("-", "");
+  await db.query("INSERT INTO attachments (key, user_id, kind, name, mime, size) VALUES ($1, $2, 'image', 'o.png', 'image/png', 1)", [otherKey, otherId]);
+  const r = await sendAction(page, setAction, [otherKey]);
+  const now = (await one("SELECT photo_key FROM profiles WHERE user_id = $1", [await userId()])).photo_key;
+  check("24 남의 첨부 키 → 거부, 사진 그대로", r.status === 200 && now === key, `${r.status} ${now}`);
+
+  // 지우기 (확인 창)
+  page.once("dialog", (d) => d.accept());
+  await sec.getByRole("button", { name: "사진 지우기" }).click();
+  await sec.locator('[data-profile-photo="character"]').waitFor({ timeout: 10000 }).catch(() => {});
+  check("24 `프로필 사진을 지웠어요`", await sec.getByText("프로필 사진을 지웠어요").isVisible());
+  const cleared = (await one("SELECT photo_key FROM profiles WHERE user_id = $1", [await userId()])).photo_key;
+  check("24 [사진 지우기] → photo_key NULL, 캐릭터 얼굴", cleared === null && (await sec.locator('[data-profile-photo="character"]').count()) === 1, String(cleared));
+}
+check("회원정보 수정 콘솔 오류 없음", pw.errors.length === 0, pw.errors.join(" | "));
+await pw.ctx.close();
 
 // ══ 회원 탈퇴 (quickstart 4.5의 12~20번) ══
 // 탈퇴할 회원 W, 글 주인 A(위의 ID), 다른 회원 B. 글·댓글·공감 등은 DB에 직접 넣는다 (화면 흐름은 blog.mjs가 확인한다).

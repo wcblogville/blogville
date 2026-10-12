@@ -55,7 +55,7 @@ async function openMenu(item) {
 await page.locator("canvas").waitFor();
 await openMenu("텔레포트");
 const houseButtons = panel().locator('[data-spot^="house:"]');
-// 마을 화면에는 헤더 막대가 없고 Blogville 글자만 뜬다. 내 정보·로그아웃은 ☰ 메뉴 아래 (사용자 요청 2026-10-08)
+// 마을 화면에는 헤더 막대가 없고 Blogville 글자만 뜬다. 회원정보 수정·로그아웃은 ☰ 메뉴 아래 (사용자 요청 2026-10-08)
 {
   const banner = page.getByRole("banner");
   // 로고는 도트 글자 그림이라(2026-10-12) 글자 대신 이름이 Blogville인 링크 하나만 보이고 다른 글자는 없다
@@ -66,7 +66,7 @@ const houseButtons = panel().locator('[data-spot^="house:"]');
   );
   await openMenu();
   const account = await panel().locator("[data-account-links]").innerText();
-  check("☰ 메뉴 아래 내 정보·로그아웃", account.includes("내 정보") && account.includes("로그아웃"), account.replace(/\n/g, " "));
+  check("☰ 메뉴 아래 회원정보 수정·로그아웃", account.includes("회원정보 수정") && account.includes("로그아웃"), account.replace(/\n/g, " "));
   await openMenu("텔레포트");
 }
 check("텔레포트 목록: 마을 7곳(분수·게시판·상점·농장·낚시터·미용실·옷가게) + 집 11자리", (await panel().locator('[data-spot]:not([data-spot^="house:"])').count()) === 7 && (await houseButtons.count()) === 11);

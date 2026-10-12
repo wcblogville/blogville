@@ -200,7 +200,7 @@ export function LoginButtons({ providers, starters, socialError }: { providers: 
       {/* 회원가입 탭에는 [로그인 상태 유지]가 없으므로 그때는 유지 안 함 */}
       <SocialButtons providers={providers} remember={tab === "signin" && remember} />
       {!anySocial && <p className="mt-2 text-center text-xs text-ink-soft">간편 로그인은 준비 중이에요</p>}
-      <p className="mt-1 text-center text-xs text-ink-soft">처음이라면 회원가입 후 내 정보에서 연동해 주세요</p>
+      <p className="mt-1 text-center text-xs text-ink-soft">처음이라면 회원가입 후 회원정보 수정에서 연동해 주세요</p>
     </div>
   );
 }

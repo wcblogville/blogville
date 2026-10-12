@@ -9,6 +9,7 @@ import { auth, enabledProviders, REMEMBER_COOKIE } from "@/lib/auth";
 import { checkBlogTitle, defaultBlogFor } from "@/lib/blog";
 import { parseId } from "@/lib/ids";
 import { LOGIN_LOCKED_MESSAGE } from "@/lib/login-limit";
+import { PASSWORD_ERRORS, passwordField } from "@/lib/password";
 import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
 import { isSocialProvider } from "@/lib/social";
 import { getSession } from "@/server/dal";
@@ -27,10 +28,10 @@ const signUpSchema = z
       .string()
       .transform(normalizeName)
       .pipe(z.string().regex(USERNAME_RE, "아이디는 영문 소문자, 숫자, _ 로 4~20자예요")),
-    password: z.string().min(8, "비밀번호는 8자 이상이에요").max(64, "비밀번호는 64자까지예요"),
+    password: passwordField,
     passwordConfirm: z.string(),
   })
-  .refine((v) => v.password === v.passwordConfirm, { message: "비밀번호가 서로 달라요", path: ["passwordConfirm"] });
+  .refine((v) => v.password === v.passwordConfirm, { message: PASSWORD_ERRORS.mismatch, path: ["passwordConfirm"] });
 
 /**
  * 회원가입 (AUTH-01 / FR-002~FR-008, FR-010, FR-011).

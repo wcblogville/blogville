@@ -24,11 +24,11 @@ export default async function BlogSettingsPage() {
           내 블로그로 →
         </Link>
       </div>
-      {/* 로그인 수단(소셜 연동)·닉네임은 내 정보에서 (AUTH-05 / FR-036) */}
+      {/* 로그인 수단(소셜 연동)·닉네임·비밀번호는 회원정보 수정에서 (AUTH-05 / FR-036) */}
       <p className="mt-4 text-sm text-ink-soft">
-        로그인 수단과 소셜 연동은{" "}
+        비밀번호·닉네임·프로필 사진과 소셜 연동은{" "}
         <Link href="/settings/account" className="inline-flex min-h-11 min-w-11 items-center justify-center font-bold text-leaf-dark underline-offset-2 hover:underline">
-          내 정보
+          회원정보 수정
         </Link>
         에서 바꿀 수 있어요. 쓴 글은{" "}
         <Link href="/settings/posts" className="inline-flex min-h-11 items-center font-bold text-leaf-dark underline-offset-2 hover:underline">

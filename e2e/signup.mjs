@@ -121,7 +121,7 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
   const hovered = await social.first().hover().then(() => social.first().evaluate((b) => b.matches(":hover")), () => false);
   check("1 비활성 [카카오]에 마우스를 올릴 수 있음", hovered);
   check("1 간편 로그인 준비 중 문구", await page.getByText("간편 로그인은 준비 중이에요").isVisible());
-  check("1 회원가입 후 연동 안내", await page.getByText("처음이라면 회원가입 후 내 정보에서 연동해 주세요").isVisible());
+  check("1 회원가입 후 연동 안내", await page.getByText("처음이라면 회원가입 후 회원정보 수정에서 연동해 주세요").isVisible());
   check("1 처음엔 연동 없음 문구 없음", (await page.getByText("연동된 계정이 없어요").count()) === 0);
   await page.screenshot({ path: `${outDir}/51-signup-tab.png` });
 
@@ -143,7 +143,7 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
 // ── 1-2) 소셜 로그인에서 돌아온 오류 (FR-033, spec Edge Case) ──
 {
   const { ctx, page } = await fresh();
-  const NOT_LINKED = "연동된 계정이 없어요. 아이디로 로그인한 뒤 내 정보에서 연동해 주세요";
+  const NOT_LINKED = "연동된 계정이 없어요. 아이디로 로그인한 뒤 회원정보 수정에서 연동해 주세요";
   const before = await userCount();
   for (const code of ["signup_disabled", "account_not_linked", "email_not_found"]) {
     await page.goto(`${BASE}/?error=${code}`);

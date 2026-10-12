@@ -214,12 +214,12 @@ function MenuPanel({
   );
 }
 
-/** 마을에는 헤더 막대가 없어서 내 정보·관리자·로그아웃을 메뉴 아래에 둔다 (사용자 요청 2026-10-08) */
+/** 마을에는 헤더 막대가 없어서 회원정보 수정·관리자·로그아웃을 메뉴 아래에 둔다 (사용자 요청 2026-10-08) */
 export function AccountLinks({ member }: { member: TownHudMember }) {
   return (
     <div className="flex flex-wrap items-center justify-center gap-1 border-t-2 border-line pt-2 text-sm" data-account-links>
       <Link href="/settings/account" className="inline-flex min-h-11 items-center rounded-lg px-2 hover:bg-cream">
-        ⚙️ 내 정보
+        ⚙️ 회원정보 수정
       </Link>
       {member.isAdmin && (
         <Link href="/admin" className="inline-flex min-h-11 items-center rounded-lg px-2 hover:bg-cream">
