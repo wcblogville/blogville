@@ -16,6 +16,7 @@ import { lookKey } from "@/lib/art/characters";
 import { ANIMAL_SIZE, animalHalfWidth, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri } from "@/lib/art/animals";
 import { floorToScreen, type IsoRoom } from "@/lib/art/room";
 import { WALK_FPS, WALK_FRAMES, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
+import type { AnimalDisplaySize } from "@/lib/farm";
 
 const SCALE = 4;
 const BOX = 24 * SCALE; // 걷기 그림판 한 칸 (96px)
@@ -25,7 +26,7 @@ const ROWS: Record<WalkDir, number> = { down: 0, left: 1, right: 2, up: 3 };
 /** 걷는 빠르기 (바닥 칸/초). 한 칸이 화면에서 약 36px라 초당 약 50px */
 const SPEED = 1.4;
 /** 동물이 주인 길에서 떨어져 걷는 거리 (칸): 큰 동물일수록 조금 더 뒤 */
-const petGap = (assetKey: string) => 0.9 + animalHalfWidth(assetKey) / 16;
+const petGap = (assetKey: string, size?: AnimalDisplaySize) => 0.9 + animalHalfWidth(assetKey, size) / 16;
 /** 걷기 그림 한 칸 시간, 숨쉬기 한 칸 시간 (ms) */
 const PET_HOP_MS = 100;
 const PET_BREATH_MS = 600;
@@ -90,7 +91,7 @@ export function RoomResident({
   characterAsset: string;
   outfit: string[];
   /** 전시 동물 (없거나 그림이 없으면 혼자) */
-  pet: { assetKey: string; name: string; skinKey?: string | null } | null;
+  pet: { assetKey: string; name: string; skinKey?: string | null; size?: AnimalDisplaySize } | null;
   /** 가구 놓기 중에는 가구를 가리지 않게 숨긴다 */
   hidden?: boolean;
 }) {
@@ -98,7 +99,7 @@ export function RoomResident({
   const petRef = useRef<HTMLSpanElement>(null);
   const shown = pet && hasAnimalArt(pet.assetKey) ? pet : null;
   const sheet = walkSheetDataUri(characterAsset, outfit, SCALE);
-  const gap = shown ? petGap(shown.assetKey) : 0;
+  const gap = shown ? petGap(shown.assetKey, shown.size) : 0;
   const blockedKey = blocked.join(";");
   const start = useMemo(() => startTiles(room.grid, new Set(blockedKey ? blockedKey.split(";") : [])), [room.grid, blockedKey]);
 
@@ -273,6 +274,7 @@ export function RoomResident({
           data-showcase
           data-size={ANIMAL_SIZE[shown.assetKey]?.tier}
           data-skin={shown.skinKey ?? ""}
+          data-display-size={shown.size ?? "normal"}
           data-walk="idle-right"
           title={shown.name}
           aria-hidden={hidden}
@@ -281,7 +283,7 @@ export function RoomResident({
             ...first(start.pet, PET_BOX),
             width: PET_BOX,
             height: PET_BOX,
-            backgroundImage: `url("${petSheetDataUri(shown.assetKey, shown.skinKey, PET_SCALE)}")`,
+            backgroundImage: `url("${petSheetDataUri(shown.assetKey, shown.skinKey, PET_SCALE, shown.size)}")`,
             backgroundSize: `${PET_BOX * PET_SHEET_FRAMES}px ${PET_BOX * 2}px`,
             backgroundRepeat: "no-repeat",
             backgroundPosition: "0 0",

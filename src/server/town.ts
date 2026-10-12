@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { animalSkins, animalSpecies, blogs, blogVisits, follows, items, pointLedger, posts, profiles, userAnimals, users } from "@/db/schema";
 import { hasAnimalArt } from "@/lib/art/animals";
 import { ROOF_HEX } from "@/lib/art/town";
+import type { AnimalDisplaySize } from "@/lib/farm";
 import { levelFromExp } from "@/lib/game";
 import { currentRoof } from "@/lib/house";
 import { assignLots } from "@/lib/town-lots";
@@ -135,7 +136,7 @@ export async function getMyHouse(userId: string): Promise<TownHouse | null> {
  */
 export async function getTownPet(userId: string): Promise<TownPet | null> {
   const [row] = await db
-    .select({ assetKey: animalSpecies.assetKey, name: animalSpecies.name, skinKey: animalSkins.assetKey })
+    .select({ assetKey: animalSpecies.assetKey, name: animalSpecies.name, skinKey: animalSkins.assetKey, size: sql<AnimalDisplaySize>`${userAnimals.displaySize}` })
     .from(blogs)
     .innerJoin(userAnimals, and(eq(userAnimals.id, blogs.showcaseAnimalId), eq(userAnimals.userId, blogs.ownerId)))
     .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))

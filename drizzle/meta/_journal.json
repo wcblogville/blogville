@@ -253,6 +253,13 @@
       "when": 1791770151090,
       "tag": "0035_house_furniture_tiles",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1791772323690,
+      "tag": "0036_animal_display_size",
+      "breakpoints": true
     }
   ]
 }

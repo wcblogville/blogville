@@ -1,0 +1,2 @@
+ALTER TABLE "user_animals" ADD COLUMN "display_size" text DEFAULT 'normal' NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_animals" ADD CONSTRAINT "user_animals_display_size_check" CHECK ("user_animals"."display_size" IN ('tiny', 'small', 'normal', 'large'));

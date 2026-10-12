@@ -6,6 +6,7 @@
 // - 즐겨찾기 이웃은 집 앞에 서 있지 않고 마을 길을 걸어 다닌다 (NPC, 사용자 요청 2026-10-11)
 import type * as PhaserNS from "phaser";
 import { ANIMAL_SIZE, animalHalfWidth, animalHeight, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri } from "@/lib/art/animals";
+import type { AnimalDisplaySize } from "@/lib/farm";
 import { VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
   boardSvg,
@@ -31,7 +32,7 @@ import { HOUSE_SLOTS, houseAt, houseSlot, START_POS, townSpots, WORLD } from "./
 import { bakeGround, GROUND_SIZE, HAZE_COLOR, hazeAt } from "./ground";
 import { boxWalkable, stairCrossings, terrain, TERRAIN_FEET } from "./terrain";
 import { houseKey, npcGraph, segmentClear, solidBox, stageOf, townLayout, townProps, walkKey, type Entrance, type Structure } from "./structures";
-import type { TownData, TownNeighbor, TownTarget } from "./types";
+import type { TownData, TownNeighbor, TownPet, TownTarget } from "./types";
 import { PIXEL } from "@/lib/art/pixel";
 import { WALK_DIRS, WALK_FPS, walkDirOf, walkFrameIndex, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 
@@ -71,15 +72,29 @@ const PET_UP = 8;
 const ME_HEIGHT = 21;
 const TALL_EXTRA = 20;
 /** 동물별 따라오는 거리(자취)와 옆으로 비켜 서는 거리 (px) */
-export function petGaps(assetKey: string) {
-  const gap = ME_HALF + animalHalfWidth(assetKey) * PIXEL + PET_MARGIN + (animalHeight(assetKey) > ME_HEIGHT ? TALL_EXTRA : 0);
+export function petGaps(assetKey: string, size?: AnimalDisplaySize) {
+  const gap = ME_HALF + animalHalfWidth(assetKey, size) * PIXEL + PET_MARGIN + (animalHeight(assetKey, size) > ME_HEIGHT ? TALL_EXTRA : 0);
   return { gap, side: gap + PET_SIDE_EXTRA };
 }
-/** 걷기 그림 한 칸 시간과 숨쉬기 한 칸 시간 (ms). 뛰는 높이는 PET_WALK_LIFT × PIXEL */
-const PET_HOP_MS = 90;
+/**
+ * 부드럽게 따라오기 (사용자 요청 2026-10-12 "따라다니는 펫이 버퍼링 걸려").
+ * 예전에는 3px마다 찍은 자취 점 하나를 목표로 삼아 그 점에 딱 닿으면 멈췄다가 다음 점이 생기면 다시 걸었다.
+ * 그래서 프레임마다 걷기/서기가 바뀌며 걷기 그림이 첫 칸으로 되돌아가고(hop = 0) 위치도 뚝뚝 끊겼다 (화면 주사율이 높을수록 심했다).
+ * 이제는 자취를 촘촘히(1px) 찍고 gap 거리의 정확한 점(두 자취 점 사이를 이은 곳)을 목표로 삼아,
+ * 지수 감쇠(PET_EASE_MS)로 다가간다. 같은 속도로 걷는 목표를 같은 속도로, 일정한 간격을 두고 계속 따라간다 (프레임 시간 기준).
+ * 걷기/서기는 속도를 부드럽게 잰 값에 문턱 두 개(PET_WALK_ON·OFF)를 둬서 깜빡이지 않고, 걷기 그림은 걸은 거리만큼 넘긴다
+ */
+const PET_EASE_MS = 70;
+/** 가장 빠른 걸음 (내 속도의 배수, 순간 이동처럼 튀지 않게) */
+const PET_MAX_SPEED = SPEED * 1.6;
+/** 이보다 빠르면 걷기 시작, 이보다 느려지면 멈춤 (px/초) */
+const PET_WALK_ON = 24;
+const PET_WALK_OFF = 8;
+/** 걷기 그림 한 칸마다 걷는 거리(px, 내 빠르기로 90ms)와 숨쉬기 한 칸 시간(ms). 뛰는 높이는 PET_WALK_LIFT × PIXEL */
+const PET_HOP_PX = (SPEED * 90) / 1000;
 const PET_BREATH_MS = 600;
-/** 동물 그림판 이름 (동물·스킨마다 다르다) */
-const petKey = (pet: { assetKey: string; skinKey?: string | null }) => `pet:${pet.assetKey}:${pet.skinKey ?? ""}`;
+/** 동물 그림판 이름 (동물·스킨·크기마다 다르다) */
+const petKey = (pet: TownPet) => `pet:${pet.assetKey}:${pet.skinKey ?? ""}:${pet.size ?? "normal"}`;
 /** 이만큼 넘게 떨어지면(순간 이동 등) 바로 옆으로 옮긴다 */
 const PET_SNAP = 420;
 const TREE_KINDS = ["round", "pine", "bush", "blossom", "oak", "cherry", "rock", "boulder"] as const;
@@ -97,7 +112,7 @@ export function townTextures(data: TownData) {
   for (const h of data.neighbors) list.set(walkKey(h.characterAsset, h.outfit), walkSheetDataUri(h.characterAsset, h.outfit, PIXEL));
   // 따라다니는 동물 (내가 블로그에 전시한 다 키운 동물, 어른 단계)
   // 그림판: 서 있기·숨쉬기·착지·기욺·뛰어오름 5칸 × 오른쪽·왼쪽 2줄 (animals.ts petSheetSvg), 스킨을 입힌 색
-  if (data.pet) list.set(petKey(data.pet), petSheetDataUri(data.pet.assetKey, data.pet.skinKey, PIXEL));
+  if (data.pet) list.set(petKey(data.pet), petSheetDataUri(data.pet.assetKey, data.pet.skinKey, PIXEL, data.pet.size));
   list.set("board", toDataUri(boardSvg()));
   list.set("shop", toDataUri(shopSvg()));
   list.set("salon", toDataUri(salonSvg()));
@@ -170,8 +185,13 @@ export function createTownScene(
       img: PhaserNS.GameObjects.Image;
       x: number;
       y: number;
+      /** 걸은 거리(px, 걷기 그림 넘기기)와 서 있은 시간(ms, 숨쉬기) */
       hop: number;
       idle: number;
+      /** 부드럽게 잰 속도 (px/초)와 걷는 중인지 (문턱 두 개) */
+      vx: number;
+      vy: number;
+      walking: boolean;
       face: "right" | "left";
       gap: number;
       side: number;
@@ -473,10 +493,11 @@ export function createTownScene(
       if (!data.pet || !this.textures.exists(petKey(data.pet))) return;
       // 발바닥(32칸 중 30번째 줄)이 발 위치에 오게. 캐릭터처럼 발 위치 + 8에 그린다
       const img = this.add.image(0, 0, petKey(data.pet), 0).setOrigin(0.5, 30 / 32);
-      this.pet = { img, x: 0, y: 0, hop: 0, idle: 0, face: "right", ...petGaps(data.pet.assetKey) };
+      this.pet = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", ...petGaps(data.pet.assetKey, data.pet.size) };
       this.game.canvas.dataset.pet = data.pet.assetKey;
       this.game.canvas.dataset.petSize = ANIMAL_SIZE[data.pet.assetKey]?.tier ?? "medium";
       this.game.canvas.dataset.petSkin = data.pet.skinKey ?? "";
+      this.game.canvas.dataset.petDisplaySize = data.pet.size ?? "normal";
       this.placePet(start);
     }
 
@@ -486,37 +507,45 @@ export function createTownScene(
       if (!this.pet) return;
       this.pet.x = at.x - this.pet.gap;
       this.pet.y = at.y + 6; // 조금 앞(아래)에 둬서 큰 동물 머리가 내 이름표에 가리지 않게
-      this.pet.hop = 0;
+      // 자취를 동물 자리에서 시작해 첫걸음부터 바로 따라온다 (자취가 gap만큼 쌓일 때까지 기다렸다 뛰어오지 않게)
+      this.trail = [{ x: this.pet.x, y: this.pet.y }, { x: at.x, y: at.y }];
+      Object.assign(this.pet, { hop: 0, vx: 0, vy: 0, walking: false });
     }
 
     private updatePet(delta: number) {
       const pet = this.pet;
       if (!pet) return;
+      const dt = Math.min(delta, 50);
       const me = { x: this.feet.x, y: this.feet.y };
+      // 자취: 1px 넘게 움직일 때마다 점을 찍는다 (촘촘해야 목표가 뚝뚝 끊기지 않는다)
       const last = this.trail[this.trail.length - 1];
-      if (!last || Math.hypot(me.x - last.x, me.y - last.y) >= 3) {
+      if (!last || Math.hypot(me.x - last.x, me.y - last.y) >= 1) {
         this.trail.push(me);
-        if (this.trail.length > 240) this.trail.shift();
+        if (this.trail.length > 600) this.trail.shift();
       }
-      // 자취를 내 발에서 거꾸로 pet.gap만큼 되짚은 곳이 동물이 갈 곳. 자취가 짧으면 그 자리에 있는다
+      // 자취를 내 발에서 거꾸로 pet.gap만큼 되짚은 정확한 점 (두 자취 점 사이를 잇는다). 자취가 짧으면 맨 끝 점
       let target: { x: number; y: number } | null = null;
       let walked = 0;
       let prev = me;
       for (let i = this.trail.length - 1; i >= 0; i--) {
-        walked += Math.hypot(prev.x - this.trail[i].x, prev.y - this.trail[i].y);
-        prev = this.trail[i];
-        if (walked >= pet.gap) {
-          target = prev;
-          // 더 오래된 자취는 필요 없다
+        const pt = this.trail[i];
+        const seg = Math.hypot(prev.x - pt.x, prev.y - pt.y);
+        if (walked + seg >= pet.gap) {
+          const k = seg > 0 ? (pet.gap - walked) / seg : 0;
+          target = { x: prev.x + (pt.x - prev.x) * k, y: prev.y + (pt.y - prev.y) * k };
+          // 더 오래된 자취는 필요 없다 (이 점까지는 남긴다)
           if (i > 0) this.trail.splice(0, i);
           break;
         }
+        walked += seg;
+        prev = pt;
       }
+      if (!target && this.trail.length > 0 && walked > pet.gap * 0.5) target = this.trail[0];
       // 위아래로 따라올 때는 내 바로 위(이름표 자리)에 가려지지 않게 옆으로 비켜 나란히 걷는다 (위쪽으로는 PET_UP까지만 처진다)
       if (target && Math.abs(me.y - target.y) > Math.abs(me.x - target.x)) {
         target = { x: me.x + (pet.x <= me.x ? -pet.side : pet.side), y: Math.max(target.y, me.y - PET_UP) };
       }
-      let moving = false;
+      const [ox, oy] = [pet.x, pet.y];
       if (target) {
         const dx = target.x - pet.x;
         const dy = target.y - pet.y;
@@ -524,26 +553,41 @@ export function createTownScene(
         if (dist > PET_SNAP) {
           pet.x = target.x;
           pet.y = target.y;
-        } else if (dist > 1.5) {
-          // 멀수록 빨리 (나보다 조금 빠르게 따라붙는다)
-          const step = Math.min(dist, (Math.max(SPEED * 1.1, dist * 8) * Math.min(delta, 60)) / 1000);
+        } else if (dist > 0.01) {
+          // 지수 감쇠로 다가간다 (프레임 시간 기준이라 60Hz·144Hz 모두 같은 빠르기). 너무 멀면 가장 빠른 걸음까지만
+          const step = Math.min(dist * (1 - Math.exp(-dt / PET_EASE_MS)), (PET_MAX_SPEED * dt) / 1000);
           pet.x += (dx / dist) * step;
           pet.y += (dy / dist) * step;
-          moving = step > 0.4;
         }
       }
-      // 움직임: 걸으면 착지·기욺·뛰어오름 그림을 돌리며 통통 뛰고(PET_WALK_*), 서 있으면 숨쉬기 두 칸.
-      // 가로로 움직이는 쪽을 보고, 멈추면 나를 본다 (그림판 아래 줄 = 왼쪽 보기)
-      pet.hop = moving ? pet.hop + delta : 0;
-      pet.idle = moving ? 0 : pet.idle + delta;
+      // 속도를 부드럽게 재서 걷기/서기를 정한다 (문턱 두 개: 프레임마다 깜빡이지 않게)
+      if (dt > 0) {
+        const k = 1 - Math.exp(-dt / 90);
+        pet.vx += (((pet.x - ox) * 1000) / dt - pet.vx) * k;
+        pet.vy += (((pet.y - oy) * 1000) / dt - pet.vy) * k;
+      }
+      const speed = Math.hypot(pet.vx, pet.vy);
+      pet.walking = speed > (pet.walking ? PET_WALK_OFF : PET_WALK_ON);
+      const moving = pet.walking;
+      // 움직임: 걸으면 걸은 거리만큼 착지·기욺·뛰어오름 그림을 넘기며 통통 뛰고(PET_WALK_*), 서 있으면 숨쉬기 두 칸.
+      // 걷기 그림은 멈췄다 다시 걸을 때만 처음부터 (걷는 동안 되돌리지 않는다)
+      if (moving) {
+        pet.hop += Math.hypot(pet.x - ox, pet.y - oy);
+        pet.idle = 0;
+      } else {
+        pet.hop = 0;
+        pet.idle += delta;
+      }
+      // 가로로 움직이는 쪽을 보고, 멈추면 나를 본다 (그림판 아래 줄 = 왼쪽 보기). 문턱을 둬서 좌우로 떨지 않게
       const dxMe = me.x - pet.x;
-      if (moving && target && Math.abs(target.x - pet.x) > 2) pet.face = target.x < pet.x ? "left" : "right";
-      else if (!moving && Math.abs(dxMe) > 4) pet.face = dxMe < 0 ? "left" : "right";
-      const step = Math.floor(pet.hop / PET_HOP_MS) % PET_WALK_FRAMES.length;
+      if (moving && Math.abs(pet.vx) > 20) pet.face = pet.vx < 0 ? "left" : "right";
+      else if (!moving && Math.abs(dxMe) > 12) pet.face = dxMe < 0 ? "left" : "right";
+      const step = Math.floor(pet.hop / PET_HOP_PX) % PET_WALK_FRAMES.length;
       const frame = moving ? PET_WALK_FRAMES[step] : PET_IDLE_FRAMES[Math.floor(pet.idle / PET_BREATH_MS) % PET_IDLE_FRAMES.length];
       pet.img.setFrame(frame + (pet.face === "left" ? PET_SHEET_FRAMES : 0));
       const lift = moving ? -PET_WALK_LIFT[step] * PIXEL : 0;
-      pet.img.setPosition(Math.round(pet.x), Math.round(pet.y) + 8 + lift).setDepth(pet.y + 8);
+      // 캐릭터처럼 소수 자리 그대로 둔다 (roundPixels가 카메라와 함께 맞춘다. 따로 반올림하면 카메라와 1px씩 어긋나 떨린다)
+      pet.img.setPosition(pet.x, pet.y + 8 + lift).setDepth(pet.y + 8);
       this.hazeTint(pet.img, pet.y);
       // 시험(e2e)이 읽는 동물 발 위치 "x,y"와 걷는지
       const at = `${Math.round(pet.x)},${Math.round(pet.y)}`;

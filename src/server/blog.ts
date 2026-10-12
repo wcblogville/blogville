@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { outfitOf } from "@/server/inventory";
 import { db } from "@/db";
+import type { AnimalDisplaySize } from "@/lib/farm";
 import {
   animalSkins,
   animalSpecies,
@@ -151,7 +152,14 @@ export type CategoryTree = Awaited<ReturnType<typeof getCategories>>;
  */
 export async function getGrownAnimals(ownerId: string) {
   return db
-    .select({ id: userAnimals.id, name: animalSpecies.name, assetKey: animalSpecies.assetKey, skinKey: animalSkins.assetKey, grownAt: userAnimals.grownAt })
+    .select({
+      id: userAnimals.id,
+      name: animalSpecies.name,
+      assetKey: animalSpecies.assetKey,
+      skinKey: animalSkins.assetKey,
+      size: sql<AnimalDisplaySize>`${userAnimals.displaySize}`,
+      grownAt: userAnimals.grownAt,
+    })
     .from(userAnimals)
     .innerJoin(animalSpecies, eq(animalSpecies.id, userAnimals.speciesId))
     // 입힌 스킨 (없으면 기본 색, 2026-10-11 "펫 종류별로 스킨")
