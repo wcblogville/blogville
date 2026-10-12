@@ -5,7 +5,7 @@
 // - 땅: 절벽 앞면·물·단 가장자리는 못 지나가고 계단으로만 오르내린다 (발 상자로 미리 확인)
 // - 즐겨찾기 이웃은 집 앞에 서 있지 않고 마을 길을 걸어 다닌다 (NPC, 사용자 요청 2026-10-11)
 import type * as PhaserNS from "phaser";
-import { ANIMAL_SIZE, animalHalfWidth, animalHeight, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, PET_WALK_LIFT, petSheetDataUri, type PetLook } from "@/lib/art/animals";
+import { ANIMAL_SIZE, animalHalfWidth, animalHeight, PET_IDLE_FRAMES, PET_SHEET_FRAMES, PET_WALK_FRAMES, type PetGait, petGait, petSheetDataUri, type PetLook } from "@/lib/art/animals";
 import type { AnimalDisplaySize } from "@/lib/farm";
 import { VISITOR_CHARACTER } from "@/lib/art/characters";
 import {
@@ -126,6 +126,8 @@ type Follower = {
   side: number;
   trail: { x: number; y: number }[];
   frame: number;
+  /** 걸음새 (독수리는 날고 거북이는 느리게, animals.ts petGait) */
+  gait: PetGait;
 };
 /** 이만큼 넘게 떨어지면(순간 이동 등) 바로 옆으로 옮긴다 */
 const PET_SNAP = 420;
@@ -730,7 +732,7 @@ export function createTownScene(
     private makeFollower(pet: TownPet, at: { x: number; y: number }): Follower | null {
       if (!this.textures.exists(petKey(pet))) return null;
       const img = this.add.image(0, 0, petKey(pet), 0).setOrigin(0.5, 30 / 32);
-      const f: Follower = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", trail: [], frame: 0, ...petGaps(pet.assetKey, pet.size, pet) };
+      const f: Follower = { img, x: 0, y: 0, hop: 0, idle: 0, vx: 0, vy: 0, walking: false, face: "right", trail: [], frame: 0, gait: petGait(pet.assetKey), ...petGaps(pet.assetKey, pet.size, pet) };
       this.placeFollower(f, at);
       return f;
     }
@@ -746,6 +748,7 @@ export function createTownScene(
       this.game.canvas.dataset.petDisplayForm = data.pet.form ?? "adult";
       this.game.canvas.dataset.petSex = data.pet.sex ?? "";
       this.game.canvas.dataset.petVariant = data.pet.variant ?? "";
+      this.game.canvas.dataset.petGait = String(this.pet.gait.speed);
     }
 
     /** 내 동물을 내 옆에 바로 놓는다 (처음·순간 이동) */
@@ -818,7 +821,7 @@ export function createTownScene(
           pet.y = target.y;
         } else if (dist > 0.01) {
           // 지수 감쇠로 다가간다 (프레임 시간 기준이라 60Hz·144Hz 모두 같은 빠르기). 너무 멀면 가장 빠른 걸음까지만
-          const step = Math.min(dist * (1 - Math.exp(-dt / PET_EASE_MS)), (PET_MAX_SPEED * dt) / 1000);
+          const step = Math.min(dist * (1 - Math.exp(-dt / PET_EASE_MS)), (PET_MAX_SPEED * pet.gait.speed * dt) / 1000);
           pet.x += (dx / dist) * step;
           pet.y += (dy / dist) * step;
         }
@@ -845,12 +848,12 @@ export function createTownScene(
       const dxMe = me.x - pet.x;
       if (moving && Math.abs(pet.vx) > 20) pet.face = pet.vx < 0 ? "left" : "right";
       else if (!moving && Math.abs(dxMe) > 12) pet.face = dxMe < 0 ? "left" : "right";
-      const step = Math.floor(pet.hop / PET_HOP_PX) % PET_WALK_FRAMES.length;
+      const step = Math.floor(pet.hop / (PET_HOP_PX * pet.gait.stride)) % PET_WALK_FRAMES.length;
       const frame = moving ? PET_WALK_FRAMES[step] : PET_IDLE_FRAMES[Math.floor(pet.idle / PET_BREATH_MS) % PET_IDLE_FRAMES.length];
       const index = frame + (pet.face === "left" ? PET_SHEET_FRAMES : 0);
       if (pet.img.frame.name !== String(index)) pet.img.setFrame(index);
       pet.frame = frame;
-      const lift = moving ? -PET_WALK_LIFT[step] * PIXEL : 0;
+      const lift = moving ? -pet.gait.lift[step] * PIXEL : 0;
       // 캐릭터처럼 소수 자리 그대로 둔다 (roundPixels가 카메라와 함께 맞춘다. 따로 반올림하면 카메라와 1px씩 어긋나 떨린다)
       pet.img.setPosition(pet.x, pet.y + 8 + lift).setDepth(pet.y + 8);
       this.hazeTint(pet.img, pet.y);

@@ -8,7 +8,9 @@ import { animalSvg, toAnimalDataUri } from "@/lib/art/animals";
 import {
   HATCH_RARITY,
   type HatchRarity,
+  RARITY_ICON,
   RARITY_LABEL,
+  RARITY_ODDS,
   RARITY_ORDER,
   SEX_LOOKS,
   SPECIAL_VARIANTS,
@@ -16,8 +18,8 @@ import {
 } from "@/lib/farm";
 import type { HatchOdds } from "@/server/farm";
 
-/** 12.5 → "12.5%", 20 → "20%" */
-const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
+/** 12.5 → "12.5%", 3.75 → "3.75%", 20 → "20%" */
+const pct = (n: number) => `${Math.round(n * 100) / 100}%`;
 
 /* eslint-disable @next/next/no-img-element -- 코드로 만든 SVG(data URI)라 next/image 최적화가 필요 없다 */
 function Mini({ assetKey, variant = null, sex = null }: { assetKey: string; variant?: string | null; sex?: "female" | "male" | null }) {
@@ -29,8 +31,8 @@ const RARITY_STYLE: Record<HatchRarity, string> = {
   common: "bg-[#e9f6e4]",
   rare: "bg-[#e3efff]",
   epic: "bg-[#fff0c2]",
+  legend: "bg-[#f3e6ff]",
 };
-const RARITY_ICON: Record<HatchRarity, string> = { common: "🥚", rare: "⭐", epic: "🌟" };
 
 export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -76,8 +78,9 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
               🥚 알에서 누가 나올까요?
             </h3>
             <p className="mt-1 text-sm">
-              알을 부화시키면 아래 {hatchable.length}마리 중 하나가 나와요. 흔한 <b>일반</b> 동물은 자주, <b>희귀</b>한 동물은 가끔,{" "}
-              <b>아주 희귀</b>한 동물은 정말 드물게 나와요. 같은 등급 안에서는 모두 똑같은 확률이에요.
+              알을 부화시키면 아래 {hatchable.length}종류 중 하나가 나와요. 등급은 네 가지예요: 농장에서 흔한 <b>보통</b> 동물은 자주(
+              {RARITY_ODDS.common}%), <b>희귀</b>한 동물은 가끔({RARITY_ODDS.rare}%), <b>매우 희귀</b>한 동물은 드물게({RARITY_ODDS.epic}%), 맹수의
+              왕 <b>전설</b> 동물은 정말 드물게({RARITY_ODDS.legend}%) 나와요. 같은 등급 안에서는 모두 똑같은 확률이에요.
             </p>
             <div className="mt-3 grid gap-3">
               {RARITY_ORDER.map((tier) => {
@@ -105,7 +108,9 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-ink-soft">[동물 분양]은 확률 없이 코인을 내고 원하는 동물을 바로 데려와요.</p>
+            <p className="mt-2 text-xs text-ink-soft">
+              [동물 분양]은 확률 없이 코인을 내고 원하는 동물을 바로 데려와요. 곰·늑대·치타와 전설 동물은 분양하지 않고 알에서만 만날 수 있어요.
+            </p>
           </section>
 
           {/* 암수 */}
@@ -162,7 +167,8 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
               })}
             </ul>
             <p className="mt-2 text-xs text-ink-soft">
-              조랑말은 유니콘이나 페가수스가 될 수 있어서 특별해질 확률이 모두 {pct(specialPercent("pony"))}, 다른 동물은 {pct(specialPercent("chick"))}예요.
+              두 가지 모습이 있는 동물(조랑말·곰·여우·독수리·표범·사슴)은 어느 한쪽이 될 확률을 더해서 특별해질 확률이 {pct(specialPercent("fox"))}~
+              {pct(specialPercent("pony"))}, 한 가지인 동물은 {pct(specialPercent("chick"))}예요. 구미호와 불사조는 그중에서도 가장 드물어요.
             </p>
           </section>
 
@@ -174,6 +180,9 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
             <p className="mt-1 text-sm">
               다 키운 동물 카드에서 <b>[아기 모습]</b>을 고르면 광장에서 나를 따라다닐 때와 우리 집 방에서 아기 때 모습으로 보여요. 크기(아주 작게~크게)도
               모습마다 고를 수 있고, 언제든 무료로 <b>[다 자란 모습]</b>으로 되돌릴 수 있어요.
+            </p>
+            <p className="mt-1 text-sm" data-info-gait>
+              🦅 독수리는 날개를 퍼덕이며 날아서, 🐢 거북이는 느릿느릿 걸어서 따라와요. 거북이가 뒤처지면 잠깐 서서 기다려 주세요.
             </p>
           </section>
         </div>

@@ -199,8 +199,11 @@ const ITEMS: NewItem[] = [
 
 // 동물 농장 동물 종류 (TOWN-09). 흔한 동물일수록 빨리 자라고 보상이 작다.
 // 알 확률(hatch_weight, 만분율)은 src/lib/farm.ts HATCH_RARITY·RARITY_ODDS 한 곳에서 정한다 (2026-10-12 "노말한 동물들이랑 희귀한 애들이랑 확률 다르게"):
-// 일반 60%(병아리·토끼·햄스터), 희귀 32%(아기 돼지·아기 고양이·강아지·아기 양), 아주 희귀 8%(송아지·조랑말). 아홉 종류 모두 알에서 나온다.
-// 값(price)이 있는 종류는 농장 [동물 분양]에서 코인으로 바로 고를 수도 있다. 크기(작은·중간·큰)는 src/lib/art/animals.ts ANIMAL_SIZE
+// 2026-10-12 야생 동물 열 종류를 더하며 네 등급으로 다시 짰다 ("희귀 매우 희귀 이런식으로"):
+// 보통 50%(병아리·토끼·햄스터·아기 돼지·아기 양), 희귀 30%(아기 고양이·강아지·송아지·거북이·여우·사슴),
+// 매우 희귀 15%(조랑말·곰·늑대·치타), 전설 5%(호랑이·사자·표범·독수리). 열아홉 종류 모두 알에서 나온다.
+// 값(price)이 있는 종류는 농장 [동물 분양]에서 코인으로 바로 고를 수도 있다. 새 동물 중 순한 거북이·여우·사슴만 분양하고,
+// 맹수(곰·늑대·치타·호랑이·사자·표범·독수리)는 알에서만 나온다 (알을 깨는 재미를 남긴다). 크기(작은·중간·큰)는 src/lib/art/animals.ts ANIMAL_SIZE
 const SPECIES: (typeof animalSpecies.$inferInsert)[] = [
   { code: "chick", name: "병아리", assetKey: "animal.chick", growExp: 60, rewardExp: 50, rewardCoins: 20 },
   { code: "bunny", name: "토끼", assetKey: "animal.bunny", growExp: 90, rewardExp: 80, rewardCoins: 30 },
@@ -211,6 +214,17 @@ const SPECIES: (typeof animalSpecies.$inferInsert)[] = [
   { code: "puppy", name: "강아지", assetKey: "animal.puppy", growExp: 110, rewardExp: 100, rewardCoins: 35, price: 350 },
   { code: "lamb", name: "아기 양", assetKey: "animal.lamb", growExp: 130, rewardExp: 120, rewardCoins: 45, price: 400 },
   { code: "pony", name: "조랑말", assetKey: "animal.pony", growExp: 180, rewardExp: 180, rewardCoins: 70, price: 600 },
+  // 야생 동물 (2026-10-12 "동물 가짓수 더"): 드물수록 오래 자라고 보상이 크다
+  { code: "turtle", name: "거북이", assetKey: "animal.turtle", growExp: 140, rewardExp: 130, rewardCoins: 50, price: 450 },
+  { code: "fox", name: "여우", assetKey: "animal.fox", growExp: 130, rewardExp: 120, rewardCoins: 45, price: 500 },
+  { code: "deer", name: "사슴", assetKey: "animal.deer", growExp: 160, rewardExp: 150, rewardCoins: 60, price: 550 },
+  { code: "bear", name: "곰", assetKey: "animal.bear", growExp: 200, rewardExp: 200, rewardCoins: 80 },
+  { code: "wolf", name: "늑대", assetKey: "animal.wolf", growExp: 180, rewardExp: 180, rewardCoins: 75 },
+  { code: "cheetah", name: "치타", assetKey: "animal.cheetah", growExp: 180, rewardExp: 180, rewardCoins: 75 },
+  { code: "leopard", name: "표범", assetKey: "animal.leopard", growExp: 220, rewardExp: 230, rewardCoins: 100 },
+  { code: "eagle", name: "독수리", assetKey: "animal.eagle", growExp: 220, rewardExp: 230, rewardCoins: 100 },
+  { code: "tiger", name: "호랑이", assetKey: "animal.tiger", growExp: 240, rewardExp: 250, rewardCoins: 110 },
+  { code: "lion", name: "사자", assetKey: "animal.lion", growExp: 240, rewardExp: 250, rewardCoins: 110 },
 ].map((sp) => ({ ...sp, hatchWeight: hatchWeightOf(sp.code) }));
 
 // 동물 스킨 (2026-10-11 "펫 종류별로 스킨"): 종류마다 둘. 색·무늬는 src/lib/art/animals.ts ANIMAL_SKINS (asset_key)
@@ -234,6 +248,27 @@ const SKINS: { code: string; species: string; name: string; price: number }[] = 
   { code: "calf_strawberry", species: "calf", name: "분홍 점 송아지", price: 260 },
   { code: "pony_white", species: "pony", name: "백마", price: 300 },
   { code: "pony_zebra", species: "pony", name: "얼룩말", price: 350 },
+  // 야생 동물 스킨 (2026-10-12): 이름이 특별 진화(판다곰·북극곰·은여우·설원 늑대·백호·백사자·흑표범·눈표범…)와 겹치지 않게
+  { code: "bear_moon", species: "bear", name: "반달가슴곰", price: 280 },
+  { code: "bear_honey", species: "bear", name: "꿀빛 곰", price: 250 },
+  { code: "fox_arctic", species: "fox", name: "흰여우", price: 250 },
+  { code: "fox_fennec", species: "fox", name: "사막여우", price: 250 },
+  { code: "wolf_black", species: "wolf", name: "검은 늑대", price: 280 },
+  { code: "wolf_red", species: "wolf", name: "붉은 늑대", price: 260 },
+  { code: "tiger_golden", species: "tiger", name: "금빛 호랑이", price: 320 },
+  { code: "tiger_blossom", species: "tiger", name: "벚꽃 호랑이", price: 350 },
+  { code: "lion_dark", species: "lion", name: "검은 갈기 사자", price: 320 },
+  { code: "lion_cream", species: "lion", name: "크림 사자", price: 300 },
+  { code: "eagle_gray", species: "eagle", name: "잿빛 독수리", price: 300 },
+  { code: "eagle_red", species: "eagle", name: "붉은 독수리", price: 320 },
+  { code: "turtle_star", species: "turtle", name: "별무늬 거북", price: 220 },
+  { code: "turtle_pink", species: "turtle", name: "분홍 등딱지 거북", price: 220 },
+  { code: "cheetah_cream", species: "cheetah", name: "크림 치타", price: 280 },
+  { code: "cheetah_silver", species: "cheetah", name: "은회색 치타", price: 300 },
+  { code: "leopard_amber", species: "leopard", name: "호박색 표범", price: 300 },
+  { code: "leopard_cloud", species: "leopard", name: "구름표범", price: 330 },
+  { code: "deer_sika", species: "deer", name: "꽃사슴", price: 260 },
+  { code: "deer_red", species: "deer", name: "붉은 사슴", price: 260 },
 ];
 
 async function main() {
