@@ -239,7 +239,7 @@ export function ProfilePanel({ data, member, links = true }: { data: TownData; m
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         {member.photoKey ? (
-          <OwnerAvatar photoKey={member.photoKey} characterAsset={data.player!.characterAsset} nickname={data.player!.nickname} size={64} />
+          <OwnerAvatar photoKey={member.photoKey} characterAsset={data.player!.characterAsset} outfit={data.player!.outfit} nickname={data.player!.nickname} size={64} />
         ) : (
           <CharacterBadge asset={data.player!.characterAsset} outfit={data.player!.outfit} size={64} />
         )}
@@ -369,7 +369,7 @@ export function FriendsPanel({ data, member, onPick }: { data: TownData; member:
           const spot = houseSpot(f.slug);
           return (
             <li key={f.userId} className="flex items-center gap-2 py-1.5" data-friend={f.nickname}>
-              <CharacterBadge asset={f.characterAsset} size={36} />
+              <CharacterBadge asset={f.characterAsset} outfit={f.outfit} size={36} />
               <Link href={`/@${f.slug}`} className="min-w-0 flex-1 rounded-lg px-1 hover:bg-cream">
                 <span className="block truncate text-sm font-bold">
                   {f.nickname}
@@ -479,7 +479,7 @@ function LotsPanel({
                     }
                     className={itemClass}
                   >
-                    <CharacterBadge asset={f.characterAsset} size={36} />
+                    <CharacterBadge asset={f.characterAsset} outfit={f.outfit} size={36} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-bold">{f.nickname}</span>
                       <span className="block truncate text-xs text-ink-soft">

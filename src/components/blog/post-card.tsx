@@ -17,6 +17,8 @@ export type PostCardData = {
   blogTitle: string;
   nickname: string;
   characterAsset: string;
+  /** 작성자가 지금 입은 아바타 (꾸민 모습, 2026-10-12) */
+  outfit?: string[];
   /** 이웃 새 글에서 즐겨찾는 이웃의 최근 글이라 위에 올라왔는지 (SOC-04) */
   pinned?: boolean;
 };
@@ -28,7 +30,7 @@ export function PostCard({ post, showAuthor = false }: { post: PostCardData; sho
       {showAuthor && (
         // 작성자 줄 → 블로그 홈. 누르는 영역 44px (FR-037, R21)
         <Link href={`/@${post.blogSlug}`} className="mb-1 flex min-h-11 min-w-0 items-center gap-2 text-sm text-ink-soft hover:text-ink">
-          <CharacterBadge asset={post.characterAsset} size={28} />
+          <CharacterBadge asset={post.characterAsset} outfit={post.outfit} size={28} />
           <b className="shrink-0 text-ink">{post.nickname}</b>
           <span className="truncate">· {post.blogTitle}</span>
         </Link>

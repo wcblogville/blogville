@@ -267,6 +267,13 @@
       "when": 1791780746915,
       "tag": "0039_profile_greeting",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1791785980519,
+      "tag": "0043_face_shape_slot",
+      "breakpoints": true
     }
   ]
 }

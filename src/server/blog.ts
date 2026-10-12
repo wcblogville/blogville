@@ -183,6 +183,7 @@ export async function searchBlogs(q: string, limit = 8) {
       title: blogs.title,
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
+      outfit: outfitOf(blogs.ownerId),
       photoKey: profiles.photoKey,
     })
     .from(blogs)
@@ -242,6 +243,8 @@ function baseList(where: SQL | undefined, orderFirst?: SQL) {
       blogTitle: blogs.title,
       nickname: profiles.nickname,
       characterAsset: characterItem.assetKey,
+      // 작성자의 꾸민 모습 (사용자 요청 2026-10-12). 같은 쿼리 안의 하위 쿼리라 글마다 따로 묻지 않는다
+      outfit: outfitOf(blogs.ownerId),
       // 앞 정렬(즐겨찾는 이웃의 최근 글)로 위에 올라온 글. 카드에 ⭐로 이유를 보여 준다
       pinned: orderFirst ? sql<boolean>`(${orderFirst}) = 0` : sql<boolean>`false`,
     })

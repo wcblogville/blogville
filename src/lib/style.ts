@@ -7,7 +7,7 @@ import { withJosa } from "@/lib/josa";
 
 /** 가게마다 고를 수 있는 부위 (앞에서부터 탭 순서) */
 export const STYLE_PLACES = {
-  salon: { slots: ["hair", "hair_color"], title: "미용실", emoji: "💇", href: "/salon" },
+  salon: { slots: ["hair", "hair_color", "face_shape"], title: "미용실", emoji: "💇", href: "/salon" },
   clothes: { slots: ["outfit", "hat", "accessory"], title: "옷가게", emoji: "👗", href: "/clothes" },
 } as const satisfies Record<string, { slots: readonly AvatarSlot[]; title: string; emoji: string; href: string }>;
 export type StylePlace = keyof typeof STYLE_PLACES;
@@ -15,6 +15,7 @@ export type StylePlace = keyof typeof STYLE_PLACES;
 export const SLOT_LABELS: Record<AvatarSlot, string> = {
   hair: "머리 모양",
   hair_color: "머리 색",
+  face_shape: "얼굴형",
   outfit: "옷",
   hat: "모자",
   accessory: "소품",

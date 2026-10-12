@@ -71,7 +71,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
 
       {/* 블로그로 돌아가는 나무 간판 */}
       <Link href={`/@${blog.slug}`} className="pixel-wood mb-6 inline-flex min-h-11 max-w-full items-center gap-2 px-3 py-1 text-sm hover:brightness-105">
-        <CharacterBadge asset={blog.characterAsset} size={28} />
+        <CharacterBadge asset={blog.characterAsset} outfit={blog.outfit} size={28} />
         <b className="truncate font-display text-base">{blog.title}</b>
         <span className="shrink-0 text-[#fff3d6]">· {blog.nickname}</span>
       </Link>

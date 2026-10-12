@@ -2,12 +2,16 @@
 // 모든 캐릭터가 같은 자리를 쓴다: 머리 0~12줄(눈 7~9줄, 4·5칸과 10·11칸), 몸 13~21줄(팔 1~3칸·12~14칸).
 // 한 글자 = 한 픽셀, "." = 투명(아래 캐릭터가 보인다). 글자 뜻은 pixel.ts PALETTE + 아래 AVATAR_COLORS.
 // 머리 모양·머리 색(미용실, 2026-10-11)도 같은 목록에 넣는다: 머리 모양은 hair.ts의 글자 줄, 머리 색은 그림 없이 색만 바꾼다.
+// 얼굴형(미용실, 2026-10-12)은 faces.ts의 머리(0~12줄) 글자 줄: 캐릭터 그림의 머리를 바꾼다 (characters.ts lookGrid).
+import { FACE_SHAPES } from "./faces";
 import { HAIR_COLORS, HAIR_STYLES } from "./hair";
 import { spriteRects, type Sprite } from "./pixel";
 
-/** 부위: 모자·옷·소품 (SHOP-06) + 미용실의 머리 모양(hair)·머리 색(hair_color) */
-export type AvatarSlot = "hat" | "outfit" | "accessory" | "hair" | "hair_color";
-export const AVATAR_SLOTS: readonly AvatarSlot[] = ["hair", "hair_color", "hat", "outfit", "accessory"];
+/** 부위: 모자·옷·소품 (SHOP-06) + 미용실의 머리 모양(hair)·머리 색(hair_color)·얼굴형(face_shape, 2026-10-12) */
+export type AvatarSlot = "hat" | "outfit" | "accessory" | "hair" | "hair_color" | "face_shape";
+export const AVATAR_SLOTS: readonly AvatarSlot[] = ["hair", "hair_color", "face_shape", "hat", "outfit", "accessory"];
+/** 캐릭터 그림 자체를 바꾸는 부위 (사람 주민만, 그림 조각 SVG가 없다) */
+export const LOOK_SLOTS: readonly AvatarSlot[] = ["hair", "hair_color", "face_shape"];
 
 /**
  * 아바타 아이템만 쓰는 색. 주황 후드티 O·r·s, 보라 로브 C·W·J (아래에 옷가게 더하기 색).
@@ -461,6 +465,160 @@ const PARTS: Record<string, Part> = {
       "################",
     ],
   },
+  // ===== 옷가게 더하기 (사용자 요청 2026-10-12 "옷이랑 머리 더 만들어줘") =====
+  // 크림색 가디건 (흰 셔츠, 나무 단추)
+  "outfit.cardigan": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#ccwwggwwcd#..",
+      ".#c#cdwwwwcd#d#.",
+      ".#c#cbwwwwbd#d#.",
+      "...#ccdwwcdd#...",
+      "..##cbccccbd##..",
+    ],
+  },
+  // 청재킷과 청바지 (흰 티, 금색 단추, 흰 운동화)
+  "outfit.denim": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#ivwwggwwvt#..",
+      ".#i#ivwwwwvt#t#.",
+      ".#v#vzwwwwzt#t#.",
+      "...#ivvwwvvt#...",
+      "..##tvvvvvvt##..",
+      "...#ivvvvvvt#...",
+      "...#ivv##vvt#...",
+      "...#ivv##ivt#...",
+      "..#wwww##wwww#..",
+    ],
+  },
+  // 교복 (회색 재킷, 초록 넥타이, 금색 학교 문장, 체크 바지)
+  "outfit.school": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#yywwmmwwyx#..",
+      ".#y#yywmmwyx#x#.",
+      ".#y#yzwmmwyx#x#.",
+      "...#yyywwyyx#...",
+      "..##yyyxxyyx##..",
+      "...#tNttNttq#...",
+      "...#NtN##NtN#...",
+      "...#tNt##tNt#...",
+      "..#DDDD##DDDD#..",
+    ],
+  },
+  // 하와이안 셔츠 (꽃무늬, 모래색 반바지, 샌들)
+  "outfit.hawaiian": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#iiVwggwViv#..",
+      ".#i#iRiiiiZv#v#.",
+      ".#f#iiiRiiiv#f#.",
+      ".#f#iZiiiRiv#f#.",
+      "..##iiiiiiiv##..",
+      "...#aaaaaaaA#...",
+      "...#aaA##aaA#...",
+      "...#fff##fff#...",
+      "..#nbbn##nbbn#..",
+    ],
+  },
+  // 카페 앞치마 (흰 셔츠 위 초록 앞치마)
+  "outfit.apron": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#wlwwggwwly#..",
+      ".#w#wllllllw#y#.",
+      ".#w#wllmlllw#y#.",
+      "...#wlmmmllw#...",
+      "..##llllllll##..",
+      "...#llllllmm#...",
+    ],
+  },
+  // 도령 한복 (하늘색 저고리, 남색 고름, 흰 바지와 대님)
+  "outfit.dopo": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#iiwwggwwiv#..",
+      ".#i#iiwttwiv#v#.",
+      ".#i#iiiitiiv#v#.",
+      ".#v#iiiitiiv#v#.",
+      "..##iiiiiiiv##..",
+      "...#wwwwwwwy#...",
+      "...#wwy##wwy#...",
+      "...#qqq##qqq#...",
+      "..#DDDD##DDDD#..",
+    ],
+  },
+  // 꿀벌 옷 (노랑·검정 줄무늬, 등에 날개)
+  "outfit.bee": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#Zzzzggzzzu#..",
+      ".#D#DDDDDDDD#D#.",
+      ".#z#zzzzzzzu#u#.",
+      "...#DDDDDDDD#...",
+      "..##zzzzzzzu##..",
+      "...#DDDDDDDD#...",
+      "...#DDD##DDD#...",
+      "...#DDD##DDD#...",
+      "..#DDDD##DDDD#..",
+    ],
+  },
+  // 공룡 옷 (초록 옷, 크림색 배, 등에 노란 가시와 꼬리)
+  "outfit.dino": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#lllLggLllm#..",
+      ".#l#lcccccLm#m#.",
+      ".#l#lcccccLm#m#.",
+      "...#lllccllm#...",
+      "..##lllccllm##..",
+      "...#llllllmm#...",
+      "...#lll##llm#...",
+      "...#lll##llm#...",
+      "..#mmmm##mmmm#..",
+    ],
+  },
+  // 소방관 옷 (빨간 방화복, 빛나는 노랑 띠, 까만 장화)
+  "outfit.firefighter": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      "..#KNNNggNNNQ#..",
+      ".#K#NNzNNzNQ#Q#.",
+      ".#Z#ZZZZZZZZ#Z#.",
+      "...#NNzNNzNQ#...",
+      "..##ZZZZZZZZ##..",
+      "...#NNNNNNNQ#...",
+      "...#NNQ##NNQ#...",
+      "...#ZZZ##ZZZ#...",
+      "..#DDDD##DDDD#..",
+    ],
+  },
+  // 드라큘라 망토 (까만 연미복, 빨간 나비넥타이, 안이 빨간 망토)
+  "outfit.vampire": {
+    slot: "outfit",
+    rows: [
+      ...Array<string>(13).fill("................"),
+      ".N#DDwwggwwDD#N.",
+      "N#D#DwwNNwwD#D#N",
+      "N#D#DDwwwwDD#D#N",
+      "N..#DDDwwDDD#..N",
+      "NN##DDDDDDDD##NN",
+      "NQ.#DDDDDDDS#.QN",
+      "NQ.#DDS##DDS#.QN",
+      "NQ.#DDS##DDS#.QN",
+      "QQ#DDDD##DDDD#QQ",
+    ],
+  },
   // 모자: 파란 야구 모자
   "hat.cap": {
     slot: "hat",
@@ -657,6 +815,8 @@ const PARTS: Record<string, Part> = {
 // 머리 모양 (미용실): 글자 줄은 hair.ts. 머리 색은 그림이 없다 (color만, characters.ts가 머리카락 칸을 칠한다)
 for (const [key, rows] of Object.entries(HAIR_STYLES)) PARTS[key] = { slot: "hair", rows };
 for (const key of Object.keys(HAIR_COLORS)) PARTS[key] = { slot: "hair_color", rows: [] };
+// 얼굴형 (미용실, 2026-10-12): 머리 0~12줄 전체. 얼굴 위를 덮는 그림이라 face
+for (const [key, rows] of Object.entries(FACE_SHAPES)) PARTS[key] = { slot: "face_shape", rows, face: true };
 
 /**
  * 뒷모습 (사용자 요청 2026-10-12 "정장같은 옷 입었을때 위로 올라가면 옷이 뒷모습이 보여야하는데 계속 앞모습만 보인다"):
@@ -666,8 +826,31 @@ for (const key of Object.keys(HAIR_COLORS)) PARTS[key] = { slot: "hair_color", r
  * - hide: 앞에만 다는 소품(나비넥타이·목걸이·메달)은 뒤에서 보이지 않는다
  * - keepRows: 앞으로 늘어진 부분(목도리 끝)은 빼고 위의 n줄만
  * - cape: 등을 덮는 망토 [천, 그늘] (13~20줄 몸통을 덮는다)
+ * - over: 등에만 있는 것 (꿀벌 날개, 공룡 가시·꼬리). 앞 무늬를 지운 뒤 그 위에 겹친다 (2026-10-12)
  */
-type Back = { details?: string; hide?: boolean; keepRows?: number; cape?: readonly [string, string] };
+type Back = { details?: string; hide?: boolean; keepRows?: number; cape?: readonly [string, string]; over?: Sprite };
+
+const BLANK_TOP = Array<string>(13).fill("................");
+/** 꿀벌 옷 등: 투명한 날개 두 장 */
+const BEE_WINGS: Sprite = [
+  ...BLANK_TOP,
+  "...#I#....#I#...",
+  "..#IiI#..#IiI#..",
+  "..#IiI#..#IiI#..",
+  "...###....###...",
+];
+/** 공룡 옷 등: 등뼈를 따라 난 노란 가시와 다리 사이로 내려온 꼬리 */
+const DINO_SPIKES: Sprite = [
+  ...BLANK_TOP,
+  ".......##.......",
+  "......#zu#......",
+  ".......##.......",
+  "......#zu#......",
+  ".......##.......",
+  "......#lm#......",
+  "......#lm#......",
+  ".......##.......",
+];
 const BACK: Record<string, Back> = {
   "outfit.overalls": { details: "zq" },
   "outfit.hoodie": { details: "w" },
@@ -689,6 +872,17 @@ const BACK: Record<string, Back> = {
   "outfit.prince": { details: "gwz" },
   "outfit.princess": { details: "gz" },
   "outfit.royal": { cape: ["N", "Q"] },
+  // 옷가게 더하기 (2026-10-12)
+  "outfit.cardigan": { details: "wgb" },
+  "outfit.denim": { details: "wgz" },
+  "outfit.school": { details: "wmz" },
+  "outfit.hawaiian": { details: "g" },
+  "outfit.apron": { details: "lmg", keepRows: 18 },
+  "outfit.dopo": { details: "wgt" },
+  "outfit.bee": { details: "g", over: BEE_WINGS },
+  "outfit.dino": { details: "cgL", over: DINO_SPIKES },
+  "outfit.firefighter": { details: "gz" },
+  "outfit.vampire": { cape: ["D", "S"] },
   "hat.crown": { details: "N" },
   "hat.tiara": { details: "Vi" },
   "hat.cap": { details: "z" },
@@ -738,6 +932,7 @@ export function partRows(key: string, view: "front" | "back"): Sprite {
   let rows = fixRows(part.rows);
   if (back.keepRows) rows = rows.slice(0, back.keepRows);
   if (back.details) rows = stripFront(rows, back.details, part.slot === "outfit" ? TORSO : undefined);
+  if (back.over) rows = overlay(rows, back.over);
   if (back.cape) {
     const [cloth, shade] = back.cape;
     rows = rows.map((row, y) =>
@@ -747,12 +942,22 @@ export function partRows(key: string, view: "front" | "back"): Sprite {
   return rows;
 }
 
+/** 글자 줄 두 장을 겹친다 (위 그림의 "."은 아래가 보인다) */
+function overlay(below: Sprite, above: Sprite): string[] {
+  const n = Math.max(below.length, above.length);
+  return Array.from({ length: n }, (_, y) => {
+    const a = (below[y] ?? "").padEnd(16, ".");
+    const b = (above[y] ?? "").padEnd(16, ".");
+    return [...a].map((c, x) => (b[x] !== "." ? b[x] : c)).join("");
+  });
+}
+
 /** 뒷모습이 앞모습과 다른 아이템 (시험용) */
 export const BACK_PARTS = () => Object.keys(BACK);
 
 export type AvatarPart = Part & { svg: string };
 export const AVATAR_PARTS: Record<string, AvatarPart> = Object.fromEntries(
-  Object.entries(PARTS).map(([key, part]) => [key, { ...part, svg: part.slot === "hair" || part.slot === "hair_color" ? "" : spriteRects(fixRows(part.rows), AVATAR_COLORS) }]),
+  Object.entries(PARTS).map(([key, part]) => [key, { ...part, svg: LOOK_SLOTS.includes(part.slot) ? "" : spriteRects(fixRows(part.rows), AVATAR_COLORS) }]),
 );
 
 /** 줄 길이를 16칸으로 맞춘다 (짧으면 오른쪽을 투명으로 채운다) */
@@ -760,10 +965,10 @@ export function fixRows(rows: Sprite) {
   return rows.map((r) => r.padEnd(16, ".").slice(0, 16));
 }
 
-// 머리 색 → 머리 모양 → 옷 → 소품 → 모자
-const ORDER: Record<AvatarSlot, number> = { hair_color: -2, hair: -1, outfit: 0, accessory: 1, hat: 2 };
+// 얼굴형 → 머리 색 → 머리 모양 → 옷 → 소품 → 모자
+const ORDER: Record<AvatarSlot, number> = { face_shape: -3, hair_color: -2, hair: -1, outfit: 0, accessory: 1, hat: 2 };
 
-/** 겹치는 순서: (머리 색 →) 머리 → 옷 → 소품 → 모자. 모르는 키는 뺀다 */
+/** 겹치는 순서: (얼굴형 → 머리 색 →) 머리 → 옷 → 소품 → 모자. 모르는 키는 뺀다 */
 export function orderOutfit(outfit: readonly string[]): string[] {
   return outfit.filter((k) => k in AVATAR_PARTS).sort((a, b) => ORDER[AVATAR_PARTS[a].slot] - ORDER[AVATAR_PARTS[b].slot]);
 }
@@ -780,9 +985,10 @@ export function outfitLayers(outfit: readonly string[]) {
 /** 상점·꾸미기 카드용: 회색 몸 위에 그 아이템만 입힌 미리보기는 characterSvg("char.mannequin", …, [key])로 그린다 */
 export const MANNEQUIN = "char.mannequin";
 
-/** 아이템 카드 미리보기 모습. 머리는 마네킹(머리카락 없음)에 보이지 않아 사람 주민에게 입힌다 (머리 색은 긴 머리로) */
+/** 아이템 카드 미리보기 모습. 머리는 마네킹(머리카락 없음)에 보이지 않아 사람 주민에게 입힌다 (머리 색은 긴 머리로, 얼굴형은 올백으로 얼굴이 잘 보이게) */
 export function previewLook(assetKey: string): { asset: string; outfit: string[] } {
   const slot = AVATAR_PARTS[assetKey]?.slot;
+  if (slot === "face_shape") return { asset: "char.boy", outfit: ["hair.slick", assetKey] };
   if (slot === "hair") return { asset: "char.boy", outfit: [assetKey] };
   if (slot === "hair_color") return { asset: "char.girl", outfit: ["hair.long", assetKey] };
   return { asset: MANNEQUIN, outfit: [assetKey] };
