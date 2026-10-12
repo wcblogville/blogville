@@ -119,6 +119,7 @@ erDiagram
         varchar nickname UK "2~20자, 가입 때 아이디로 자동"
         int character_item_id FK
         char photo_key FK "프로필 사진, NULL 허용"
+        text greeting "마을 한마디 1~60자, NULL 허용"
         timestamptz created_at
     }
     blogs {
@@ -755,6 +756,13 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 스킨을 사고 입히는 것은 한 Server Action(`wearSkin`)에서 `lockUser` 트랜잭션으로: 안 산 스킨이면 잔액 확인 → `user_animal_skins` INSERT → 원장 `skin_purchase`(`ref_id` = 스킨 ID) → `skin_id` UPDATE.
 - 동물 크기(작은·중간·큰)와 따라다니는 움직임은 그림 코드(`ANIMAL_SIZE`, `petSheetSvg`)라 DB에 두지 않는다.
 
+### 3.29 마을 한마디 (사용자 요청 2026-10-12, TOWN-24, `0039_profile_greeting`)
+
+- 마을에서 이웃(NPC)에게 말을 걸면 그 회원이 정한 한마디를 말풍선으로 보여 준다. `profiles.greeting`(NULL 허용) + CHECK `profiles_greeting_check`: `greeting IS NULL OR char_length(greeting) BETWEEN 1 AND 60`. 빈 칸으로 저장하면 NULL(앞뒤 공백을 지운 뒤, `src/lib/town-talk.ts` `normalizeGreeting`).
+- 한마디가 없으면 그 회원의 **공개 글** 본문(`posts.content_text`)에서 한 문장(5~80자)을 골라 보여 준다. 문장은 저장하지 않고 마을을 그릴 때 최근 공개 글 5개에서 뽑는다 (비공개 글은 읽지 않는다).
+- 프로필은 회원과 1:1이라 새 표 없이 칸 하나를 더했다. 말풍선 글자는 Phaser 글자로 그려 HTML로 해석되지 않는다.
+- 마을 분위기(배경 → 눈 쌓인 마을 등)·가만히 동작·이웃이 데리고 다니는 동물은 이미 있는 `blogs.background_item_id`·`blogs.showcase_animal_id`와 그림 코드로 정해 DB를 바꾸지 않았다.
+
 ## 4. 데이터 마이그레이션
 
 구조가 아니라 **데이터**를 바꿔야 할 때도 마이그레이션 파일로 남긴다. 그래야 팀원 각자의 DB와 배포 DB에 똑같이 적용된다.
@@ -830,6 +838,7 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 | `verifications.identifier` | `VARCHAR(255)` | |
 | `verifications.value` | `TEXT` | 소셜 로그인 확인 값은 길어질 수 있다 |
 | `profiles.nickname` | `VARCHAR(20)` | 2~20자 (가입 때 아이디로 자동) |
+| `profiles.greeting` | `TEXT` | 1~60자 (CHECK `profiles_greeting_check`, TOWN-24) |
 | `blogs.slug` | `VARCHAR(20)` | 3~20자 |
 | `blogs.title` | `VARCHAR(40)` | 1~40자 |
 | `blogs.description` | `VARCHAR(160)` | 0~160자 (CHECK `blogs_description_check`) |
@@ -848,4 +857,4 @@ ERD는 아래 규칙으로 타입을 적는다. 지금 DB는 글자를 `text` + 
 
 **NULL 허용 컬럼** (나머지는 모두 NOT NULL)
 
-`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`·`skin_id`, `animal_species.price`
+`users.image`, `users.display_username`, `accounts`의 토큰·만료·`scope`·`password`, `sessions.ip_address`·`user_agent`, `login_attempts.locked_until`, `profiles.photo_key`, `profiles.greeting`, `posts.category_id`, `posts.subcategory_id`, `comments.author_id`(탈퇴), `comments.deleted_at`, `replies.deleted_at`, `items.description`, `items.growth_value`, `blogs.showcase_animal_id`, `blogs.roof_color`, `point_ledger.ref_id`, `attachments.post_id`, `attachments.detached_at`, `attendances.session_id`, `notifications.actor_id`·`post_id`·`level`·`read_at`, `user_animals.species_id`·`source_level`·`hatched_at`·`grown_at`·`skin_id`, `animal_species.price`

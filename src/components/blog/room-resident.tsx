@@ -17,6 +17,7 @@ import { ANIMAL_SIZE, animalHalfWidth, hasAnimalArt, PET_IDLE_FRAMES, PET_SHEET_
 import { floorToScreen, type IsoRoom } from "@/lib/art/room";
 import { WALK_FPS, WALK_FRAMES, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 import type { AnimalDisplaySize } from "@/lib/farm";
+import { IDLE_COLS, IDLE_FRAME, IDLE_MOTIONS, idleDuration, idleFrameAt, idleFrameIndex, idleSheetDataUri, pickIdleMotion, type IdleMotion } from "@/lib/art/idle";
 
 const SCALE = 4;
 const BOX = 24 * SCALE; // 걷기 그림판 한 칸 (96px)
@@ -96,9 +97,13 @@ export function RoomResident({
   hidden?: boolean;
 }) {
   const meRef = useRef<HTMLDivElement>(null);
+  const idleRef = useRef<HTMLSpanElement>(null);
   const petRef = useRef<HTMLSpanElement>(null);
   const shown = pet && hasAnimalArt(pet.assetKey) ? pet : null;
   const sheet = walkSheetDataUri(characterAsset, outfit, SCALE);
+  // 가만히 동작 그림판 (idle.ts, 사용자 요청 2026-10-12): 멈춰 쉬는 동안 가끔 동작을 하나 한다. 칸이 걷기 칸보다 위로 높다
+  const idleSheet = idleSheetDataUri(characterAsset, outfit, SCALE);
+  const idleH = (BOX / IDLE_FRAME.w) * IDLE_FRAME.h;
   const gap = shown ? petGap(shown.assetKey, shown.size) : 0;
   const blockedKey = blocked.join(";");
   const start = useMemo(() => startTiles(room.grid, new Set(blockedKey ? blockedKey.split(";") : [])), [room.grid, blockedKey]);
@@ -107,6 +112,8 @@ export function RoomResident({
     const me = meRef.current;
     if (!me) return;
     const petEl = petRef.current;
+    const idleEl = idleRef.current;
+    const walkBg = me.style.backgroundImage;
     const put = (el: HTMLElement, p: P, box: number, lift = 0) => Object.assign(el.style, spot(room, p, box, lift));
     const blockedSet = new Set(blockedKey ? blockedKey.split(";") : []);
     const center = (t: P): P => ({ x: t.x + 0.5, y: t.y + 0.5 });
@@ -127,6 +134,11 @@ export function RoomResident({
       hop: 0,
       idle: 0,
       face: "right" as "left" | "right",
+      // 가만히 동작: 할 동작과 남은 시간(ms), 하는 중인 동작
+      idleNext: null as IdleMotion | null,
+      idleIn: 0,
+      act: null as { m: IdleMotion; t: number } | null,
+      idleFrame: null as number | null,
     };
     const startGap = Math.hypot(s.pos.x - s.petPos.x, s.pos.y - s.petPos.y);
     s.trail = [
@@ -152,6 +164,16 @@ export function RoomResident({
 
     const draw = (frame: number) => {
       put(me, s.pos, BOX);
+      if (idleEl) {
+        const f = s.act ? s.idleFrame : null;
+        idleEl.style.display = f === null ? "none" : "block";
+        me.style.backgroundImage = f === null ? walkBg : "none";
+        me.dataset.idle = f === null ? "" : s.act!.m.key;
+        if (f !== null) {
+          const i = idleFrameIndex(s.act!.m.key, f);
+          idleEl.style.backgroundPosition = `-${(i % IDLE_COLS) * BOX}px -${Math.floor(i / IDLE_COLS) * idleH}px`;
+        }
+      }
       me.style.backgroundPosition = `-${frame * BOX}px -${ROWS[s.dir] * BOX}px`;
       me.dataset.walk = `${s.path.length ? "walk" : "idle"}-${s.dir}`;
       if (petEl) {
@@ -193,6 +215,13 @@ export function RoomResident({
       let frame = 0;
       if (!s.path.length) {
         s.wait -= dt * 1000;
+        // 쉬는 동안 동작 하나 (정해 둔 때가 되면 시작해 끝까지)
+        if (s.idleNext && (s.idleIn -= dt * 1000) <= 0) [s.act, s.idleNext] = [{ m: s.idleNext, t: 0 }, null];
+        if (s.act) {
+          s.act.t += dt * 1000;
+          s.idleFrame = idleFrameAt(s.act.m, s.act.t);
+          if (s.idleFrame === null) s.act = null;
+        }
         if (s.wait <= 0) plan();
       }
       if (s.path.length) {
@@ -226,6 +255,12 @@ export function RoomResident({
         if (!s.path.length) {
           s.dir = "down";
           s.wait = 2000 + Math.random() * 4000;
+          // 멈추면 가끔(60%) 잠시 뒤 재미있는 동작을 하나 하고, 그동안은 다시 걷지 않는다
+          if (Math.random() < 0.6) {
+            s.idleNext = pickIdleMotion(Math.random(), s.act?.m.key ?? null);
+            s.idleIn = 700 + Math.random() * 800;
+            s.wait = Math.max(s.wait, s.idleIn + idleDuration(s.idleNext) + 500);
+          }
         } else {
           s.t += dt;
           frame = 1 + (Math.floor(s.t * WALK_FPS) % (WALK_FRAMES - 1));
@@ -261,7 +296,7 @@ export function RoomResident({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [gap, room, start, blockedKey]);
+  }, [gap, room, start, blockedKey, idleH]);
 
   // 첫 그림(서버·하이드레이션 전)도 처음 자리(칸 가운데)에 둔다
   const first = (p: P, box: number) => spot(room, { x: p.x + 0.5, y: p.y + 0.5 }, box);
@@ -310,7 +345,20 @@ export function RoomResident({
           backgroundRepeat: "no-repeat",
           backgroundPosition: "0 0",
         }}
-      />
+      >
+        <span
+          ref={idleRef}
+          className="pointer-events-none absolute bottom-0 left-0"
+          style={{
+            display: "none",
+            width: BOX,
+            height: idleH,
+            backgroundImage: `url("${idleSheet}")`,
+            backgroundSize: `${BOX * IDLE_COLS}px ${idleH * IDLE_MOTIONS.length}px`,
+            backgroundRepeat: "no-repeat",
+          }}
+        />
+      </div>
     </>
   );
 }

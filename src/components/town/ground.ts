@@ -5,6 +5,7 @@
 // - 풀은 넓은 얼룩(밝은·짙은 잔디)과 키 큰 풀 포기·꽃, 맨 위는 먼 하늘·산·숲, 북쪽(멀리)일수록 옅고 푸르게(대기 원근)
 // Phaser 없이 쓰는 순수 계산이라 브라우저 밖에서도 돌릴 수 있다.
 import { PALETTE, PIXEL, rgbOf, TILE, TILES } from "@/lib/art/pixel";
+import { gradePixels, hashSnow, townTheme, TOWN_THEMES, type TownTheme } from "@/lib/art/town-theme";
 import { CENTER, HOME, HOME_BEDS, HORIZON, PLAZA_RADIUS, POND } from "./layout";
 import { GROUND_SIZE, hash, PathCode, terrain } from "./terrain";
 
@@ -35,39 +36,34 @@ function noise(x: number, y: number, s: number, seed = 0) {
   return a + (b - a) * sy;
 }
 
-/** 잔디 색: 높이마다 조금 다르게 [밝은, 기본, 짙은, 아주 짙은] */
-const GRASS: Record<number, [string, string, string, string]> = {
-  0: ["#a6dc8c", "#86c874", "#6cb062", "#4f8f4f"], // 남쪽 들판 (가장 가깝고 짙다)
-  1: [PALETTE.G, PALETTE.e, PALETTE.E, "#5e9f5c"],
-  2: ["#bde5a0", "#a2d996", "#86c67e", "#66a565"],
-  3: ["#c6e8a6", "#abdc9c", "#8fca84", "#6eaa6a"],
-};
+/** 잔디·하늘·먼 산·먼 숲·물·꽃 색은 마을 테마가 정한다 (src/lib/art/town-theme.ts, 기본은 초원) */
 /** 절벽 돌벽 색 [윗돌 밝은 면, 돌, 돌 그늘, 줄눈, 맨 아래 그늘] (참고 그림처럼 따뜻한 베이지 돌) */
 const WALL = ["#f1e3c2", "#dcc79c", "#c4ab7e", "#9a8160", "#6f5c45"];
 /** 연못 둑 (흙) */
 const BANK = ["#c99a68", "#a97a4c", "#8a5f3a", "#6b4a2e"];
-/** 먼 풍경: 하늘(위→아래), 먼 산, 먼 숲 */
-const SKY = ["#cfe9f7", "#d9eef8", "#e3f2f8", "#ecf5f2"];
-const HILLS = ["#b7cfe0", "#a3c1d6"];
-const FAR_FOREST = ["#7fae9c", "#6a9c8b", "#5a8c7c"];
-/** 멀리(위쪽)를 옅게 만드는 공기 색 */
-export const HAZE_COLOR = "#dcebf2";
-const HAZE = rgbOf(HAZE_COLOR);
+/** 멀리(위쪽)를 옅게 만드는 공기 색 (기본 테마) */
+export const HAZE_COLOR = TOWN_THEMES.meadow.haze;
 
 /** 대기 원근 세기 (0~0.24): 월드 y가 작을수록(북쪽, 멀리) 세다. 바닥과 그 위 그림(scene.ts)이 같이 쓴다 */
 export function hazeAt(wy: number) {
   return Math.max(0, (950 - wy) / 950) ** 1.4 * 0.24;
 }
 
-let baked: Uint8ClampedArray | null = null;
+const baked = new Map<string, Uint8ClampedArray>();
 
-/** 바닥을 RGBA로 굽는다 (GROUND_SIZE.w × GROUND_SIZE.h). 늘 같은 그림이라 한 번 구운 것을 다시 쓴다 */
-export function bakeGround(): Uint8ClampedArray {
-  baked ??= bake();
-  return baked;
+/** 바닥을 RGBA로 굽는다 (GROUND_SIZE.w × GROUND_SIZE.h). 테마마다 늘 같은 그림이라 한 번 구운 것을 다시 쓴다 */
+export function bakeGround(themeKey: string = "meadow"): Uint8ClampedArray {
+  const theme = townTheme(themeKey);
+  let out = baked.get(theme.key);
+  if (!out) baked.set(theme.key, (out = gradePixels(bake(theme), theme.grade)));
+  return out;
 }
 
-function bake(): Uint8ClampedArray {
+function bake(theme: TownTheme): Uint8ClampedArray {
+  const GRASS = theme.grass;
+  const [SKY, HILLS, FAR_FOREST, WATER] = [theme.sky, theme.hills, theme.farForest, theme.water];
+  const HAZE = rgbOf(theme.haze);
+  const SNOWY = theme.snow;
   const T = terrain();
   const { w: W, h: H } = GROUND_SIZE;
   const PX = PIXEL;
@@ -147,9 +143,9 @@ function bake(): Uint8ClampedArray {
         } else {
           const up = (k: number) => at(x, y - k);
           const deep = up(1) >= 0 && face[up(1)] ? 1 : up(2) >= 0 && face[up(2)] ? 2 : 0;
-          c = deep ? PAL.v : hash(x >> 2, y) < 0.025 ? PAL.I : (x + y * 2) % 23 === 0 ? "#bfe8f8" : PAL.i;
+          c = deep ? WATER[0] : hash(x >> 2, y) < 0.025 ? WATER[2] : (x + y * 2) % 23 === 0 ? WATER[3] : WATER[1];
           // 물가(옆·아래) 테두리
-          if (!water[at(x + 1, y)] || !water[at(x - 1, y)] || !water[at(x, y + 1)]) c = PAL.v;
+          if (!water[at(x + 1, y)] || !water[at(x - 1, y)] || !water[at(x, y + 1)]) c = WATER[0];
         }
       } else if (stairs[i] && face[i]) {
         // ===== 계단 (절벽 앞면을 지나는 길): 밝은 디딤판 2줄 + 챌판 그늘 2줄, 양옆은 돌 난간 =====
@@ -276,6 +272,8 @@ function bake(): Uint8ClampedArray {
         }
       }
 
+      // 눈 테마: 길·광장 돌·꽃밭에 눈을 흩뿌린다 (풀은 이미 눈밭 색, 물·절벽 앞면은 그대로)
+      if (SNOWY && y >= horizon && !water[i] && !face[i] && hashSnow(x * 3 + 1, y * 7 + 2) < (path[i] ? 0.22 : 0.38)) c = hashSnow(x, y) < 0.3 ? "#e3ebf5" : "#f7faff";
       let [R, G, B] = color(c);
       // 대기 원근: 북쪽(멀리)일수록 공기 색을 섞는다 (먼 풍경은 더)
       const far = farOf[y];
@@ -309,7 +307,7 @@ function bake(): Uint8ClampedArray {
     [".L..L.", "Ll.lL.", "lllll.", "mlmmlm", "MmMmMm"],
     ["..L...", ".lL.L.", "lmllL.", "mmlml.", "MmmMm."],
   ];
-  const FLOWERS = [PAL.w, PAL.V, PAL.z, PAL.U, "#ffb08a"];
+  const FLOWERS = theme.flowers;
   for (let k = 0; k < 2600; k++) {
     const x = Math.floor(hash(k, 11) * W);
     const y = Math.floor(hash(k, 23) * H);
@@ -319,7 +317,7 @@ function bake(): Uint8ClampedArray {
     const g = GRASS[lv] ?? GRASS[1];
     // 풀 포기는 무리 지어 (얼룩 값이 높은 곳)
     if (noise(x, y, 30, 5) > 0.55) stamp(TUFTS[k % 3], x, y, { L: g[0], l: g[1], m: g[2], M: g[3] });
-    else if (k % 3 === 0) {
+    else if (k % 3 === 0 && FLOWERS.length) {
       const f = FLOWERS[k % FLOWERS.length];
       stamp([".f.", "fYf", ".s."], x, y, { f, Y: PAL.z, s: g[3] });
     } else put(x, y, g[3]);

@@ -5,7 +5,7 @@ import { TownMenu } from "@/components/town/town-menu";
 import { TownScreen } from "@/components/town/town-screen";
 import type { TownData } from "@/components/town/types";
 import { getViewer } from "@/server/dal";
-import { getFavoriteHouses, getGuestHouses, getHudMember, getMyHouse, getTownPet } from "@/server/town";
+import { getFavoriteHouses, getGuestHouses, getHudMember, getMyHouse, getTownPet, getTownTheme } from "@/server/town";
 
 export const metadata = { title: "중앙 광장" };
 
@@ -15,11 +15,12 @@ export default async function TownPage(props: PageProps<"/town">) {
   const { welcome, at, menu } = await props.searchParams;
 
   // 둘레 집 10자리: 회원은 즐겨찾기한 이웃, 방문자는 인기 블로그 100곳 중 무작위 10곳
-  const [neighbors, myHouse, hud, pet] = await Promise.all([
+  const [neighbors, myHouse, hud, pet, theme] = await Promise.all([
     member ? getFavoriteHouses(member.userId) : getGuestHouses(),
     member ? getMyHouse(member.userId) : null,
     member ? getHudMember(member.userId, member.user.role === "admin", member.profile) : null,
     member ? getTownPet(member.userId) : null,
+    member ? getTownTheme(member.userId) : ("meadow" as const),
   ]);
 
   const data: TownData = {
@@ -32,6 +33,8 @@ export default async function TownPage(props: PageProps<"/town">) {
     host: null,
     // 내 블로그에 전시한 동물이 나를 따라다닌다 (사용자 요청 2026-10-11)
     pet,
+    // 꾸미기에서 고른 배경이 마을 분위기도 바꾼다 (눈 마을 → 눈 쌓인 마을, 우주 → 보랏빛 마을)
+    theme,
   };
 
   // 안내·환영·이웃집은 게임 위에 띄운다.

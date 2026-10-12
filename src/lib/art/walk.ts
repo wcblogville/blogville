@@ -19,20 +19,20 @@ export const WALK_FPS = 8;
 const SHADOW = PALETTE[":"];
 const OUTLINE = PALETTE["#"];
 /** 발 줄과 그 아래 외곽선 줄 (모든 캐릭터가 같다: 21줄 신발·발, 22줄 외곽선, 23줄 그림자) */
-const FOOT_ROW = 21;
-const SOLE_ROW = 22;
+export const FOOT_ROW = 21;
+export const SOLE_ROW = 22;
 /** 왼발·오른발 칸 (꼬리가 있는 14·15칸은 건드리지 않는다) */
-const LEGS = { left: [2, 7], right: [8, 13] } as const;
+export const LEGS = { left: [2, 7], right: [8, 13] } as const;
 /** 팔(손) 칸과 줄: 소매 14줄, 손 15·16줄, 팔 끝 외곽선 17줄 */
-const ARMS = { left: 2, right: 13, top: 14, bottom: 17 } as const;
+export const ARMS = { left: 2, right: 13, top: 14, bottom: 17 } as const;
 /** 옆으로 볼 때 돌리는 얼굴 줄 */
-const FACE_ROWS = [7, 11] as const;
+export const FACE_ROWS = [7, 11] as const;
 
 const copy = (g: Grid): Grid => g.map((r) => [...r]);
 const isShadow = (c: string | null) => c === SHADOW;
 
 /** 그림자 층: 그림자 칸 + 발밑 외곽선 줄의 그림자 사이 (발을 들면 그 밑에 그림자가 보인다) */
-function shadowLayer(g: Grid): Grid {
+export function shadowLayer(g: Grid): Grid {
   const out: Grid = g.map((r) => r.map((c) => (isShadow(c) ? c : null)));
   const sole = g[SOLE_ROW];
   if (sole) {
@@ -44,15 +44,15 @@ function shadowLayer(g: Grid): Grid {
 }
 
 /** 몸 층: 그림자를 뺀 칸 */
-const bodyLayer = (g: Grid): Grid => g.map((r) => r.map((c) => (isShadow(c) ? null : c)));
+export const bodyLayer = (g: Grid): Grid => g.map((r) => r.map((c) => (isShadow(c) ? null : c)));
 
 /** 몸 층을 그림자 층 위에 놓는다 */
-function merge(shadow: Grid, body: Grid): Grid {
+export function merge(shadow: Grid, body: Grid): Grid {
   return body.map((r, y) => r.map((c, x) => c ?? shadow[y][x]));
 }
 
 /** 몸 전체를 위로 n칸 */
-function raise(body: Grid, n: number): Grid {
+export function raise(body: Grid, n: number): Grid {
   return body.map((_, y) => [...(body[y + n] ?? body[0].map(() => null))]);
 }
 
@@ -60,7 +60,7 @@ function raise(body: Grid, n: number): Grid {
  * 한 발 들기: 그 발 칸에서 신발 줄을 한 줄 위로, 발밑 외곽선을 신발 자리로 올리고 맨 아래는 비운다.
  * 위 줄이 외곽선(치마 끝 등)이면 덮지 않는다 → 긴 옷은 신발만 옷자락 밑으로 숨는다
  */
-function liftFoot(body: Grid, side: keyof typeof LEGS): Grid {
+export function liftFoot(body: Grid, side: keyof typeof LEGS): Grid {
   const out = copy(body);
   const [a, b] = LEGS[side];
   for (let x = a; x <= b; x++) {
@@ -73,7 +73,7 @@ function liftFoot(body: Grid, side: keyof typeof LEGS): Grid {
 }
 
 /** 팔 흔들기: 그 팔(손) 한 줄의 칸을 dy(+1 아래 = 앞으로, −1 위 = 뒤로)만큼 옮긴다 */
-function swingArm(body: Grid, side: "left" | "right", dy: 1 | -1): Grid {
+export function swingArm(body: Grid, side: "left" | "right", dy: 1 | -1): Grid {
   const out = copy(body);
   const x = ARMS[side];
   if (dy === 1) {
@@ -87,7 +87,7 @@ function swingArm(body: Grid, side: "left" | "right", dy: 1 | -1): Grid {
 }
 
 /** 얼굴을 왼쪽으로 1칸 돌린다: 얼굴 줄의 외곽선 안쪽을 왼쪽으로 밀고, 오른쪽 끝 칸은 그대로 늘인다 */
-function turnLeft(body: Grid): Grid {
+export function turnLeft(body: Grid): Grid {
   const out = copy(body);
   for (let y = FACE_ROWS[0]; y <= FACE_ROWS[1]; y++) {
     const row = body[y];
@@ -99,7 +99,7 @@ function turnLeft(body: Grid): Grid {
   return out;
 }
 
-const flip = (g: Grid): Grid => g.map((r) => [...r].reverse());
+export const flip = (g: Grid): Grid => g.map((r) => [...r].reverse());
 
 /** 방향·칸 하나의 그림 격자 (16×24) */
 export function walkFrame(assetKey: string, outfit: readonly string[], dir: WalkDir, frame: number): Grid {

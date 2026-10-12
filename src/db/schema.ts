@@ -230,6 +230,8 @@ export const profiles = pgTable(
     characterItemId: integer("character_item_id").notNull(),
     // 프로필 사진 (ERD 3.9). 올리는 화면은 아직 없다. 첨부 행이 지워지면 사진만 비운다 (ON DELETE SET NULL)
     photoKey: text("photo_key"),
+    // 마을 한마디 (사용자 요청 2026-10-12): 마을에서 이웃이 나(NPC)에게 말을 걸면 말풍선으로 보인다. 없으면 공개 글의 한 문장
+    greeting: text("greeting"),
     createdAt: createdAt(),
   },
   (t) => [
@@ -239,6 +241,8 @@ export const profiles = pgTable(
       foreignColumns: [attachments.key],
     }).onDelete("set null"),
     check("profiles_nickname_check", sql`char_length(${t.nickname}) BETWEEN 2 AND 20`),
+    // 마을 한마디: 앞뒤 공백 없이 1~60자 (비우면 NULL)
+    check("profiles_greeting_check", sql`${t.greeting} IS NULL OR char_length(${t.greeting}) BETWEEN 1 AND 60`),
     // 보유한 아이템만 장착할 수 있다 (복합 외래 키)
     foreignKey({
       name: "profiles_character_owned_fk",
