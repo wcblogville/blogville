@@ -5,6 +5,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { animalSkins, animalSpecies, items } from "../src/db/schema";
+import { ensureNoticePosts, noticePostsMessage } from "./notice-posts";
 
 config({ path: ".env.local" });
 
@@ -264,6 +265,8 @@ async function main() {
     }
     const rows = await db.execute(sql`SELECT type, COUNT(*)::int AS n FROM items GROUP BY type ORDER BY type`);
     console.log("✔ 아이템 시드 완료", rows.rows, `동물 ${SPECIES.length}종, 스킨 ${SKINS.length}개`);
+    // 마을 소식 맨 위 첫 공지·릴리스 노트 (관리자가 있을 때만, 이미 있는 글은 건너뜀). 첫 배포는 관리자가 아직 없어 admin:create가 넣는다
+    console.log(noticePostsMessage(await ensureNoticePosts(db, process.env.ADMIN_USERNAME?.trim().toLowerCase() || undefined)));
   } finally {
     await pool.end();
   }

@@ -1,6 +1,8 @@
 // NF-03: 글 HTML 정화가 XSS 공격 문자열을 제거하는지 확인한다
 // 실행: npm run test:sanitize
-import { sanitizePostHtml } from "../src/server/sanitize";
+import { htmlToText, sanitizePostHtml } from "../src/server/sanitize";
+import { RELEASE_NOTES, releaseNoteHtml, releaseNoteText, releaseNoteTitle } from "../src/content/release-notes";
+import { WELCOME_NOTICE_HTML, WELCOME_NOTICE_TEXT, WELCOME_NOTICE_TITLE } from "../src/lib/welcome-notice";
 // 글쓰기 화면 글자 수가 서버 보상 판단과 같은지도 함께 확인한다 (#18)
 import "./test-text-length";
 const cases = {
@@ -73,4 +75,38 @@ if (failed) process.exit(1);
     !out.includes(KEY) && out.includes('data-name="보고서 최종.pdf"') && out.includes('data-size="1258291"') && !out.includes("바꾼"),
   );
   if (bad) process.exit(1);
+}
+
+// 첫 공지 "사용법 안내" (사용자 요청 2026-10-12): 시드가 정화 없이 넣으므로 정화해도 그대로이고, 요약 글자도 htmlToText와 같아야 한다
+{
+  const same = sanitizePostHtml(WELCOME_NOTICE_HTML) === WELCOME_NOTICE_HTML;
+  const text = htmlToText(WELCOME_NOTICE_HTML) === WELCOME_NOTICE_TEXT;
+  const title = [...WELCOME_NOTICE_TITLE].length <= 100;
+  console.log(`${same ? "✅" : "❌"} 첫 공지 본문은 정화해도 그대로`);
+  console.log(`${text ? "✅" : "❌"} 첫 공지 요약 글자 = htmlToText`);
+  console.log(`${title ? "✅" : "❌"} 첫 공지 제목 100자 이내`);
+  if (!same || !text || !title) {
+    if (!text) console.log(JSON.stringify(htmlToText(WELCOME_NOTICE_HTML)).slice(0, 300), "\n", JSON.stringify(WELCOME_NOTICE_TEXT).slice(0, 300));
+    process.exit(1);
+  }
+}
+
+// 릴리스 노트 (src/content/release-notes.ts): 버전마다 정화해도 그대로·요약 글자 = htmlToText·제목 100자 이내·버전과 날짜 형식·버전 겹침 없음
+{
+  const versions = new Set<string>();
+  let ok = true;
+  for (const note of RELEASE_NOTES) {
+    const html = releaseNoteHtml(note);
+    const good =
+      sanitizePostHtml(html) === html &&
+      htmlToText(html) === releaseNoteText(note) &&
+      [...releaseNoteTitle(note)].length <= 100 &&
+      /^v\d+\.\d+(\.\d+)?$/.test(note.version) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(note.date) &&
+      !versions.has(note.version);
+    versions.add(note.version);
+    console.log(`${good ? "✅" : "❌"} 릴리스 노트 ${note.version}`);
+    ok &&= good;
+  }
+  if (!ok) process.exit(1);
 }
