@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { fishingCatches } from "@/db/schema";
 import { PixelIcon } from "@/components/pixel-icon";
 import { PlaceHeader } from "@/components/place-banner";
+import { catchDataUri } from "@/lib/art/catches";
 import { CATCHES } from "@/lib/fishing";
 import { todayKST } from "@/lib/game";
 import { requireMember } from "@/server/dal";
@@ -39,13 +40,22 @@ export default async function FishingPage() {
         </h2>
         <ul className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3">
           {CATCHES.map((c) => (
-            <li key={c.key} className="pixel-card flex items-center gap-3 p-2 text-sm">
-              <span className="pixel-slot grid size-11 shrink-0 place-items-center text-2xl" aria-hidden>
-                {c.emoji}
+            <li key={c.key} className="pixel-card flex items-center gap-3 p-2 text-sm" data-catch={c.key}>
+              {/* 도트 그림 20칸 × 2배 = 40px (2026-10-12 "낚을 수 있는 것들도 도트로") */}
+              <span className="pixel-slot grid size-12 shrink-0 place-items-center" aria-hidden>
+                <CatchArt catchKey={c.key} scale={2} />
               </span>
               <span>
                 <b>{c.name}</b>
-                <span className="block text-xs text-ink-soft">{c.itemCode ? "동물 먹이 1개" : `🪙 ${c.coins}`}</span>
+                <span className="flex items-center gap-0.5 text-xs text-ink-soft">
+                  {c.itemCode ? (
+                    "동물 먹이 1개"
+                  ) : (
+                    <>
+                      <PixelIcon name="coin" scale={1} /> {c.coins}
+                    </>
+                  )}
+                </span>
               </span>
             </li>
           ))}
@@ -63,8 +73,9 @@ export default async function FishingPage() {
               const c = CATCHES.find((x) => x.key === r.catchKey);
               return (
                 <li key={r.date} className="flex justify-between px-3 py-2">
-                  <span>
-                    {c?.emoji} {c?.name ?? r.catchKey}
+                  <span className="flex items-center gap-2">
+                    <CatchArt catchKey={r.catchKey} scale={1} />
+                    {c?.name ?? r.catchKey}
                   </span>
                   <span className="text-ink-soft">{r.date}</span>
                 </li>
@@ -75,4 +86,13 @@ export default async function FishingPage() {
       )}
     </div>
   );
+}
+
+/** 낚을 것 도트 그림 (정수배). 그림이 없으면 빈 칸 */
+function CatchArt({ catchKey, scale }: { catchKey: string; scale: number }) {
+  const src = catchDataUri(catchKey, scale);
+  const size = 20 * scale;
+  if (!src) return <span style={{ width: size, height: size }} className="inline-block" />;
+  // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 도트 SVG(data URI)
+  return <img src={src} alt="" width={size} height={size} className="pixelated shrink-0" style={{ width: size, height: size }} />;
 }

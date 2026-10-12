@@ -273,6 +273,30 @@ body {
   50%, 100% { opacity: 0; }
 }
 
+/* 낚시터 (2026-10-12 "낚을 수 있는 것들도 도트로"): 찌가 물에 떠 까딱이고, 입질에 쑥 잠기고, 낚은 것이 물보라와 함께 튀어 오른다.
+   도트답게 steps()로 끊어 움직이고, 이동 거리는 도트 한 칸(4px)의 배수. 움직임 줄이기면 motion-safe로 쓰지 않는다 */
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
+}
+@keyframes bite {
+  0%, 100% { transform: translateY(0); }
+  30%, 60% { transform: translateY(16px); }
+}
+@keyframes catch-pop {
+  0% { transform: translateY(80px) scale(0.6); opacity: 0; }
+  35% { transform: translateY(-28px) scale(1.1); opacity: 1; }
+  60% { transform: translateY(-8px) scale(1); }
+  80% { transform: translateY(-16px); }
+  100% { transform: translateY(0); }
+}
+@keyframes splash {
+  0% { transform: scaleY(0.2); opacity: 0; }
+  25% { transform: scaleY(1.2); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: scaleY(0.6); opacity: 0; }
+}
+
 /* ===== 도트 UI 키트 (2026-10-12 사용자 요청 "상점·블로그·낚시터… 들어간 화면도 다 도트감성으로") =====
    첫 화면의 pixel-panel·pixel-wood·pixel-input·pixel-btn·pixel-text와 같은 규칙으로 만든 나머지 부품.
    - 테두리는 둥근 모서리·흐린 그림자 대신 box-shadow로 3px(도트 한 칸) 갈색 선을 네 방향에 그린다 → 모서리가 한 칸 깎인 도트 상자.
