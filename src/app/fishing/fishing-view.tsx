@@ -25,6 +25,7 @@ type Fresh = {
   sizeMm: number | null;
   coins: number;
   timing: CastTiming;
+  remaining: number; // 서버가 알려 준 남은 횟수 (새로 그린 casts가 오기 전에도 버튼이 맞게)
 };
 
 /* eslint-disable @next/next/no-img-element -- 코드로 만든 도트 SVG(data URI) */
@@ -134,7 +135,8 @@ export function FishingView({ casts }: { casts: TodayCast[] }) {
   };
   useEffect(() => clearTimers, []);
 
-  const remaining = Math.max(0, FISHING_RULES.castsPerDay - casts.length);
+  // 방금 당긴 결과가 casts(서버 새로 그림)보다 먼저 올 수 있어 더 작은 쪽을 쓴다
+  const remaining = Math.min(Math.max(0, FISHING_RULES.castsPerDay - casts.length), fresh?.remaining ?? Infinity);
   const last = casts.at(-1) ?? null;
   // 연못에 보여 줄 것: 방금 낚은 것 → (던지기 전이고 남은 게 없으면) 오늘 마지막
   const shownKey = phase === "idle" ? (fresh?.key ?? (remaining === 0 ? last?.catchKey : null) ?? null) : null;
@@ -177,6 +179,7 @@ export function FishingView({ casts }: { casts: TodayCast[] }) {
           sizeMm: r.sizeMm,
           coins: r.coins,
           timing: r.timing,
+          remaining: r.remaining,
         });
         setError(null);
       } else setError(r.error);
