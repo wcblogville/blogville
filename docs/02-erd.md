@@ -1,7 +1,7 @@
 # Blogville ERD (데이터베이스 설계)
 
 - DB: PostgreSQL
-- 버전: 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
+- 버전: 1.18 (2026-10-12, 다 키운 동물 크기: `user_animals.display_size` 텍스트 기본 `normal`, CHECK `tiny`·`small`·`normal`·`large`, 마이그레이션 0036). 1.17 (2026-10-12, 우리 집 가구 자유 배치: `house_furniture`의 칸 번호 `slot`을 바닥 칸 `tile_x`·`tile_y`(0~9)와 좌우 뒤집기 `flipped`로 바꿈, PK `(user_id, item_id)`, 한 칸 하나 `house_furniture_tile_uq`, 마이그레이션 0035). 1.16 (2026-10-11, 펫 종류·스킨: `animal_species.price`(분양 값, 알에서 안 나오면 `hatch_weight` 0), 스킨 카탈로그 `animal_skins`, 산 스킨 `user_animal_skins`, 입힌 스킨 `user_animals.skin_id`, `egg_source` `adopt`, 원장 사유 `animal_adopt`·`skin_purchase`, 마이그레이션 0034). 1.15 (2026-10-11, 관리자 테스트 지급: 원장 사유 `admin_grant`, 마이그레이션 0033). 1.14 (2026-10-11, 이웃 집 자리 고르기 `follows.town_lot`, 마이그레이션 0032). 1.13 (2026-10-11, 미용실·옷가게: `avatar_slot`에 `hair`(머리 모양)·`hair_color`(머리 색), 마이그레이션 0031). 1.12 (2026-10-09, 광장 꾸미기 `town_decorations`, 아이템 종류 `deco`). 1.11 (2026-10-08, 연못 낚시터 `fishing_catches`, 원장 사유 `fishing`). 1.10 (2026-10-08, SHOP: 아바타 꾸미기 `avatar_equips`, `items.avatar_slot`·`growth_value`·`is_on_sale`, `user_items.quantity`, 성장 아이템). 1.9 (2026-10-08, 마을 개편 2차: 집 안 가구 `house_furniture`, 가구 아이템 8종). 1.8 (2026-10-08, 캐릭터/성장: 자동 출석 `attendances.cycle_day`·`session_id`·`checked_at`, 일차별 보상표 `attendance_rewards`, 출석 보상 원장 부분 고유 인덱스, 알림 표 `notifications`·`notification_kind`)
 - 1.7 (2026-10-08, 교류: 답글 표 `replies` 분리·`comments.parent_id` 삭제, 탈퇴하면 `comments.author_id` NULL, 삭제하면 내용 비움, `follows.is_favorite`)
 - 1.6 (2026-10-08, 글: 첨부를 글에 잇기 `attachments.post_id`·`detached_at`, 조회 기록 `post_views`, 글의 소분류 `posts.subcategory_id`와 트리거)
 - 근거: [요구사항 명세서](01-requirements.md)
@@ -55,7 +55,7 @@ erDiagram
     users ||..o{ notifications : "받은 알림"
     users |o..o{ notifications : "행동한 회원"
     posts |o..o{ notifications : "관련 글"
-    user_items ||..o{ house_furniture : "집 안에 놓은 가진 가구"
+    user_items ||--o{ house_furniture : "집 안 바닥 칸에 놓은 가진 가구"
     user_items ||..o{ town_decorations : "광장에 놓은 가진 장식"
     user_items ||..o{ avatar_equips : "입은 가진 아바타 아이템"
 
@@ -311,6 +311,7 @@ erDiagram
         timestamptz hatched_at
         timestamptz grown_at
         int skin_id FK "NULL = 기본 색"
+        text display_size "tiny / small / normal / large, 기본 normal"
     }
     animal_cares {
         int animal_id PK,FK
@@ -532,6 +533,7 @@ COMMIT
   - 쓸 때: 회원 잠금 트랜잭션에서 `quantity − 1`(성장 아이템만), `user_animals.growth + growth_value`. 다 자라면 지금처럼 보상
   - 사용 기록 표는 두지 않는다: 요구사항에 "먹인 기록" 화면이 없고, 성장치는 `user_animals.growth`에, 구매는 원장(`purchase`)에 남는다. 필요해지면 그때 추가해도 다른 구조는 바뀌지 않는다
 - **다 키운 동물은 블로그에서** (BLOG-04, 블로그 홈 `🏅 동물 도감`): 다 키운 동물(`status = 'grown'`)이 곧 카드다. 블로그는 주인(`blogs.owner_id = user_animals.user_id`)으로 도감을 모아 보여준다. 블로그와 동물을 따로 잇는 표는 필요 없다 (같은 정보를 두 번 두게 된다).
+- **다 키운 동물 크기** (2026-10-12, `0036_animal_display_size`): `user_animals.display_size` 텍스트 NOT NULL 기본 `'normal'`, `CHECK (display_size IN ('tiny', 'small', 'normal', 'large'))`. 목록은 `src/lib/farm.ts` `ANIMAL_DISPLAY_SIZES`와 같다. 바꾸는 쪽은 `setAnimalSize`(내 동물이고 `status = 'grown'`인 줄만 UPDATE). 그림 크기(칸)는 저장하지 않고 그릴 때 계산한다 (종류별 크기·도화지 한계가 코드에 있어 같은 정보를 두 번 두지 않는다). 짧은 고정 목록이라 enum 대신 CHECK를 썼다 (나중에 값을 늘리기 쉽다).
 - **블로그에 한 마리 전시** (BLOG-04, `0015_blog_showcase`): `blogs.showcase_animal_id`(NULL 허용). **내 동물만** 전시하도록 장착처럼 복합 FK를 쓴다.
 
   ```sql
@@ -696,12 +698,16 @@ PK·UNIQUE는 그 자체로 인덱스라 따로 적지 않았다 (3.7).
 - 문구·닉네임·글 제목은 저장하지 않고 보여 줄 때 JOIN으로 읽는다 (`profiles.nickname`, `posts.title`, `blogs.slug`) (3.17).
 - `read_at`이 NULL이면 안 읽음. 조회·변경은 늘 `user_id = 로그인한 회원`으로 거른다.
 
-### 3.22 집 안 가구 (마을 개편 2차, 2026-10-08 요청)
+### 3.22 집 안 가구 (마을 개편 2차, 2026-10-08 요청 · 자유 배치 2026-10-12)
 
-- 블로그의 "우리 집" 구역에 칸(`slot`)마다 가구 하나: **`house_furniture (user_id, slot, item_id, placed_at)`** (`0026_house_furniture`). 관계 표라 PK는 `(user_id, slot)`.
+- 블로그의 "우리 집" 방 바닥 칸마다 가구 하나: **`house_furniture (user_id, item_id, tile_x, tile_y, flipped, placed_at)`** (`0026_house_furniture`, 자유 배치는 `0035_house_furniture_tiles`).
+- 2026-10-12 사용자 요청 "가구 배치 내 마음대로 할 수 있게", "평면 말고 정육면체 형태로": 방이 아이소메트릭 상자(마름모 바닥 N × N칸)가 되면서 줄 선 칸 번호(`slot` 0~7) 대신 **바닥 칸 좌표**를 저장한다. `tile_x`는 오른쪽 벽을 따라, `tile_y`는 왼쪽 벽을 따라, (0, 0)이 뒤 모서리. `flipped`는 좌우 뒤집기(기본 false).
+- PK `(user_id, item_id)`: 같은 가구는 한 번만 놓는다 (예전 `house_furniture_item_uq`가 PK가 됨). 칸 번호가 없어져 식별 관계는 "회원 × 가구"다.
+- 한 칸에는 하나만: `house_furniture_tile_uq (user_id, tile_x, tile_y)`. 화면이 겹치는 칸에 못 놓게 막고, 서버(`checkLayout`)와 DB가 다시 막는다.
 - 가진 가구만: 복합 FK `house_furniture_owned_fk (user_id, item_id) → user_items` (`ON DELETE CASCADE`). 가구 종류인지는 앱이 확인한다.
-- 같은 가구는 한 칸에만: `house_furniture_item_uq (user_id, item_id)`. 다른 칸에 놓으면 앱이 옮긴다.
-- 칸 번호 0~7: `house_furniture_slot_check`. 쓸 수 있는 칸 수는 집 단계(주인 레벨)로 앱이 정한다: Lv.1~9 4칸, Lv.10~19 6칸, Lv.20~ 8칸 (집은 10레벨마다 한 단계, 2026-10-09. `src/lib/house.ts`). 레벨은 원장 합계라 내려가지 않는다.
+- 칸 범위 0~9: `house_furniture_tile_check` (가장 큰 방 10 × 10). 방 크기와 놓을 수 있는 개수는 집 단계(주인 레벨)로 앱이 정한다: 방 `roomGrid(단계)` = min(10, 5 + 단계) → 6×6 … 10×10, 개수 `furnitureSlots(단계)` → Lv.1~9 4개, Lv.10~19 6개, Lv.20~ 8개 (집은 10레벨마다 한 단계, 2026-10-09. `src/lib/house.ts`). 레벨은 원장 합계라 내려가지 않아 저장된 칸이 방 밖이 되는 일은 없다. 개수는 표 하나로 셀 수 없어 저장할 때 `lockUser` 트랜잭션 안에서 앱이 센다.
+- 저장은 배치 전체를 한 번에: `saveFurnitureLayout`가 한 트랜잭션에서 내 집 행을 지우고 새 배치를 넣는다 (늘 로그인한 회원의 집만).
+- 데이터 이전(0035): 열을 NULL 허용으로 더하고 → 옛 칸 번호를 `DEFAULT_TILES`(가장 작은 6×6 방 안, 서로 겹치지 않는 8자리)와 같은 칸으로 채우고 → NOT NULL → 옛 PK·`item_uq`·`slot_check`·`slot`을 지우고 → 새 PK·`tile_uq`·`tile_check`. 가입 트랜잭션도 기본 가구 2개를 같은 기본 자리(화분 (0,1), 의자 (2,0))에 놓는다.
 - 가구 아이템은 `items.type = 'furniture'` 8종. 화분·나무 의자는 `is_starter`라 가입할 때 받고(마이그레이션이 기존 회원에게도 지급), 나머지는 상점에서 산다.
 
 ### 3.23 상점·아바타 꾸미기 (SHOP, `0027_shop_items`)
