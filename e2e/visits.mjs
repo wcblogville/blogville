@@ -1,4 +1,4 @@
-// 블로그 방문자 수 (BLOG-06): 같은 사람(쿠키)은 하루 1번, 주인은 세지 않는다
+// 블로그 방문자 수 (BLOG-06): 같은 사람(쿠키)은 하루 1번, 주인은 세지 않는다. 방문자 기록 (BLOG-10): 주인만 누가 왔는지 본다
 // 사용: 개발 서버를 띄운 상태에서 node e2e/blog.mjs 를 한 번 돌린 뒤 (tester1 블로그 필요) node e2e/visits.mjs <스크린샷 폴더>
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
@@ -135,6 +135,68 @@ const dup = await db
   .then(() => "들어감")
   .catch((e) => e.code);
 check("같은 사람·같은 날 두 번째 줄은 DB가 거부", dup === "23505", dup);
+
+// ── 방문자 기록 (BLOG-10, 2026-10-12 "방문자기록 볼 수 있으면"): 회원 방문은 누구인지 적고, 주인만 /settings/visitors에서 본다 ──
+const M = `vs${Date.now() % 100_000_000}`;
+const memberCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const mem = await memberCtx.newPage();
+await loginDev(mem, M);
+const memberId = (await db.query("SELECT id FROM users WHERE username = $1", [M])).rows[0].id;
+await mem.goto(`${BASE}/@tester1`);
+await settle(mem);
+const memRow = (await db.query("SELECT user_id FROM blog_visits WHERE blog_id = $1 AND user_id = $2", [blogId, memberId])).rows[0];
+check("로그인한 회원 방문은 회원 ID와 함께 1줄", !!memRow);
+check("다른 사람의 방문자 위젯에는 기록 링크가 없다 (숫자만)", (await mem.locator("[data-visit-log-link]").count()) === 0);
+await owner.goto(`${BASE}/@tester1`);
+await settle(owner);
+check("주인의 방문자 위젯에 '누가 왔는지 보기'", await owner.locator("[data-visit-log-link]").isVisible());
+await owner.locator("[data-visit-log-link]").click();
+await owner.waitForURL(/\/settings\/visitors$/);
+const todayRow = (
+  await db.query(
+    "SELECT count(*)::int AS total, count(user_id)::int AS members FROM blog_visits WHERE blog_id = $1 AND date = (now() AT TIME ZONE 'Asia/Seoul')::date",
+    [blogId],
+  )
+).rows[0];
+check("방문자 기록: 14칸 그래프, 마지막은 오늘", (await owner.locator("[data-visit-chart='14'] li").count()) === 14 && (await owner.locator("[data-visit-chart='14'] li").last().getAttribute("aria-label")).startsWith(`오늘 ${todayRow.total}명 (회원 ${todayRow.members}, 손님 ${todayRow.total - todayRow.members})`));
+const memberLine = owner.locator(`[data-visit-member="${M}"]`).first();
+check("방문자 기록: 방금 온 회원의 얼굴·닉네임·블로그 링크·시각", (await memberLine.isVisible()) && (await memberLine.locator("img").count()) === 1 && (await memberLine.getByRole("link").getAttribute("href")) === `/@${M}` && /\d{2}:\d{2}/.test(await memberLine.locator("time").innerText()));
+const guestsToday = todayRow.total - todayRow.members;
+const todayDay = owner.locator("[data-visit-day]").first();
+check("방문자 기록: 손님은 날짜마다 '손님 N명'으로 묶음", guestsToday === 0 || (await todayDay.locator(`[data-visit-guests="${guestsToday}"]`).innerText()).includes(`손님 ${guestsToday}명`), `손님 ${guestsToday}`);
+check("방문자 기록: 손님 쿠키 값은 화면에 없다", !(await owner.content()).includes("00000000-0000-4000-8000-0000000000e2"));
+await owner.screenshot({ path: `${outDir}/visitors-1280.png`, fullPage: true });
+await owner.getByRole("link", { name: "30일" }).click();
+await owner.waitForURL(/days=30/);
+check("기간 30일: 30칸", (await owner.locator("[data-visit-chart='30'] li").count()) === 30);
+await owner.screenshot({ path: `${outDir}/visitors-30-1280.png`, fullPage: true });
+{
+  const phone = await browser.newContext({ viewport: { width: 375, height: 812 }, storageState: await ownerCtx.storageState() });
+  const pp = await phone.newPage();
+  await pp.goto(`${BASE}/settings/visitors`);
+  const over = await pp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  check("방문자 기록 375px: 가로 스크롤 없음", over <= 0, `${over}px`);
+  await pp.screenshot({ path: `${outDir}/visitors-375.png`, fullPage: true });
+  await pp.goto(`${BASE}/settings/visitors?days=30`);
+  const over30 = await pp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  check("방문자 기록 30일 375px: 가로 스크롤 없음", over30 <= 0, `${over30}px`);
+  await pp.screenshot({ path: `${outDir}/visitors-30-375.png`, fullPage: true });
+  await phone.close();
+}
+// 다른 회원이 같은 주소를 열면 자기 블로그 기록만 (tester1의 방문자가 보이지 않는다)
+await mem.goto(`${BASE}/settings/visitors`);
+check("다른 회원은 자기 블로그 기록만 (tester1 방문 목록 안 보임)", (await mem.locator(`[data-visit-member="${M}"]`).count()) === 0 && (await mem.locator("h1").innerText()).includes("방문자 기록"));
+{
+  const g = await browser.newContext();
+  const gp = await g.newPage();
+  await gp.goto(`${BASE}/settings/visitors`);
+  check("로그인 안 하면 방문자 기록 대신 첫 화면", new URL(gp.url()).pathname === "/", gp.url());
+  await g.close();
+}
+// 탈퇴하면 그 방문은 손님으로 남는다 (FK ON DELETE SET NULL)
+const fk = (await db.query("SELECT confdeltype FROM pg_constraint WHERE conname = 'blog_visits_user_id_users_id_fk'")).rows[0];
+check("blog_visits.user_id FK는 ON DELETE SET NULL", fk?.confdeltype === "n");
+await memberCtx.close();
 
 // ── 375px ──
 await a.setViewportSize({ width: 375, height: 800 });

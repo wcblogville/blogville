@@ -21,3 +21,9 @@ export function uniqueViolation(err: unknown): string | null {
 export function foreignKeyViolation(err: unknown): boolean {
   return pgError(err)?.code === "23503";
 }
+
+/** CHECK 제약 위반이면 위반한 제약 이름을, 아니면 null */
+export function checkViolation(err: unknown): string | null {
+  const e = pgError(err);
+  return e?.code === "23514" ? (e.constraint ?? "") : null;
+}

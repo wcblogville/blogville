@@ -288,6 +288,13 @@
       "when": 1791783123132,
       "tag": "0040_profile_greeting",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1791785473002,
+      "tag": "0041_fishing_more_visit_log",
+      "breakpoints": true
     }
   ]
 }

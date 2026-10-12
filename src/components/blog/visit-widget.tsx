@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { recordBlogVisit } from "@/app/blog/actions";
 
@@ -9,6 +10,7 @@ const n = (v: number) => v.toLocaleString("ko-KR");
 /**
  * 옆 칸 방문자 위젯 숫자 (BLOG-06). 블로그 홈의 방문 숫자는 여기 한 곳이다 (프로필 카드를 없앰, 2026-10-11).
  * 서버가 그린 숫자로 시작하고, 화면이 열리면 방문을 한 번 기록한 뒤 돌려받은 숫자로 바꾼다. 주인이면 기록하지 않는다.
+ * 주인에게는 아래에 방문자 기록(/settings/visitors, BLOG-10)으로 가는 링크를 둔다.
  * 같은 숫자를 다른 곳에서도 보여 주려면 bv-blog-visits 이벤트를 들으면 된다 (두 번 기록하지 않게)
  */
 export function VisitWidget({ blogId, initial, isOwner }: { blogId: number; initial: Stats; isOwner: boolean }) {
@@ -35,19 +37,31 @@ export function VisitWidget({ blogId, initial, isOwner }: { blogId: number; init
   }, [blogId]);
 
   return (
-    <dl className="grid grid-cols-3 gap-2 text-center" data-visit-widget>
-      {[
-        ["오늘", stats.today],
-        ["어제", stats.yesterday],
-        ["전체", stats.total],
-      ].map(([label, value]) => (
-        <div key={label} className={`px-1 pt-2 pb-2.5 ${label === "오늘" ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}>
-          <dt className="text-xs text-ink-soft">{label}</dt>
-          <dd className="font-display text-xl" data-visit={label}>
-            {n(value as number)}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <dl className="grid grid-cols-3 gap-2 text-center" data-visit-widget>
+        {[
+          ["오늘", stats.today],
+          ["어제", stats.yesterday],
+          ["전체", stats.total],
+        ].map(([label, value]) => (
+          <div key={label} className={`px-1 pt-2 pb-2.5 ${label === "오늘" ? "bg-[#ffe7a3] shadow-[inset_0_0_0_3px_#d99a36]" : "pixel-slot"}`}>
+            <dt className="text-xs text-ink-soft">{label}</dt>
+            <dd className="font-display text-xl" data-visit={label}>
+              {n(value as number)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {/* 방문자 기록 (BLOG-10): 누가 왔는지는 주인만 본다. 다른 사람에게는 숫자만 */}
+      {isOwner && (
+        <Link
+          href="/settings/visitors"
+          className="mt-2 flex min-h-11 items-center justify-center text-sm font-bold text-leaf-dark hover:underline"
+          data-visit-log-link
+        >
+          누가 왔는지 보기 →
+        </Link>
+      )}
+    </>
   );
 }

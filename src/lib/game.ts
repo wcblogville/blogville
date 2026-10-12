@@ -74,3 +74,39 @@ export function levelsGained(beforeExp: number, afterExp: number): number[] {
 export function todayKST(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(now);
 }
+
+/**
+ * 연못 낚시 규칙 숫자 (TOWN-14, 2026-10-12 "낚시 컨텐츠 더 풍성하게"). 무엇을 낚는지·코인은 src/lib/fishing.ts CATCHES.
+ * 한 번 던져 평균 코인 약 11~14 (타이밍을 맞추면 약 16~21, 밤·계절에 따라 다르다), 하루 3번이면 약 32~63
+ * — 글 보상(하루 최대 90)보다 작게 둔다 (scripts/test-shop.ts가 모든 시각·달을 계산해 확인)
+ */
+export const FISHING_RULES = {
+  /** 하루(한국 날짜)에 던질 수 있는 횟수. DB CHECK(cast_no 1~3)와 같아야 한다 */
+  castsPerDay: 3,
+  /** 던진 뒤 입질(찌가 쑥 잠김)까지 걸리는 시간 (ms, 서버가 무작위로 정한다) */
+  biteDelayMs: [1500, 4000] as const,
+  /** 입질 뒤 이 안에 당기면 "딱 맞았어요" (ms). 네트워크 왕복을 감안해 넉넉하게 */
+  hitWindowMs: 1600,
+  /** 입질 전에 당겨도 이만큼은 봐준다 (ms, 버튼을 누른 순간과 서버 시각의 차이) */
+  earlyGraceMs: 200,
+  /** 던진 낚싯대 표가 유효한 시간 (ms). 지나면 다시 던진다 */
+  castTtlMs: 60_000,
+  /** 타이밍을 맞추면 등급별 뽑힐 무게를 이만큼 곱한다 (평범 1배) */
+  goodTimingBoost: { common: 1, rare: 1.5, legendary: 2, junk: 0.5 } as const,
+  /** 길이가 가장 클 때 더 받는 코인 비율 (기본 코인 × 0.5까지, 길이에 비례) */
+  sizeBonusRatio: 0.5,
+} as const;
+
+/** 한국 시각의 시(0~23)와 달(1~12): 밤 물고기·계절 물고기 */
+export function kstClock(now = new Date()): { hour: number; month: number } {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Seoul", hour: "numeric", month: "numeric", hourCycle: "h23" }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return { hour: get("hour") % 24, month: get("month") };
+}
+
+/** 이 날짜가 속한 주의 월요일 (YYYY-MM-DD, 이번 주 낚시 랭킹) */
+export function weekStart(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
