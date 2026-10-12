@@ -124,12 +124,12 @@ check("US6-10 자기 댓글에 답글 → 알림 없음", (await notes(uid.C, "A
 await A.page.goto(`${BASE}/notifications`);
 const listText = await A.page.locator("main").innerText();
 const nick = { B: ids.B, C: ids.C };
-check("US6-7 공감 문구", listText.includes(`❤️ ${nick.B}님이 「알림 받을 글」에 공감했어요`));
-check("US6-8 댓글 문구", listText.includes(`💬 ${nick.B}님이 「알림 받을 글」에 댓글을 달았어요`) && listText.includes(`💬 ${nick.C}님이 「알림 받을 글」에 댓글을 달았어요`));
-check("US6 레벨업 문구", listText.includes("🎉 Lv.3이 되었어요!"));
+check("US6-7 공감 문구", listText.includes(`${nick.B}님이 「알림 받을 글」에 공감했어요`));
+check("US6-8 댓글 문구", listText.includes(`${nick.B}님이 「알림 받을 글」에 댓글을 달았어요`) && listText.includes(`${nick.C}님이 「알림 받을 글」에 댓글을 달았어요`));
+check("US6 레벨업 문구", listText.includes("Lv.3이 되었어요!"));
 check("FR-043 시간 `방금`", listText.includes("방금"));
 const firstLine = (await A.page.locator("main li").first().innerText()).trim();
-check("FR-043 최신순 (맨 위 = C의 댓글)", firstLine.startsWith(`💬 ${nick.C}님이`), firstLine.slice(0, 40));
+check("FR-043 최신순 (맨 위 = C의 댓글)", firstLine.startsWith(`${nick.C}님이`), firstLine.slice(0, 40));
 // 안 읽은 줄 = 공감 1(같은 사람·같은 글은 한 번만, 2026-10-09) + 댓글 2 (레벨업은 [확인]으로 읽음)
 check("FR-043 안 읽은 줄 노란 배경", (await A.page.locator('main [data-unread="true"]').count()) === 3);
 check("US6-1 🔔 숫자 = 안 읽은 수", (await badge(A.page)) === String(await count("SELECT count(*)::int AS n FROM notifications WHERE user_id = $1 AND read_at IS NULL", [uid.A])));
@@ -315,7 +315,7 @@ check("FR-046 행동한 회원 삭제 → 그 회원이 남긴 알림 삭제", f
   const banner = await mp.getByRole("banner").innerText();
     // 코인은 글자 🪙 대신 도트 동전 그림 (2026-10-12 도트 화면): 그림의 대체 글자가 🪙이고 칩에 숫자가 보인다
   const coinChip = mp.getByRole("banner").getByTitle("코인");
-  const coinShown = (await coinChip.isVisible()) && (await coinChip.getByRole("img", { name: "🪙" }).isVisible()) && /\d/.test(await coinChip.innerText());
+  const coinShown = (await coinChip.isVisible()) && (await coinChip.getByRole("img", { name: "코인" }).isVisible()) && /\d/.test(await coinChip.innerText());
   check("SC-008 375px 헤더 🔔·Lv·🪙 보임, 가로 스크롤 없음", overflow <= 0 && (await bell(mp).isVisible()) && /Lv\.\d+/.test(banner) && coinShown, `${overflow}`);
   await mp.screenshot({ path: `${outDir}/header-bell-375.png` });
   await mp.goto(`${BASE}/notifications`);

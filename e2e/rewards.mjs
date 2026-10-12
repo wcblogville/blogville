@@ -46,7 +46,7 @@ async function publish(page, { title, length = 100, visibility = "public" }) {
   await page.locator(".ProseMirror").waitFor();
   await closeLevelUp(page);
   await page.getByPlaceholder("제목").fill(title);
-  if (visibility === "private") await page.getByRole("radio", { name: "🔒 비공개" }).click();
+  if (visibility === "private") await page.getByRole("radio", { name: "비공개" }).click();
   await page.locator(".ProseMirror").click();
   await page.keyboard.insertText("가".repeat(length));
   await page.getByRole("button", { name: "발행하기" }).click();
@@ -103,7 +103,7 @@ check("US2-2 같은 날 공개 글 4개 → 보상 3번", (await ledgerCount(uid
 // 비공개 → 공개 수정 → 보상 없음
 await R1.page.goto(`${BASE}/write/${pPrivate}`);
 await R1.page.locator(".ProseMirror").waitFor();
-await R1.page.getByRole("radio", { name: "🌍 공개" }).click();
+await R1.page.getByRole("radio", { name: "공개", exact: true }).click();
 await R1.page.getByRole("button", { name: "수정 완료" }).click();
 await R1.page.waitForURL(new RegExp(`/${pPrivate}$`));
 check("US2-5 수정(비공개 → 공개) → 보상 없음", (await ledgerCount(uid1, "post")) === 3);
@@ -189,14 +189,14 @@ await R1.page.getByRole("banner").getByTitle("코인").click();
 await R1.page.waitForURL(/\/wallet/);
 check("US4-1·SC-010 헤더 🪙 → /wallet", new URL(R1.page.url()).pathname === "/wallet");
 const walletText = await R1.page.locator("main").innerText();
-const walletCoins = Number(walletText.match(/🪙 ([\d,]+)/)[1].replace(/,/g, ""));
+const walletCoins = Number((await R1.page.locator('[data-wallet-stat="coin"]').innerText()).replace(/,/g, ""));
 check("US4-2·SC-002 위 요약 코인 = 헤더 코인 = 원장 합계", walletCoins === (await coins(R1.page)) && walletCoins === (await totals(uid1)).coins, `${walletCoins}`);
-const buyLine = R1.page.locator("main li", { hasText: "🏪 아이템 구매 · 바닷가" });
+const buyLine = R1.page.locator("main li", { hasText: "아이템 구매 · 바닷가" });
 check("US4-3 구매 줄 `🏪 아이템 구매 · 바닷가`·빨간 `🪙 −120`",
-  (await buyLine.count()) === 1 && (await buyLine.innerText()).includes("🪙 −120") && (await buyLine.locator(".text-berry").count()) === 1);
-check("US4 사유 이름 `📮 출석`·`✏️ 글 작성`·`🎉 가입 축하`", ["📮 출석", "✏️ 글 작성", "🎉 가입 축하"].every((t) => walletText.includes(t)));
+  (await buyLine.count()) === 1 && (await buyLine.innerText()).includes("−120") && (await buyLine.locator(".text-berry").count()) === 1);
+check("US4 사유 이름 `📮 출석`·`✏️ 글 작성`·`🎉 가입 축하`", ["출석", "글 작성", "가입 축하"].every((t) => walletText.includes(t)));
 check("US4 시각 `YYYY. MM. DD. HH:MM`", /\d{4}\. \d{2}\. \d{2}\. \d{2}:\d{2}/.test(walletText));
-const signupLine = await R1.page.locator("main li", { hasText: "🎉 가입 축하" }).first().innerText();
+const signupLine = await R1.page.locator("main li", { hasText: "가입 축하" }).first().innerText();
 check("US4 0은 생략 (가입 축하 줄에 ✨ 없음)", !signupLine.includes("✨"));
 check("US4 맨 아래 `코인은 상점에서 쓸 수 있어요.`", walletText.includes("코인은 상점에서 쓸 수 있어요."));
 check("US4-6 다른 회원 기록 안 보임", (await R1.page.locator("main li").count()) === Math.min(20, await count("SELECT count(*)::int AS n FROM point_ledger WHERE user_id = $1", [uid1])));

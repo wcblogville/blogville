@@ -121,6 +121,40 @@ function bedBody(g: Iso, x0 = 0, x1 = g.w) {
 }
 
 const ISO: Record<string, () => IsoArt> = {
+  // ── 가입하면 받는 기본 가구 (사용자 요청 2026-10-12 "맨처음 주는 가구들도 도트로 해서 이질적이지 않게") ──
+  // 예전에는 상점 그림(앞에서 본 32도트)을 2배로 세워서 방(4배 아이소메트릭)과 도트 크기·방향이 달라 보였다
+  // 초록 화분 (1칸): 토분 위에 잎이 무성한 화초
+  "furniture.plant": () =>
+    iso(
+      "furniture.plant",
+      27,
+      (g) => {
+        g.shadow(-0.12);
+        g.box(0.27, 0.27, 0.73, 0.73, 0, 8, TINT); // 토분
+        g.faceY(0.73, (fx, z) => (inside(fx, z, 0.27, 0.73, 3, 4) ? "6" : null)); // 토분 띠
+        g.box(0.22, 0.22, 0.78, 0.78, 8, 10, TINT); // 테두리
+        g.top(10, (fx, fy) => (inside(fx, fy, 0.3, 0.7, 0.3, 0.7) ? "n" : null)); // 흙
+        // 잎: 줄기 위로 덩어리 몇 개 (밝은 면은 왼쪽 위, 그늘은 오른쪽 아래)
+        const c = g.at(0.5, 0.5, 10);
+        g.p.vline(c.x, c.y - 4, c.y, "M");
+        g.p.ellipse(c.x + 0.5, c.y - 9, 6.5, 5.5, "l").ellipse(c.x - 4, c.y - 6, 4, 3, "l").ellipse(c.x + 5, c.y - 6, 4, 3, "l");
+        g.p.ellipse(c.x - 3, c.y - 13, 3, 3, "l").ellipse(c.x + 4, c.y - 13, 3, 3, "l").ellipse(c.x + 0.5, c.y - 15, 2.5, 2.5, "l");
+        g.p.ellipse(c.x + 3.5, c.y - 6, 3, 1.5, "m").ellipse(c.x + 6, c.y - 7, 1.5, 1.2, "m").ellipse(c.x - 3, c.y - 5, 2, 1, "m");
+        g.p.ellipse(c.x - 2, c.y - 11, 2, 1.5, "L").ellipse(c.x - 4, c.y - 14, 1, 1, "L").ellipse(c.x + 1, c.y - 16, 1, 0.8, "L").ellipse(c.x - 5, c.y - 7, 1, 0.8, "L");
+      },
+      tint("#d9825b"),
+    ),
+  // 나무 의자 (1칸): 다리 넷, 앉는 판, 뒤(y = 0쪽) 살 등받이
+  "furniture.chair": () =>
+    iso("furniture.chair", 20, (g) => {
+      g.shadow(-0.05);
+      for (const [x, y] of [[0.14, 0.14], [0.14, 0.72], [0.72, 0.14], [0.72, 0.72]]) g.box(x, y, x + 0.14, y + 0.14, 0, 8, DARK_WOOD);
+      g.box(0.1, 0.1, 0.9, 0.9, 8, 10, WOOD); // 앉는 판
+      g.top(10, (fx, fy) => (inside(fx, fy, 0.14, 0.86, 0.3, 0.86) && Math.abs(fy - 0.58) < 0.04 ? "b" : null)); // 판자 줄
+      g.box(0.1, 0.1, 0.9, 0.24, 10, 19, WOOD); // 등받이
+      g.faceY(0.24, (fx, z) => (inside(fx, z, 0.2, 0.8, 11, 17) ? (Math.floor((fx - 0.2) * 15) % 3 === 2 ? "B" : "n") : null)); // 살 사이
+      g.top(19, (fx, fy) => (inside(fx, fy, 0.1, 0.9, 0.1, 0.24) ? "Z" : null));
+    }),
   // 포근한 침대 (3 × 2칸): 나무 머리판·발판, 흰 매트리스와 베개, 하늘색 이불
   "furniture.bed": () =>
     iso(
@@ -513,7 +547,7 @@ export function restSpot(assetKey: string, piece: { x: number; y: number; flip: 
 
 /** 작은 의자에 앉은 캐릭터를 칸 가운데에서 위로 올리는 높이 (px, 자리판 줄에서 발이 조금 내려오게 잰 값) */
 const SEAT_LIFT: Readonly<Record<string, number>> = {
-  "furniture.chair": 14,
+  "furniture.chair": 28, // 아이소메트릭 의자: 앉는 판 위(10도트)에서 발이 3도트 내려온다
   "furniture.stool": 16,
   "furniture.beanbag": 10,
   "furniture.armchair": 22,

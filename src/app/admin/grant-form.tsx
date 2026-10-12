@@ -4,6 +4,7 @@
 import { useActionState, useState } from "react";
 import { GRANT_COINS_MAX, GRANT_EXP_MAX, QUICK_COINS } from "@/lib/admin-grant";
 import { adminGrant, type AdminGrantState } from "./actions";
+import { PixelIcon } from "@/components/pixel-icon";
 
 const btn = "pixel-btn min-h-11 shrink-0 whitespace-nowrap px-3 text-sm";
 
@@ -28,7 +29,7 @@ export function AdminGrantForm({ adminUsername }: { adminUsername: string }) {
         </label>
       </div>
       <p className="text-xs text-ink-soft">
-        한 번에 코인 {GRANT_COINS_MAX.toLocaleString()}개, 경험치 {GRANT_EXP_MAX.toLocaleString()}까지. 내역에는 ‘👑 관리자 테스트 지급’으로 남아요.
+        한 번에 코인 {GRANT_COINS_MAX.toLocaleString()}개, 경험치 {GRANT_EXP_MAX.toLocaleString()}까지. 내역에는 ‘관리자 테스트 지급’으로 남아요.
       </p>
       <div className="flex flex-wrap gap-3">
         <button type="submit" disabled={pending} className={`${btn} bg-leaf text-white`}>
@@ -45,7 +46,8 @@ export function AdminGrantForm({ adminUsername }: { adminUsername: string }) {
         {state.ok === false && <p className="text-sm text-berry" role="alert">{state.error}</p>}
         {state.ok && (
           <p className="text-sm" data-grant-result>
-            ✅ <b>{state.nickname ?? state.username}</b> (@{state.username})에게 코인 +{state.coinsGranted.toLocaleString()}, 경험치 +
+            <PixelIcon name="check" scale={1} label="완료" className="mr-1 align-[-1px]" />
+            <b>{state.nickname ?? state.username}</b> (@{state.username})에게 코인 +{state.coinsGranted.toLocaleString()}, 경험치 +
             {state.expGranted.toLocaleString()}
             {state.levelUps > 0 && ` (레벨 ${state.levelUps}번 오름)`} → 지금 <b data-grant-level>Lv.{state.level}</b> · 경험치{" "}
             {state.exp.toLocaleString()} · 코인 <b data-grant-coins>{state.coins.toLocaleString()}</b>

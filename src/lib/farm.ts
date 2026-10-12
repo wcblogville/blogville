@@ -1,5 +1,7 @@
 // 동물 농장 규칙 (TOWN-09). DB를 쓰지 않는 순수 계산만 둔다
 // 종류별 숫자(성장치, 보상)는 animal_species 테이블에 있다 (scripts/seed.ts)
+import type { IconName } from "./art/icons";
+
 
 /** 한 번에 키울 수 있는 알·동물 수 (다 키운 동물은 세지 않는다) */
 export const MAX_ACTIVE_ANIMALS = 5;
@@ -11,10 +13,10 @@ export const EGG_PRICE = 100;
 export const POST_GROWTH = 10;
 
 export type CareAction = "feed" | "water" | "pet";
-export const CARE_ACTIONS: { action: CareAction; label: string; emoji: string; growth: number }[] = [
-  { action: "feed", label: "밥 주기", emoji: "🥕", growth: 10 },
-  { action: "water", label: "물 주기", emoji: "💧", growth: 10 },
-  { action: "pet", label: "쓰다듬기", emoji: "🤲", growth: 5 },
+export const CARE_ACTIONS: { action: CareAction; label: string; icon: IconName; growth: number }[] = [
+  { action: "feed", label: "밥 주기", icon: "carrot", growth: 10 },
+  { action: "water", label: "물 주기", icon: "drop", growth: 10 },
+  { action: "pet", label: "쓰다듬기", icon: "hand", growth: 5 },
 ];
 
 export type AnimalStage = "baby" | "teen" | "adult";

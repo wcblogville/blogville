@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { PixelIcon } from "@/components/pixel-icon";
 
 /** 페이지에서 예상하지 못한 오류가 나면 Next.js 기본 화면 대신 보여준다 (NF-19). 헤더는 그대로 남는다 */
 export default function ErrorPage({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
@@ -12,7 +13,7 @@ export default function ErrorPage({ error, retry }: { error: Error & { digest?: 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-4 py-20 text-center">
       <title>문제가 생겼어요 | Blogville</title>
-      <p className="text-7xl">🚧</p>
+      <PixelIcon name="cone" scale={6} />
       <h1 className="mt-4 font-display text-3xl">잠깐 문제가 생겼어요</h1>
       <p className="mt-2 text-ink-soft">
         마을에 예상하지 못한 문제가 생겼어요. [다시 시도]를 눌러 보고, 계속되면 잠시 뒤에 다시 들러 주세요.

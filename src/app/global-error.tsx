@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import "./globals.css";
+import { PixelIcon } from "@/components/pixel-icon";
 
 /**
  * 루트 레이아웃(헤더 포함)에서 오류가 나면 레이아웃 전체를 대신한다 (NF-19).
@@ -16,7 +17,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
     <html lang="ko" className="h-full antialiased">
       <body className="flex min-h-full flex-col items-center justify-center px-4 text-center">
         <title>문제가 생겼어요 | Blogville</title>
-        <p className="text-7xl">🚧</p>
+        <PixelIcon name="cone" scale={6} />
         <h1 className="mt-4 text-3xl font-bold">잠깐 문제가 생겼어요</h1>
         <p className="mt-2 max-w-md text-ink-soft">
           마을에 예상하지 못한 문제가 생겼어요. [다시 시도]를 눌러 보고, 계속되면 잠시 뒤에 다시 들러 주세요.

@@ -64,12 +64,12 @@ let captured = null;
 
   await option(pony).click();
   check("포니테일 고르면 거울이 바로 바뀜", (await page.locator("[data-mirror]").getAttribute("data-look")).includes("hair.pony"));
-  check("계산서: 🪙 60 내고 적용하기", (await apply.getAttribute("data-style-apply")) === "buy" && (await apply.innerText()).includes("🪙 60"), await apply.innerText());
+  check("계산서: 🪙 60 내고 적용하기", (await apply.getAttribute("data-style-apply")) === "buy" && (await apply.innerText()).includes("60 내고"), await apply.innerText());
   await tab("머리 색").click();
   await option(lavender).click();
   check("Lv.2 머리 색은 잠김", (await apply.getAttribute("data-style-apply")) === "locked" && (await apply.isDisabled()));
   await option(pink).click();
-  check("핑크 더하면 🪙 120", (await apply.innerText()).includes("🪙 120"), await apply.innerText());
+  check("핑크 더하면 🪙 120", (await apply.innerText()).includes("120 내고"), await apply.innerText());
   await page.screenshot({ path: `${outDir}/style-salon-bill.png`, fullPage: true });
 
   // 요청을 바꿔 보낼 때 쓸 진짜 Server Action 요청을 하나 잡는다
@@ -134,7 +134,7 @@ let captured = null;
   check("옷가게 탭: 옷·모자·소품", (await page.getByRole("tab").count()) === 3);
   const pajama = await itemId("outfit_pajama");
   await option(pajama).click();
-  check("잠옷 🪙 90", (await apply.innerText()).includes("🪙 90"), await apply.innerText());
+  check("잠옷 🪙 90", (await apply.innerText()).includes("90 내고"), await apply.innerText());
   check("옷 사고 입기", await applyAndWait("샀어요"), await status.innerText());
   check("DB: 잠옷 입음, 머리는 그대로", (await equipped("outfit")) === "outfit_pajama" && (await equipped("hair")) === "hair_pony" && (await coins()) === 210);
   await page.screenshot({ path: `${outDir}/style-clothes.png`, fullPage: true });
@@ -157,7 +157,7 @@ let captured = null;
   check("얼굴형 카드 5개 + 원래 얼굴", (await page.locator('[data-style-grid="face_shape"] [data-style-option]').count()) === 6);
   await option(round).click();
   check("동그란 얼굴 고르면 거울이 바로 바뀜", (await page.locator("[data-mirror]").getAttribute("data-look")).includes("face.round"));
-  check("계산서: 🪙 60", (await apply.innerText()).includes("🪙 60"), await apply.innerText());
+  check("계산서: 🪙 60", (await apply.innerText()).includes("60 내고"), await apply.innerText());
   await page.screenshot({ path: `${outDir}/style-face-shape.png`, fullPage: true });
   check("얼굴형 사고 적용: 얼굴형 안내", await applyAndWait("새 얼굴형이 잘 어울려요"), await status.innerText());
   check(

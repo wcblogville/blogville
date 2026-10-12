@@ -89,7 +89,7 @@ const placed = async () =>
   await page.waitForURL(`${BASE}/town/${P}`, { timeout: 20000 });
   const banner = page.locator("[data-host-banner]");
   await banner.waitFor({ timeout: 20000 });
-  check("위에 `P님의 마을`과 [🏠 내 마을로]", (await banner.innerText()).includes(`${P}님의 마을`) && (await banner.getByRole("link", { name: "🏠 내 마을로" }).getAttribute("href")) === "/town");
+  check("위에 `P님의 마을`과 [🏠 내 마을로]", (await banner.innerText()).includes(`${P}님의 마을`) && (await banner.getByRole("link", { name: "내 마을로" }).getAttribute("href")) === "/town");
   check("P의 마을을 그림 (data-town-host)", (await page.locator("[data-town-host]").getAttribute("data-town-host")) === P);
   check("탭 제목 `P님의 마을`", (await page.title()) === `${P}님의 마을 | Blogville`, await page.title());
   await page.locator("canvas").waitFor({ timeout: 20000 });

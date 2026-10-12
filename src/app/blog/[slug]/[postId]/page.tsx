@@ -17,11 +17,12 @@ import {
   getPostTags,
   isFollowing,
 } from "@/server/blog";
-import { canSeePost, postAccessOf, VISIBILITY_BADGE } from "@/lib/visibility";
+import { canSeePost, postAccessOf, VISIBILITY_BADGE, VISIBILITY_ICON } from "@/lib/visibility";
 import { getViewer } from "@/server/dal";
 import { getPublishNotice, hasViewedToday } from "@/server/posts";
 import { getCommentThread } from "@/server/social";
 import { readVisitorId } from "@/server/visitor";
+import { IconText } from "@/components/pixel-icon";
 
 async function load(props: PageProps<"/blog/[slug]/[postId]">) {
   const { slug, postId } = await props.params;
@@ -97,7 +98,7 @@ export default async function PostPage(props: PageProps<"/blog/[slug]/[postId]">
             {VISIBILITY_BADGE[post.visibility] && (
               <span className="inline-flex min-h-11 items-center">
                 <span className="pb-chip pb-chip-muted" data-visibility-badge={post.visibility}>
-                  {VISIBILITY_BADGE[post.visibility]}
+                  <IconText icon={VISIBILITY_ICON[post.visibility]}>{VISIBILITY_BADGE[post.visibility]}</IconText>
                 </span>
               </span>
             )}

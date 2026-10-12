@@ -31,7 +31,7 @@ async function write(name, typeBody, wantLength, wantReward) {
   await page.getByRole("button", { name: "발행하기" }).click();
   await page.waitForURL(/\/@cnt\d+\/\d+/);
   // 보상 여부는 주소가 아니라 주인에게 보이는 발행 안내 문구로 (POST-01 / FR-013)
-  const notice = await page.getByText("🎉 글을 발행했어요!").innerText();
+  const notice = await page.getByRole("status").filter({ hasText: "글을 발행했어요!" }).innerText();
   const rewarded = notice.includes("코인을 받았어요");
   const postId = Number(new URL(page.url()).pathname.match(/\/(\d+)$/)[1]);
   const { rows } = await db.query("SELECT char_length(content_text)::int AS n FROM posts WHERE id = $1", [postId]);

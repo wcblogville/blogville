@@ -14,6 +14,7 @@ import type { TownPet } from "@/components/town/types";
 import { checkLayout, findFreeSpot, fitsRoom, footprintOf, footprintTiles, repairLayout, roomGrid, ROOF_LABELS, WALKABLE_FURNITURE, type FurnitureSpot } from "@/lib/house";
 import { ACTION_LABEL, actionOf, layoutDepth } from "@/lib/room-walk";
 import { type ResidentControl, RoomResident } from "./room-resident";
+import { PixelIcon, IconText } from "@/components/pixel-icon";
 
 type Furniture = { id: number; name: string; assetKey: string };
 type Placed = { itemId: number; name: string; assetKey: string; x: number; y: number; flip: boolean };
@@ -107,7 +108,7 @@ export function HouseRoom({
     setEditing(true);
     setRoofOpen(false);
     setError(null);
-    setNotice(repaired.moved ? `가구가 커져서 ${repaired.moved}개를 빈 자리로 옮겼어요. [💾 저장]하면 이대로 남아요.` : null);
+    setNotice(repaired.moved ? `가구가 커져서 ${repaired.moved}개를 빈 자리로 옮겼어요. [저장]하면 이대로 남아요.` : null);
   };
   const cancel = () => {
     setEditing(false);
@@ -139,8 +140,8 @@ export function HouseRoom({
   return (
     <section className={`pixel-card flex flex-col overflow-hidden ${className}`} aria-labelledby="house-title" data-house-room>
       <div className="pb-plank relative z-[1] flex flex-wrap items-center justify-between gap-x-2 gap-y-2.5 px-4 pt-2.5 pb-3">
-        <h2 id="house-title" className="font-display text-xl">
-          🏠 우리 집 <span className="text-base text-[#fff3d6]">· {house.stage}단계 {house.name}</span>
+        <h2 id="house-title" className="flex items-center gap-2 font-display text-xl">
+          <PixelIcon name="house" scale={2} />우리 집 <span className="text-base text-[#fff3d6]">· {house.stage}단계 {house.name}</span>
         </h2>
         {/* 휴대폰: 제목 → 버튼 한 줄 → 개수 안내 순서 (안내가 버튼 사이에 끼지 않게 맨 아래로) */}
         <p className="order-last w-full text-sm text-[#fff3d6] sm:order-none sm:w-auto" data-furniture-count>
@@ -161,12 +162,18 @@ export function HouseRoom({
               aria-pressed={roofOpen}
               className={`pixel-btn pixel-btn-sm ${roofOpen ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
             >
-              {roofOpen ? "✓ 다 골랐어요" : "🏠 지붕 색"}
+              {roofOpen ? (
+                "✓ 다 골랐어요"
+              ) : (
+                <>
+                  <PixelIcon name="house" scale={1} />지붕 색
+                </>
+              )}
             </button>
           )}
           {owned && !editing && (
             <button type="button" onClick={openEditor} className="pixel-btn pixel-btn-sm bg-[#fffaf0] text-ink">
-              🛋 가구 놓기
+              <PixelIcon name="chair" scale={1} />가구 놓기
             </button>
           )}
           {owned && editing && (
@@ -175,7 +182,13 @@ export function HouseRoom({
                 ✕ 취소
               </button>
               <button type="button" onClick={save} disabled={pending} className="pixel-btn pixel-btn-sm bg-leaf text-white" data-save-layout>
-                {pending ? "저장 중…" : "💾 저장"}
+                {pending ? (
+                  "저장 중…"
+                ) : (
+                  <>
+                    <PixelIcon name="save" scale={1} />저장
+                  </>
+                )}
               </button>
             </>
           )}
@@ -249,8 +262,7 @@ export function HouseRoom({
                   </li>
                 ) : (
                   <li key={color} title={`Lv.${i * HOUSE_STAGE_LEVELS}에 열려요`} className="pixel-slot grid h-11 w-11 place-items-center text-[10px] leading-tight text-ink-soft">
-                    🔒
-                    <br />
+                    <PixelIcon name="lock" scale={1} />
                     Lv.{i * HOUSE_STAGE_LEVELS}
                   </li>
                 ),
@@ -517,7 +529,9 @@ function RoomStage({
           highlightDoor ? "ring-4 ring-sun ring-offset-2 motion-safe:animate-pulse" : ""
         }`}
       >
-        <span className="pixel-wood -mt-7 whitespace-nowrap px-1.5 py-0.5 font-display text-xs transition group-hover:-translate-y-0.5">🚪 밖으로</span>
+        <span className="pixel-wood -mt-7 whitespace-nowrap px-1.5 py-0.5 font-display text-xs transition group-hover:-translate-y-0.5">
+          <IconText icon="door">밖으로</IconText>
+        </span>
       </Link>
 
       {/* 편집: 바닥 칸 눈금, 가구마다 차지하는 칸, 끄는 칸 (초록 = 놓을 수 있음, 빨강 = 못 놓음) */}
@@ -682,7 +696,7 @@ function FurnitureTray({
                 setSelected(null);
               }}
             >
-              📦 빼기
+              <PixelIcon name="box" scale={1} />빼기
             </button>
           </>
         ) : (
@@ -718,7 +732,7 @@ function FurnitureTray({
         })}
       </ul>
       <p className="mt-2 text-xs text-ink-soft">
-        가구는 <Link href="/shop" className="underline">상점</Link>에서 더 살 수 있어요. [💾 저장]을 눌러야 다른 사람에게도 보여요.
+        가구는 <Link href="/shop" className="underline">상점</Link>에서 더 살 수 있어요. [저장]을 눌러야 다른 사람에게도 보여요.
       </p>
     </div>
   );

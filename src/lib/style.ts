@@ -7,9 +7,9 @@ import { withJosa } from "@/lib/josa";
 
 /** 가게마다 고를 수 있는 부위 (앞에서부터 탭 순서) */
 export const STYLE_PLACES = {
-  salon: { slots: ["hair", "hair_color", "face_shape"], title: "미용실", emoji: "💇", href: "/salon" },
-  clothes: { slots: ["outfit", "hat", "accessory"], title: "옷가게", emoji: "👗", href: "/clothes" },
-} as const satisfies Record<string, { slots: readonly AvatarSlot[]; title: string; emoji: string; href: string }>;
+  salon: { slots: ["hair", "hair_color", "face_shape"], title: "미용실", href: "/salon" },
+  clothes: { slots: ["outfit", "hat", "accessory"], title: "옷가게", href: "/clothes" },
+} as const satisfies Record<string, { slots: readonly AvatarSlot[]; title: string; href: string }>;
 export type StylePlace = keyof typeof STYLE_PLACES;
 
 export const SLOT_LABELS: Record<AvatarSlot, string> = {
@@ -91,8 +91,8 @@ export const STYLE_ERRORS = {
 export function styleMessage(place: StylePlace, bought: readonly string[], cost: number, changed: readonly AvatarSlot[] = []): string {
   const faceOnly = changed.includes("face_shape") && !changed.some((s) => s === "hair" || s === "hair_color");
   const done = place === "salon" ? (faceOnly ? "새 얼굴형이 잘 어울려요!" : "새 머리가 잘 어울려요!") : "새 옷이 잘 어울려요!";
-  if (!bought.length) return `✨ ${done}`;
-  return `🎉 ${withJosa(bought.join(", "), "을/를")} ${cost > 0 ? `🪙 ${cost}에 샀어요` : "받았어요"}. ${done}`;
+  if (!bought.length) return done;
+  return `${withJosa(bought.join(", "), "을/를")} ${cost > 0 ? `${cost}코인에 샀어요` : "받았어요"}. ${done}`;
 }
 
 /**

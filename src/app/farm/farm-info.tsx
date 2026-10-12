@@ -15,6 +15,8 @@ import {
   specialPercent,
 } from "@/lib/farm";
 import type { HatchOdds } from "@/server/farm";
+import { IconText, PixelIcon } from "@/components/pixel-icon";
+import type { IconName } from "@/lib/art/icons";
 
 /** 12.5 → "12.5%", 20 → "20%" */
 const pct = (n: number) => `${Math.round(n * 10) / 10}%`;
@@ -30,7 +32,7 @@ const RARITY_STYLE: Record<HatchRarity, string> = {
   rare: "bg-[#e3efff]",
   epic: "bg-[#fff0c2]",
 };
-const RARITY_ICON: Record<HatchRarity, string> = { common: "🥚", rare: "⭐", epic: "🌟" };
+const RARITY_ICON: Record<HatchRarity, IconName> = { common: "egg", rare: "star", epic: "sparkle" };
 
 export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -72,8 +74,8 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
 
           {/* 알 확률 */}
           <section aria-labelledby="farm-info-egg" data-info-odds>
-            <h3 id="farm-info-egg" className="font-display text-lg">
-              🥚 알에서 누가 나올까요?
+            <h3 id="farm-info-egg" className="flex items-center gap-2 font-display text-lg">
+              <PixelIcon name="egg" scale={2} />알에서 누가 나올까요?
             </h3>
             <p className="mt-1 text-sm">
               알을 부화시키면 아래 {hatchable.length}마리 중 하나가 나와요. 흔한 <b>일반</b> 동물은 자주, <b>희귀</b>한 동물은 가끔,{" "}
@@ -87,7 +89,7 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
                 return (
                   <div key={tier} className={`pixel-slot p-2 ${RARITY_STYLE[tier]}`} data-rarity={tier}>
                     <p className="font-bold">
-                      {RARITY_ICON[tier]} {RARITY_LABEL[tier]} <span className="text-sm text-ink-soft">· 모두 합쳐 {pct(sum)}</span>
+                      <IconText icon={RARITY_ICON[tier]} scale={2}>{RARITY_LABEL[tier]}</IconText> <span className="text-sm text-ink-soft">· 모두 합쳐 {pct(sum)}</span>
                     </p>
                     <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                       {list.map((o) => (
@@ -138,8 +140,8 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
 
           {/* 특별 진화 */}
           <section aria-labelledby="farm-info-special" className="mt-6" data-info-special>
-            <h3 id="farm-info-special" className="font-display text-lg">
-              ✨ 특별 진화
+            <h3 id="farm-info-special" className="flex items-center gap-2 font-display text-lg">
+              <PixelIcon name="sparkle" scale={2} />특별 진화
             </h3>
             <p className="mt-1 text-sm">
               동물이 다 자라는 순간, 아주 낮은 확률로 특별한 모습이 돼요. 알에서 나온 동물도, 분양으로 데려온 동물도 똑같아요. 특별한 동물은 반짝반짝
@@ -168,8 +170,8 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
 
           {/* 아기 모습 */}
           <section aria-labelledby="farm-info-baby" className="mt-6" data-info-baby>
-            <h3 id="farm-info-baby" className="font-display text-lg">
-              🍼 아기 모습으로 데리고 다니기
+            <h3 id="farm-info-baby" className="flex items-center gap-2 font-display text-lg">
+              <PixelIcon name="bottle" scale={2} />아기 모습으로 데리고 다니기
             </h3>
             <p className="mt-1 text-sm">
               다 키운 동물 카드에서 <b>[아기 모습]</b>을 고르면 광장에서 나를 따라다닐 때와 우리 집 방에서 아기 때 모습으로 보여요. 크기(아주 작게~크게)도

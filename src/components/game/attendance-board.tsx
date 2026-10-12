@@ -2,6 +2,7 @@
 // 출석은 버튼 없이 자동(getViewer)이라 여기에는 누르는 [출석하기]가 없다. /attendance와 마을 게시판 창(/feed?board=1)이 같이 쓴다.
 // 보상표만 <li>를 쓴다 (출석 화면 시험이 main 안의 목록 칸 7개를 센다). 달력은 <span> 칸.
 import type { AttendanceBoardData } from "@/server/attendance";
+import { PixelIcon, IconText } from "@/components/pixel-icon";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -29,11 +30,22 @@ export function AttendanceToday({ data, compact = false }: { data: AttendanceBoa
         완료
       </span>
       <div className="min-w-0">
-        <p className={`font-display ${compact ? "text-xl" : "text-2xl"}`}>🎁 출석 완료! {data.cycleDay}일차</p>
-        <p className="mt-0.5 font-bold text-leaf-dark">오늘 {data.cycleDay}일차 출석 완료 ✅</p>
+        <p className={`flex items-center gap-2 font-display ${compact ? "text-xl" : "text-2xl"}`}>
+          <PixelIcon name="gift" scale={2} />출석 완료! {data.cycleDay}일차
+        </p>
+        <p className="mt-0.5 flex items-center gap-1 font-bold text-leaf-dark">
+          오늘 {data.cycleDay}일차 출석 완료 <PixelIcon name="check" scale={1} label="완료" />
+        </p>
         {got && (
           <p className="mt-1 text-sm text-ink-soft" data-attendance-got>
-            받은 보상 <b className="text-ink">✨ {got.exp}</b> · <b className="text-ink">🪙 {got.coins}</b>
+            받은 보상{" "}
+            <b className="text-ink">
+              <IconText icon="star" label="경험치">{got.exp}</IconText>
+            </b>{" "}
+            ·{" "}
+            <b className="text-ink">
+              <IconText icon="coin" label="코인">{got.coins}</IconText>
+            </b>
           </p>
         )}
       </div>
@@ -68,8 +80,8 @@ export function AttendanceRewards({ data }: { data: AttendanceBoardData }) {
               }`}
             >
               <span>{r.day}일차</span>
-              <span>✨ {r.exp}</span>
-              <span>🪙 {r.coins}</span>
+              <IconText icon="star" label="경험치" className="gap-0.5">{r.exp}</IconText>
+              <IconText icon="coin" label="코인" className="gap-0.5">{r.coins}</IconText>
               <span className={`text-[9px] sm:text-xs ${isToday ? "text-sun-dark" : isNext ? "text-leaf-dark" : "text-ink-soft"}`}>
                 {isToday ? "오늘" : done ? "받음" : isNext ? "내일" : " "}
               </span>
@@ -79,7 +91,7 @@ export function AttendanceRewards({ data }: { data: AttendanceBoardData }) {
       </ol>
       {tomorrow && (
         <p className="mt-3 text-center text-xs text-ink-soft sm:text-sm" data-attendance-next>
-          내일 오면 <b className="text-ink">{next}일차</b> 보상 ✨ {tomorrow.exp} · 🪙 {tomorrow.coins}. 하루라도 빠지면 1일차부터 다시 시작해요.
+          내일 오면 <b className="text-ink">{next}일차</b> 보상 <IconText icon="star" label="경험치">{tomorrow.exp}</IconText> · <IconText icon="coin" label="코인">{tomorrow.coins}</IconText>. 하루라도 빠지면 1일차부터 다시 시작해요.
         </p>
       )}
     </div>
@@ -124,7 +136,7 @@ export function AttendanceCalendar({ data, compact = false }: { data: Attendance
               }`}
               title={done ? `${d}일 출석` : undefined}
             >
-              {done ? "🌟" : d}
+              {done ? <PixelIcon name="star" scale={compact ? 1 : 2} label={`${d}일 출석`} /> : d}
             </span>
           );
         })}

@@ -36,7 +36,7 @@ async function openWrite(page, answer) {
 check("US10-1 질문 없음(임시 글 없음)", (await openWrite(a, true)) === null);
 check("US10-1 처음 안내", (await draftStatus()) === "작성 중인 글은 이 브라우저에 자동 저장됩니다.");
 await a.getByPlaceholder("제목").fill("임시 제목");
-await a.getByRole("radio", { name: "🔒 비공개" }).click();
+await a.getByRole("radio", { name: "비공개" }).click();
 await a.locator(".ProseMirror").click();
 await a.keyboard.press("Control+b");
 await a.keyboard.type("굵은 본문");
@@ -52,7 +52,7 @@ await a.screenshot({ path: `${outDir}/post-drafts-saved.png` });
 check("US10-2 불러오기 질문", (await openWrite(a, true)) === "작성 중이던 글이 있어요. 불러올까요?");
 check("US10-2 제목", (await a.getByPlaceholder("제목").inputValue()) === "임시 제목");
 check("US10-2 본문 서식", (await a.locator(".ProseMirror strong").innerText()) === "굵은 본문");
-check("US10-2 공개 설정", (await a.getByRole("radio", { name: "🔒 비공개" }).getAttribute("aria-checked")) === "true");
+check("US10-2 공개 설정", (await a.getByRole("radio", { name: "비공개" }).getAttribute("aria-checked")) === "true");
 check("US10-2 태그", (await a.getByLabel("태그", { exact: true }).inputValue()) === "임시, 태그");
 // US10-3 취소 → 빈 화면 (임시 글은 남음)
 await openWrite(a, false);
@@ -77,7 +77,7 @@ await a.keyboard.type("이제 본문");
 // 2초 안에 바로 발행
 await a.getByRole("button", { name: "발행하기" }).click();
 await a.waitForURL(/\/@[a-z0-9_]+\/\d+/);
-await a.getByText("🎉 글을 발행했어요!").waitFor();
+await a.getByText("글을 발행했어요!").waitFor();
 await a.waitForTimeout(500);
 check("US10-5 발행 성공 → 임시 글 지움", (await draftKeys(a)).length === 0);
 check("US10-5 다음 새 글 화면에서 묻지 않음", (await openWrite(a, true)) === null);
@@ -130,7 +130,7 @@ await c.keyboard.type("그래도 발행된다");
 await c.waitForTimeout(2600);
 await c.getByRole("button", { name: "발행하기" }).click();
 await c.waitForURL(/\/@[a-z0-9_]+\/\d+/);
-check("US10-9 localStorage 막혀도 발행 정상", await c.getByText("🎉 글을 발행했어요!").isVisible());
+check("US10-9 localStorage 막혀도 발행 정상", await c.getByText("글을 발행했어요!").isVisible());
 check("US10-9 화면 오류 없음", errC.filter((e) => e.startsWith("pageerror")).length === 0, errC.join(" | "));
 
 console.log(results.join("\n"));

@@ -6,6 +6,7 @@ import { Pagination, parsePage } from "@/components/pagination";
 import { getBlogBySlug } from "@/server/blog";
 import { requireMember } from "@/server/dal";
 import { getNeighborCounts, listNeighbors, parseNeighborTab, type NeighborTab } from "@/server/neighbors";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export async function generateMetadata(props: PageProps<"/blog/[slug]/neighbors">) {
   const { slug } = await props.params;
@@ -47,8 +48,9 @@ export default async function NeighborsPage(props: PageProps<"/blog/[slug]/neigh
       </Link>
 
       <section className="pixel-card" aria-labelledby="neighbors-title" data-neighbors-page={tab}>
-        <h1 id="neighbors-title" className="pb-plank px-4 py-2 font-display text-xl">
-          👫 {isOwner ? "내" : `${blog.nickname}님의`} 이웃
+        <h1 id="neighbors-title" className="pb-plank flex items-center gap-2 px-4 py-2 font-display text-xl">
+          <PixelIcon name="people" scale={2} />
+          {isOwner ? "내" : `${blog.nickname}님의`} 이웃
         </h1>
         <div className="p-3 sm:p-4">
           <nav className="mb-3 flex flex-wrap gap-2" aria-label="이웃 목록 종류">

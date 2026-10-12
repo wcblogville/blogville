@@ -68,7 +68,7 @@ export function NeighborsWidget({
 }) {
   const tabs: NeighborTab[] = ["following", "followers"];
   return (
-    <Widget title="👫 이웃" label="이웃 목록" data-widget="neighbors">
+    <Widget icon="people" title="이웃" label="이웃 목록" data-widget="neighbors">
       <ul className="grid grid-cols-2 gap-2">
         {tabs.map((tab) => {
           const body = (

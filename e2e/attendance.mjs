@@ -74,10 +74,10 @@ await page.goto(`${BASE}/attendance`);
 const main = page.locator("main");
 const mainText = await main.innerText();
 check("US3-8 [출석하기] 버튼 없음", (await main.getByRole("button", { name: /출석/ }).count()) === 0);
-check("US3-8 `🎁 출석 완료! 4일차`", mainText.includes("🎁 출석 완료! 4일차"));
+check("US3-8 `🎁 출석 완료! 4일차`", mainText.includes("출석 완료! 4일차"));
 check("US3-8 `오늘 4일차 출석 완료`", mainText.includes("오늘 4일차 출석 완료"));
 const cells = await main.getByRole("listitem").allInnerTexts();
-check("FR-020 7칸 보상표", cells.length === 7 && cells[0].includes("1일차") && cells[6].includes("✨ 30") && cells[6].includes("🪙 100"), cells.join(" | ").replace(/\n/g, " "));
+check("FR-020 7칸 보상표", cells.length === 7 && cells[0].includes("1일차") && /\b30\b/.test(cells[6]) && /\b100\b/.test(cells[6]), cells.join(" | ").replace(/\n/g, " "));
 check("FR-026 오늘 일차 칸 강조", ((await main.locator('li[aria-current="true"]').innerText()) ?? "").includes("4일차"));
 const month = await db.query("SELECT count(*)::int AS n FROM attendances WHERE user_id = $1 AND date >= $2", [uid, `${TODAY.slice(0, 7)}-01`]);
 check("FR-027 `이번 달 N일 출석 · 현재 4일차`", mainText.includes(`이번 달 ${month.rows[0].n}일 출석 · 현재 4일차`), mainText.match(/이번 달[^\n]*/)?.[0]);
@@ -85,7 +85,7 @@ const todayCell = main.locator(`[data-date="${TODAY}"]`);
 // 도트 칸이라 테두리는 안쪽 금색 선(box-shadow #d99a36)으로 그린다 (2026-10-12)
 check(
   "US3-10 오늘 칸 🌟 + 노란 테두리",
-  (await todayCell.innerText()) === "🌟" &&
+  (await todayCell.getByRole("img", { name: /출석/ }).count()) === 1 &&
     (await todayCell.getAttribute("data-today")) === "true" &&
     (await todayCell.evaluate((el) => getComputedStyle(el).boxShadow)).includes("rgb(217, 154, 54)"),
 );

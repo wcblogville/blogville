@@ -34,6 +34,7 @@ import { boxWalkable, stairCrossings, terrain, TERRAIN_FEET } from "./terrain";
 import { houseKey, npcGraph, segmentClear, solidBox, stageOf, townLayout, townProps, walkKey, type Entrance, type Structure } from "./structures";
 import type { TownData, TownNeighbor, TownPet, TownTarget } from "./types";
 import { PIXEL, rgbOf } from "@/lib/art/pixel";
+import { ICON, iconDataUri, type IconName } from "@/lib/art/icons";
 import { WALK_DIRS, WALK_FPS, walkDirOf, walkFrameIndex, walkSheetDataUri, type WalkDir } from "@/lib/art/walk";
 import { IDLE_AFTER_MS, IDLE_FRAME, IDLE_GAP_MS, IDLE_MOTIONS, idleFrameAt, idleFrameIndex, idleOriginY, idleSheetDataUri, pickIdleMotion, type IdleMotion } from "@/lib/art/idle";
 import { townTheme, type Weather } from "@/lib/art/town-theme";
@@ -151,10 +152,16 @@ const TREE_KINDS = ["round", "pine", "bush", "blossom", "oak", "cherry", "rock",
  * 그림 종류 (마을 테마 색 보정을 얼마나 입힐지): world = 건물·나무·장식 (테마 그대로, 눈 테마면 윗면에 눈),
  * plain = 분수처럼 눈을 얹지 않는 장식, character = 캐릭터·동물 (보정을 약하게)
  */
-export type TextureKind = "world" | "plain" | "character";
+export type TextureKind = "world" | "plain" | "character" | "ui";
 
 /** 가만히 동작 그림판 이름 (걷기 그림판과 같은 차림 키) */
 export const idleKey = (asset: string, outfit: string[] = []) => `idle:${walkKey(asset, outfit).slice(5)}`;
+
+/** 안내 말풍선에 쓰는 아이콘 (입구 아이콘 + 이웃에게 말 걸기) */
+const PROMPT_ICONS: IconName[] = ["board", "shop", "scissors", "shirt", "rod", "cow", "sign", "house", "post", "chat", "key"];
+const PROMPT_ICON_SCALE = 2;
+/** 말풍선 글자 앞 아이콘 자리 (px) */
+const PROMPT_PAD = 10;
 
 /** 이 광장이 쓸 그림 목록. TownGame이 미리 이미지로 불러 둔다 (kind에 맞춰 테마 색을 입힌다) */
 export function townTextures(data: TownData): { key: string; uri: string; kind: TextureKind }[] {
@@ -191,7 +198,10 @@ export function townTextures(data: TownData): { key: string; uri: string; kind: 
   list.set("mailbox", toDataUri(mailboxSvg()));
   list.set("mailbox:mine", toDataUri(mailboxSvg("#4a90d9")));
   for (const kind of TREE_KINDS) list.set(`tree:${kind}`, toDataUri(treeSvg(kind)));
-  const kindOf = (key: string): TextureKind => (/^(walk|idle|pet):/.test(key) ? "character" : key === "fountain" ? "plain" : "world");
+  // 입구 안내 말풍선의 도트 아이콘 (그림 글자 대신, 2026-10-12)
+  for (const name of PROMPT_ICONS) list.set(`icon:${name}`, iconDataUri(name, PROMPT_ICON_SCALE));
+  const kindOf = (key: string): TextureKind =>
+    key.startsWith("icon:") ? "ui" : /^(walk|idle|pet):/.test(key) ? "character" : key === "fountain" ? "plain" : "world";
   return [...list].map(([key, uri]) => ({ key, uri, kind: kindOf(key) }));
 }
 
@@ -252,6 +262,7 @@ export function createTownScene(
     private moveTarget: PhaserNS.Math.Vector2 | null = null;
     private entrances: Entrance[] = [];
     private prompt!: PhaserNS.GameObjects.Text;
+    private promptIcon!: PhaserNS.GameObjects.Image;
     private haze!: PhaserNS.GameObjects.Image;
     private npcs: Npc[] = [];
     private graph: { nodes: { x: number; y: number }[]; links: number[][] } = { nodes: [], links: [] };
@@ -331,11 +342,13 @@ export function createTownScene(
           fontStyle: "bold",
           color: "#ffffff",
           backgroundColor: "#2b2118e6",
-          padding: { x: 10, y: 6 },
+          // 왼쪽에 도트 아이콘 자리를 둔다
+          padding: { left: PROMPT_PAD + ICON * PROMPT_ICON_SCALE + 6, right: PROMPT_PAD, top: 6, bottom: 6 },
         }))
         .setOrigin(0.5, 1)
         .setDepth(100000)
         .setVisible(false);
+      this.promptIcon = this.add.image(0, 0, "icon:chat").setOrigin(0, 0.5).setDepth(100001).setVisible(false);
 
       this.createNpcs([...structures, ...props]);
       this.createHaze();
@@ -856,6 +869,16 @@ export function createTownScene(
       this.hazeTint(pet.img, pet.y);
     }
 
+    /** 안내 말풍선: 도트 아이콘 + 글자 (아이콘은 말풍선 왼쪽 안, 세로 가운데) */
+    private showPrompt(icon: IconName, text: string, x: number, y: number, visible: boolean) {
+      this.prompt.setText(text).setPosition(x, y).setVisible(visible);
+      const key = `icon:${icon}`;
+      this.promptIcon
+        .setTexture(this.textures.exists(key) ? key : "icon:chat")
+        .setPosition(Math.round(x - this.prompt.width / 2 + PROMPT_PAD), Math.round(y - this.prompt.height / 2))
+        .setVisible(visible);
+    }
+
     private updatePrompt() {
       let closest: Entrance | null = null;
       let best = INTERACT_DISTANCE;
@@ -870,15 +893,14 @@ export function createTownScene(
       const npc = closest ? null : this.nearestNpc();
       if (closest) {
         const verb = closest.target.kind === "login" ? "로그인하고 이용하기" : (closest.verb ?? "들어가기");
-        this.prompt.setText(`${closest.emoji} ${closest.label} · Space ${verb}`);
-        this.prompt.setPosition(closest.x, closest.promptY).setVisible(true);
+        this.showPrompt(closest.icon, `${closest.label} · Space ${verb}`, closest.x, closest.promptY, true);
         if (this.actionQueued) onEnter(closest.target);
       } else if (npc) {
-        this.prompt.setText(`💬 ${npc.house.nickname} · Space 말 걸기`);
-        this.prompt.setPosition(npc.sprite.x, npc.sprite.y + 34).setVisible(!npc.bubble);
+        this.showPrompt("chat", `${npc.house.nickname} · Space 말 걸기`, npc.sprite.x, npc.sprite.y + 34, !npc.bubble);
         if (this.actionQueued) this.talkTo(npc);
       } else {
         this.prompt.setVisible(false);
+        this.promptIcon.setVisible(false);
       }
       // 입구에서 멀 때 누른 것은 버린다 (나중에 입구 앞에 갔을 때 저절로 들어가지 않게)
       this.actionQueued = false;

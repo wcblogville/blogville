@@ -78,7 +78,8 @@ export function TownGame({
       await Promise.all([
         document.fonts.ready,
         ...townTextures(data).map(async ({ key, uri, kind }) => {
-          images.set(key, await rasterize(uri, theme.grade || theme.snow ? (px, w, h) => themePixels(px, w, h, kind, theme) : undefined));
+          // 안내 말풍선 아이콘(ui)은 화면 글자처럼 테마 색을 입히지 않는다
+          images.set(key, await rasterize(uri, kind !== "ui" && (theme.grade || theme.snow) ? (px, w, h) => themePixels(px, w, h, kind, theme) : undefined));
         }),
       ]);
       starting = false;
@@ -162,7 +163,7 @@ async function rasterize(uri: string, edit?: (px: Uint8ClampedArray, w: number, 
 }
 
 /** 마을 테마 입히기: 건물·나무는 테마 색(눈 테마면 윗면에 눈 먼저), 캐릭터·동물은 약하게 */
-function themePixels(px: Uint8ClampedArray, w: number, h: number, kind: "world" | "plain" | "character", theme: TownTheme) {
+function themePixels(px: Uint8ClampedArray, w: number, h: number, kind: "world" | "plain" | "character" | "ui", theme: TownTheme) {
   if (kind === "character") return gradePixels(px, theme.grade, theme.charStrength);
   if (kind === "world" && theme.snow) snowCapPixels(px, w, h, PIXEL);
   gradePixels(px, theme.grade);

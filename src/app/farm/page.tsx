@@ -6,6 +6,7 @@ import { listGrowthItems } from "@/server/inventory";
 import { getWallet } from "@/server/points";
 import { FarmInfo } from "./farm-info";
 import { FarmView } from "./farm-view";
+import { IconText } from "@/components/pixel-icon";
 
 export const metadata = { title: "동물 농장" };
 
@@ -32,7 +33,14 @@ export default async function FarmPage() {
         }
       >
         <p className="text-sm">
-          알을 부화시켜 동물을 키워요. {CARE_ACTIONS.map((c) => `${c.emoji} ${c.label}`).join(" · ")}는 하루 한 번씩,
+          알을 부화시켜 동물을 키워요.{" "}
+          {CARE_ACTIONS.map((c, i) => (
+            <span key={c.action}>
+              {i > 0 && " · "}
+              <IconText icon={c.icon}>{c.label}</IconText>
+            </span>
+          ))}
+          는 하루 한 번씩,
           공개 글로 보상을 받으면 동물마다 성장 +{POST_GROWTH}. 다 키우면 경험치와 코인을 받아요.
         </p>
       </PlaceHeader>

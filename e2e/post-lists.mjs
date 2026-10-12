@@ -133,7 +133,7 @@ const tagLinks = await a.locator('a[href^="/tags/"]').allInnerTexts();
 check("US6-1 태그 두 개만", tagLinks.length === 2 && tagLinks.includes(`#${tag1}`) && tagLinks.includes(`#회고${n}`), tagLinks.join(","));
 await a.locator(`a[href="/tags/${tag1}"]`).click();
 await a.waitForURL(new RegExp(`/tags/${tag1}$`));
-check("US6 태그별 목록", (await titles(a)).join() === "태그 글" && (await a.getByRole("heading", { name: `🏷 #${tag1}` }).isVisible()));
+check("US6 태그별 목록", (await titles(a)).join() === "태그 글" && (await a.getByRole("heading", { name: `#${tag1}` }).isVisible()));
 check("US6 태그 목록 탭 제목", (await a.title()) === `#${tag1} | Blogville`, await a.title());
 await guest.goto(`${BASE}/tags/${tag1}`);
 check("US6 로그아웃도 태그별 목록", (await titles(guest)).join() === "태그 글");

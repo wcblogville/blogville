@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CharacterBadge } from "@/components/character";
 import { toggleFollow } from "@/app/blog/actions";
+import { PixelIcon } from "@/components/pixel-icon";
 
 type Blog = {
   id: number;
@@ -113,7 +114,7 @@ export function BlogTitleBar({
           {/* 이 회원의 마을 구경 (사용자 요청 2026-10-09). 휴대폰에는 광장이 없어 숨긴다 */}
           {!blog.isNotice && (
             <Link href={`/town/${blog.slug}`} className="pixel-btn pixel-btn-sm flex-1 whitespace-nowrap bg-[#fffaf0] px-4 text-ink phone:hidden" data-visit-town>
-              🏘 마을 구경
+              <PixelIcon name="house" scale={1} />마을 구경
             </Link>
           )}
           <form action={toggleFollow.bind(null, blog.ownerId)} className="flex flex-1">

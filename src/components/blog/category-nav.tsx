@@ -3,6 +3,7 @@
 // 링크는 ?category= / ?sub= 만 남기고 q·page를 버린다 (검색 모드에서 누르면 검색을 벗어나 1페이지).
 // 소분류 글 수는 posts.subcategory_id로 센다 (POST-03).
 import Link from "next/link";
+import { PixelIcon } from "@/components/pixel-icon";
 
 type Sub = { id: number; name: string; postCount: number | null };
 type Cat = { id: number; name: string; postCount: number; subcategories: Sub[] };
@@ -24,7 +25,9 @@ export function CategoryNav({
   return (
     <nav className="pixel-card" aria-label="카테고리" data-widget="categories">
       {/* 옆 칸 위젯과 같은 이름표 제목 (blog-sidebar.tsx Widget) */}
-      <h2 className="pb-plank px-4 py-2 font-display text-lg">🗂 카테고리</h2>
+      <h2 className="pb-plank flex items-center gap-2 px-4 py-2 font-display text-lg">
+        <PixelIcon name="folder" scale={2} />카테고리
+      </h2>
       {/* 카테고리 링크는 누르는 영역 44px 이상 (FR-059, research R-24) */}
       <ul className="space-y-0.5 p-3 text-sm">
         <li>

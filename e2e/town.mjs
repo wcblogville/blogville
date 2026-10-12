@@ -94,6 +94,24 @@ const ledgerCoins = (await one("SELECT COALESCE(SUM(coin_delta), 0)::int AS c FR
 check("프로필: 코인이 원장 합계와 같음", Number(coinText.replace(/[^0-9]/g, "")) === ledgerCoins, `${coinText} / ${ledgerCoins}`);
 check("프로필: 경험치 `현재 / 필요`", /^[\d,]+ \/ [\d,]+$/.test(expText), expText);
 
+// 마을 한마디 바로 고치기 (사용자 요청 2026-10-12 "친구들한테 보일 인사말 작성하는 칸도 만들어줘"): 메뉴에서 쓰고 저장 → 내 정보에도 같은 값
+{
+  const quick = panel().locator("[data-greeting-quick]");
+  check("프로필: 마을 한마디 칸과 안내", (await quick.isVisible()) && (await quick.innerText()).includes("친구 마을에서 나를 누르면 말풍선으로 보여요"));
+  await quick.getByRole("button", { name: "마을 한마디 고치기" }).click();
+  const hello = `반가워요 ${n}`;
+  await quick.getByRole("textbox", { name: "마을 한마디" }).fill(hello);
+  await quick.getByRole("button", { name: "저장" }).click();
+  await quick.locator("[data-greeting-text]").filter({ hasText: hello }).waitFor({ timeout: 10000 });
+  check("프로필: 저장하면 새 한마디가 보임", (await quick.locator("[data-greeting-text]").innerText()) === hello);
+  check("프로필: DB profiles.greeting 저장", (await one("SELECT greeting FROM profiles WHERE user_id = $1", [aId])).greeting === hello);
+  await page.screenshot({ path: `${outDir}/town-greeting-quick.png` });
+  const settings = await page.context().newPage();
+  await settings.goto(`${BASE}/settings/account`);
+  check("내 정보 마을 한마디 칸에도 같은 값", (await settings.locator("#greeting").inputValue()) === hello);
+  await settings.close();
+}
+
 // 알림: 알림 없음 안내와 알림함 링크
 await openMenu("알림");
 check("알림 창: 알림함 링크", (await panel().getByRole("link", { name: /알림함 전체 보기/ }).getAttribute("href")) === "/notifications");

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { BOARD_SEEN_COOKIE } from "@/lib/attendance-window";
+import { PixelIcon, IconText } from "@/components/pixel-icon";
 
 /**
  * 마을 게시판의 출석 체크 창 (GAME-04, 사용자 요청 2026-10-11 "마을 게시판 들어가면 출석체크 창 없음").
@@ -44,7 +45,7 @@ export function AttendanceWindow({
       <div className="pixel-panel mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3" data-attendance-strip>
         <div className="min-w-0 flex-1 text-sm">{summary}</div>
         <button type="button" className="pixel-btn min-h-11 shrink-0 bg-sun px-3 text-sm text-ink" onClick={() => ref.current?.showModal()}>
-          📅 출석부 열기
+          <PixelIcon name="calendar" scale={1} />출석부 열기
         </button>
       </div>
       <dialog
@@ -59,7 +60,7 @@ export function AttendanceWindow({
       >
         <div className="pixel-wood sticky top-0 z-10 flex items-center justify-between gap-2 px-4 py-2">
           <h2 id="attendance-window-title" className="font-display text-xl">
-            📮 출석 체크
+            <IconText icon="post" scale={2}>출석 체크</IconText>
           </h2>
           <form method="dialog">
             <button className="pixel-btn min-h-11 min-w-11 bg-white px-3 text-sm text-ink" aria-label="출석 체크 창 닫기" autoFocus>
@@ -69,7 +70,9 @@ export function AttendanceWindow({
         </div>
         <div className="grid gap-4 p-4 sm:p-5">{children}</div>
         <form method="dialog" className="px-4 pb-5 sm:px-5">
-          <button className="pixel-btn min-h-11 w-full bg-leaf-dark text-white">📋 마을 소식 보러 가기</button>
+          <button className="pixel-btn min-h-11 w-full bg-leaf-dark text-white">
+            <PixelIcon name="board" scale={1} />마을 소식 보러 가기
+          </button>
         </form>
       </dialog>
     </>

@@ -1,9 +1,10 @@
 import { Pagination, parsePage } from "@/components/pagination";
 import { PlaceHeader } from "@/components/place-banner";
-import { notificationText, notificationTime } from "@/lib/notifications";
+import { NOTIFICATION_ICON, notificationText, notificationTime } from "@/lib/notifications";
 import { requireMember } from "@/server/dal";
 import { listNotifications } from "@/server/notifications";
 import { markAllNotificationsRead, openNotification } from "./actions";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "알림함" };
 
@@ -43,6 +44,7 @@ export default async function NotificationsPage(props: PageProps<"/notifications
                       r.readAt ? "bg-[#fbf6ec] shadow-[inset_0_0_0_3px_#efe2c9]" : "bg-[#fff3d6] font-bold shadow-[inset_0_0_0_3px_#ffd36e,inset_6px_0_0_0_#d99a36]"
                     }`}
                   >
+                    <PixelIcon name={NOTIFICATION_ICON[r.kind]} scale={2} />
                     <span className="min-w-0 flex-1 break-words">{notificationText(r)}</span>
                     <span className="shrink-0 text-xs font-normal text-ink-soft">{notificationTime(r.createdAt, now)}</span>
                   </button>

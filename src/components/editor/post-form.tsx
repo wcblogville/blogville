@@ -5,9 +5,11 @@ import { savePost, type SavePostState } from "@/app/write/actions";
 import { readDraft, writeDraft, type Draft } from "@/lib/draft";
 import { POST_REWARD_MIN_LENGTH, REWARD_RULES } from "@/lib/game";
 import { checkPostInput, isContentTooLarge, rawPostInput, TITLE_MAX } from "@/lib/post-rules";
-import { VISIBILITIES, VISIBILITY_LABEL, type Visibility } from "@/lib/visibility";
+import { VISIBILITIES, VISIBILITY_ICON, VISIBILITY_LABEL, type Visibility } from "@/lib/visibility";
 import { RichEditor } from "./rich-editor";
 import { TagField } from "./tag-field";
+import { PixelIcon } from "@/components/pixel-icon";
+import { IconText } from "@/components/pixel-icon";
 
 export type CategoryOption = { id: number; name: string; subcategories: { id: number; name: string }[] };
 
@@ -31,9 +33,9 @@ const savedTime = (iso: string) =>
  */
 const VISIBILITY_HINT: Record<Visibility, string> = {
   // 전체 공개는 모든 글 탭에 나오니 말을 조심해 달라고 알린다 (사용자 요청 2026-10-12 "이상한 말 쓰지 않게 알려줘")
-  public: "📢 전체 공개 글은 마을 소식 [🌐 모든 글]에서 모든 회원에게 보여요. 다른 사람을 불쾌하게 하는 말이나 개인정보는 쓰지 말아 주세요. 이웃에게만 보여 주려면 '👥 이웃 공개'를 고르세요.",
-  neighbors: "👥 나를 이웃 추가한 회원만 볼 수 있어요. 🌐 모든 글·태그·검색에는 나오지 않아요.",
-  private: "🔒 나만 볼 수 있어요.",
+  public: "전체 공개 글은 마을 소식 [모든 글]에서 모든 회원에게 보여요. 다른 사람을 불쾌하게 하는 말이나 개인정보는 쓰지 말아 주세요. 이웃에게만 보여 주려면 '이웃 공개'를 고르세요.",
+  neighbors: "나를 이웃 추가한 회원만 볼 수 있어요. 모든 글·태그·검색에는 나오지 않아요.",
+  private: "나만 볼 수 있어요.",
 };
 
 export function PostForm({ categories, initial, draftOwnerId }: { categories: CategoryOption[]; initial: PostFormValues; draftOwnerId?: string }) {
@@ -227,8 +229,9 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
               role="radio"
               aria-checked={visibility === v}
               onClick={() => edit(setVisibility)(v)}
-              className={`inline-flex min-h-11 items-center whitespace-nowrap px-3 font-display text-sm ${visibility === v ? "pb-tab-on" : "text-ink-soft hover:bg-[#fff3d6]"}`}
+              className={`inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 font-display text-sm ${visibility === v ? "pb-tab-on" : "text-ink-soft hover:bg-[#fff3d6]"}`}
             >
+              <PixelIcon name={VISIBILITY_ICON[v]} scale={1} />
               {VISIBILITY_LABEL[v]}
             </button>
           ))}
@@ -240,7 +243,9 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
         data-visibility-hint={visibility}
         role={visibility === "public" ? "note" : undefined}
       >
-        {VISIBILITY_HINT[visibility]}
+        <IconText icon={visibility === "public" ? "board" : VISIBILITY_ICON[visibility]} className="items-start [&>img]:mt-1">
+          <span>{VISIBILITY_HINT[visibility]}</span>
+        </IconText>
       </p>
 
       <RichEditor
@@ -267,7 +272,7 @@ function Form({ categories, initial, draftOwnerId }: { categories: CategoryOptio
             {isNew ? (
               rewardable ? (
                 <span className="font-bold text-leaf-dark">
-                  저장하면 ✨ 경험치 {REWARD_RULES.post.exp} · 🪙 {REWARD_RULES.post.coins} 보상 (하루 {REWARD_RULES.post.dailyLimit}번까지)
+                  저장하면 <IconText icon="star">경험치 {REWARD_RULES.post.exp}</IconText> · <IconText icon="coin">{REWARD_RULES.post.coins}</IconText> 보상 (하루 {REWARD_RULES.post.dailyLimit}번까지)
                 </span>
               ) : visibility === "private" ? (
                 "비공개 글은 보상이 없어요"

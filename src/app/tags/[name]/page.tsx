@@ -1,6 +1,7 @@
 import { FeedView } from "@/components/blog/feed-view";
 import { parsePage } from "@/components/pagination";
 import { getAllTags, listFeed } from "@/server/blog";
+import { PixelIcon } from "@/components/pixel-icon";
 
 export async function generateMetadata(props: PageProps<"/tags/[name]">) {
   // generateMetadata의 params는 이미 디코딩되어 온다 (/tags/100%25 → "100%").
@@ -16,7 +17,11 @@ export default async function TagPage(props: PageProps<"/tags/[name]">) {
   const [list, tags] = await Promise.all([listFeed({ page, tag }), getAllTags()]);
   return (
     <FeedView
-      title={<>🏷 #{tag}</>}
+      title={
+        <>
+          <PixelIcon name="tag" scale={2} />#{tag}
+        </>
+      }
       list={list}
       tags={tags}
       showFollowingTab={false}
