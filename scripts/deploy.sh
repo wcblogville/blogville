@@ -162,6 +162,21 @@ ACTIVE_LABEL=없음
 if [ -n "$ACTIVE" ]; then ACTIVE_LABEL="$(color_name "$ACTIVE") $(color_port "$ACTIVE")"; fi
 echo "▶ 지금 상태: 켜진 색 $ACTIVE_LABEL, 우리 nginx $([ "$PROXY_UP" = 1 ] && echo 켜짐 || echo 꺼짐)$([ "$LEGACY_UP" = 1 ] && echo ", 옛 앱($LEGACY) 켜짐" || true)"
 
+# 앱이 꺼져 있었다면 왜 꺼졌는지 남긴다 (2026-10-13 배포 사이에 앱이 두 번 꺼져 502가 났다).
+# 아래에서 쉬는 색 컨테이너를 지우기 전에 본다
+if [ -z "$ACTIVE" ] && [ "$LEGACY_UP" = 0 ]; then
+  echo "▶ 꺼진 앱 살펴보기"
+  for name in blogville-blue blogville-green "$LEGACY"; do
+    if container_exists "$name"; then
+      echo "  $name: $(docker inspect -f '상태 {{.State.Status}}, 종료 코드 {{.State.ExitCode}}, 메모리 부족 {{.State.OOMKilled}}, 재시작 {{.RestartCount}}번, 꺼진 시각 {{.State.FinishedAt}} {{.State.Error}}' "$name")"
+      docker logs --tail 20 "$name" 2>&1 | sed 's/^/    /' || true
+    else
+      echo "  $name: 컨테이너가 없어요 (누가 지웠거나 서버가 정리했을 수 있어요)"
+    fi
+  done
+  echo "  서버 켜진 시각: $(uptime -s 2>/dev/null || echo 알 수 없음)"
+fi
+
 # 쉬는 색 포트가 비어 있는지 (공용 서버라 다른 계정이 쓰고 있을 수 있다). DB를 건드리기 전에 본다
 docker rm -f "$TARGET_NAME" >/dev/null 2>&1 || true # 지난번 실패로 남은 것
 if port_in_use "$TARGET_PORT"; then
