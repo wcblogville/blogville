@@ -8,7 +8,7 @@ import { username } from "better-auth/plugins";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/password";
-import { SOCIAL_PROVIDERS, type SocialReady } from "@/lib/social";
+import { SOCIAL_PAUSED, SOCIAL_PROVIDERS, type SocialProvider, type SocialReady } from "@/lib/social";
 import { oauthTimeout } from "@/server/oauth-timeout";
 
 // 소셜 로그인 (AUTH-01, AUTH-05 / FR-013, FR-030~FR-035, research R9)
@@ -64,10 +64,13 @@ const NO_TOKENS = {
   scope: null,
 };
 
+/** 키가 있고 잠가 두지 않은(SOCIAL_PAUSED) 서비스만 버튼·연동을 연다 (FR-031) */
+const ready = (id: SocialProvider, keys: unknown) => Boolean(keys) && !SOCIAL_PAUSED.includes(id);
+
 export const enabledProviders: SocialReady = {
-  google: Boolean(google),
-  kakao: Boolean(kakao),
-  naver: Boolean(naver),
+  google: ready("google", google),
+  kakao: ready("kakao", kakao),
+  naver: ready("naver", naver),
 };
 
 // 로그인 유지 (AUTH-09 / FR-019~FR-023, research R6)

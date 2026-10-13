@@ -10,6 +10,12 @@ export const SOCIAL_LABEL: Record<SocialProvider, string> = { kakao: "카카오"
 /** 서비스마다 키(Client ID·Secret)가 준비됐는지. 키가 없는 서비스의 버튼은 비활성 (FR-031) */
 export type SocialReady = Record<SocialProvider, boolean>;
 
+/**
+ * 키가 있어도 버튼을 "준비 중"으로 잠가 두는 서비스 (사용자 요청 2026-10-13).
+ * 네이버 앱이 검수 전(개발 중)이라 등록한 테스트 아이디만 로그인된다. 검수가 끝나면 목록에서 뺀다
+ */
+export const SOCIAL_PAUSED: readonly SocialProvider[] = ["naver"];
+
 // ===== 댓글·답글 규칙 (SOC-01, SOC-02). DB 없는 순수 함수라 서버·화면·단위 테스트에서 함께 쓴다 =====
 export const COMMENT_MAX = 1000;
 
