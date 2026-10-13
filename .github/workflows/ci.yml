@@ -1,0 +1,131 @@
+# 검사(CI): 코드가 합쳐지기 전에 자동으로 검사한다. 서버·DB 비밀 값은 쓰지 않는다.
+#  - develop·main으로 가는 PR, develop에 push → 여기서 바로 실행 (PR 화면에 결과가 뜬다)
+#  - main에 push → 배포 워크플로(deploy.yml)가 이 파일을 먼저 부르고(workflow_call), 통과해야 배포한다
+# 작업 두 개가 동시에 돈다
+#  1) 코드 검사: 타입(tsc) → 코드 규칙(eslint) → 단위 테스트(npm test, DB 없음)
+#  2) 빌드·E2E: 도커 이미지와 같은 webpack 빌드 → 임시 PostgreSQL에 표·아이템·관리자 준비
+#     → 빌드한 앱을 띄우고 브라우저(Playwright)로 가입·로그인·관리자(e2e/auth.mjs)와 글쓰기(e2e/blog.mjs)
+name: 검사
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+  workflow_call:
+  workflow_dispatch:
+
+# 같은 PR·브랜치에 새 커밋이 오면 앞의 검사는 취소한다. main(배포 전 검사)은 취소하지 않는다
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: 코드 검사
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # Dockerfile의 node:22와 같게
+          cache: npm
+      - run: npm ci
+      - name: 경로 타입 만들기 (next typegen)
+        run: npx next typegen
+      - name: 타입 검사 (tsc)
+        run: npx tsc --noEmit
+      - name: 코드 규칙 (eslint)
+        run: npx eslint .
+      - name: 단위 테스트 (npm test)
+        run: npm test
+
+  build-e2e:
+    name: 빌드·E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      # 이 작업 동안만 있는 빈 DB. 끝나면 사라진다
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: blogville
+          POSTGRES_PASSWORD: blogville
+          POSTGRES_DB: blogville
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U blogville"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_BASE: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # 앱·DB 스크립트·E2E가 모두 .env.local을 읽는다. 비밀 값은 실행할 때마다 새로 만드는 임시 값이다
+      - name: 임시 .env.local 만들기
+        run: |
+          secret="$(openssl rand -hex 32)"
+          admin_pw="$(openssl rand -hex 16)"
+          echo "::add-mask::$secret"
+          echo "::add-mask::$admin_pw"
+          umask 077
+          {
+            echo "DATABASE_URL=postgres://blogville:blogville@localhost:5432/blogville"
+            echo "BETTER_AUTH_SECRET=$secret"
+            echo "BETTER_AUTH_URL=$E2E_BASE"
+            echo "ADMIN_USERNAME=admin"
+            echo "ADMIN_PASSWORD=$admin_pw"
+          } > .env.local
+
+      # Turbopack 빌드는 한글이 든 코드 위치 표시에서 멈추는 문제가 있어 Dockerfile처럼 webpack으로 빌드한다
+      - name: 빌드 (next build --webpack)
+        run: npx next build --webpack
+
+      - name: DB 준비 (표 → 아이템 → 관리자)
+        run: |
+          npm run db:migrate
+          npm run db:seed
+          npm run admin:create
+
+      - name: 브라우저 설치 (Playwright chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: 앱 띄우기
+        run: |
+          nohup npx next start -p 3000 > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "$E2E_BASE/" || true)"
+            [ "$code" = 200 ] && { echo "첫 화면 응답 200 (${i}초)"; exit 0; }
+            sleep 1
+          done
+          echo "::error::앱이 60초 안에 응답하지 않았어요"
+          cat app.log
+          exit 1
+
+      - name: E2E 가입·로그인·관리자 (e2e/auth.mjs)
+        run: mkdir -p e2e-shots && node e2e/auth.mjs e2e-shots
+
+      - name: E2E 글쓰기 (e2e/blog.mjs)
+        run: node e2e/blog.mjs e2e-shots
+
+      # 실패하면 스크린샷과 앱 로그를 Actions 화면의 Artifacts에서 내려받아 볼 수 있다
+      - name: 실패 기록 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failure
+          path: |
+            e2e-shots/
+            app.log
+          retention-days: 7
