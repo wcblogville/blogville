@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  APP_PORT: "8420" # 강사님 nginx proxy_pass가 가리키는 포트. 여기서 우리 nginx 컨테이너가 듣고, 앱은 8421(파랑)·8422(초록)
+  APP_PORT: "8420" # 강사님 nginx proxy_pass가 가리키는 포트. 여기서 우리 nginx 컨테이너가 듣고, 앱은 8421(파랑)·8422(초록). 8420~8429가 내 몫
   PROXY_IMAGE: nginx:1.27.5-alpine # 우리 nginx 이미지 (무중단 배포, scripts/deploy.sh)
   APP_URL: https://wcblogville.java21.net # 사이트 주소 (BETTER_AUTH_URL)
 
