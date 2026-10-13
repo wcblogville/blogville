@@ -1,4 +1,4 @@
-// 관리자 화면 (AUTH-08 / FR-043~FR-047, FR-054, contracts/admin.md 1장), 테스트 지급 (AUTH-10)
+// 관리자 화면 (AUTH-08 / FR-043~FR-047, FR-054, contracts/admin.md 1장), 테스트 지급 (AUTH-10), 비밀번호 초기화 (AUTH-12)
 // 관리자가 아니면(로그인하지 않은 사람 포함) requireAdmin()이 404를 보여 화면이 있다는 것도 드러내지 않는다.
 // 375px에서는 표 대신 행을 쌓은 목록을 보여 가로 스크롤이 없게 하고, 링크·[삭제]의 누르는 영역은 44px 이상으로 둔다.
 import { desc, eq, gte, sql } from "drizzle-orm";
@@ -15,6 +15,7 @@ import { PlaceHeader } from "@/components/place-banner";
 import type { IconName } from "@/lib/art/icons";
 import { AdminDeletePostButton } from "./delete-button";
 import { AdminGrantForm } from "./grant-form";
+import { AdminResetPasswordForm } from "./reset-password-form";
 
 export const metadata = { title: "관리자" };
 
@@ -97,6 +98,18 @@ export default async function AdminPage() {
         </h2>
         <p className="mb-4 mt-1 text-sm text-ink-soft">기능을 시험해 볼 때 쓰는 관리자 전용 도구예요. 회원에게 코인·경험치를 바로 넣어 줍니다 (AUTH-10).</p>
         <AdminGrantForm adminUsername={admin.user.username ?? "admin"} />
+      </section>
+
+      {/* 비밀번호 초기화 (AUTH-12 비밀번호 찾기): 간편 로그인을 연동하지 않은 회원이 아이디를 알려 오면 임시 비밀번호를 만든다 */}
+      <section className="pixel-card mt-8 p-5" aria-labelledby="admin-reset-title">
+        <h2 id="admin-reset-title" className="pixel-heading text-xl">
+          <PixelIcon name="key" />
+          비밀번호 초기화
+        </h2>
+        <p className="mb-4 mt-1 text-sm text-ink-soft">
+          비밀번호를 잊은 회원의 아이디를 적으면 임시 비밀번호(12자)를 만들어요. 그 회원의 로그인은 모두 끊기고, 임시 비밀번호는 지금 한 번만 보여요.
+        </p>
+        <AdminResetPasswordForm />
       </section>
 
       <section className="pixel-card mt-8 p-5">

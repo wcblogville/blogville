@@ -1,7 +1,19 @@
 // 회원/인증 규칙 테스트 (AUTH-01, AUTH-07, AUTH-09 / FR-002, FR-009, FR-010, FR-025, FR-026)
 // 실행: npm run test:auth
+import { randomInt } from "node:crypto";
 import { isLocked, LOGIN_LOCK_MS, LOGIN_MAX_FAILURES, reserveAttempt, type LoginAttemptState } from "../src/lib/login-limit";
 import { isReservedName, isValidNicknameLength, isValidUsername, normalizeName, RESERVED_NAMES, USERNAME_RE } from "../src/lib/names";
+import { ADMIN_PASSWORD_MIN } from "../src/lib/password";
+import {
+  FRESH_SESSION_MS,
+  freshMinutesLeft,
+  isFreshSession,
+  isSocialNext,
+  makeTempPassword,
+  NEW_PASSWORD_PATH,
+  TEMP_PASSWORD_ALPHABET,
+  TEMP_PASSWORD_LENGTH,
+} from "../src/lib/password-reset";
 
 let failed = 0;
 function expect(name: string, got: unknown, want: unknown) {
@@ -89,6 +101,31 @@ expect("규칙 숫자 5번·5분", [LOGIN_MAX_FAILURES, LOGIN_LOCK_MS], [5, 300_
     s2 = r.allowed ? r.next : s2;
   }
   expect("성공 → 초기화: 3번 실패·성공·4번 실패 뒤 n=4, 잠금 아님", { n: s2?.failedCount, locked: isLocked(s2, t0) }, { n: 4, locked: false });
+}
+
+// AUTH-12 비밀번호 찾기: 새 세션 10분, 소셜 뒤 갈 곳 허용 목록, 임시 비밀번호
+{
+  const now = Date.parse("2026-10-13T12:00:00Z");
+  expect("새 세션 10분은 10 * 60초", FRESH_SESSION_MS, 600_000);
+  expect("방금 만든 세션 → 새 세션", isFreshSession(new Date(now - 1000), now), true);
+  expect("정확히 10분 → 새 세션", isFreshSession(new Date(now - FRESH_SESSION_MS), now), true);
+  expect("10분 1초 → 오래된 세션", isFreshSession(new Date(now - FRESH_SESSION_MS - 1000), now), false);
+  expect("문자열 시각도 읽는다", isFreshSession(new Date(now - 60_000).toISOString(), now), true);
+  expect("이상한 시각 → 오래된 세션", isFreshSession("not a date", now), false);
+  expect("남은 분: 3분 지남 → 7분", freshMinutesLeft(new Date(now - 3 * 60_000), now), 7);
+  expect("남은 분: 지났으면 0", freshMinutesLeft(new Date(now - 11 * 60_000), now), 0);
+  expect("새 비밀번호 화면은 갈 수 있는 곳", isSocialNext(NEW_PASSWORD_PATH), true);
+  for (const bad of ["/town", "https://evil.example/settings/account/new-password", "//evil.example", "/settings/account/new-password?x=1", undefined, ""]) {
+    expect(`${JSON.stringify(bad)}는 갈 수 없는 곳`, isSocialNext(bad), false);
+  }
+  expect("임시 비밀번호는 관리자 최소 길이 이상", TEMP_PASSWORD_LENGTH >= ADMIN_PASSWORD_MIN, true);
+  expect("헷갈리는 글자 없음 (0 O o 1 l I)", /[0Oo1lI]/.test(TEMP_PASSWORD_ALPHABET), false);
+  expect("글자 겹침 없음", new Set(TEMP_PASSWORD_ALPHABET).size, TEMP_PASSWORD_ALPHABET.length);
+  let i = 0;
+  const seq = makeTempPassword(() => i++ % TEMP_PASSWORD_ALPHABET.length);
+  expect("고른 자리 그대로 12자", seq, TEMP_PASSWORD_ALPHABET.slice(0, TEMP_PASSWORD_LENGTH));
+  const sample = makeTempPassword((max) => randomInt(max));
+  expect("무작위 임시 비밀번호 12자·허용 글자만", sample.length === TEMP_PASSWORD_LENGTH && [...sample].every((c) => TEMP_PASSWORD_ALPHABET.includes(c)), true);
 }
 
 if (failed) process.exit(1);
