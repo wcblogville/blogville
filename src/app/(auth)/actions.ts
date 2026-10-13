@@ -11,6 +11,7 @@ import { parseId } from "@/lib/ids";
 import { LOGIN_LOCKED_MESSAGE } from "@/lib/login-limit";
 import { PASSWORD_ERRORS, passwordField } from "@/lib/password";
 import { isReservedName, normalizeName, USERNAME_RE } from "@/lib/names";
+import { FIND_PASSWORD_PATH, isSocialNext } from "@/lib/password-reset";
 import { isSocialProvider } from "@/lib/social";
 import { getSession } from "@/server/dal";
 import { clearLoginAttempts, reserveLoginAttempt } from "@/server/login-attempts";
@@ -139,9 +140,14 @@ export type SocialStartState = { error?: string };
  * 라이브러리가 만든 소셜 서비스 주소로 이동한다. 실패하면 `/?provider={서비스}&error={코드}`로 돌아온다
  * (연동되지 않은 소셜 계정이면 signup_disabled. 문구는 src/lib/social-errors.ts).
  * 라이브러리 HTTP /sign-in/social은 닫혀 있다 (route.ts 허용 목록).
+ *
+ * next (비밀번호 찾기, AUTH-12): 로그인 뒤 갈 곳. 허용 목록(isSocialNext, 지금은 새 비밀번호 화면 하나)만 받고 다른 값은 무시해
+ * 광장으로 간다 (열린 리다이렉트 방지). 이때 실패하면 `/find-password?provider=...&error=...`로 돌아온다.
+ * 이미 로그인했다면 새 비밀번호 화면으로 바로 보낸다 (그 화면이 새 세션인지 다시 확인한다).
  */
-export async function startSocialSignIn(provider: string, remember: boolean): Promise<SocialStartState> {
-  if (await getSession()) redirect("/town");
+export async function startSocialSignIn(provider: string, remember: boolean, next?: string): Promise<SocialStartState> {
+  const target = isSocialNext(next) ? next : null;
+  if (await getSession()) redirect(target ?? "/town");
   if (!isSocialProvider(provider) || !enabledProviders[provider]) return { error: "아직 연결 준비 중이에요" };
 
   (await cookies()).set(REMEMBER_COOKIE, remember === true ? "1" : "0", {
@@ -152,7 +158,12 @@ export async function startSocialSignIn(provider: string, remember: boolean): Pr
     maxAge: 600, // 소셜 로그인 state와 같은 10분
   });
   const { url } = await auth.api.signInSocial({
-    body: { provider, callbackURL: "/town", errorCallbackURL: `/?provider=${provider}`, disableRedirect: true },
+    body: {
+      provider,
+      callbackURL: target ?? "/town",
+      errorCallbackURL: target ? `${FIND_PASSWORD_PATH}?provider=${provider}` : `/?provider=${provider}`,
+      disableRedirect: true,
+    },
     headers: await headers(),
   });
   if (!url) return { error: "아직 연결 준비 중이에요" };

@@ -5,10 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { PixelIcon } from "@/components/pixel-icon";
 import { isTownPath } from "@/components/town/layout";
 import { titleDataUri, TITLE_SIZE } from "@/lib/art/landing";
+import { FIND_PASSWORD_PATH } from "@/lib/password-reset";
 
 // 광장이 메인이라 다른 곳으로 가는 메뉴는 두지 않는다. 광장 밖에서는 "나가기"로 광장에 돌아온다.
 // 휴대폰의 회원은 광장이 없고 아래 탭으로 다니므로 나가기를 숨긴다 (사용자 결정 2026-10-09)
-const HIDDEN_ON = new Set(["/"]);
+// 비밀번호 찾기(로그인 전 화면)도 광장 대신 로고(첫 화면으로)를 보인다
+const HIDDEN_ON = new Set(["/", FIND_PASSWORD_PATH]);
 
 export function ExitButton({ member = false }: { member?: boolean }) {
   const pathname = usePathname();

@@ -6,7 +6,9 @@ import { db } from "@/db";
 import { posts, profiles, users } from "@/db/schema";
 import { expToMaxLevel, parseGrantInput } from "@/lib/admin-grant";
 import { parseId } from "@/lib/ids";
+import { normalizeName } from "@/lib/names";
 import { requireAdmin } from "@/server/dal";
+import { newTempPassword, setMemberPassword } from "@/server/password-reset";
 import { addLedgerEntry, getWallet, lockUser } from "@/server/points";
 
 /** 관리자: 어느 블로그의 글이든 삭제 */
@@ -75,4 +77,47 @@ export async function adminGrant(_prev: AdminGrantState, form: FormData): Promis
     exp: result.wallet.exp,
     level: result.wallet.level,
   };
+}
+
+export type AdminResetPasswordState =
+  | { ok?: undefined; error?: undefined }
+  | { ok: false; error: string }
+  | { ok: true; username: string; nickname: string | null; tempPassword: string; at: number };
+
+const ADMIN_RESET_ERRORS = {
+  empty: "회원 아이디를 적어 주세요",
+  notFound: (username: string) => `'${username}' 아이디의 회원이 없어요`,
+  self: "내 계정은 여기서 초기화할 수 없어요. 회원정보 수정에서 바꿔 주세요",
+  failed: "비밀번호를 초기화하지 못했어요. 다시 시도해 주세요",
+} as const;
+
+/**
+ * 관리자 비밀번호 초기화 (AUTH-12 비밀번호 찾기, 간편 로그인을 연동하지 않은 회원용).
+ * 임시 비밀번호(12자, node:crypto)를 만들어 그 회원의 아이디 로그인 비밀번호로 정하고, 그 회원의 로그인을 모두 끊는다.
+ * 임시 비밀번호는 이 응답으로 관리자에게 한 번만 보인다. 저장·기록하지 않는다 (DB에는 해시만).
+ * 관리자 자신은 막는다 (내 비밀번호는 회원정보 수정에서 바꾼다).
+ */
+export async function adminResetPassword(_prev: AdminResetPasswordState, form: FormData): Promise<AdminResetPasswordState> {
+  const admin = await requireAdmin();
+  const username = normalizeName(String(form.get("username") ?? ""));
+  if (!username) return { ok: false, error: ADMIN_RESET_ERRORS.empty };
+  if (username.length > 64) return { ok: false, error: ADMIN_RESET_ERRORS.notFound(username.slice(0, 20)) };
+
+  const [target] = await db
+    .select({ id: users.id, username: users.username, nickname: profiles.nickname })
+    .from(users)
+    .leftJoin(profiles, eq(profiles.userId, users.id))
+    .where(eq(users.username, username))
+    .limit(1);
+  if (!target) return { ok: false, error: ADMIN_RESET_ERRORS.notFound(username) };
+  if (target.id === admin.userId) return { ok: false, error: ADMIN_RESET_ERRORS.self };
+
+  const tempPassword = newTempPassword();
+  try {
+    await setMemberPassword(target.id, tempPassword);
+  } catch (err) {
+    console.error("관리자 비밀번호 초기화 실패", target.id, err);
+    return { ok: false, error: ADMIN_RESET_ERRORS.failed };
+  }
+  return { ok: true, username: target.username ?? username, nickname: target.nickname, tempPassword, at: Date.now() };
 }

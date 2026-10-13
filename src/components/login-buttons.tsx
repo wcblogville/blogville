@@ -1,10 +1,12 @@
 "use client";
 
 // 첫 화면의 로그인·회원가입 카드 (AUTH-01, AUTH-02, AUTH-09 / FR-001, FR-002, FR-004, FR-005, FR-030~FR-033, FR-054)
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { signIn, signUp, startSocialSignIn, type AuthFormState } from "@/app/(auth)/actions";
 import { CharacterArt } from "@/components/character";
 import { BLOG_TITLE_MAX, defaultBlogFor } from "@/lib/blog";
+import { FIND_PASSWORD_PATH, type SocialNext } from "@/lib/password-reset";
 import type { SocialReady } from "@/lib/social";
 import type { SocialErrorNotice } from "@/lib/social-errors";
 
@@ -47,6 +49,15 @@ function SignInForm({ remember, setRemember }: Remember) {
       <button disabled={pending} className="pixel-btn min-h-12 w-full whitespace-nowrap bg-[#64b85a] text-white [text-shadow:0_2px_0_#2b6b4a]">
         {pending ? "들어가는 중..." : "로그인"}
       </button>
+      {/* 비밀번호 찾기 (AUTH-12, 2026-10-13 사용자 요청). 누르는 영역 44px, 키보드 초점 표시 */}
+      <p className="-mt-1 text-center">
+        <Link
+          href={FIND_PASSWORD_PATH}
+          className={`inline-flex min-h-11 items-center px-2 text-sm text-ink-soft underline underline-offset-2 hover:text-ink ${focusRing}`}
+        >
+          비밀번호를 잊었어요
+        </Link>
+      </p>
     </form>
   );
 }
@@ -127,10 +138,11 @@ function SignUpForm({ starters }: { starters: Starter[] }) {
 /**
  * 간편 로그인 버튼 (FR-030~FR-032). 키가 없는 서비스는 흐리게 비활성 + 마우스를 올리면 `아직 연결 준비 중이에요`.
  * 누르면 startSocialSignIn(Server Action)이 [로그인 상태 유지]를 쿠키로 남기고 소셜 서비스로 보낸다.
+ * next: 로그인 뒤 갈 곳 (비밀번호 찾기 화면은 새 비밀번호 화면, AUTH-12). 서버가 허용 목록으로 다시 확인한다
  */
-function SocialButtons({ providers, remember }: { providers: Providers; remember: boolean }) {
+export function SocialButtons({ providers, remember, next }: { providers: Providers; remember: boolean; next?: SocialNext }) {
   const [error, action, pending] = useActionState<string | undefined, FormData>(
-    async (_prev, formData) => (await startSocialSignIn(String(formData.get("provider") ?? ""), remember)).error,
+    async (_prev, formData) => (await startSocialSignIn(String(formData.get("provider") ?? ""), remember, next)).error,
     undefined,
   );
   return (
@@ -156,6 +168,23 @@ function SocialButtons({ providers, remember }: { providers: Providers; remember
   );
 }
 
+/** 소셜 로그인에서 돌아온 오류 문구 판. 취소는 부드러운 안내(노랑, status), 그 밖은 경고(빨강, alert). 첫 화면·비밀번호 찾기 공용 */
+export function SocialErrorBanner({ notice }: { notice: SocialErrorNotice }) {
+  return (
+    <p
+      role={notice.tone === "info" ? "status" : "alert"}
+      data-social-error={notice.kind}
+      className={`mb-5 px-3 py-2 text-sm font-bold ${
+        notice.tone === "info"
+          ? "bg-[#fff6d8] text-ink shadow-[0_-3px_0_0_#c9a24a,0_3px_0_0_#c9a24a,-3px_0_0_0_#c9a24a,3px_0_0_0_#c9a24a]"
+          : "bg-[#ffe4e4] text-berry shadow-[0_-3px_0_0_#c62828,0_3px_0_0_#c62828,-3px_0_0_0_#c62828,3px_0_0_0_#c62828]"
+      }`}
+    >
+      {notice.text}
+    </p>
+  );
+}
+
 /** socialError: 소셜 로그인에서 돌아온 오류 문구 (FR-033, NF-19). 첫 화면(page.tsx)이 오류 코드로 정한다 (src/lib/social-errors.ts) */
 export function LoginButtons({ providers, starters, socialError }: { providers: Providers; starters: Starter[]; socialError?: SocialErrorNotice }) {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
@@ -164,20 +193,7 @@ export function LoginButtons({ providers, starters, socialError }: { providers: 
 
   return (
     <div className="w-full max-w-sm">
-      {/* 취소는 부드러운 안내(노랑, status), 그 밖은 경고(빨강, alert) */}
-      {socialError && (
-        <p
-          role={socialError.tone === "info" ? "status" : "alert"}
-          data-social-error={socialError.kind}
-          className={`mb-5 px-3 py-2 text-sm font-bold ${
-            socialError.tone === "info"
-              ? "bg-[#fff6d8] text-ink shadow-[0_-3px_0_0_#c9a24a,0_3px_0_0_#c9a24a,-3px_0_0_0_#c9a24a,3px_0_0_0_#c9a24a]"
-              : "bg-[#ffe4e4] text-berry shadow-[0_-3px_0_0_#c62828,0_3px_0_0_#c62828,-3px_0_0_0_#c62828,3px_0_0_0_#c62828]"
-          }`}
-        >
-          {socialError.text}
-        </p>
-      )}
+      {socialError && <SocialErrorBanner notice={socialError} />}
       {/* 탭: 고른 쪽은 밝은 종이, 다른 쪽은 나무 판자 */}
       <div className="mb-5 grid grid-cols-2 gap-3 px-[3px]" role="tablist">
         {(["signin", "signup"] as const).map((t) => (
