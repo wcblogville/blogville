@@ -6,7 +6,7 @@
 #   APP_PORT=8420 bash scripts/deploy.sh rollback   # 바로 전 버전으로 되돌리기
 #
 # 무중단 배포(블루-그린): 손님 → 강사님 nginx(고치지 않음) → 우리 nginx 컨테이너(APP_PORT 8420)
-#   → 파랑 앱(28421) 또는 초록 앱(28422). 새 버전은 꺼져 있는 색에 띄워 응답을 확인한 뒤
+#   → 파랑 앱(8421) 또는 초록 앱(8422). 새 버전은 꺼져 있는 색에 띄워 응답을 확인한 뒤
 #   우리 nginx의 연결 대상만 바꾸고(reload, 진행 중인 요청은 끊지 않음) 옛 색을 끈다.
 #   새 앱이 응답하지 않으면 옛 앱이 그대로 손님을 받는다.
 # 지금 켜진 색: cat ~/blogville/proxy/active
@@ -20,10 +20,9 @@ case "$MODE" in deploy | rollback) ;; *)
 esac
 
 APP_PORT="${APP_PORT:?APP_PORT(내 포트 번호)가 필요해요}"
-# 앱 포트는 내 포트(8420) 바로 옆(8421·8422)을 쓰지 않는다. 공용 서버에서 옆 번호는 다른 사람 몫이라
-# 그 사람이 배포할 때 우리 앱 컨테이너가 지워졌다(2026-10-13, 추정). 아무도 받지 않을 먼 번호를 쓴다
-BLUE_PORT="${BLUE_PORT:-$((APP_PORT + 20001))}"
-GREEN_PORT="${GREEN_PORT:-$((APP_PORT + 20002))}"
+# 8420~8429는 내 몫이라 옆 번호를 앱 포트로 쓴다
+BLUE_PORT="${BLUE_PORT:-$((APP_PORT + 1))}"
+GREEN_PORT="${GREEN_PORT:-$((APP_PORT + 2))}"
 IMAGE="${IMAGE:-blogville:latest}"
 PREVIOUS_IMAGE="${IMAGE%%:*}:previous" # 되돌리기용으로 남겨 두는 바로 전 버전
 PROXY_IMAGE="${PROXY_IMAGE:-nginx:1.27.5-alpine}" # deploy.yml의 PROXY_IMAGE와 같게
