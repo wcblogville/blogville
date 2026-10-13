@@ -15,7 +15,7 @@ export type SocialErrorKind = "cancel" | "expired" | "provider" | "notLinked" | 
 const CANCEL = ["access_denied", "user_cancelled", "user_canceled", "consent_required", "login_required", "interaction_required"];
 /** 로그인을 시작한 지 10분이 지났거나(state 만료), 다른 브라우저·탭에서 돌아와 시작 기록이 없음 */
 const EXPIRED = ["state_not_found", "state_mismatch", "state_invalid", "invalid_callback_request", "no_code", "no_callback_url"];
-/** 소셜 서비스와 주고받다 실패 (코드 교환 실패·10초 안에 응답 없음·사용자 정보 못 받음·서비스 장애) */
+/** 소셜 서비스와 주고받다 실패 (코드 교환 실패·3분 안에 응답 없음·사용자 정보 못 받음·서비스 장애) */
 const PROVIDER = [
   "invalid_code",
   "unable_to_get_user_info",

@@ -42,7 +42,7 @@ expect("unable_to_link_account", link("unable_to_link_account", "naver"), "네�
 expect("연동 모르는 코드", link("x"), "연동하지 못했어요. 잠시 뒤 다시 시도해 주세요");
 
 // ── 시간 제한 (로컬 서버: 응답하지 않는 주소 / 바로 응답하는 주소) ──
-expect("제한 시간 10초", OAUTH_FETCH_TIMEOUT_MS, 10_000);
+expect("제한 시간 3분", OAUTH_FETCH_TIMEOUT_MS, 180_000);
 async function timeoutTests() {
   const server: Server = createServer((req, res) => {
     if (req.url === "/slow") return; // 영원히 응답하지 않는다
