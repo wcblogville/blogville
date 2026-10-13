@@ -9,6 +9,7 @@ import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { PASSWORD_MAX, PASSWORD_MIN } from "@/lib/password";
 import { SOCIAL_PROVIDERS, type SocialReady } from "@/lib/social";
+import { oauthTimeout } from "@/server/oauth-timeout";
 
 // 소셜 로그인 (AUTH-01, AUTH-05 / FR-013, FR-030~FR-035, research R9)
 // - 키가 설정된 서비스만 켠다. 키가 없으면 그 버튼은 비활성 (FR-031)
@@ -83,7 +84,9 @@ const isSocialCallback = (path: string | undefined) => !!path?.startsWith("/call
 export const auth = betterAuth({
   appName: "Blogville",
   // 소셜 로그인 오류(state 없음·만료 등)는 라이브러리의 영어 오류 화면 대신 첫 화면 /?error=코드로 보낸다 (NF-19).
-  // 배포(production)에서는 라이브러리도 그렇게 하지만, 개발 서버에서도 같게 한다
+  // 배포(production)에서는 라이브러리도 그렇게 하지만, 개발 서버에서도 같게 한다.
+  // state를 읽기 전에 난 오류(state_not_found 등)만 여기로 오고, 나머지는 시작할 때 정한 errorCallbackURL로 간다.
+  // 문구는 src/lib/social-errors.ts. 로그인한 회원이 여기로 오면 첫 화면이 회원정보 수정으로 넘긴다 (연동 중이었으므로)
   onAPIError: { errorURL: "/" },
   database: drizzleAdapter(db, { provider: "pg", schema, usePlural: true }),
   socialProviders: {
@@ -177,6 +180,8 @@ export const auth = betterAuth({
       usernameValidator: (name) => /^[a-z0-9_]+$/.test(name), // 소문자로 정규화된 뒤 검사
       validationOrder: { username: "post-normalization" },
     }),
+    // 소셜 서비스로 나가는 토큰 교환·사용자 정보 요청에 10초 제한 (NF-19, src/server/oauth-timeout.ts)
+    oauthTimeout(),
     nextCookies(), // Server Action에서 로그인 쿠키를 설정할 수 있게 한다 (마지막에 둔다)
   ],
 });

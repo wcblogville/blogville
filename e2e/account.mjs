@@ -207,14 +207,22 @@ let unlink;
   check("9 ?linked=kakao (연동 행 없음) → 성공 문구 없음", (await page.getByText("카카오 계정을 연동했어요").count()) === 0);
 }
 
-// ── 10) ?provider=kakao&error=<다른 회원 연동 코드> → 문구. 취소 코드는 문구 없음 ──
+// ── 10) ?provider=kakao&error=<다른 회원 연동 코드> → 문구. 취소·시간 지남·정보 못 받음도 문구 ──
 {
   await accountPage(page, "?provider=kakao&error=account_already_linked_to_different_user");
   check("10 다른 회원 연동 → `이미 다른 Blogville 계정에 연동된 카카오 계정이에요`",
     await page.getByText("이미 다른 Blogville 계정에 연동된 카카오 계정이에요").isVisible());
   await page.screenshot({ path: `${outDir}/81-account-linked-elsewhere.png`, fullPage: true });
+  // 그 밖의 실패도 문구 (NF-19, 2026-10-13, src/lib/social-errors.ts). 취소는 부드러운 안내(status)
   await accountPage(page, "?provider=google&error=access_denied");
-  check("10 취소(access_denied) → 문구 없음", (await page.locator('[role="alert"], [role="status"]').filter({ hasText: /연동/ }).count()) === 0);
+  check("10 취소(access_denied) → `연동을 취소했어요` (status)",
+    (await page.locator('[role="status"]').filter({ hasText: "연동을 취소했어요" }).count()) === 1);
+  await accountPage(page, "?provider=kakao&error=state_mismatch");
+  check("10 시간 지남(state_mismatch) → `연동 시간이 지났어요. 다시 시도해 주세요` (alert)",
+    (await page.locator('[role="alert"]').filter({ hasText: "연동 시간이 지났어요. 다시 시도해 주세요" }).count()) === 1);
+  await page.screenshot({ path: `${outDir}/83-account-link-expired.png`, fullPage: true });
+  await accountPage(page, "?provider=kakao&error=unable_to_get_user_info");
+  check("10 정보 못 받음 → `카카오에서 정보를 못 받았어요`", await page.getByText("카카오에서 정보를 못 받았어요. 잠시 뒤 다시 시도해 주세요").isVisible());
 }
 
 check("콘솔 오류 없음", errors.length === 0, errors.join(" | "));
