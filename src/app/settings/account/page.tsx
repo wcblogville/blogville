@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { isSocialProvider, SOCIAL_LABEL } from "@/lib/social";
+import { socialErrorMessage } from "@/lib/social-errors";
 import { getSocialLogins } from "@/server/account";
 import { requireMember } from "@/server/dal";
 import { DeleteAccountForm, LinkSocialButton, UnlinkSocialButton } from "./account-forms";
@@ -20,26 +21,21 @@ import { PixelIcon } from "@/components/pixel-icon";
 
 export const metadata = { title: "회원정보 수정" };
 
-// 연동하려던 소셜 계정이 이미 다른 회원에 연동되어 있을 때 라이브러리가 붙이는 오류 코드 (better-auth 1.7.7 link-account.mjs)
 // 카드 제목 판자 (카드 위 가장자리에 붙는다)
 const PLANK = "pb-plank -mx-5 -mt-5 mb-4 px-5 py-2 font-display text-xl sm:-mx-6 sm:-mt-6 sm:px-6";
-
-const ALREADY_LINKED_ERROR = "account_already_linked_to_different_user";
 
 export default async function AccountSettingsPage({ searchParams }: PageProps<"/settings/account">) {
   const viewer = await requireMember();
   const [logins, params, greeting] = await Promise.all([getSocialLogins(viewer.userId), searchParams, getGreeting(viewer.userId)]);
 
   // 소셜 서비스에서 돌아왔을 때의 문구. 연동 성공은 실제로 그 연동 행이 있을 때만 (주소를 손으로 만든 경우 제외).
-  // 취소·동의 안 함 등 그 밖의 오류는 문구 없이 그대로 (spec Edge Case)
+  // 실패는 ?error= 코드 → 문구 표(src/lib/social-errors.ts): 다른 회원에 연동됨·취소(부드러운 안내)·시간 지남·서비스 응답 없음·그 밖
   const linked = params.linked;
-  const failed = params.provider;
+  const failure = socialErrorMessage(params.error, { place: "link", provider: params.provider });
   const notice =
     isSocialProvider(linked) && logins.some((l) => l.provider === linked && l.linkedAt)
-      ? { ok: true, text: `${SOCIAL_LABEL[linked]} 계정을 연동했어요` }
-      : isSocialProvider(failed) && params.error === ALREADY_LINKED_ERROR
-        ? { ok: false, text: `이미 다른 Blogville 계정에 연동된 ${SOCIAL_LABEL[failed]} 계정이에요` }
-        : null;
+      ? { tone: "ok" as const, text: `${SOCIAL_LABEL[linked]} 계정을 연동했어요`, kind: undefined }
+      : failure;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -114,8 +110,15 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
         </h2>
         {notice && (
           <p
-            role={notice.ok ? "status" : "alert"}
-            className={`mt-3 px-3 py-2 text-sm font-bold ${notice.ok ? "bg-[#e3f5e1] text-leaf-dark shadow-[inset_0_0_0_2px_#9fd39a]" : "bg-[#fde8e8] text-berry shadow-[inset_0_0_0_2px_#e7a3a3]"}`}
+            role={notice.tone === "error" ? "alert" : "status"}
+            data-social-error={notice.kind}
+            className={`mt-3 px-3 py-2 text-sm font-bold ${
+              notice.tone === "ok"
+                ? "bg-[#e3f5e1] text-leaf-dark shadow-[inset_0_0_0_2px_#9fd39a]"
+                : notice.tone === "info"
+                  ? "bg-[#fff6d8] text-ink shadow-[inset_0_0_0_2px_#e2c77f]"
+                  : "bg-[#fde8e8] text-berry shadow-[inset_0_0_0_2px_#e7a3a3]"
+            }`}
           >
             {notice.text}
           </p>
