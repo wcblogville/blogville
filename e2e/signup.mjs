@@ -161,9 +161,15 @@ const noLimits = (form) => form.querySelectorAll("input").forEach((i) => i.remov
   }
   await page.goto(`${BASE}/?error=signup_disabled`);
   await page.screenshot({ path: `${outDir}/53-social-not-linked.png` });
-  for (const code of ["access_denied", "invalid_code", "x"]) {
+  // 그 밖의 코드는 연동 없음 문구가 아니라 각자의 문구 (NF-19, src/lib/social-errors.ts)
+  for (const [code, text] of [
+    ["access_denied", "로그인을 취소했어요"],
+    ["invalid_code", "소셜 서비스에서 정보를 못 받았어요. 잠시 뒤 다시 시도해 주세요"],
+    ["x", "로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요"],
+  ]) {
     await page.goto(`${BASE}/?error=${code}`);
-    check(`1 /?error=${code} (취소 등) → 문구 없음`, (await page.getByText("연동된 계정이 없어요").count()) === 0);
+    check(`1 /?error=${code} → \`${text}\`, 연동 없음 문구 없음`,
+      (await page.getByText("연동된 계정이 없어요").count()) === 0 && (await page.getByText(text).isVisible()));
   }
   check("1 소셜 오류 화면을 열어도 회원 수 그대로", (await userCount()) === before);
   await ctx.close();

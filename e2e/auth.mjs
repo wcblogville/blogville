@@ -100,6 +100,39 @@ async function signIn(page, id, pw) {
   await ctx.close();
 }
 
+// 3-2) 소셜 로그인 실패 문구 (NF-19, 2026-10-13, 문구 표 src/lib/social-errors.ts).
+// 실제 소셜 서비스를 부르지 않고, 라이브러리가 돌려보내는 주소(?error=코드)를 그대로 열어 본다
+{
+  const { ctx, page, errors } = await fresh();
+  const notice = (text) => page.locator("[data-social-error]").filter({ hasText: text });
+  await page.goto(`${BASE}/?error=state_mismatch`);
+  check("소셜 /?error=state_mismatch → `로그인 시간이 지났어요. 다시 시도해 주세요` (alert)",
+    (await notice("로그인 시간이 지났어요. 다시 시도해 주세요").getAttribute("role")) === "alert");
+  await page.screenshot({ path: `${outDir}/43-social-state-mismatch.png` });
+  await page.goto(`${BASE}/?provider=kakao&error=unable_to_get_user_info`);
+  check("소셜 카카오 unable_to_get_user_info → `카카오에서 정보를 못 받았어요`",
+    await notice("카카오에서 정보를 못 받았어요. 잠시 뒤 다시 시도해 주세요").isVisible());
+  await page.goto(`${BASE}/?provider=naver&error=access_denied`);
+  check("소셜 취소(access_denied) → 부드러운 `로그인을 취소했어요` (status)",
+    (await notice("로그인을 취소했어요").getAttribute("role")) === "status");
+  await page.goto(`${BASE}/?error=%3Cb%3Ehi%3C%2Fb%3E`);
+  check("소셜 모르는 코드 → 일반 문구, 주소 글자는 화면에 없음",
+    (await notice("로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요").isVisible()) && (await page.getByText("hi", { exact: true }).count()) === 0);
+  // 로그인한 회원이 오류 코드를 들고 첫 화면에 오면(연동 중 state 오류) → 회원정보 수정에서 문구
+  await signIn(page, NEWBIE, NEWBIE_PW);
+  await page.waitForURL(/\/town/, { timeout: 15000 }).catch(() => {});
+  await page.goto(`${BASE}/?provider=kakao&error=state_mismatch`);
+  await page.waitForURL(/\/settings\/account/, { timeout: 15000 }).catch(() => {});
+  check("로그인한 회원 /?error=state_mismatch → 회원정보 수정 + `연동 시간이 지났어요`",
+    new URL(page.url()).pathname === "/settings/account" && (await notice("연동 시간이 지났어요. 다시 시도해 주세요").isVisible()));
+  await page.goto(`${BASE}/`);
+  await page.waitForURL(/\/town/, { timeout: 15000 }).catch(() => {});
+  check("로그인한 회원 오류 코드 없이 / → 광장 그대로", new URL(page.url()).pathname === "/town");
+  check("소셜 실패 문구 화면 콘솔 오류 없음", errors.length === 0);
+  if (errors.length) console.log(errors.join("\n"));
+  await ctx.close();
+}
+
 // ── 관리자 (US5 / quickstart 4.1 5~9번) ──
 // 준비: 일반 회원 normal01과 그 회원의 글, 관리자 공지 블로그의 글을 DB로 만든다 (실행마다 새 제목)
 const n = Date.now() % 100_000_000;

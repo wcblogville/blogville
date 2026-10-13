@@ -136,7 +136,8 @@ export type SocialStartState = { error?: string };
  * 소셜 로그인 시작 (AUTH-01 / FR-032, contracts/auth-entry.md 4장, research R7).
  * 키가 있는 서비스만 받는다. 같은 카드의 [로그인 상태 유지]는 httpOnly 쿠키 bv_remember로 콜백까지 전달한다
  * (라이브러리 콜백은 rememberMe를 받지 않는다. src/lib/auth.ts의 세션 훅·콜백 훅이 이 쿠키를 읽고 지운다).
- * 라이브러리가 만든 소셜 서비스 주소로 이동한다. 연동되지 않은 소셜 계정이면 `/?error=signup_disabled`로 돌아온다.
+ * 라이브러리가 만든 소셜 서비스 주소로 이동한다. 실패하면 `/?provider={서비스}&error={코드}`로 돌아온다
+ * (연동되지 않은 소셜 계정이면 signup_disabled. 문구는 src/lib/social-errors.ts).
  * 라이브러리 HTTP /sign-in/social은 닫혀 있다 (route.ts 허용 목록).
  */
 export async function startSocialSignIn(provider: string, remember: boolean): Promise<SocialStartState> {
@@ -151,7 +152,7 @@ export async function startSocialSignIn(provider: string, remember: boolean): Pr
     maxAge: 600, // 소셜 로그인 state와 같은 10분
   });
   const { url } = await auth.api.signInSocial({
-    body: { provider, callbackURL: "/town", errorCallbackURL: "/", disableRedirect: true },
+    body: { provider, callbackURL: "/town", errorCallbackURL: `/?provider=${provider}`, disableRedirect: true },
     headers: await headers(),
   });
   if (!url) return { error: "아직 연결 준비 중이에요" };

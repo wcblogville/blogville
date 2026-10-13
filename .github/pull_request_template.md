@@ -1,11 +1,15 @@
 ## 무엇을 바꿨나요?
 <!-- 한두 줄로 -->
+- **Before**: 
+- **After**: 
+- **How**: 
 
 ## 관련 Issue
 <!-- 예: Closes #2  (merge되면 Issue가 자동으로 닫혀요) -->
 
 ## 확인
-- [ ] `main`이 아니라 **내 브랜치**에서 작업했어요
+- [ ] git flow 브랜치예요: `feature/*` → `develop` / `release/*`·`hotfix/*` → `main` (`main`·`develop`에 직접 push하지 않아요)
+- [ ] 아래 **검사**(CI: 코드 검사·빌드·E2E)가 초록색이에요
 - [ ] 비밀값(`.env.local`, 비밀번호, API 키)이 들어 있지 않아요
 - [ ] (요구사항 문서) 4.0 작성 양식을 따랐고, 변경 이력에 한 줄 추가했어요
 - [ ] (코드) `npx tsc --noEmit`, `npx eslint` 통과

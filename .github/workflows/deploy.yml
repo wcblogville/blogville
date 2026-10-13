@@ -1,8 +1,12 @@
-# main에 코드가 들어오면 도커 이미지를 만들어 서버로 보내고, SSH로 접속해 scripts/deploy.sh를 실행한다.
-# Actions 탭의 "배포" → Run workflow 버튼으로도 실행할 수 있다.
+# main에 코드가 들어오면 먼저 검사(ci.yml)를 돌리고, 통과해야만 도커 이미지를 만들어 서버로 보내고
+# SSH로 접속해 scripts/deploy.sh를 실행한다. 검사가 실패하면 배포 작업은 시작하지 않는다 (서버는 그대로).
+# Actions 탭의 "배포" → Run workflow 버튼으로도 실행할 수 있다 (이때도 검사부터).
+# 브랜치 전략(git flow): main에는 release/*·hotfix/* PR로만 들어온다 (CLAUDE.md "브랜치").
 # 필요한 Repository secrets: DB_ADDRESS DB_PORT DB_NAME DB_USERNAME DB_PASSWORD DB_SCHEMA
 #                           SSH_ADDRESS SSH_ID SSH_PASSWORD SSH_PORT
 # 있으면 쓰는 secrets: BETTER_AUTH_URL BETTER_AUTH_SECRET ADMIN_USERNAME ADMIN_PASSWORD (뒤의 셋은 없으면 서버가 만들어 ~/blogville/.secrets에 보관)
+#   소셜 로그인 키: GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET KAKAO_CLIENT_ID KAKAO_CLIENT_SECRET NAVER_CLIENT_ID NAVER_CLIENT_SECRET
+#   (ID와 SECRET이 둘 다 있는 서비스만 켜진다. 없으면 그 버튼은 `아직 연결 준비 중이에요`로 비활성. 발급 방법은 가이드 social-login.md)
 name: 배포
 
 on:
@@ -20,7 +24,15 @@ env:
   APP_URL: https://wcblogville.java21.net # 사이트 주소 (BETTER_AUTH_URL)
 
 jobs:
+  # 검사(CI) 워크플로를 그대로 불러 돌린다. 이 커밋이 검사를 통과해야 아래 deploy가 시작된다
+  ci:
+    name: 검사
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: ci
+    # Run workflow에서 다른 브랜치를 골라도 main만 배포한다 (git flow: 운영 = main)
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,12 +86,18 @@ jobs:
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
           ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
         with:
           host: ${{ secrets.SSH_ADDRESS }}
           port: ${{ secrets.SSH_PORT }}
           username: ${{ secrets.SSH_ID }}
           password: ${{ secrets.SSH_PASSWORD }}
-          envs: APP_PORT,PROXY_IMAGE,DATABASE_URL,DB_SCHEMA,BETTER_AUTH_URL,BETTER_AUTH_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD
+          envs: APP_PORT,PROXY_IMAGE,DATABASE_URL,DB_SCHEMA,BETTER_AUTH_URL,BETTER_AUTH_SECRET,ADMIN_USERNAME,ADMIN_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET
           command_timeout: 20m
           script: |
             cd ~/blogville
@@ -91,5 +109,18 @@ jobs:
               [ -z "$BETTER_AUTH_SECRET" ] || echo "BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET"
               [ -z "$ADMIN_USERNAME" ] || echo "ADMIN_USERNAME=$ADMIN_USERNAME"
               [ -z "$ADMIN_PASSWORD" ] || echo "ADMIN_PASSWORD=$ADMIN_PASSWORD"
+              # 소셜 로그인 키: GitHub secret이 있는 것만 적는다 (없으면 그 서비스 버튼은 비활성)
+              [ -z "$GOOGLE_CLIENT_ID" ] || echo "GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID"
+              [ -z "$GOOGLE_CLIENT_SECRET" ] || echo "GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET"
+              [ -z "$KAKAO_CLIENT_ID" ] || echo "KAKAO_CLIENT_ID=$KAKAO_CLIENT_ID"
+              [ -z "$KAKAO_CLIENT_SECRET" ] || echo "KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET"
+              [ -z "$NAVER_CLIENT_ID" ] || echo "NAVER_CLIENT_ID=$NAVER_CLIENT_ID"
+              [ -z "$NAVER_CLIENT_SECRET" ] || echo "NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET"
             } > .env
+            # 켜지는 소셜 로그인 (ID와 SECRET이 둘 다 있는 서비스). 값은 출력하지 않는다
+            social=""
+            [ -n "$GOOGLE_CLIENT_ID" ] && [ -n "$GOOGLE_CLIENT_SECRET" ] && social="$social Google"
+            [ -n "$KAKAO_CLIENT_ID" ] && [ -n "$KAKAO_CLIENT_SECRET" ] && social="$social 카카오"
+            [ -n "$NAVER_CLIENT_ID" ] && [ -n "$NAVER_CLIENT_SECRET" ] && social="$social 네이버"
+            echo "소셜 로그인:${social:- 없음 (GitHub secret에 키가 없어요)}"
             APP_PORT="$APP_PORT" PROXY_IMAGE="$PROXY_IMAGE" bash scripts/deploy.sh

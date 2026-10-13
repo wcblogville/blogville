@@ -6,6 +6,7 @@ import { signIn, signUp, startSocialSignIn, type AuthFormState } from "@/app/(au
 import { CharacterArt } from "@/components/character";
 import { BLOG_TITLE_MAX, defaultBlogFor } from "@/lib/blog";
 import type { SocialReady } from "@/lib/social";
+import type { SocialErrorNotice } from "@/lib/social-errors";
 
 type Providers = SocialReady;
 export type Starter = { id: number; code: string; name: string; description: string | null; assetKey: string };
@@ -155,17 +156,26 @@ function SocialButtons({ providers, remember }: { providers: Providers; remember
   );
 }
 
-/** socialError: 소셜 로그인에서 돌아온 오류 문구 (연동 없음, FR-033). 첫 화면(page.tsx)이 오류 코드로 정한다 */
-export function LoginButtons({ providers, starters, socialError }: { providers: Providers; starters: Starter[]; socialError?: string }) {
+/** socialError: 소셜 로그인에서 돌아온 오류 문구 (FR-033, NF-19). 첫 화면(page.tsx)이 오류 코드로 정한다 (src/lib/social-errors.ts) */
+export function LoginButtons({ providers, starters, socialError }: { providers: Providers; starters: Starter[]; socialError?: SocialErrorNotice }) {
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [remember, setRemember] = useState(false);
   const anySocial = providers.google || providers.kakao || providers.naver;
 
   return (
     <div className="w-full max-w-sm">
+      {/* 취소는 부드러운 안내(노랑, status), 그 밖은 경고(빨강, alert) */}
       {socialError && (
-        <p role="alert" className="mb-5 bg-[#ffe4e4] px-3 py-2 text-sm font-bold text-berry shadow-[0_-3px_0_0_#c62828,0_3px_0_0_#c62828,-3px_0_0_0_#c62828,3px_0_0_0_#c62828]">
-          {socialError}
+        <p
+          role={socialError.tone === "info" ? "status" : "alert"}
+          data-social-error={socialError.kind}
+          className={`mb-5 px-3 py-2 text-sm font-bold ${
+            socialError.tone === "info"
+              ? "bg-[#fff6d8] text-ink shadow-[0_-3px_0_0_#c9a24a,0_3px_0_0_#c9a24a,-3px_0_0_0_#c9a24a,3px_0_0_0_#c9a24a]"
+              : "bg-[#ffe4e4] text-berry shadow-[0_-3px_0_0_#c62828,0_3px_0_0_#c62828,-3px_0_0_0_#c62828,3px_0_0_0_#c62828]"
+          }`}
+        >
+          {socialError.text}
         </p>
       )}
       {/* 탭: 고른 쪽은 밝은 종이, 다른 쪽은 나무 판자 */}
