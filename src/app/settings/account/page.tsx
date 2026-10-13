@@ -7,6 +7,7 @@
 // - 회원 탈퇴 (AUTH-06 / FR-050~FR-052, contracts/account.md 4장): 비밀번호를 다시 확인하고 바로 지운다 (유예 없음)
 import Link from "next/link";
 import { formatDate } from "@/lib/format";
+import { NEW_PASSWORD_PATH } from "@/lib/password-reset";
 import { isSocialProvider, SOCIAL_LABEL } from "@/lib/social";
 import { socialErrorMessage } from "@/lib/social-errors";
 import { getSocialLogins } from "@/server/account";
@@ -102,6 +103,12 @@ export default async function AccountSettingsPage({ searchParams }: PageProps<"/
         </h2>
         <p className="mt-2 text-sm text-ink-soft">바꾸면 이 브라우저는 그대로 로그인되고, 다른 기기에서는 로그아웃돼요.</p>
         <PasswordForm username={viewer.user.username ?? ""} />
+        {/* 비밀번호 찾기 (AUTH-12): 간편 로그인 직후라면 지금 비밀번호 없이 바꿀 수 있다 */}
+        <p className="mt-2 text-right text-xs">
+          <Link href={NEW_PASSWORD_PATH} className="inline-flex min-h-11 items-center text-ink-soft underline underline-offset-2 hover:text-ink focus-visible:outline-2 focus-visible:outline-sky">
+            지금 비밀번호가 기억나지 않나요?
+          </Link>
+        </p>
       </section>
 
       <section className="pixel-card mt-8 p-5 sm:p-6" aria-labelledby="login-title" data-section="logins">
