@@ -6,7 +6,7 @@
 #   APP_PORT=8420 bash scripts/deploy.sh rollback   # 바로 전 버전으로 되돌리기
 #
 # 무중단 배포(블루-그린): 손님 → 강사님 nginx(고치지 않음) → 우리 nginx 컨테이너(APP_PORT 8420)
-#   → 파랑 앱(8421) 또는 초록 앱(8422). 새 버전은 꺼져 있는 색에 띄워 응답을 확인한 뒤
+#   → 파랑 앱(28421) 또는 초록 앱(28422). 새 버전은 꺼져 있는 색에 띄워 응답을 확인한 뒤
 #   우리 nginx의 연결 대상만 바꾸고(reload, 진행 중인 요청은 끊지 않음) 옛 색을 끈다.
 #   새 앱이 응답하지 않으면 옛 앱이 그대로 손님을 받는다.
 # 지금 켜진 색: cat ~/blogville/proxy/active
@@ -20,8 +20,10 @@ case "$MODE" in deploy | rollback) ;; *)
 esac
 
 APP_PORT="${APP_PORT:?APP_PORT(내 포트 번호)가 필요해요}"
-BLUE_PORT="${BLUE_PORT:-$((APP_PORT + 1))}"
-GREEN_PORT="${GREEN_PORT:-$((APP_PORT + 2))}"
+# 앱 포트는 내 포트(8420) 바로 옆(8421·8422)을 쓰지 않는다. 공용 서버에서 옆 번호는 다른 사람 몫이라
+# 그 사람이 배포할 때 우리 앱 컨테이너가 지워졌다(2026-10-13, 추정). 아무도 받지 않을 먼 번호를 쓴다
+BLUE_PORT="${BLUE_PORT:-$((APP_PORT + 20001))}"
+GREEN_PORT="${GREEN_PORT:-$((APP_PORT + 20002))}"
 IMAGE="${IMAGE:-blogville:latest}"
 PREVIOUS_IMAGE="${IMAGE%%:*}:previous" # 되돌리기용으로 남겨 두는 바로 전 버전
 PROXY_IMAGE="${PROXY_IMAGE:-nginx:1.27.5-alpine}" # deploy.yml의 PROXY_IMAGE와 같게
@@ -43,9 +45,21 @@ fi
 
 color_name() { if [ "$1" = blue ]; then echo 파랑; else echo 초록; fi; }
 color_port() { if [ "$1" = blue ]; then echo "$BLUE_PORT"; else echo "$GREEN_PORT"; fi; }
+# 앱 컨테이너 이름. 2026-10-13 전에는 blogville-blue/green이었는데 배포 사이에 컨테이너가 통째로 지워져
+# (우리 nginx는 남음) 이름에 흔한 낱말(blue·green)을 쓰지 않는다. 옛 이름도 켜진 앱으로 알아본다
+app_name() { if [ "$1" = blue ]; then echo blogville-app-a; else echo blogville-app-b; fi; }
+old_app_name() { echo "blogville-$1"; }
+# 그 색으로 켜져 있는 컨테이너 이름 (없으면 실패)
+running_app() {
+  local n
+  for n in "$(app_name "$1")" "$(old_app_name "$1")"; do
+    if container_running "$n"; then echo "$n"; return 0; fi
+  done
+  return 1
+}
 other_color() { if [ "$1" = blue ]; then echo green; else echo blue; fi; }
 container_running() { [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" = true ]; }
-container_exists() { docker inspect "$1" >/dev/null 2>&1; }
+container_exists() { docker container inspect "$1" >/dev/null 2>&1; }
 image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
 container_image() { docker inspect -f '{{.Image}}' "$1" 2>/dev/null || true; }
 
@@ -126,11 +140,11 @@ rm -f blogville-proxy.tar.gz
 #   LEGACY_UP: 무중단 배포 전의 옛 앱(blogville)이 떠 있는지 → 처음 한 번 전환
 ACTIVE=""
 saved="$(cat "$PROXY_DIR/active" 2>/dev/null || true)"
-if { [ "$saved" = blue ] || [ "$saved" = green ]; } && container_running "blogville-$saved"; then
+if { [ "$saved" = blue ] || [ "$saved" = green ]; } && running_app "$saved" >/dev/null; then
   ACTIVE="$saved"
-elif container_running blogville-blue; then
+elif running_app blue >/dev/null; then
   ACTIVE=blue
-elif container_running blogville-green; then
+elif running_app green >/dev/null; then
   ACTIVE=green
 fi
 PROXY_UP=0
@@ -144,13 +158,13 @@ if [ "$MODE" = rollback ] && { [ -z "$ACTIVE" ] || [ "$PROXY_UP" = 0 ]; }; then
 fi
 
 if [ -n "$ACTIVE" ]; then TARGET="$(other_color "$ACTIVE")"; else TARGET=blue; fi
-TARGET_NAME="blogville-$TARGET"
+TARGET_NAME="$(app_name "$TARGET")"
 TARGET_PORT="$(color_port "$TARGET")"
 OLD_NAME=""
 OLD_LABEL="없음"
 OLD_SERVING="아직 켜진 앱이 없어요"
 if [ -n "$ACTIVE" ]; then
-  OLD_NAME="blogville-$ACTIVE"
+  OLD_NAME="$(running_app "$ACTIVE")"
   OLD_LABEL="$(color_name "$ACTIVE")"
   OLD_SERVING="손님은 그대로 $OLD_LABEL 앱이 받고 있어요"
 elif [ "$LEGACY_UP" = 1 ]; then
@@ -166,7 +180,7 @@ echo "▶ 지금 상태: 켜진 색 $ACTIVE_LABEL, 우리 nginx $([ "$PROXY_UP" 
 # 아래에서 쉬는 색 컨테이너를 지우기 전에 본다
 if [ -z "$ACTIVE" ] && [ "$LEGACY_UP" = 0 ]; then
   echo "▶ 꺼진 앱 살펴보기"
-  for name in blogville-blue blogville-green "$LEGACY"; do
+  for name in blogville-app-a blogville-app-b blogville-blue blogville-green "$LEGACY"; do
     if container_exists "$name"; then
       echo "  $name: $(docker inspect -f '상태 {{.State.Status}}, 종료 코드 {{.State.ExitCode}}, 메모리 부족 {{.State.OOMKilled}}, 재시작 {{.RestartCount}}번, 꺼진 시각 {{.State.FinishedAt}} {{.State.Error}}' "$name")"
       docker logs --tail 20 "$name" 2>&1 | sed 's/^/    /' || true
@@ -175,10 +189,16 @@ if [ -z "$ACTIVE" ] && [ "$LEGACY_UP" = 0 ]; then
     fi
   done
   echo "  서버 켜진 시각: $(uptime -s 2>/dev/null || echo 알 수 없음)"
+  # 최근 3시간 동안 이 서버에서 지워지거나 꺼진 컨테이너 (누가 언제 지웠는지 맞춰 보기 위해)
+  echo "  최근 3시간 컨테이너 지움·꺼짐 기록:"
+  timeout 10 docker events --since 3h --until "$(date +%s)" --filter type=container \
+    --filter event=destroy --filter event=kill --filter event=die \
+    --format '{{.Time}} {{.Action}} {{.Actor.Attributes.name}} ({{.Actor.Attributes.image}})' 2>&1 |
+    while read -r t rest; do echo "    $(date -d "@$t" '+%m-%d %H:%M:%S' 2>/dev/null || echo "$t") $rest"; done | tail -40 || true
 fi
 
 # 쉬는 색 포트가 비어 있는지 (공용 서버라 다른 계정이 쓰고 있을 수 있다). DB를 건드리기 전에 본다
-docker rm -f "$TARGET_NAME" >/dev/null 2>&1 || true # 지난번 실패로 남은 것
+docker rm -f "$TARGET_NAME" "$(old_app_name "$TARGET")" >/dev/null 2>&1 || true # 지난번 실패로 남은 것
 if port_in_use "$TARGET_PORT"; then
   echo "✘ $TARGET_PORT 포트를 이미 다른 프로그램(다른 계정일 수 있어요)이 쓰고 있어요."
   echo "  BLUE_PORT·GREEN_PORT를 비어 있는 포트로 정해 다시 실행해 주세요."
