@@ -6,13 +6,13 @@ import { authorizationCodeRequest, getOAuth2Tokens } from "better-auth/oauth2";
 // 콜백(/api/auth/callback/{서비스})은 서버가 소셜 서비스에 두 번 요청한다: ① 코드 → 토큰 교환 ② 사용자 정보.
 // better-auth 1.7.7의 기본 구현은 시간 제한이 없어, 서비스가 응답하지 않으면 사용자는 빈 화면에서 오래 기다린다.
 // 라이브러리가 열어 둔 고침 자리는 사용자 정보(getUserInfo 옵션)뿐이고 토큰 교환(validateAuthorizationCode)에는 옵션이 없다.
-// 그래서 작은 플러그인이 시작할 때(init) 켜진 서비스의 두 함수를 같은 동작 + 10초 제한으로 바꿔 끼운다.
+// 그래서 작은 플러그인이 시작할 때(init) 켜진 서비스의 두 함수를 같은 동작 + 3분 제한으로 바꿔 끼운다.
 // - 토큰 교환: 요청 본문·인증은 라이브러리 함수(authorizationCodeRequest)로 똑같이 만들고, 보내기만 fetch + AbortSignal.timeout
 // - 사용자 정보: 카카오·네이버는 같은 주소를 같은 방식으로 부른다. Google은 토큰에 든 id_token을 읽기만 해서(네트워크 없음) 그대로 둔다
-// 10초가 지나면 요청을 끊고(abort) 라이브러리가 invalid_code / unable_to_get_user_info로 돌려보낸다 → 화면 문구는 src/lib/social-errors.ts
+// 3분가 지나면 요청을 끊고(abort) 라이브러리가 invalid_code / unable_to_get_user_info로 돌려보낸다 → 화면 문구는 src/lib/social-errors.ts
 
 /** 소셜 서비스 요청 하나의 제한 시간 (ms) */
-export const OAUTH_FETCH_TIMEOUT_MS = 10_000;
+export const OAUTH_FETCH_TIMEOUT_MS = 180_000;
 
 /** 서비스별 토큰 주소 (better-auth 1.7.7 @better-auth/core social-providers와 같은 값) */
 const TOKEN_ENDPOINT: Record<string, string> = {
@@ -57,7 +57,7 @@ function userFromProfile(id: string, profile: Json) {
   return { name: str(res.name) ?? str(res.nickname) ?? "", email: str(res.email), image: str(res.profile_image), emailVerified: false };
 }
 
-/** 소셜 서비스 요청에 10초 제한을 거는 플러그인 (src/lib/auth.ts plugins) */
+/** 소셜 서비스 요청에 3분 제한을 거는 플러그인 (src/lib/auth.ts plugins) */
 export const oauthTimeout = () =>
   ({
     id: "blogville-oauth-timeout",
