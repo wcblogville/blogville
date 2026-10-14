@@ -154,6 +154,43 @@ let grantAction = null;
   await ctx.close();
 }
 
+// 4) 테스트 기간 한꺼번에 주기: 모든 회원 최소 Lv.50(경험치 24,500) + 코인 100,000 한 번만 (2026-10-14)
+{
+  const { ctx, page } = await fresh();
+  await page.goto(BASE);
+  await page.getByLabel("아이디").fill(ADMIN.username);
+  await page.getByLabel("비밀번호", { exact: true }).fill(ADMIN.password);
+  await page.getByRole("button", { name: "로그인", exact: true }).click();
+  await page.waitForURL(/town/, { timeout: 20000 }).catch(() => {});
+  await page.goto(`${BASE}/admin`);
+  const boost = page.locator("[data-admin-test-boost]");
+  const summary = () =>
+    one(`SELECT COUNT(*)::int AS members,
+                COUNT(*) FILTER (WHERE w.exp < 24500)::int AS below50,
+                COUNT(*) FILTER (WHERE w.boosts <> 1)::int AS not_once,
+                COALESCE(SUM(w.coins), 0)::bigint::text AS coins
+           FROM (SELECT u.id, COALESCE(SUM(l.exp_delta), 0) AS exp, COALESCE(SUM(l.coin_delta), 0) AS coins,
+                        COUNT(*) FILTER (WHERE l.reason = 'admin_grant' AND l.ref_id = 'test-boost') AS boosts
+                   FROM users u LEFT JOIN point_ledger l ON l.user_id = u.id GROUP BY u.id) w`);
+  page.once("dialog", (d) => d.dismiss());
+  await boost.getByRole("button").click();
+  await page.waitForTimeout(1500);
+  check("4 확인 창에서 취소하면 아무도 안 받음", (await summary()).not_once === (await summary()).members);
+  page.once("dialog", (d) => d.accept());
+  await boost.getByRole("button").click();
+  await boost.locator("[data-test-boost-result]").waitFor({ timeout: 60000 });
+  const after = await summary();
+  check("4 모든 회원 Lv.50 이상", after.below50 === 0, JSON.stringify(after));
+  check("4 모든 회원 10만 코인 한 번씩", after.not_once === 0, JSON.stringify(after));
+  page.once("dialog", (d) => d.accept());
+  await boost.getByRole("button").click();
+  await boost.locator("[data-boost-coins]", { hasText: /^0$/ }).waitFor({ timeout: 60000 }).catch(() => {});
+  const again = await summary();
+  check("4 다시 눌러도 겹쳐 주지 않음", again.coins === after.coins && again.not_once === 0, `${after.coins} → ${again.coins}`);
+  await page.locator("section", { has: boost }).screenshot({ path: `${outDir}/admin-test-boost.png` });
+  await ctx.close();
+}
+
 console.log(results.join("\n"));
 await browser.close();
 await db.end();
