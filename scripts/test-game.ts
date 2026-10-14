@@ -47,7 +47,7 @@ import {
 } from "../src/lib/farm";
 import { formatCoinsShort } from "../src/lib/format";
 import { boardSeenValue, shouldAutoOpenBoard } from "../src/lib/attendance-window";
-import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS } from "../src/lib/admin-grant";
+import { expToMaxLevel, GRANT_COINS_MAX, GRANT_EXP_MAX, parseGrantInput, QUICK_COINS, TEST_BOOST, testBoostFor } from "../src/lib/admin-grant";
 import { expForLevel, levelFromExp, levelProgress, levelsGained, MAX_LEVEL, nextCycleDay, todayKST } from "../src/lib/game";
 import { checkLayout, findFreeSpot, fitsRoom, footprintOf, footprintTiles, FURNITURE_FOOTPRINT, repairLayout, WALKABLE_FURNITURE, currentRoof, decorationSlots, decoSlotLevel, DEFAULT_TILES, furnitureSlots, houseInfo, MAX_DECO_SLOTS, MAX_FURNITURE_SLOTS, MAX_ROOM_GRID, parseLayout, roofOrder, roomGrid, unlockedRoofs } from "../src/lib/house";
 import { floorToScreen, isoRoom, isoRoomDataUri, roomCamera, screenToFloor } from "../src/lib/art/room";
@@ -503,6 +503,10 @@ expect("둘 다 0 → 문구", parseGrantInput(grantForm({ coins: "", exp: "0" }
 expect("[+10,000 코인]은 칸 값을 무시", parseGrantInput(grantForm({ preset: "coins", coins: "9" })), { username: "", coins: QUICK_COINS, exp: 0, preset: "coins" });
 expect("경험치 최대로 0에서 Lv.99에 닿음", levelFromExp(GRANT_EXP_MAX), MAX_LEVEL);
 expect("Lv.99까지 모자란 경험치", [0, 1000, expForLevel(MAX_LEVEL) + 5].map(expToMaxLevel), [97020, 96020, 0]);
+expect("테스트 한꺼번에 주기: Lv.50 = 경험치 24,500", expForLevel(TEST_BOOST.minLevel), 24500);
+expect("테스트 한꺼번에 주기: 처음이면 모자란 경험치 + 10만 코인", testBoostFor(500, false), { exp: 24000, coins: 100000 });
+expect("테스트 한꺼번에 주기: 이미 Lv.50 넘고 받은 적 있으면 0", testBoostFor(30000, true), { exp: 0, coins: 0 });
+expect("테스트 한꺼번에 주기: 받은 뒤 레벨만 모자라면 경험치만", testBoostFor(24000, true), { exp: 500, coins: 0 });
 expect("휴대폰 헤더 짧은 코인", [9999, 10017, 12345, 1_000_000, 12_345_678, 350_000_000].map(formatCoinsShort), ["9,999", "1만", "1.2만", "100만", "1234만", "3.5억"]);
 
 // 가구 크기·클릭해서 걷기·가구와 놀기 (사용자 요청 2026-10-12 "가구마다 크기 다르게", "클릭했을 때 이동", "가구들이랑 상호작용")

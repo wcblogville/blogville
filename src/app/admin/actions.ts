@@ -1,10 +1,10 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { posts, profiles, users } from "@/db/schema";
-import { expToMaxLevel, parseGrantInput } from "@/lib/admin-grant";
+import { pointLedger, posts, profiles, users } from "@/db/schema";
+import { expToMaxLevel, parseGrantInput, TEST_BOOST, testBoostFor } from "@/lib/admin-grant";
 import { parseId } from "@/lib/ids";
 import { normalizeName } from "@/lib/names";
 import { requireAdmin } from "@/server/dal";
@@ -77,6 +77,41 @@ export async function adminGrant(_prev: AdminGrantState, form: FormData): Promis
     exp: result.wallet.exp,
     level: result.wallet.level,
   };
+}
+
+export type AdminTestBoostState =
+  | { ok?: undefined }
+  | { ok: true; members: number; coinMembers: number; levelMembers: number; at: number };
+
+/**
+ * 테스트 기간 한꺼번에 주기 (AUTH-10, 사용자 요청 2026-10-14): 모든 회원(관리자 포함)을 최소 Lv.50으로 올리고 코인 10만 개를 준다.
+ * 원장 `admin_grant`, ref_id `test-boost`. 코인은 그 기록이 없는 회원에게만, 경험치는 Lv.50까지 모자란 만큼만이라
+ * 다시 눌러도 겹쳐 주지 않고 새로 가입한 회원만 받는다. 회원마다 따로 트랜잭션 + lockUser.
+ */
+export async function adminTestBoost(): Promise<AdminTestBoostState> {
+  await requireAdmin();
+  const members = await db.select({ id: users.id }).from(users);
+  let coinMembers = 0;
+  let levelMembers = 0;
+  for (const { id } of members) {
+    const given = await db.transaction(async (tx) => {
+      await lockUser(tx, id);
+      const [prior] = await tx
+        .select({ id: pointLedger.id })
+        .from(pointLedger)
+        .where(and(eq(pointLedger.userId, id), eq(pointLedger.reason, "admin_grant"), eq(pointLedger.refId, TEST_BOOST.refId)))
+        .limit(1);
+      const { exp, coins } = testBoostFor((await getWallet(id, tx)).exp, Boolean(prior));
+      if (exp > 0 || coins > 0) {
+        await addLedgerEntry(tx, { userId: id, reason: "admin_grant", expDelta: exp, coinDelta: coins, refId: TEST_BOOST.refId });
+      }
+      return { exp, coins };
+    });
+    if (given.coins > 0) coinMembers++;
+    if (given.exp > 0) levelMembers++;
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, members: members.length, coinMembers, levelMembers, at: Date.now() };
 }
 
 export type AdminResetPasswordState =

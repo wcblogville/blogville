@@ -15,6 +15,7 @@ import { PlaceHeader } from "@/components/place-banner";
 import type { IconName } from "@/lib/art/icons";
 import { AdminDeletePostButton } from "./delete-button";
 import { AdminGrantForm } from "./grant-form";
+import { AdminTestBoostForm } from "./test-boost-form";
 import { AdminResetPasswordForm } from "./reset-password-form";
 
 export const metadata = { title: "관리자" };
@@ -98,6 +99,9 @@ export default async function AdminPage() {
         </h2>
         <p className="mb-4 mt-1 text-sm text-ink-soft">기능을 시험해 볼 때 쓰는 관리자 전용 도구예요. 회원에게 코인·경험치를 바로 넣어 줍니다 (AUTH-10).</p>
         <AdminGrantForm adminUsername={admin.user.username ?? "admin"} />
+        <div className="mt-5">
+          <AdminTestBoostForm />
+        </div>
       </section>
 
       {/* 비밀번호 초기화 (AUTH-12 비밀번호 찾기): 간편 로그인을 연동하지 않은 회원이 아이디를 알려 오면 임시 비밀번호를 만든다 */}

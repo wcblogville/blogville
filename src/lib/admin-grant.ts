@@ -39,3 +39,14 @@ export function parseGrantInput(form: { get(name: string): FormDataEntryValue | 
 export function expToMaxLevel(currentExp: number): number {
   return Math.max(0, expForLevel(MAX_LEVEL) - currentExp);
 }
+
+/** 테스트 기간 한꺼번에 주기 (사용자 요청 2026-10-14): 모든 회원을 최소 Lv.50으로, 코인 10만 개는 한 사람에게 한 번 */
+export const TEST_BOOST = { minLevel: 50, coins: 100_000, refId: "test-boost" } as const;
+
+/** 한 회원이 받을 양: 경험치는 Lv.50까지 모자란 만큼, 코인은 아직 안 받았을 때만 */
+export function testBoostFor(currentExp: number, alreadyGiven: boolean): { exp: number; coins: number } {
+  return {
+    exp: Math.max(0, expForLevel(TEST_BOOST.minLevel) - currentExp),
+    coins: alreadyGiven ? 0 : TEST_BOOST.coins,
+  };
+}
