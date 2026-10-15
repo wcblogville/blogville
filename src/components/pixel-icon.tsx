@@ -1,4 +1,4 @@
-import { ICON, iconDataUri, type IconName } from "@/lib/art/icons";
+import { ICON, iconSrc, type IconName } from "@/lib/art/icons";
 
 /**
  * 도트 아이콘 (12칸 그림을 정수배로). 꾸밈 그림이라 기본은 화면 읽기에서 숨긴다 (aria-hidden, alt="").
@@ -7,9 +7,9 @@ import { ICON, iconDataUri, type IconName } from "@/lib/art/icons";
 export function PixelIcon({ name, scale = 2, label, className = "" }: { name: IconName; scale?: number; label?: string; className?: string }) {
   const size = ICON * scale;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI)
+    // eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 도트 SVG (/px/<이름>, 한 번 받아 캐시)
     <img
-      src={iconDataUri(name, scale)}
+      src={iconSrc(name)}
       alt={label ?? ""}
       aria-hidden={label ? undefined : true}
       width={size}

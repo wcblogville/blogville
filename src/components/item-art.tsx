@@ -1,5 +1,6 @@
 import { CharacterArt } from "@/components/character";
-import { backgroundDataUri, backgroundSky, decoDataUri, furnitureDataUri, growthDataUri, previewLook } from "@/lib/assets";
+import { backgroundSky, previewLook } from "@/lib/assets";
+import { itemArtSrc } from "@/lib/art/item-src";
 
 /** 아이템 미리보기 그림 (상점, 꾸미기) */
 export function ItemArt({
@@ -31,11 +32,11 @@ export function ItemArt({
     );
   }
   if (type === "furniture" || type === "growth" || type === "deco") {
-    const uri = type === "furniture" ? furnitureDataUri(assetKey, characterSize) : type === "deco" ? decoDataUri(assetKey, characterSize) : growthDataUri(assetKey, characterSize);
+    const src = itemArtSrc(type, assetKey, characterSize);
     return (
       <div className={`pixel-slot grid place-items-center ${type === "furniture" ? "bg-[#f6ead7]!" : type === "deco" ? "bg-[#e3f3dd]!" : "bg-[#e9f6e4]!"} ${className}`} aria-hidden>
-        {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-        <img src={uri} alt="" width={characterSize} height={characterSize} className="pixelated" />
+        {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 도트 SVG (/px/item/…, 한 번 받아 캐시). 화면 밖 카드는 늦게 받는다 */}
+        <img src={src} alt="" width={characterSize} height={characterSize} loading="lazy" decoding="async" className="pixelated" />
       </div>
     );
   }
@@ -43,7 +44,7 @@ export function ItemArt({
     <div
       className={`pixelated bg-bottom shadow-[inset_0_0_0_3px_#4a342633] ${className}`}
       // 2배 도트 그대로 아래 가운데에 (늘이지 않는다)
-      style={{ backgroundImage: `url("${backgroundDataUri(assetKey)}")`, backgroundColor: backgroundSky(assetKey) }}
+      style={{ backgroundImage: `url("${itemArtSrc("background", assetKey)}")`, backgroundColor: backgroundSky(assetKey) }}
       aria-hidden
     />
   );
