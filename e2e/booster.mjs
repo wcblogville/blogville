@@ -75,7 +75,12 @@ check("다 쓰면 촉진제 버튼이 사라짐", (await page.locator('[data-use
 // ── 4. 황금 성장 물약으로 다 키우기 → 보상 ──
 const coinsBefore = await wallet();
 await page.locator('[data-use-growth="growth.elixir"]').first().click();
-await page.getByRole("status").filter({ hasText: "다 자랐어요" }).waitFor({ timeout: 10000 });
+// 다 키운 보상으로 레벨이 오르면 레벨업 창을 닫는 동안 화면이 새로 그려져 결과 문구가 지워질 수 있다 (닫기도 Server Action).
+// 그래서 문구 대신 DB가 다 자람이 될 때까지 기다린다
+for (let i = 0; i < 50; i++) {
+  if ((await one("SELECT status FROM user_animals WHERE id = $1", [animal.id])).status === "grown") break;
+  await page.waitForTimeout(200);
+}
 await page.waitForLoadState("networkidle");
 const done = await one("SELECT status, growth FROM user_animals WHERE id = $1", [animal.id]);
 check("다 자람 (성장은 최대에서 멈춤)", done.status === "grown" && done.growth === sp.grow_exp, `${done.status} ${done.growth}`);
