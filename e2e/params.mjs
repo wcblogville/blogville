@@ -216,6 +216,9 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
     [me.id],
   );
   await page.goto(`${BASE}/@tester1`);
+  // 동물 카드는 방 도구 줄의 [🏅 도감] 창 안에 있다
+  await page.locator("[data-collection-open]").click();
+  await page.locator("dialog[data-collection]").waitFor();
   const show = await capture(() => page.locator("[data-animal-card]").first().getByRole("button", { name: "전시하기" }).click());
   const now = async () => (await one("SELECT showcase_animal_id AS id FROM blogs WHERE id = $1", [me.blog_id])).id;
   const before = await now();

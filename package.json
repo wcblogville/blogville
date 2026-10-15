@@ -28,7 +28,11 @@
     "test": "npm run test:game && npm run test:ids && npm run test:sanitize && npm run test:auth && npm run test:blog && npm run test:post && npm run test:social && npm run test:notifications && npm run test:shop && npm run test:style && npm run test:idle && npm run test:oauth",
     "test:style": "tsx scripts/test-style.ts",
     "test:idle": "tsx scripts/test-idle-theme.ts",
-    "test:oauth": "tsx --conditions=react-server scripts/test-oauth.ts"
+    "test:oauth": "tsx --conditions=react-server scripts/test-oauth.ts",
+    "test:coverage": "c8 --reporter=text-summary --reporter=json-summary --report-dir=coverage --all --src=src --include=src/lib/** --include=src/server/** --include=src/components/town/** npm test",
+    "test:trace": "node scripts/test-trace.mjs",
+    "e2e": "node scripts/e2e-run.mjs",
+    "perf": "node scripts/lighthouse.mjs"
   },
   "dependencies": {
     "@tiptap/extension-highlight": "^3.31.4",
@@ -57,6 +61,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/sanitize-html": "^2.16.2",
+    "c8": "^10.1.3",
     "dotenv": "^18.0.5",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",

@@ -3,6 +3,7 @@
 //  - "상점에 파는 배경 같은건 눈배경이다 하면 마을에 눈쌓여있고 … 보라색 배경이면 보라색 느낌 마을로" (data-theme, 친구 마을은 주인 배경)
 //  - "즐겨찾기해서 마을에 추가한 이웃들은 … 클릭하거나 가까이가서 스페이스바 누르면 … 한 문장 말풍선" (마을 한마디 / 공개 글 문장)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/idle-theme.mjs <스크린샷 폴더>
+// 요구사항: TOWN-22·TOWN-23·TOWN-24
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";

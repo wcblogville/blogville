@@ -1,5 +1,6 @@
 // 가만히 동작·마을 테마·이웃 말풍선 테스트 (사용자 요청 2026-10-12)
 // 실행: npm run test:idle
+// 요구사항: TOWN-22·TOWN-23·TOWN-24
 import { BACK_PARTS, partRows } from "../src/lib/art/avatar";
 import { CHARACTER_KEYS } from "../src/lib/art/characters";
 import { IDLE_COLS, IDLE_FRAME, IDLE_MOTIONS, idleDuration, idleFrame, idleFrameAt, idleFrameIndex, idleOriginY, idleSheetSvg, pickIdleMotion } from "../src/lib/art/idle";

@@ -1,6 +1,7 @@
 // 내 블로그에서 마을의 글·블로그 검색 (BLOG 검색 / US6-1~7, FR-050~053, SC-004·008·013, quickstart 3.4)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/blog-search.mjs <스크린샷 폴더>
 // 실행마다 새 회원과 고유한 검색어(맛집{번호})로 DB에 글을 준비한다.
+// 요구사항: BLOG-07
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";

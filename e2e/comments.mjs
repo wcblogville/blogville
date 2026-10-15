@@ -25,6 +25,13 @@ async function member(id, password) {
   const errors = collectErrors(page);
   await loginDev(page, id, "남자 주민", password);
   page.on("dialog", (d) => d.accept());
+  // 글을 열면 조회수 기록(Server Action)이 방문자 쿠키를 쓰면서 화면을 한 번 다시 그린다. 그게 끝난 뒤에 누르도록 기다린다
+  const goto = page.goto.bind(page);
+  page.goto = async (...args) => {
+    const res = await goto(...args);
+    await page.waitForLoadState("networkidle").catch(() => {});
+    return res;
+  };
   return { ctx, page, errors };
 }
 const userId = async (username) => (await one("SELECT id FROM users WHERE username = $1", [username])).id;
