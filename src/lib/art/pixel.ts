@@ -194,6 +194,13 @@ export function fitSvg(rows: Sprite, size: number, { colors = {}, align = "botto
 }
 
 /** SVG → data URI. 꼭 필요한 글자(%, #, <, > 등)만 바꿔 encodeURIComponent보다 짧게 만든다 (따옴표는 작은따옴표로) */
+/** 짧은 내용 해시 (FNV-1a 32비트, 36진수). 그림 주소의 v=로 써서 그림이 바뀌면 캐시를 새로 받게 한다 */
+export function contentHash(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(36);
+}
+
 export function svgDataUri(svg: string) {
   return `data:image/svg+xml;charset=utf-8,${svg.replace(/"/g, "'").replace(/[%#<>?&\n]/g, encodeURIComponent)}`;
 }
