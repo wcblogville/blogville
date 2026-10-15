@@ -46,7 +46,9 @@ function run(name) {
       // 시험들은 확인 결과를 ✅/❌ 줄로 찍는다. ❌ 줄이 있으면 종료 코드가 0이어도 실패로 본다
       const fails = tail.split("\n").filter((l) => l.startsWith("❌"));
       const ok = code === 0 && !timedOut && fails.length === 0;
-      const why = timedOut ? `${Math.round(limitMs / 60000)}분 넘게 걸려 끊음` : fails[0]?.slice(2, 120) ?? (code === 0 ? "" : tail.trim().split("\n").filter(Boolean).slice(-1)[0]?.slice(0, 120) ?? `종료 코드 ${code}`);
+      // 던져진 오류는 "locator.click: Timeout 30000ms exceeded." 같은 첫 오류 줄을 이유로 쓴다
+      const thrown = tail.split("\n").find((l) => /^\w[\w.]*: |Error\b/.test(l) && !l.startsWith("Node.js"));
+      const why = timedOut ? `${Math.round(limitMs / 60000)}분 넘게 걸려 끊음` : fails[0]?.slice(2, 120) ?? (code === 0 ? "" : thrown?.slice(0, 120) ?? `종료 코드 ${code}`);
       if (!ok && gh) console.log(`::error title=e2e/${name}.mjs::${why}`);
       resolve({ name, ok, sec, why });
     });

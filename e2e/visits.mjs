@@ -25,7 +25,9 @@ const shown = async (page) => {
   const read = async (label) => Number((await page.locator(`[data-visit="${label}"]`).innerText()).replace(/,/g, ""));
   return { today: await read("오늘"), yesterday: await read("어제"), total: await read("전체") };
 };
-const settle = (page) => page.waitForLoadState("networkidle").then(() => page.waitForTimeout(400));
+// 방문 기록(Server Action)이 끝나기를 기다린다. 지금 보는 주소를 미리 받는(prefetch) RSC 응답은 끝나지 않고 열려 있을 때가 있어
+// networkidle만 믿지 않고 5초에서 끊는다
+const settle = (page) => page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {}).then(() => page.waitForTimeout(400));
 
 // ── 처음 온 방문자 A (로그인 안 함) ──
 const a = await (await browser.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
