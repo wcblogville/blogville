@@ -168,10 +168,19 @@ check("US2-12 블로그 주인이 남의 댓글 삭제", (await count("SELECT co
 await C.page.goto(url(P));
 await write(C.page, "C의 새 댓글");
 await commentLine(C.page, "C의 새 댓글").waitFor();
-const requestP = C.page.waitForRequest((r) => r.method() === "POST" && !!r.headers()["next-action"]);
 await B.page.goto(url(P));
 await write(B.page, "B 댓글(조작 대상 아님)");
 await commentLine(B.page, "B 댓글(조작").waitFor();
+// [삭제] 요청만 잡는다: 바로 누르기 전에 기다리기 시작하고, 인자가 댓글 ID 하나([숫자])인 요청만 (조회수 기록 등 다른 Server Action 제외)
+const requestP = C.page.waitForRequest((r) => {
+  if (r.method() !== "POST" || !r.headers()["next-action"]) return false;
+  try {
+    const args = JSON.parse(r.postData() ?? "");
+    return Array.isArray(args) && args.length === 1 && typeof args[0] === "number" && args[0] !== P;
+  } catch {
+    return false;
+  }
+});
 await commentLine(C.page, "C의 새 댓글").getByRole("button", { name: "삭제" }).click();
 const delReq = await requestP;
 await C.page.waitForLoadState("networkidle");
