@@ -2,6 +2,7 @@
 // 사용: 개발 서버를 띄운 상태에서 node e2e/town.mjs <스크린샷 폴더>
 // 2.5D 마을 (2026-10-11): 이웃 집 자리 고르기(TOWN-18, 서버가 남의 이웃·자리 번호 밖을 거절), 걸어 다니는 이웃(NPC)
 // 실행마다 새 회원 A와 이웃 B~L(11명)을 만들고, 이웃 관계·글은 pg로 넣어 준비한다
+// 요구사항: TOWN-03 입구, TOWN-12 ☰ 메뉴, TOWN-13 우체통, TOWN-19 걷는 이웃, TOWN-21 따라오는 동물
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
@@ -143,7 +144,7 @@ check("친구 목록: 이웃 없음 안내", await panel().getByText("아직 이
   const [, wy] = await hold("w");
   check(
     "메뉴 창이 열린 채로 방향키·WASD로 걷는다",
-    (await panel().isVisible()) && ax < -10 && sy > 10 && dx > 10 && wy < -10,
+    (await panel().isVisible()) && ax < -4 && sy > 4 && dx > 4 && wy < -4, // 느린 화면에서는 한 번에 덜 간다. 키가 먹는지만 본다
     `←${ax} S${sy} D${dx} W${wy}`,
   );
   await page.screenshot({ path: `${outDir}/town-menu-walk.png` });
@@ -190,6 +191,7 @@ check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
     const held = new Set();
     const t0 = Date.now();
     let ok = false;
+    let stuck = 0;
     while (Date.now() - t0 < ms) {
       const [x, y] = await feet();
       const dx = tx - x;
@@ -204,14 +206,27 @@ check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
       if (dx < -d * 0.38) want.add("ArrowLeft");
       if (dy > d * 0.38) want.add("ArrowDown");
       if (dy < -d * 0.38) want.add("ArrowUp");
-      // 가까우면 꾹 누르지 않고 짧게 톡톡 (느린 CI에서 프레임이 끊기면 누른 채로 목표를 한참 지나쳐 벼랑에 막힌다)
+      // 가까우면 꾹 누르지 않고 조금씩 (느린 CI에서 프레임이 끊기면 누른 채로 목표를 한참 지나쳐 벼랑에 막힌다)
       if (d < 90) {
         for (const k of held) await page.keyboard.up(k);
         held.clear();
-        for (const k of want) await page.keyboard.down(k);
-        await page.waitForTimeout(50);
-        for (const k of want) await page.keyboard.up(k);
-        await page.waitForTimeout(60);
+        // 대각선이 벼랑 모서리에 막히면 한 방향씩 번갈아 간다
+        const keys = stuck % 3 === 0 ? [...want] : [...want].filter((_, i) => i === (stuck % 3) - 1);
+        // 게임이 누른 키를 한 프레임이라도 보도록, 발이 움직일 때까지만 누른다 (프레임이 느리면 50ms 톡은 못 보고 지나간다)
+        for (const k of keys) await page.keyboard.down(k);
+        const tap0 = Date.now();
+        let moved = false;
+        while (Date.now() - tap0 < 600) {
+          await page.waitForTimeout(16);
+          const [nx, ny] = await feet();
+          if (Math.hypot(nx - x, ny - y) >= 2) {
+            moved = true;
+            break;
+          }
+        }
+        for (const k of keys) await page.keyboard.up(k);
+        stuck = moved ? 0 : stuck + 1;
+        await page.waitForTimeout(40);
         continue;
       }
       for (const k of [...held])
