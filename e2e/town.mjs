@@ -394,7 +394,10 @@ check("집 앞에서 Space → 그 사람 블로그", page.url().endsWith(`/@${B
     await page.waitForTimeout(45);
   }
   await page.keyboard.up("ArrowDown");
+  // 동물이 다가와 멈출 때까지 (느린 화면(CI의 소프트웨어 그리기)에서는 프레임이 늦어 1.5초로는 모자라다)
   await page.waitForTimeout(1500);
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.petWalk === "idle", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(300);
   const [fx, fy] = await xy("data-feet");
   const [px, py] = await xy("data-pet-at");
   const gap = Math.hypot(fx - px, fy - py);

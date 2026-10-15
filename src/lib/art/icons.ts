@@ -1,7 +1,7 @@
 // 도트 아이콘 (2026-10-12 사용자 요청 "들어간 화면도 다 도트감성으로"): 구역 제목·헤더·배지에 쓰던 그림 글자(🪙 🔔 👑 …)를
 // 광장과 같은 팔레트(pixel.ts)의 12×12칸 그림으로 그린다. 화면에는 정수배(보통 2배 = 24px)로만 키운다.
 // 내용 글자(버튼 이름, 내역 사유 등)에 들어 있는 그림 글자는 뜻을 전하는 글이라 그대로 둔다. 여기 아이콘은 꾸밈이다 (alt="").
-import { Pix, spriteSvg, svgDataUri, swap, type Colors, type Sprite } from "./pixel";
+import { contentHash, Pix, spriteSvg, svgDataUri, swap, type Colors, type Sprite } from "./pixel";
 
 /** 아이콘 한 변 (칸) */
 export const ICON = 12;
@@ -989,6 +989,26 @@ export function iconDataUri(name: IconName, scale = 2): string {
     cache.set(key, uri);
   }
   return uri;
+}
+
+/** 아이콘 SVG 글자 (1배, 12×12). 화면에서 몇 배로 그리든 같은 파일을 쓴다 (도트는 crispEdges라 늘려도 또렷하다) */
+export function iconSvg(name: IconName): string {
+  return spriteSvg(ICONS[name], { scale: 1, colors: COLORS });
+}
+
+const srcCache = new Map<IconName, string>();
+/**
+ * 아이콘 주소 `/px/<이름>?v=<그림 해시>` (src/app/px/[icon]/route.ts가 그린다).
+ * 같은 아이콘이 한 화면에 수십 번 나와도 브라우저가 한 번만 받아 오래 캐시한다 (data URI는 매번 HTML에 통째로 들어가 상점 HTML이 0.9MB였다).
+ * 그림이 바뀌면 해시가 바뀌어 새로 받는다
+ */
+export function iconSrc(name: IconName): string {
+  let src = srcCache.get(name);
+  if (!src) {
+    src = `/px/${name}?v=${contentHash(iconSvg(name))}`;
+    srcCache.set(name, src);
+  }
+  return src;
 }
 
 /** 파일 아이콘 (띠 색만 바꾼다, 글 본문 첨부 카드용) */
