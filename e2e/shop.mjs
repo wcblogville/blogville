@@ -1,5 +1,6 @@
 // SHOP 영역: 상점 구역·정렬·버튼 상태, 성장 아이템 수량, 꾸미기 아바타 장착·벗기, 옷 입은 캐릭터가 블로그·마을·헤더에 보임, 농장에서 성장 아이템 쓰기
 // 사용: 개발 서버를 띄운 상태에서 node e2e/shop.mjs <스크린샷 폴더>
+// 요구사항: SHOP-02 레벨 제한, SHOP-03 코인 부족
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";

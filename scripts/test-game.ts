@@ -1,6 +1,7 @@
 // 게임 규칙 계산 테스트: 레벨(GAME-02), 출석 일차(GAME-04), 레벨업(GAME-06), 동물 농장(TOWN-09), 집 단계·지붕 색(TOWN-07·11), 광장 꾸미기 자리,
 // 2.5D 마을 배치(겹침·절벽·걸어서 갈 수 있는지·이웃이 걷는 길), 이웃 집 자리(TOWN-18)
 // 실행: npm run test:game
+// 요구사항: TOWN-05 2.5D 지형, TOWN-20 내 정원
 import { DECO_SLOTS, FARM_POS, HOUSE_SLOTS, houseSlot, inHome, LAMPS, LOT_AREAS, PATHS, POND_POS, smoothPath, START_POS, townSpots } from "../src/components/town/layout";
 import { npcGraph, segmentClear, solidBox, townLayout, townProps } from "../src/components/town/structures";
 import { boxWalkable, reachable, stairCrossings, terrain, TERRAIN_FEET, walkableAt } from "../src/components/town/terrain";

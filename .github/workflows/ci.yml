@@ -2,10 +2,10 @@
 #  - develop·main으로 가는 PR, develop에 push → 여기서 바로 실행 (PR 화면에 결과가 뜬다)
 #  - main에 push → 배포 워크플로(deploy.yml)가 이 파일을 먼저 부르고(workflow_call), 통과해야 배포한다
 # 작업 두 개가 동시에 돈다
-#  1) 코드 검사: 타입(tsc) → 코드 규칙(eslint) → 단위 테스트(npm test, DB 없음)
+#  1) 코드 검사: 타입(tsc) → 코드 규칙(eslint) → 단위 테스트·커버리지(npm run test:coverage, DB 없음) → 요구사항 연결표 최신인지
 #  2) 빌드·E2E: 도커 이미지와 같은 webpack 빌드 → 임시 PostgreSQL에 표·아이템·관리자 준비
-#     → 빌드한 앱을 띄우고 브라우저(Playwright)로 가입·로그인·관리자(e2e/auth.mjs)와 글쓰기(e2e/blog.mjs)
-#     → 게임: 상점·성장 촉진제·미용실·친구 마을·이웃·게시판·우리 집·가구와 놀기·광장
+#     → 빌드한 앱을 띄우고 브라우저(Playwright)로 E2E CI 묶음(e2e/suites.json의 ci, scripts/e2e-run.mjs)
+# 전체 E2E와 성능 기준은 매일 밤(nightly.yml). 전략: docs/03-test-strategy.md
 name: 검사
 
 on:
@@ -42,8 +42,13 @@ jobs:
         run: npx tsc --noEmit
       - name: 코드 규칙 (eslint)
         run: npx eslint .
-      - name: 단위 테스트 (npm test)
-        run: npm test
+      # 단위 테스트를 돌리면서 src/ 줄 커버리지를 잰다 (기준은 아직 없고 Summary에 숫자만)
+      - name: 단위 테스트 + 커버리지 (npm run test:coverage)
+        run: |
+          npm run test:coverage
+          node -e 'const t=require("./coverage/coverage-summary.json").total; const f=(k)=>`${t[k].pct}% (${t[k].covered}/${t[k].total})`; console.log(`### 단위 테스트 커버리지 (src/lib·src/server·src/components/town)\n\n| 줄 | 분기 | 함수 |\n|---|---|---|\n| ${f("lines")} | ${f("branches")} | ${f("functions")} |\n`)' >> "$GITHUB_STEP_SUMMARY"
+      - name: 요구사항 ↔ 테스트 연결표가 최신인지 (docs/04-test-trace.md)
+        run: node scripts/test-trace.mjs --check
 
   build-e2e:
     name: 빌드·E2E
@@ -114,25 +119,10 @@ jobs:
           cat app.log
           exit 1
 
-      - name: E2E 가입·로그인·관리자 (e2e/auth.mjs)
-        run: mkdir -p e2e-shots && node e2e/auth.mjs e2e-shots
-
-      - name: E2E 글쓰기 (e2e/blog.mjs)
-        run: node e2e/blog.mjs e2e-shots
-
-      # 게임 화면: 시험마다 새 회원을 만들어서 서로 영향을 주지 않는다. 하나가 실패해도 나머지는 끝까지 돌고 마지막에 실패를 알린다
-      - name: E2E 게임 (상점·우리 집·광장 등)
-        run: |
-          failed=""
-          for t in shop booster style plaza neighbors board-blog house room-interact town; do
-            echo "::group::e2e/$t.mjs"
-            node "e2e/$t.mjs" e2e-shots || failed="$failed $t"
-            echo "::endgroup::"
-          done
-          if [ -n "$failed" ]; then
-            echo "::error::게임 E2E 실패:$failed"
-            exit 1
-          fi
+      # CI 묶음(e2e/suites.json의 ci): 가입·글쓰기 → 상점·성장 촉진제·미용실·친구 마을·이웃·게시판·우리 집·가구와 놀기·광장
+      # 시험마다 새 회원을 만들어 서로 영향을 주지 않는다. 하나가 실패해도 나머지는 끝까지 돌고, 결과 표는 Summary에 붙는다
+      - name: E2E (CI 묶음)
+        run: node scripts/e2e-run.mjs ci
 
       # 실패하면 스크린샷과 앱 로그를 Actions 화면의 Artifacts에서 내려받아 볼 수 있다
       - name: 실패 기록 올리기

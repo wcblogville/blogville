@@ -3,6 +3,7 @@
 //  옷가게나 상점 아래 적혀있는 부가 설명들은 없애줘"
 // 사용: 개발 서버를 띄운 상태에서 node e2e/board-blog.mjs <스크린샷 폴더>
 // 실행마다 새 회원 둘(주인 O, 손님 V)을 만들고, 출석·글·댓글·태그·방문은 pg로 넣어 준비한다
+// 요구사항: BLOG-08 도구 막대, BLOG-09 옆 칸 위젯
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";

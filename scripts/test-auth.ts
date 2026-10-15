@@ -1,5 +1,6 @@
 // 회원/인증 규칙 테스트 (AUTH-01, AUTH-07, AUTH-09 / FR-002, FR-009, FR-010, FR-025, FR-026)
 // 실행: npm run test:auth
+// 요구사항: AUTH-03 이름 겹침
 import { randomInt } from "node:crypto";
 import { isLocked, LOGIN_LOCK_MS, LOGIN_MAX_FAILURES, reserveAttempt, type LoginAttemptState } from "../src/lib/login-limit";
 import { isReservedName, isValidNicknameLength, isValidUsername, normalizeName, RESERVED_NAMES, USERNAME_RE } from "../src/lib/names";
