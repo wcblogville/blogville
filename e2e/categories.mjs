@@ -231,6 +231,13 @@ const travelId = (await one("SELECT id FROM categories WHERE blog_id = $1 AND na
   } else skip("US5-7 `└ 맛집 (3)`·\"맛집\" 3개", POST3);
   await subLink.click();
   await page.waitForURL(/sub=/);
+  // 마우스가 링크 위에 있으면 hover 색이 보인다. 치우고, 고른 색으로 바뀔 때까지 기다린다 (느린 CI에서는 화면이 늦게 바뀐다)
+  await page.mouse.move(0, 0);
+  await subLink.evaluate((a) => new Promise((ok) => {
+    const t0 = Date.now();
+    const tick = () => (getComputedStyle(a).backgroundColor === "rgb(255, 243, 214)" || Date.now() - t0 > 3000 ? ok() : requestAnimationFrame(tick));
+    tick();
+  }));
   const subSel = await subLink.evaluate((a) => getComputedStyle(a).backgroundColor);
   check("US5-7 소분류를 고르면 그 줄 노란 배경", subSel === "rgb(255, 243, 214)", subSel);
 }

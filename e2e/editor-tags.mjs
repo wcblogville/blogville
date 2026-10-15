@@ -59,8 +59,12 @@ check("에디터에 바탕색 mark", (await editor.locator("mark").first().getAt
 await toolbar.getByRole("button", { name: "글꼴 색" }).focus();
 await page.keyboard.press("Enter");
 await page.locator("[data-palette=color]").waitFor();
-const focusedInPanel = await page.evaluate(() => Boolean(document.activeElement?.closest("[data-palette]")));
+// 창이 뜬 뒤 포커스가 옮겨 가는 것은 다음 그리기에서 일어난다. 느린 CI에서는 바로 보면 아직 옮겨 가기 전이라 기다린다
+const focusedInPanel = await page
+  .waitForFunction(() => Boolean(document.activeElement?.closest("[data-palette]")), null, { timeout: 3000 })
+  .then(() => true, () => false);
 await page.keyboard.press("Escape");
+await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "글꼴 색", null, { timeout: 3000 }).catch(() => {});
 const backOnTrigger = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
 check("키보드: 열면 창 안 포커스, Esc면 버튼으로", focusedInPanel && backOnTrigger === "글꼴 색" && (await page.locator("[data-palette]").count()) === 0, backOnTrigger ?? "");
 
