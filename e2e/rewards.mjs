@@ -51,6 +51,9 @@ async function publish(page, { title, length = 100, visibility = "public" }) {
   await page.keyboard.insertText("가".repeat(length));
   await page.getByRole("button", { name: "발행하기" }).click();
   await page.waitForURL(/\/@[a-z0-9_]+\/\d+/);
+  // 임시 저장 글은 발행 뒤 글 화면(PublishNotice)이 지운다. 지우기 전에 다음 글쓰기로 가면 "불러올까요?"에서 앞 글 내용이 다시 들어와
+  // 글자 수가 늘어난다 (느린 CI에서 99자 글이 보상을 받던 원인)
+  await page.waitForFunction(() => !Object.keys(localStorage).some((k) => k.startsWith("blogville:draft:")), null, { timeout: 10000 }).catch(() => {});
   return Number(new URL(page.url()).pathname.match(/\/(\d+)$/)[1]);
 }
 
