@@ -186,7 +186,7 @@ check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
   const stairs = JSON.parse((await canvas.getAttribute("data-stairs")) ?? "[]");
   const feet = async () => ((await canvas.getAttribute("data-feet")) ?? "0,0").split(",").map(Number);
   /** 방향키로 (tx, ty)까지 걸어간다 (8방향, 60ms마다 방향을 다시 고른다) */
-  async function walkTo(tx, ty, ms = 8000) {
+  async function walkTo(tx, ty, ms = 12000) {
     const held = new Set();
     const t0 = Date.now();
     let ok = false;
@@ -204,6 +204,16 @@ check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
       if (dx < -d * 0.38) want.add("ArrowLeft");
       if (dy > d * 0.38) want.add("ArrowDown");
       if (dy < -d * 0.38) want.add("ArrowUp");
+      // 가까우면 꾹 누르지 않고 짧게 톡톡 (느린 CI에서 프레임이 끊기면 누른 채로 목표를 한참 지나쳐 벼랑에 막힌다)
+      if (d < 90) {
+        for (const k of held) await page.keyboard.up(k);
+        held.clear();
+        for (const k of want) await page.keyboard.down(k);
+        await page.waitForTimeout(50);
+        for (const k of want) await page.keyboard.up(k);
+        await page.waitForTimeout(60);
+        continue;
+      }
       for (const k of [...held])
         if (!want.has(k)) {
           await page.keyboard.up(k);
@@ -223,7 +233,7 @@ check("Esc로 메뉴 창 닫힘", (await panel().count()) === 0);
   for (const [i, [ax, ay, bx, by]] of stairs.entries()) {
     // 헤드리스 브라우저가 잠깐 멈추면(프레임 끊김) 한 번에 멀리 가 버릴 수 있어 한 번은 다시 해 본다
     let fail = "";
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       await canvas.evaluate((el, key) => el.dispatchEvent(new CustomEvent("bv-teleport", { detail: key })), `stair:${i}:a`);
       await page.waitForTimeout(300);
       const up = await walkTo(bx, by);
