@@ -55,6 +55,9 @@ function measure(page) {
     lcp: a["largest-contentful-paint"]?.displayValue ?? "-",
     tbt: a["total-blocking-time"]?.displayValue ?? "-",
     cls: a["cumulative-layout-shift"]?.displayValue ?? "-",
+    // 서버가 첫 바이트를 주기까지 걸린 시간(TTFB). 점수가 떨어졌을 때 서버가 느렸는지, 받는 양·그리기가 느렸는지 가른다
+    ttfb: a["server-response-time"]?.numericValue != null ? `${Math.round(a["server-response-time"].numericValue)} ms` : "-",
+    html: a["network-requests"]?.details?.items?.[0]?.transferSize ? `${Math.round(a["network-requests"].details.items[0].transferSize / 1024)}KB` : "-",
     weight: a["total-byte-weight"]?.numericValue ? `${Math.round(a["total-byte-weight"].numericValue / 1024)}KB` : "-",
   };
 }
@@ -80,10 +83,10 @@ const failed = rows.filter((r) => !r.ok);
 const md = [
   `### Lighthouse 성능 (휴대폰 기준): ${rows.length - failed.length}/${rows.length} 기준 통과`,
   "",
-  "| 화면 | 점수 | 기준 | FCP | LCP | TBT | CLS | 받은 양 |",
-  "|---|---|---|---|---|---|---|---|",
+  "| 화면 | 점수 | 기준 | 서버 응답 | HTML | FCP | LCP | TBT | CLS | 받은 양 |",
+  "|---|---|---|---|---|---|---|---|---|---|",
   ...rows.map(({ page, best: b, ok }) =>
-    `| ${page.name} \`${page.path.replace(user, "주인")}\` | ${ok ? "✅" : "❌"} ${b?.score ?? "-"} | ${page.min} | ${b?.fcp ?? "-"} | ${b?.lcp ?? "-"} | ${b?.tbt ?? "-"} | ${b?.cls ?? "-"} | ${b?.weight ?? "-"} |`,
+    `| ${page.name} \`${page.path.replace(user, "주인")}\` | ${ok ? "✅" : "❌"} ${b?.score ?? "-"} | ${page.min} | ${b?.ttfb ?? "-"} | ${b?.html ?? "-"} | ${b?.fcp ?? "-"} | ${b?.lcp ?? "-"} | ${b?.tbt ?? "-"} | ${b?.cls ?? "-"} | ${b?.weight ?? "-"} |`,
   ),
   "",
 ].join("\n");
