@@ -51,7 +51,7 @@ check("카드에 보유 1개 · 농장에서 쓰기", boosterCard.includes("보�
 await page.locator('[data-shop-section="growth"]').screenshot({ path: `${outDir}/booster-shop.png` });
 
 // ── 3. 농장: 가방에 보이고, 키우는 동물에게 쓴다 ──
-const sp = await one("SELECT id, name, grow_exp, reward_coins FROM animal_species ORDER BY grow_exp DESC LIMIT 1");
+const sp = await one("SELECT id, name, grow_exp, reward_coins FROM animal_species WHERE NOT reward_only ORDER BY grow_exp DESC LIMIT 1");
 const animal = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth, hatched_at) VALUES ($1, 'female', 'shop', 'growing', $2, 0, now()) RETURNING id", [uid, sp.id]);
 await page.goto(`${BASE}/farm`);
 const bagText = await bag.innerText();

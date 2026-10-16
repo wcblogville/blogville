@@ -103,10 +103,12 @@ await page.screenshot({ path: `${outDir}/92-farm-grown.png`, fullPage: true });
 // ── 블로그 우리 집 방의 [🏅 도감] → 도감 창, 전시하기·전시 빼기 (사용자 요청 2026-10-09, 2026-10-11 프로필 카드 → 방) ──
 {
   await page.goto(`${BASE}/@${devId}`);
+  // 다 자라 레벨이 올랐으면 레벨업 창이 먼저 뜬다 (collectErrors의 처리기가 닫는다). 뜰 틈을 주고 도감 버튼을 누른다
+  await page.locator('dialog[open][aria-labelledby="level-up-title"]').waitFor({ timeout: 2000 }).catch(() => {});
   const openBtn = page.locator("[data-collection-open]");
   const dialog = page.locator("dialog[data-collection]");
   const room = page.locator("[data-house-room]");
-  check("우리 집 방 도구 줄에 [🏅 도감 1] 버튼", (await room.locator("[data-collection-open]").innerText()).replace(/\s+/g, " ").trim() === "도감 1", await openBtn.innerText());
+  check("우리 집 방 도구 줄에 [🏅 도감 1/44] 버튼", (await room.locator("[data-collection-open]").innerText()).replace(/\s+/g, " ").trim() === "도감 1/44", await openBtn.innerText());
   check("처음엔 방 안에 주인 캐릭터만 (전시 동물 없음)", (await room.locator("[data-room-resident]").count()) === 1 && (await room.locator("[data-showcase]").count()) === 0);
   check("도감 창은 처음에 닫혀 있다", !(await dialog.isVisible()));
   await openBtn.click();

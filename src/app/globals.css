@@ -95,6 +95,14 @@ body {
   & pre code { background: none; padding: 0; color: inherit; }
   & hr { border: none; border-top: 2px dashed var(--color-line); margin: 2em 0; }
   & img { max-width: 100%; border-radius: 0.8rem; }
+  /* 사진 정렬 (2026-10-16): 사진은 한 줄을 다 쓰는 블록, 가운데·오른쪽은 양옆 여백으로 민다 */
+  & img[data-align] { display: block; }
+  & img[data-align="center"] { margin-inline: auto; }
+  & img[data-align="right"] { margin-left: auto; }
+  /* 사진 크기 (2026-10-16): 본문 너비에 대한 비율. 휴대폰처럼 좁으면 작게도 너무 작지 않게 */
+  & img[data-size="s"] { width: 33%; min-width: min(160px, 100%); }
+  & img[data-size="m"] { width: 50%; min-width: min(220px, 100%); }
+  & img[data-size="l"] { width: 75%; }
   /* 글꼴 바탕색 (mark): 고른 색은 style로 덮인다. 색 없이 칠한 것은 노랑 형광펜 */
   & mark { background: #fff176; color: inherit; padding: 0 0.08em; border-radius: 0.15em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 

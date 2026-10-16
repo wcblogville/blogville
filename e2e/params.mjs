@@ -275,8 +275,10 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
 // 상점·꾸미기 (SHOP NF-02): 장착·구매 요청을 잡아 이상한 아이템 ID로 다시 보내도 500 없이 그대로
 {
   await page.goto(`${BASE}/closet`);
-  const equip = await capture(() => page.locator('[data-closet-section="background"] button').first().click());
-  for (const v of [HUGE, "abc"]) check(`SHOP 꾸미기 장착: 아이템 ID ${JSON.stringify(v)} → 오류 없음`, (await replay(equip, [v])) === 200);
+  // 저장해야 적용되므로 아직 안 입은 배경을 골라 [저장] 요청을 잡는다 (2026-10-16)
+  await page.locator('[data-closet-section="background"] button[aria-pressed="false"]').first().click();
+  const equip = await capture(() => page.locator("[data-closet-save]").click());
+  for (const v of [[{ kind: "background", itemId: HUGE }], [{ kind: "background", itemId: "abc" }], [{ kind: "avatar", slot: "nope", itemId: 1 }], "abc"]) check(`SHOP 꾸미기 저장: ${JSON.stringify(v)} → 오류 없음`, (await replay(equip, [v])) === 200);
   await page.goto(`${BASE}/shop`);
   const buyable = page.locator('article[data-state="buy"]').first();
   if (await buyable.count()) {

@@ -6,9 +6,8 @@ import { MiniRoom } from "@/components/character";
 import { ItemArt } from "@/components/item-art";
 import { PixelIcon } from "@/components/pixel-icon";
 import { orderOutfit } from "@/lib/assets";
-import { withJosa } from "@/lib/josa";
-import { CLOSET_ERRORS, equipMessage } from "@/lib/shop";
-import { equipItem, unequipAvatar } from "./actions";
+import { CLOSET_ERRORS } from "@/lib/shop";
+import { type ClosetChange, saveCloset } from "./actions";
 
 type Slot = "hat" | "outfit" | "accessory" | "hair" | "hair_color" | "face_shape";
 type OwnedItem = { id: number; type: string; name: string; assetKey: string; avatarSlot: Slot | null };
@@ -17,6 +16,8 @@ type Equipped = { characterItemId: number; backgroundItemId: number; avatar: Par
 const SLOT_NAMES: Record<Slot, string> = { hat: "모자", outfit: "옷", accessory: "소품", hair: "머리 모양", hair_color: "머리 색", face_shape: "얼굴형" };
 
 export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedItem[]; equipped: Equipped; nickname: string; slug: string }) {
+  // saved = 저장된 모습, current = 눌러 본 모습 (미리보기). [저장]을 눌러야 적용된다 (2026-10-16 "저장 누르면 적용")
+  const [saved, setSaved] = useState(equipped);
   const [current, setCurrent] = useState(equipped);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
@@ -40,28 +41,39 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
   const isOn = (item: OwnedItem) =>
     item.type === "avatar" && item.avatarSlot ? current.avatar[item.avatarSlot] === item.id : item.id === current.characterItemId || item.id === current.backgroundItemId;
 
+  // 저장된 모습과 다른 것만 보낸다
+  const changes: ClosetChange[] = [
+    ...(current.characterItemId !== saved.characterItemId ? [{ kind: "character" as const, itemId: current.characterItemId }] : []),
+    ...(current.backgroundItemId !== saved.backgroundItemId ? [{ kind: "background" as const, itemId: current.backgroundItemId }] : []),
+    ...(Object.keys(SLOT_NAMES) as Slot[])
+      .filter((slot) => (current.avatar[slot] ?? null) !== (saved.avatar[slot] ?? null))
+      .map((slot) => ({ kind: "avatar" as const, slot, itemId: current.avatar[slot] ?? null })),
+  ];
+  const dirty = changes.length > 0;
+
   function toggle(item: OwnedItem) {
-    const before = current;
     const off = item.type === "avatar" && isOn(item);
-    // 미리 바꿔 보여주고, 실패하면 되돌린다 (SHOP-04)
     if (item.type === "avatar" && item.avatarSlot) {
       setCurrent({ ...current, avatar: { ...current.avatar, [item.avatarSlot]: off ? undefined : item.id } });
     } else {
       setCurrent({ ...current, [item.type === "character" ? "characterItemId" : "backgroundItemId"]: item.id });
     }
     setMessage(null);
+  }
+
+  function save() {
+    const next = current;
     start(async () => {
       try {
-        const r = off ? await unequipAvatar(item.id) : await equipItem(item.id);
+        const r = await saveCloset(changes);
         if (r.ok) {
-          setMessage({ ok: true, text: off ? `${withJosa(item.name, "을/를")} 벗었어요 ✓` : equipMessage(item.name) });
+          setSaved(next);
+          setMessage({ ok: true, text: "꾸민 모습을 저장했어요 ✓" });
           return;
         }
-        setCurrent(before);
         setMessage({ ok: false, text: r.error ?? CLOSET_ERRORS.failed });
       } catch {
-        // 서버 오류(네트워크, DB 등)도 오류 화면 대신 되돌리고 알려준다
-        setCurrent(before);
+        // 서버 오류(네트워크, DB 등)도 오류 화면 대신 알려준다. 미리보기는 그대로 두어 다시 저장할 수 있다
         setMessage({ ok: false, text: CLOSET_ERRORS.failed });
       }
     });
@@ -85,7 +97,6 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
           <button
             key={item.id}
             type="button"
-            disabled={pending}
             aria-pressed={on}
             data-closet-item={item.id}
             onClick={() => toggle(item)}
@@ -129,11 +140,11 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         </h2>
         {avatars.length === 0 ? (
           <p className="pixel-paper p-4 text-center text-sm">
-            아직 아바타 아이템이 없어요. <Link href="/shop" className="font-bold underline">상점</Link>에서 모자·옷·소품을 사 보세요.
+            아직 아바타 아이템이 없어요. <Link href="/clothes" className="font-bold underline">옷가게</Link>에서 모자·옷·소품을 사 보세요.
           </p>
         ) : (
           <>
-            <p className="-mt-2 mb-3 text-sm text-ink-soft">모자·옷·소품을 하나씩 입을 수 있어요. 입은 걸 한 번 더 누르면 벗어요.</p>
+            <p className="-mt-2 mb-3 text-sm text-ink-soft">모자·옷·소품을 하나씩 입을 수 있어요. 입은 걸 한 번 더 누르면 벗어요. 다 고르면 아래 [저장]을 눌러 주세요.</p>
             {grid(avatars)}
           </>
         )}
@@ -183,6 +194,24 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
           {grid(characters)}
         </section>
       )}
+
+      {/* 저장 줄: 화면 아래에 붙어 있다 (휴대폰은 아래 탭 위). 눌러 본 것은 [저장]해야 적용된다 */}
+      <div
+        className="pixel-panel sticky bottom-3 z-20 mt-8 flex flex-wrap items-center justify-end gap-2 px-4 py-3 phone:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]"
+        data-closet-savebar
+        data-dirty={dirty ? "true" : "false"}
+      >
+        <p className="mr-auto text-sm">
+          {dirty ? <b>{changes.length}가지 바꿨어요. [저장]을 눌러야 적용돼요</b> : <span className="text-ink-soft">아이템을 눌러 입어 보고 [저장]을 눌러 주세요</span>}
+        </p>
+        <button type="button" disabled={pending || !dirty} onClick={() => setCurrent(saved)} className="pixel-btn pixel-btn-sm bg-[#fffaf0] text-ink">
+          되돌리기
+        </button>
+        <button type="button" disabled={pending || !dirty} onClick={save} className="pixel-btn bg-leaf px-4 text-white" data-closet-save>
+          <PixelIcon name="save" scale={1} />
+          {pending ? "저장 중…" : "저장"}
+        </button>
+      </div>
     </>
   );
 }

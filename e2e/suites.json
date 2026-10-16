@@ -4,6 +4,7 @@
     "auth",
     "blog",
     "shop",
+    "post-align",
     "booster",
     "style",
     "plaza",
@@ -12,7 +13,8 @@
     "house",
     "room-interact",
     "town",
-    "town-walk"
+    "town-walk",
+    "dex"
   ],
   "nightly": [
     "auth",
@@ -35,6 +37,7 @@
     "decisions",
     "editor-tags",
     "farm",
+    "dex",
     "feed-load",
     "find-password",
     "fishing",
@@ -63,6 +66,7 @@
     "town",
     "town-walk",
     "visits",
-    "write-count"
+    "write-count",
+    "post-align"
   ]
 }

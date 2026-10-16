@@ -107,6 +107,15 @@ if (failed) process.exit(1);
   expect("rgb 범위 밖", '<p><span style="color: rgb(999, 0, 0)">x</span></p>', "<p><span>x</span></p>");
   expect("세미콜론 끼우기", '<p><span style="color: #fff; } body { display:none">x</span></p>', '<p><span style="color:#fff">x</span></p>');
   expect("mark 가짜 data-color", '<p><mark data-color="red;position:fixed" style="background-color: #fff176">x</mark></p>', '<p><mark data-color="#fff176" style="background-color:#fff176;color:inherit">x</mark></p>');
+  // 정렬 (사용자 요청 2026-10-16): 문단·제목은 text-align 가운데·오른쪽만, 사진은 data-align 가운데·오른쪽만
+  expect("문단 가운데", '<p style="text-align: center">x</p>', '<p style="text-align:center">x</p>');
+  expect("제목 오른쪽", '<h2 style="text-align: right; color: red">x</h2>', '<h2 style="text-align:right">x</h2>');
+  expect("왼쪽·양쪽은 기본으로", '<p style="text-align: left">a</p><p style="text-align: justify">b</p>', "<p>a</p><p>b</p>");
+  expect("정렬에 다른 CSS", '<p style="position: fixed; text-align: center; background: url(x)">x</p>', '<p style="text-align:center">x</p>');
+  expect("사진 가운데", '<img src="/files/0123456789abcdef0123456789abcdef" data-align="center" />', '<img src="/files/0123456789abcdef0123456789abcdef" data-align="center" />');
+  expect("사진 크기", '<img src="/files/0123456789abcdef0123456789abcdef" data-size="m" data-align="right" />', '<img src="/files/0123456789abcdef0123456789abcdef" data-align="right" data-size="m" />');
+  expect("사진 이상한 크기", '<img src="/files/0123456789abcdef0123456789abcdef" data-size="999px" width="5000" />', '<img src="/files/0123456789abcdef0123456789abcdef" />');
+  expect("사진 이상한 정렬", '<img src="/files/0123456789abcdef0123456789abcdef" data-align="x" style="float:left" />', '<img src="/files/0123456789abcdef0123456789abcdef" />');
   expect("mark onclick·class", '<p><mark class="x" onclick="alert(1)" style="background-color: #fff176">x</mark></p>', '<p><mark data-color="#fff176" style="background-color:#fff176;color:inherit">x</mark></p>');
   expect("p·h2 style 막기", '<p style="color:#f00">x</p><h2 style="background-color:#f00">y</h2>', "<p>x</p><h2>y</h2>");
   if (bad) process.exit(1);

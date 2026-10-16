@@ -22,6 +22,7 @@ import { BOBBER, CATCH_CELLS, catchDataUri, catchRows, catchSilhouetteDataUri, R
 import { CATCHES, catchPool, pickCatch, poolTotal } from "../src/lib/fishing";
 import { backgroundSvg, BG_ROWS } from "../src/lib/art/backgrounds";
 import { ROOF_COLORS } from "../src/lib/blog";
+import { DEX_SLOTS, DEX_TOTAL, dexProgress, DRAGON_CODE } from "../src/lib/dex";
 import {
   ANIMAL_DISPLAY_SIZES,
   animalName,
@@ -427,7 +428,8 @@ expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), is
 // 알 확률·암수·특별 진화·아기 모습 (2026-10-12 "노말한 동물들이랑 희귀한 애들이랑 확률 다르게", "암/수 별로", "유니콘이나 페가수스", "아기 형태로 데리고 다닐 수도")
 {
   const codes = Object.keys(HATCH_RARITY);
-  const assetCodes = Object.keys(ANIMAL_SIZE).map((k) => k.replace("animal.", ""));
+  // 도감 보상 용(2026-10-16)은 알에서 안 나온다
+  const assetCodes = Object.keys(ANIMAL_SIZE).map((k) => k.replace("animal.", "")).filter((c) => c !== "dragon");
   expect("등급 확률 합 100%", Object.values(RARITY_ODDS).reduce((a, b) => a + b, 0), 100);
   expect("종류별 알 확률 합 100%", Math.round(codes.reduce((a, c) => a + hatchPercent(c), 0) * 1000) / 1000, 100);
   expect("시드 비중(만분율) 합 10,000이고 모두 정수", [codes.reduce((a, c) => a + hatchWeightOf(c), 0), codes.every((c) => Number.isInteger(hatchWeightOf(c)) && hatchWeightOf(c) > 0)], [HATCH_WEIGHT_TOTAL, true]);
@@ -498,7 +500,7 @@ expect("크기 이름 검사", [isDisplaySize("tiny"), isDisplaySize("huge"), is
   expect("야생 동물마다 특별 진화 (백호·흑표범·구미호·불사조·빛나는 순록…)", [wild.filter((c) => variantsFor(c).length === 0), ["white_tiger", "black_panther", "nine_tailed", "phoenix", "glowing_reindeer"].map((k) => animalName("x", k))], [[], ["백호", "흑표범", "구미호", "불사조", "빛나는 순록"]]);
   expect("특별 진화 25가지", SPECIAL_VARIANTS.length, 25);
   expect("수사자는 갈기, 수사슴은 뿔: 암컷보다 키가 크거나 넓다", ["animal.lion", "animal.deer"].filter((k) => animalHeight(k, "normal", { sex: "male" }) <= animalHeight(k, "normal", { sex: "female" })), []);
-  expect("독수리만 난다, 걸음새: 독수리 높이 뜨고 거북이는 느리고 안 뛴다", [Object.keys(ANIMAL_SIZE).filter(animalFlies), Math.min(...petGait("animal.eagle").lift) > 2, petGait("animal.turtle").speed < 1 && petGait("animal.turtle").lift.every((l) => l === 0), petGait("animal.bear") === petGait("animal.chick")], [["animal.eagle"], true, true, true]);
+  expect("독수리와 용만 난다, 걸음새: 독수리 높이 뜨고 거북이는 느리고 안 뛴다", [Object.keys(ANIMAL_SIZE).filter(animalFlies), Math.min(...petGait("animal.eagle").lift) > 2, petGait("animal.turtle").speed < 1 && petGait("animal.turtle").lift.every((l) => l === 0), petGait("animal.bear") === petGait("animal.chick")], [["animal.eagle", "animal.dragon"], true, true, true]);
   {
     // 독수리 그림판: 걷기 칸(2·3·4) = 날갯짓, 서로 다르고 서 있는 그림과도 다르다
     const cells = (svg: string) => [0, 1, 2, 3, 4].map((f) => [...svg.matchAll(/M(\d+) (\d+)h(\d+)/g)].filter((m) => +m[2] < 32 && +m[1] >= f * 32 && +m[1] < f * 32 + 32).map((m) => `${+m[1] - f * 32},${m[2]},${m[3]}`).sort().join(";"));
@@ -607,3 +609,14 @@ expect("출석 창: 다른 회원이 오늘 연 브라우저 → 연다", should
 expect("출석 창: 게시판 입구가 아니면 안 연다", shouldAutoOpenBoard(false, undefined, "u1", "2026-10-12"), false);
 
 if (failed) process.exit(1);
+
+// 동물 도감 (2026-10-16 "모든 동물(특수진화 포함) 그림자 카드, 다 해금하면 용"): 알 종류 19 + 특별 진화 25 = 44칸, 용은 칸이 아니다
+{
+  const keys = DEX_SLOTS.map((s) => s.key);
+  expect("도감 44칸, 키가 겹치지 않고 용은 칸에 없다", [DEX_TOTAL, new Set(keys).size, keys.includes(DRAGON_CODE)], [44, 44, false]);
+  expect("모든 종류에 특별 진화가 있다 (마지막 칸은 늘 다 자랄 때 열린다)", Object.keys(HATCH_RARITY).filter((c) => !SPECIAL_VARIANTS.some((v) => v.species === c)), []);
+  const allSpecies = Object.keys(HATCH_RARITY);
+  const allVariants = SPECIAL_VARIANTS.map((v) => v.key);
+  expect("도감 세기: 다 = 44, 하나 빠지면 43, 칸에 없는 코드(용)는 안 센다", [dexProgress(allSpecies, allVariants), dexProgress(allSpecies.slice(1), allVariants), dexProgress([DRAGON_CODE], [])], [44, 43, 0]);
+  expect("용 그림이 있고 난다", [hasAnimalArt("animal.dragon"), animalFlies("animal.dragon")], [true, true]);
+}
