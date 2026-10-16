@@ -13,32 +13,46 @@ export const SHOP_SECTIONS: { type: Exclude<ItemType, "character">; title: strin
 ];
 
 /**
- * 상점 탭 (사용자 요청 2026-10-16 "상점이 잡화점마냥 다 몰아져있는 느낌 → 종류별로 나누자"):
- * 아바타 꾸미기는 부위(옷·모자·소품)마다, 나머지는 종류마다 한 탭. 주소 #key로 바로 연다 (예: /shop#growth)
+ * 상점 탭 (사용자 요청 2026-10-16 "상점이 잡화점마냥 다 몰아져있는 느낌 → 종류별로 나누자"): 종류마다 한 탭. 주소 #key로 바로 연다 (예: /shop#growth).
+ * 옷·모자·소품은 옷가게(/clothes)에서만 판다 (사용자 요청 2026-10-16 "옷가게가 있는데 왜 상점에 옷칸이 있는지"). 미용실 부위처럼 상점에는 없다
  */
 export const SHOP_TABS = [
-  { key: "outfit", type: "avatar", slot: "outfit", name: "옷", icon: "shirt", group: "꾸미기" },
-  { key: "hat", type: "avatar", slot: "hat", name: "모자", icon: "crown", group: "꾸미기" },
-  { key: "accessory", type: "avatar", slot: "accessory", name: "소품", icon: "sparkle", group: "꾸미기" },
-  { key: "furniture", type: "furniture", slot: null, name: "가구", icon: "chair", group: "우리 집" },
-  { key: "background", type: "background", slot: null, name: "배경", icon: "frame", group: "우리 집" },
-  { key: "growth", type: "growth", slot: null, name: "성장 아이템", icon: "sprout", group: "동물 농장" },
-] as const satisfies readonly { key: string; type: Exclude<ItemType, "character" | "deco">; slot: string | null; name: string; icon: string; group: string }[];
+  { key: "furniture", type: "furniture", name: "가구", icon: "chair", group: "우리 집" },
+  { key: "background", type: "background", name: "배경", icon: "frame", group: "우리 집" },
+  { key: "growth", type: "growth", name: "성장 아이템", icon: "sprout", group: "동물 농장" },
+] as const satisfies readonly { key: string; type: Exclude<ItemType, "character" | "deco" | "avatar">; name: string; icon: string; group: string }[];
 
 export type ShopTab = (typeof SHOP_TABS)[number]["key"];
-export const DEFAULT_TAB: ShopTab = "outfit";
+export const DEFAULT_TAB: ShopTab = "furniture";
 
-/** 아이템이 놓이는 탭 (부위를 모르는 아바타 아이템은 소품) */
-export function shopTabOf(item: Pick<ShopItem, "type" | "avatarSlot">): ShopTab | null {
-  if (item.type === "avatar") return SHOP_TABS.find((t) => t.type === "avatar" && t.slot === item.avatarSlot)?.key ?? "accessory";
+/** 아이템이 놓이는 탭 (아바타 아이템은 옷가게에서 팔아 상점 탭이 없다) */
+export function shopTabOf(item: Pick<ShopItem, "type">): ShopTab | null {
   return SHOP_TABS.find((t) => t.type === item.type)?.key ?? null;
 }
 
-/** 주소의 #으로 탭 고르기. 예전 구역 주소 #avatar는 옷 탭 */
+/** 예전 상점 주소 #avatar·#outfit·#hat·#accessory (옷·모자·소품 탭). 이제는 옷가게로 보낸다 */
+const CLOTHES_HASHES = ["avatar", "outfit", "hat", "accessory"];
+export const isClothesHash = (hash: string) => CLOTHES_HASHES.includes(decodeURIComponent(hash.replace(/^#/, "")));
+
+/** 주소의 #으로 탭 고르기 */
 export function tabFromHash(hash: string): ShopTab | null {
   const key = decodeURIComponent(hash.replace(/^#/, ""));
-  if (key === "avatar") return "outfit";
   return SHOP_TABS.find((t) => t.key === key)?.key ?? null;
+}
+
+/** 성장 아이템 한 번에 사는 개수 상한 (사용자 요청 2026-10-16 "성장 아이템 한번에 여러개 사는 기능") */
+export const MAX_BULK = 99;
+
+/** 지금 코인으로 한 번에 살 수 있는 개수 (0 ~ MAX_BULK) */
+export function maxBuyable(price: number, coins: number): number {
+  if (price <= 0) return MAX_BULK;
+  return Math.max(0, Math.min(MAX_BULK, Math.floor(coins / price)));
+}
+
+/** 서버로 온 개수: 1 ~ MAX_BULK 정수만 (아니면 null) */
+export function parseCount(raw: unknown): number | null {
+  if (raw === undefined) return 1;
+  return typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_BULK ? raw : null;
 }
 
 export function sectionTitle(type: ItemType): string | null {
@@ -78,8 +92,9 @@ export function shortage(price: number, coins: number): number {
 }
 
 /** 산 뒤 안내 (FR-008, FR-043) */
-export function purchaseMessage(kind: "decor" | "growth", name: string): string {
-  return kind === "growth" ? `${withJosa(name, "을/를")} 샀어요! 동물 농장에서 써 보세요.` : `${withJosa(name, "을/를")} 샀어요! 꾸미기에서 장착해 보세요.`;
+export function purchaseMessage(kind: "decor" | "growth", name: string, count = 1): string {
+  if (kind === "growth") return `${count > 1 ? `${name} ${count}개를` : withJosa(name, "을/를")} 샀어요! 동물 농장에서 써 보세요.`;
+  return `${withJosa(name, "을/를")} 샀어요! 꾸미기에서 장착해 보세요.`;
 }
 
 export const SHOP_ERRORS = {
@@ -87,6 +102,7 @@ export const SHOP_ERRORS = {
   owned: "이미 가지고 있는 아이템이에요",
   level: (n: number) => `레벨 ${n}부터 살 수 있어요`,
   coins: (n: number) => `코인이 ${n}개 부족해요`,
+  count: `한 번에 1~${MAX_BULK}개까지 살 수 있어요`,
 } as const;
 
 export const CLOSET_ERRORS = {

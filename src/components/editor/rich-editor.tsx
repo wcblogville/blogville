@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { postTextLength } from "@/lib/text-length";
 import Highlight from "@tiptap/extension-highlight";
 import Image from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
 import { Color, TextStyle } from "@tiptap/extension-text-style";
 import { useEffect, useRef } from "react";
 import { attachmentPath, FILE_TYPES, IMAGE_TYPES } from "@/lib/attachments";
@@ -26,9 +27,57 @@ const PostImage = Image.extend({
     return [{ tag: "img[src]", getAttrs: (el) => (imagePath((el as HTMLElement).getAttribute("src")) ? null : false) }];
   },
   addAttributes() {
-    return { ...this.parent?.(), src: { default: null, parseHTML: (el) => imagePath(el.getAttribute("src")) } };
+    return {
+      ...this.parent?.(),
+      src: { default: null, parseHTML: (el) => imagePath(el.getAttribute("src")) },
+      // 사진 정렬 (사용자 요청 2026-10-16 "사진 중앙 정렬도"): 기본은 왼쪽, 가운데·오른쪽만 data-align으로 적는다 (모양은 globals.css .prose-blog img)
+      align: {
+        default: null,
+        parseHTML: (el) => alignOf(el.getAttribute("data-align")),
+        renderHTML: (attrs) => (attrs.align ? { "data-align": attrs.align } : {}),
+      },
+      // 사진 크기 (사용자 요청 2026-10-16 "첨부한 사진 크기 조절"): 작게·보통·크게, 없으면 원래 크기(본문 너비까지). 너비는 globals.css
+      size: {
+        default: null,
+        parseHTML: (el) => sizeOf(el.getAttribute("data-size")),
+        renderHTML: (attrs) => (attrs.size ? { "data-size": attrs.size } : {}),
+      },
+    };
   },
 });
+
+type Align = "left" | "center" | "right";
+/** 정렬 버튼 그림: 길이가 다른 줄 네 개를 왼쪽·가운데·오른쪽에 붙인다 (도트처럼 각지게) */
+function AlignArt({ to }: { to: Align }) {
+  const rows = [14, 9, 14, 9];
+  return (
+    <svg width="16" height="14" viewBox="0 0 16 14" shapeRendering="crispEdges" aria-hidden>
+      {rows.map((w, i) => (
+        <rect key={i} x={to === "left" ? 1 : to === "right" ? 15 - w : (16 - w) / 2} y={1 + i * 3.5} width={w} height="2" fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
+const IMAGE_SIZES = [
+  { key: "s", label: "작게" },
+  { key: "m", label: "보통" },
+  { key: "l", label: "크게" },
+  { key: null, label: "원래 크기" },
+] as const;
+const sizeOf = (v: string | null): "s" | "m" | "l" | null => (v === "s" || v === "m" || v === "l" ? v : null);
+const alignOf = (v: string | null): "center" | "right" | null => (v === "center" || v === "right" ? v : null);
+
+/** 정렬 (사용자 요청 2026-10-16 "오른쪽정렬, 왼쪽 정렬, 중앙 정렬"): 사진을 고른 상태면 사진을, 아니면 글 줄(문단·제목)을 정렬한다 */
+function setAlign(e: Editor, a: Align) {
+  if (e.isActive("image")) e.chain().focus().updateAttributes("image", { align: a === "left" ? null : a }).run();
+  else if (a === "left") e.chain().focus().unsetTextAlign().run();
+  else e.chain().focus().setTextAlign(a).run();
+}
+function isAlign(e: Editor, a: Align) {
+  if (e.isActive("image")) return (e.getAttributes("image").align ?? "left") === a;
+  return a === "left" ? !e.isActive({ textAlign: "center" }) && !e.isActive({ textAlign: "right" }) : e.isActive({ textAlign: a });
+}
 
 // 사용자 요청 2026-10-12 "h2 h3 b i u s 이런 것들 가독성 좋게 알기 쉽게 써 놔 줘, 마우스 올리면 어떤 기능인지":
 // 짧은 기호 버튼은 아래에 한글 이름(caption)을 늘 보여 주고, 마우스를 올리거나 키보드로 고르면 바로 설명 말풍선(hint)이 뜬다.
@@ -45,6 +94,8 @@ type ToolButton = {
   glyph?: string;
   /** 글자 앞 도트 아이콘 */
   icon?: IconName;
+  /** 기호 대신 그리는 작은 그림 (정렬 줄 모양) */
+  art?: React.ReactNode;
   run: (e: Editor) => void;
   active?: (e: Editor) => boolean;
 };
@@ -58,6 +109,10 @@ const TOOLS: (ToolButton | "sep" | "colors")[] = [
   { label: "U", title: "밑줄", caption: "밑줄", hint: "고른 글자 아래에 줄을 그어요", keys: "Ctrl(⌘)+U", glyph: "underline underline-offset-2", run: (e) => e.chain().focus().toggleUnderline().run(), active: (e) => e.isActive("underline") },
   { label: "S", title: "취소선", caption: "취소선", hint: "고른 글자 가운데에 줄을 그어요", keys: "Ctrl(⌘)+Shift+S", glyph: "line-through", run: (e) => e.chain().focus().toggleStrike().run(), active: (e) => e.isActive("strike") },
   "colors", // 글꼴 색 · 바탕색 · 이모티콘 (color-tools.tsx)
+  "sep",
+  { label: "", art: <AlignArt to="left" />, title: "왼쪽 정렬", caption: "왼쪽", hint: "줄(사진을 고르면 사진)을 왼쪽에 붙여요", keys: "Ctrl(⌘)+Shift+L", run: (e) => setAlign(e, "left"), active: (e) => isAlign(e, "left") },
+  { label: "", art: <AlignArt to="center" />, title: "가운데 정렬", caption: "가운데", hint: "줄(사진을 고르면 사진)을 가운데에 놓아요", keys: "Ctrl(⌘)+Shift+E", run: (e) => setAlign(e, "center"), active: (e) => isAlign(e, "center") },
+  { label: "", art: <AlignArt to="right" />, title: "오른쪽 정렬", caption: "오른쪽", hint: "줄(사진을 고르면 사진)을 오른쪽에 붙여요", keys: "Ctrl(⌘)+Shift+R", run: (e) => setAlign(e, "right"), active: (e) => isAlign(e, "right") },
   "sep",
   { label: "• 목록", title: "글머리 목록", hint: "점(•)으로 시작하는 목록을 만들어요", keys: "Ctrl(⌘)+Shift+8", run: (e) => e.chain().focus().toggleBulletList().run(), active: (e) => e.isActive("bulletList") },
   { label: "1. 목록", title: "번호 목록", hint: "1, 2, 3 번호가 붙는 목록을 만들어요", keys: "Ctrl(⌘)+Shift+7", run: (e) => e.chain().focus().toggleOrderedList().run(), active: (e) => e.isActive("orderedList") },
@@ -111,6 +166,8 @@ export function RichEditor({
       TextStyle,
       Color,
       Highlight.configure({ multicolor: true }),
+      // 글 줄 정렬: style="text-align: center|right" (왼쪽은 기본이라 적지 않는다). 저장할 때 sanitize.ts가 이 둘만 남긴다
+      TextAlign.configure({ types: ["heading", "paragraph"], alignments: ["left", "center", "right"] }),
       Placeholder.configure({ placeholder: "오늘 배운 것, 생각한 것, 무엇이든 적어 보세요" }),
     ],
     content: initialHtml,
@@ -190,6 +247,12 @@ export function RichEditor({
       editor ? TOOLS.map((t) => (typeof t === "object" && t.active ? t.active(editor) : false)) : [],
   });
 
+  // 고른 사진의 크기 (사진을 고르지 않았으면 undefined → 크기 줄을 숨긴다)
+  const imageSize = useEditorState({
+    editor,
+    selector: ({ editor }) => (editor?.isActive("image") ? ((editor.getAttributes("image").size as string | null) ?? null) : undefined),
+  });
+
   return (
     <div data-rich-editor className="pixel-card bg-white focus-within:shadow-[0_-3px_0_0_#d99a36,0_3px_0_0_#d99a36,-3px_0_0_0_#d99a36,3px_0_0_0_#d99a36,0_0_0_6px_#ffd36e66]">
       <div className="pb-plank relative flex flex-wrap items-center gap-1 p-2 [text-shadow:none]" role="toolbar" aria-label="글꼴 도구">
@@ -214,6 +277,7 @@ export function RichEditor({
             >
               <span className={`inline-flex items-center gap-1 leading-none ${tool.glyph ?? ""}`} aria-hidden>
                 {tool.icon && <PixelIcon name={tool.icon} scale={1} />}
+                {tool.art}
                 {tool.label}
               </span>
               {tool.caption && (
@@ -247,6 +311,24 @@ export function RichEditor({
         <input ref={imageInput} type="file" accept={IMAGE_ACCEPT} multiple hidden aria-label="사진 고르기" onChange={(e) => pick(e.currentTarget)} />
         <input ref={fileInput} type="file" accept={FILE_ACCEPT} multiple hidden aria-label="파일 고르기" onChange={(e) => pick(e.currentTarget)} />
       </div>
+      {imageSize !== undefined && (
+        <div className="flex flex-wrap items-center gap-1 border-b-2 border-dashed border-[#e2c9a0] bg-[#fff8ec] px-3 py-1.5 text-sm" role="group" aria-label="사진 크기" data-image-size-bar>
+          <span className="mr-1 font-bold text-ink-soft">사진 크기</span>
+          {IMAGE_SIZES.map((o) => (
+            <button
+              key={o.label}
+              type="button"
+              aria-pressed={imageSize === o.key}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => editor?.chain().focus().updateAttributes("image", { size: o.key }).run()}
+              className={`inline-flex min-h-11 items-center px-3 font-bold ${imageSize === o.key ? "pb-tab-on" : "bg-[#fff3d6] text-ink shadow-[inset_0_-3px_0_0_#e0c08e] hover:bg-white"}`}
+            >
+              {o.label}
+            </button>
+          ))}
+          <span className="ml-2 text-xs text-ink-soft">정렬 버튼으로 사진을 가운데·오른쪽에 놓을 수 있어요</span>
+        </div>
+      )}
       {(progress || errors.length > 0) && (
         <div className="border-b-2 border-dashed border-[#e2c9a0] bg-[#fff8ec] px-4 py-2 text-sm" role="status" aria-live="polite">
           {progress && (

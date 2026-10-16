@@ -10,7 +10,7 @@ import { FURNITURE_KEYS, furnitureRows, hasFurnitureArt } from "../src/lib/art/f
 import { growthSvg, hasGrowthArt } from "../src/lib/art/growth";
 import { availabilityText, catchByKey, catchCoins, catchPool, CATCHES, expectedCoinsPerCast, formatSize, isAvailable, judgeTiming, pickCatch, poolTotal, rollSize } from "../src/lib/fishing";
 import { FISHING_RULES, kstClock, weekStart } from "../src/lib/game";
-import { buttonState, purchaseMessage, SHOP_ERRORS, SHOP_SECTIONS, SHOP_TABS, shopTabOf, shortage, sortShopItems, tabFromHash, type ShopItem } from "../src/lib/shop";
+import { buttonState, isClothesHash, MAX_BULK, maxBuyable, parseCount, purchaseMessage, SHOP_ERRORS, SHOP_SECTIONS, SHOP_TABS, shopTabOf, shortage, sortShopItems, tabFromHash, type ShopItem } from "../src/lib/shop";
 
 let failed = 0;
 function expect(name: string, got: unknown, want: unknown) {
@@ -21,11 +21,17 @@ function expect(name: string, got: unknown, want: unknown) {
 
 // FR-003 구역 순서, 캐릭터 없음
 expect("구역 4개 순서 (광장 장식은 광장 꾸미기를 쉬면서 뺐다, TOWN-16)", SHOP_SECTIONS.map((s) => s.type), ["avatar", "furniture", "background", "growth"]);
-// 탭 (2026-10-16 "부위별로 세분화해서 종류별로"): 옷·모자·소품·가구·배경·성장 아이템
-expect("탭 6개 순서", SHOP_TABS.map((t) => t.key), ["outfit", "hat", "accessory", "furniture", "background", "growth"]);
-expect("아바타 아이템은 부위 탭으로", [shopTabOf({ type: "avatar", avatarSlot: "hat" }), shopTabOf({ type: "avatar", avatarSlot: "outfit" }), shopTabOf({ type: "avatar", avatarSlot: null })], ["hat", "outfit", "accessory"]);
-expect("다른 종류는 종류 탭으로", [shopTabOf({ type: "furniture" }), shopTabOf({ type: "growth" }), shopTabOf({ type: "deco" })], ["furniture", "growth", null]);
-expect("주소 #으로 탭 (예전 #avatar는 옷)", [tabFromHash("#growth"), tabFromHash("#avatar"), tabFromHash(""), tabFromHash("#nope")], ["growth", "outfit", null, null]);
+// 탭 (2026-10-16 "종류별로"): 가구·배경·성장 아이템. 옷·모자·소품은 옷가게에서만 판다 ("옷가게가 있는데 왜 상점에 옷칸이")
+expect("탭 3개 순서", SHOP_TABS.map((t) => t.key), ["furniture", "background", "growth"]);
+expect("아바타 아이템은 상점 탭이 없다", [shopTabOf({ type: "avatar" }), shopTabOf({ type: "deco" })], [null, null]);
+expect("다른 종류는 종류 탭으로", [shopTabOf({ type: "furniture" }), shopTabOf({ type: "background" }), shopTabOf({ type: "growth" })], ["furniture", "background", "growth"]);
+expect("주소 #으로 탭", [tabFromHash("#growth"), tabFromHash("#outfit"), tabFromHash(""), tabFromHash("#nope")], ["growth", null, null, null]);
+expect("예전 옷·모자·소품 주소는 옷가게로", ["#avatar", "#outfit", "#hat", "#accessory", "#growth", ""].map(isClothesHash), [true, true, true, true, false, false]);
+
+// 성장 아이템 여러 개 사기 (2026-10-16): 개수 1~99, 코인으로 살 수 있는 만큼
+expect("살 수 있는 개수", [maxBuyable(30, 100), maxBuyable(30, 20), maxBuyable(1, 10_000), maxBuyable(0, 0)], [3, 0, MAX_BULK, MAX_BULK]);
+expect("개수 검사", [parseCount(undefined), parseCount(1), parseCount(99), parseCount(0), parseCount(100), parseCount(1.5), parseCount("3")], [1, 1, 99, null, null, null, null]);
+expect("여러 개 산 안내", purchaseMessage("growth", "동물 먹이", 5), "동물 먹이 5개를 샀어요! 동물 농장에서 써 보세요.");
 
 // FR-006 버튼 상태: 보유 → 잠금 → 코인 부족 → 사기
 const item = (o: Partial<ShopItem>): ShopItem => ({

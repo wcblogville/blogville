@@ -129,7 +129,7 @@ export function ClosetView({ items, equipped, nickname, slug }: { items: OwnedIt
         </h2>
         {avatars.length === 0 ? (
           <p className="pixel-paper p-4 text-center text-sm">
-            아직 아바타 아이템이 없어요. <Link href="/shop" className="font-bold underline">상점</Link>에서 모자·옷·소품을 사 보세요.
+            아직 아바타 아이템이 없어요. <Link href="/clothes" className="font-bold underline">옷가게</Link>에서 모자·옷·소품을 사 보세요.
           </p>
         ) : (
           <>

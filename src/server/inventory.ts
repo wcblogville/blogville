@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, gt, isNull, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, gt, ne, notInArray, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { avatarEquips, blogs, items, profiles, userItems } from "@/db/schema";
@@ -14,7 +14,7 @@ export function outfitOf(userIdColumn: AnyPgColumn | SQL): SQL<string[]> {
   )`;
 }
 
-/** 상점 목록: 판매 중인 것만, 내 수량(없으면 0)과 가진 회원 수 (contracts/shop.md 1.1). 머리 모양·머리 색·얼굴형은 미용실에서만 판다 (SHOP-07) */
+/** 상점 목록: 판매 중인 것만, 내 수량(없으면 0)과 가진 회원 수 (contracts/shop.md 1.1). 아바타 아이템은 미용실·옷가게에서만 판다 (SHOP-07·08, 2026-10-16) */
 export async function listShopItems(userId: string): Promise<ShopItem[]> {
   const owners = db
     .select({ itemId: userItems.itemId, n: sql<number>`COUNT(*)::int`.as("n") })
@@ -41,8 +41,7 @@ export async function listShopItems(userId: string): Promise<ShopItem[]> {
     .where(
       and(
         eq(items.isOnSale, true),
-        ne(items.type, "character"),
-        or(isNull(items.avatarSlot), notInArray(items.avatarSlot, ["hair", "hair_color", "face_shape"])),
+        notInArray(items.type, ["character", "avatar"]),
       ),
     )
     .orderBy(asc(items.requiredLevel), asc(items.price), asc(items.id));

@@ -19,14 +19,14 @@ const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta) SELECT id, 'signup', 10 FROM users WHERE username = $1", [NAME]);
 await db.end();
 
-// 상점: 바닷가 배경(120, Lv1) 사기, 털모자(Lv2)는 잠김 (캐릭터는 상점에서 팔지 않는다)
+// 상점: 바닷가 배경(120, Lv1) 사기, 눈 마을(Lv2)은 잠김 (캐릭터는 상점에서 팔지 않는다)
 await page.goto(`${BASE}/shop#background`);
 const beach = page.locator("article", { hasText: "바닷가" });
 await beach.getByRole("button", { name: "사기" }).click();
 await page.getByRole("status").waitFor();
 console.log("shop msg:", await page.getByRole("status").innerText());
-await page.locator('[data-shop-tab-button="hat"]').click();
-console.log("beanie button:", await page.locator("article", { hasText: "털모자" }).getByRole("button").innerText());
+await page.locator('[data-shop-tab-button="background"]').click();
+console.log("snow button:", await page.locator("article", { hasText: "눈 마을" }).getByRole("button").innerText());
 await page.waitForLoadState("networkidle");
 console.log("after purchase:", await coins(page));
 await page.screenshot({ path: `${outDir}/21-shop.png`, fullPage: true });
