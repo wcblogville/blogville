@@ -13,7 +13,8 @@
     "house",
     "room-interact",
     "town",
-    "town-walk"
+    "town-walk",
+    "dex"
   ],
   "nightly": [
     "auth",
@@ -36,6 +37,7 @@
     "decisions",
     "editor-tags",
     "farm",
+    "dex",
     "feed-load",
     "find-password",
     "fishing",

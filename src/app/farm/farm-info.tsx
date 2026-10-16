@@ -64,7 +64,7 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
         className="pixel-dialog m-auto max-h-[88dvh] w-[min(94vw,46rem)] overflow-y-auto p-0 backdrop:bg-[#2b2118]/60"
       >
         <div className="p-5">
-          <div className="pb-plank -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
+          <div className="pb-plank sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
             <h2 id="farm-info-title" className="font-display text-xl">
               ⓘ 동물 농장 안내
             </h2>

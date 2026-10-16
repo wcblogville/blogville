@@ -54,7 +54,8 @@ export const ledgerReason = pgEnum("ledger_reason", [
 // 동물 농장 (TOWN-09)
 export const animalStatus = pgEnum("animal_status", ["egg", "growing", "grown"]);
 // adopt = 코인으로 분양받은 동물 (알 없이 아기로 온다, 2026-10-11)
-export const eggSource = pgEnum("egg_source", ["starter", "level", "shop", "adopt"]);
+// reward = 도감을 다 채우면 오는 용 (2026-10-16)
+export const eggSource = pgEnum("egg_source", ["starter", "level", "shop", "adopt", "reward"]);
 export const careAction = pgEnum("care_action", ["feed", "water", "pet"]);
 
 // ===== 인증 (Better Auth가 요구하는 구조) =====
@@ -648,14 +649,16 @@ export const animalSpecies = pgTable(
     hatchWeight: integer("hatch_weight").notNull(), // 알에서 나올 확률 비중 (클수록 흔함, 0 = 알에서 안 나옴)
     // 분양 값 (코인). NULL이면 분양하지 않고 알에서만 나온다 (2026-10-11 "펫 종류")
     price: integer("price"),
+    // 보상으로만 오는 종류 (2026-10-16 도감을 다 채우면 오는 용): 알에서 안 나오고 분양도 안 하며 도감 칸에도 세지 않는다
+    rewardOnly: boolean("reward_only").notNull().default(false),
   },
   (t) => [
     check("animal_species_grow_check", sql`${t.growExp} > 0`),
     check("animal_species_reward_check", sql`${t.rewardExp} >= 0 AND ${t.rewardCoins} >= 0`),
     check("animal_species_weight_check", sql`${t.hatchWeight} >= 0`),
     check("animal_species_price_check", sql`${t.price} IS NULL OR ${t.price} > 0`),
-    // 알에서도 안 나오고 분양도 안 하는 종류는 없다
-    check("animal_species_obtainable_check", sql`${t.hatchWeight} > 0 OR ${t.price} IS NOT NULL`),
+    // 알에서도 안 나오고 분양도 안 하는 종류는 보상 동물뿐이다
+    check("animal_species_obtainable_check", sql`${t.hatchWeight} > 0 OR ${t.price} IS NOT NULL OR ${t.rewardOnly}`),
   ],
 );
 

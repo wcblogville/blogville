@@ -40,6 +40,8 @@ export const ANIMAL_SIZE: Record<string, { tier: AnimalTier; r: number }> = {
   "animal.bear": { tier: "large", r: 10 },
   "animal.tiger": { tier: "large", r: 10 },
   "animal.lion": { tier: "large", r: 10 },
+  // 도감을 다 채우면 오는 용 (2026-10-16 "도감 다 해금하면 용같은거 주자"): 날개·뿔·꼬리가 길어 몸은 8칸 (32칸 도화지에 다 들어가게)
+  "animal.dragon": { tier: "medium", r: 8 },
 };
 const DEFAULT_SIZE = ANIMAL_SIZE["animal.piglet"];
 const FEET = 29;
@@ -658,6 +660,13 @@ const ANIMALS: Record<string, { colors: Colors; fly?: boolean; draw: (p: Pix, g:
     fly: true,
     draw: (p, g, eyeC) => eagle(p, g, eyeC),
   },
+  // 용 (2026-10-16 도감 보상): 초록 비늘, 노란 배, 등 가시, 뿔, 박쥐 날개, 위로 말린 꼬리. 아기는 머리가 크고 뿔·날개가 작다.
+  // 독수리처럼 따라다닐 때는 날갯짓하며 난다 (fly)
+  "animal.dragon": {
+    colors: { 4: "#a8e486", 5: "#4fb35a", 6: "#2f7d45", o: "#ffe9a0", O: "#e8a93c", H: "#fff4d0", h: "#d9c79a", R: "#7fcfa0", r: "#2f7d45" },
+    fly: true,
+    draw: (p, g, eyeC) => dragon(p, g, eyeC),
+  },
   // 거북이: 둥근 등딱지(무늬 칸), 짧은 다리, 앞으로 내민 머리. 아기는 머리가 크고 등딱지가 동글. 수컷은 꼬리가 길다
   "animal.turtle": {
     colors: { 4: "#a6d77e", 5: "#5fa65a", 6: "#3f7d48", D: "#2f5c38", o: "#d6e3a2", O: "#a9bd76" },
@@ -943,6 +952,81 @@ function eagle(p: Pix, g: G, eyeC: string): Geo {
   const bky = Math.round(geo.hy);
   p.rect(bkx - 1, bky - 1, t === 1 ? 3 : 2, 2, "o").px(bkx + (t === 1 ? 1 : 0), bky + 1, "O");
   eye(p, geo.hx + hr * 0.2, geo.hy - hr * 0.2, hr, eyeC, false, isFemale(g));
+  return geo;
+}
+
+/** 용: 서 있으면 네 다리로 서고 날개를 등에 세운다. pose가 있으면 다리를 접고 날개를 펼쳐 난다 (독수리와 같은 날갯짓 칸) */
+function dragon(p: Pix, g: G, eyeC: string): Geo {
+  const { t, u } = g;
+  const flying = !!g.pose;
+  const bw = sz([0.75, 0.8], g);
+  const bh = sz([0.62, 0.52], g);
+  const leg = flying ? 0 : Math.max(1, Math.round(sz([0.28, 0.42], g)));
+  const lw = Math.max(1, Math.round(sz([0.24, 0.22], g)));
+  const hr = sz([0.62, 0.42], g);
+  const by = FEET - leg - bh + 1 - (flying ? Math.round(u * 0.35) : 0);
+  const bx = CX - u * 0.15;
+  const geo: Geo = { bx, by, bw, bh, hx: bx + bw + sz([0.15, 0.3], g), hy: by - sz([0.5, 0.95], g), hr };
+  const { hx, hy } = geo;
+  // 날개 (뒤쪽 날개는 그늘색으로 몸 뒤에, 앞쪽 날개는 몸 위에)
+  const rootX = bx - bw * 0.05;
+  const rootY = by - bh * 0.7;
+  const reach = u * (t === 0 ? 0.45 : flying ? 1.1 : 0.8);
+  const dir =
+    !flying ? [[-0.45, -1], [-0.85, -0.75], [-1, -0.3]]
+    : g.pose === "up" ? [[-0.3, -1], [-0.7, -0.85], [-1, -0.5]]
+    : g.pose === "glide" ? [[-0.35, -0.6], [-0.8, -0.4], [-1.05, -0.1]]
+    : [[-0.35, 0.5], [-0.7, 0.7], [-1, 0.4]];
+  const r = Math.max(0.7, u * 0.12);
+  const tips = dir.map(([kx, ky]) => [rootX + reach * kx, Math.max(1.5 + r, rootY + reach * ky)] as const);
+  const drawWing = (dx: number, membrane: string, edge: string) => {
+    // 날개막: 뿌리에서 끝까지 굵은 선을 촘촘히, 뼈대는 진한 선
+    for (let i = 0; i < tips.length - 1; i++)
+      for (let k = 0; k <= 4; k++) {
+        const x = lerp(tips[i][0], tips[i + 1][0], k / 4) + dx;
+        const y = lerp(tips[i][1], tips[i + 1][1], k / 4);
+        thick(p, rootX + dx, rootY, x, y, r, membrane);
+      }
+    for (const [x, y] of tips) thin(p, rootX + dx, rootY, x + dx, y, edge);
+  };
+  if (t > 0) drawWing(-1, "6", "6");
+  // 꼬리: 몸 뒤에서 아래로 갔다가 위로 말린다, 끝에 주황 가시
+  const tr = Math.max(0.7, u * 0.15);
+  const tail = flying
+    ? ([[bx - bw * 0.7, by], [bx - bw - u * 0.3, by + bh * 0.2], [bx - bw - u * 0.55, by - bh * 0.2]] as const)
+    : ([[bx - bw * 0.7, by], [bx - bw - u * 0.25, by + bh * 0.3], [bx - bw - u * 0.45, by - bh * 0.7]] as const);
+  curve(p, tail, tr, "5");
+  const [tx, ty] = tail[tail.length - 1];
+  p.px(Math.round(tx), Math.round(ty - tr) - 1, "O").px(Math.round(tx) - 1, Math.round(ty - tr), "O");
+  // 다리 (뒤쪽은 그늘, 발톱은 크림색)
+  const top = Math.round(by);
+  const legs = [bx - bw * 0.55, bx + bw * 0.45].map((x) => Math.round(x - lw / 2));
+  if (!flying) for (const x of legs) p.rect(x + lw + 1, top, lw, FEET - top + 1, "6");
+  p.ellipse(bx, by, bw + 0.3, bh, "5");
+  // 노란 배
+  p.ellipse(bx + bw * 0.15, by + bh * 0.5, bw * 0.7, Math.max(1, bh * 0.4), "o");
+  if (!flying)
+    for (const x of legs) {
+      p.rect(x, top, lw, FEET - top + 1, "5");
+      if (u >= 5) p.px(x + lw, FEET, "H");
+    }
+  else for (const x of legs) p.rect(x, Math.round(by + bh * 0.6), lw, Math.max(1, Math.round(u * 0.15)), "6");
+  // 목과 머리, 앞으로 나온 주둥이
+  thick(p, bx + bw * 0.55, by - bh * 0.3, hx, hy, Math.max(1, hr * 0.6), "5");
+  p.ellipse(hx, hy, hr + 0.3, hr, "5");
+  p.ellipse(hx + hr * 0.85, hy + hr * 0.3, Math.max(1, hr * 0.7), Math.max(1, hr * 0.5), "5");
+  p.px(Math.round(hx + hr * 1.4), Math.round(hy + hr * 0.05), "6");
+  // 등 가시 (몸·목 위로 한 칸 걸러)
+  bristles(p, bx - bw * 0.8, bx + bw * 0.7, "O");
+  if (t > 0) shine(p, geo);
+  // 뿔 (머리 뒤 위로, 수컷은 더 길다). 아기는 작은 혹
+  const hornLen = t === 0 ? 0.5 : isMale(g) ? 1.9 : isFemale(g) ? 1.3 : 1.6;
+  const clampY = (y: number) => Math.max(1, y);
+  thin(p, hx - hr * 0.35, hy - hr * 0.8, hx - hr * (0.35 + hornLen * 0.5), clampY(hy - hr * (0.8 + hornLen * 0.7)), "H");
+  thin(p, hx + hr * 0.1, hy - hr * 0.85, hx - hr * (0.05 + hornLen * 0.35), clampY(hy - hr * (0.85 + hornLen * 0.5)), "h");
+  // 앞쪽 날개
+  if (t > 0 || !flying) drawWing(0, "R", "r");
+  eye(p, hx + hr * 0.15, hy - hr * 0.25, hr, eyeC, false, isFemale(g));
   return geo;
 }
 
@@ -1608,6 +1692,8 @@ const GAITS: Record<string, PetGait> = {
   "animal.turtle": { stride: 2.2, lift: [0, 0, 0, 0], speed: 0.6 },
   // 독수리: 날개를 퍼덕이며 주인 머리 높이쯤 떠서 날아온다
   "animal.eagle": { stride: 1.4, lift: [4, 5, 4, 3], speed: 1.2 },
+  // 용: 큰 날개로 천천히 퍼덕이며 주인 옆을 난다
+  "animal.dragon": { stride: 1.7, lift: [3, 4, 3, 2], speed: 1.1 },
 };
 const WALK_GAIT: PetGait = { stride: 1, lift: PET_WALK_LIFT, speed: 1 };
 /** 이 동물의 걸음새 (늘 같은 객체를 돌려준다: 화면 쪽 의존성 목록에 넣어도 된다) */

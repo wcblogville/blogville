@@ -39,8 +39,13 @@ export type FarmResult = { ok: true; text: string; icon?: IconName } | { ok: fal
 /** 다 자랐을 때 문구 (특별 진화면 크게 알려 준다) */
 function grownText(grown: GrownAnimal) {
   const reward = `경험치 +${grown.rewardExp}, 코인 +${grown.rewardCoins}`;
-  if (grown.special) return `특별한 일이 생겼어요! ${subject(grown.name)} ${toward(grown.special)} 자랐어요! ${reward}`;
-  return `${subject(grown.name)} 다 자랐어요! ${reward}`;
+  const text = grown.special ? `특별한 일이 생겼어요! ${subject(grown.name)} ${toward(grown.special)} 자랐어요! ${reward}` : `${subject(grown.name)} 다 자랐어요! ${reward}`;
+  return text + dexRewardText(grown.dexReward ?? null);
+}
+
+/** 도감을 다 채워 보상 동물이 왔을 때 덧붙이는 말 (2026-10-16) */
+function dexRewardText(name: string | null) {
+  return name ? ` 그리고 도감을 다 채웠어요! 전설의 ${subject(name)} 찾아왔어요` : "";
 }
 
 const FULL = `한 번에 ${MAX_ACTIVE_ANIMALS}마리까지 키울 수 있어요. 다 키운 뒤에 새 알을 받아 주세요`;
@@ -132,7 +137,7 @@ export async function careAnimal(animalId: number, action: CareAction): Promise<
       await tx.insert(animalCares).values({ animalId: id, action, date: todayKST() });
       await grantReward(tx, viewer.userId, "farm_care", id);
       const [grown] = await addGrowth(tx, viewer.userId, care.growth, [id]);
-      if (grown) return { ok: true, text: grownText(grown), icon: grown.special ? "sparkle" : "party" };
+      if (grown) return { ok: true, text: grownText(grown), icon: grown.dexReward ? "crown" : grown.special ? "sparkle" : "party" };
       return { ok: true, text: `${care.label} 완료! 성장 +${care.growth}`, icon: care.icon };
     });
     revalidatePath("/", "layout");
@@ -159,7 +164,7 @@ export async function feedGrowthItem(animalId: unknown, itemId: unknown): Promis
     const used = await consumeGrowthItem(tx, viewer.userId, item);
     if (!used) return { ok: false, text: "가지고 있는 성장 아이템이 없어요" };
     const [grown] = await addGrowth(tx, viewer.userId, used.growthValue, [id]);
-    if (grown) return { ok: true, text: grownText(grown), icon: grown.special ? "sparkle" : "party" };
+    if (grown) return { ok: true, text: grownText(grown), icon: grown.dexReward ? "crown" : grown.special ? "sparkle" : "party" };
     return { ok: true, text: `${used.name} 먹였어요! 성장 +${used.growthValue}`, icon: "sprout" };
   });
   if (result.ok) revalidatePath("/", "layout");

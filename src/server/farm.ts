@@ -1,6 +1,6 @@
 import "server-only";
 import { randomInt } from "node:crypto";
-import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { animalCares, animalSkins, animalSpecies, userAnimalSkins, userAnimals } from "@/db/schema";
 import {
@@ -15,6 +15,7 @@ import {
   POST_GROWTH,
 } from "@/lib/farm";
 import { todayKST } from "@/lib/game";
+import { grantDexReward } from "@/server/dex";
 import { addLedgerEntry, type Tx } from "@/server/points";
 
 export type FarmAnimal = {
@@ -106,6 +107,8 @@ export async function listHatchOdds(): Promise<HatchOdds[]> {
   return db
     .select({ code: animalSpecies.code, name: animalSpecies.name, assetKey: animalSpecies.assetKey, hatchWeight: animalSpecies.hatchWeight })
     .from(animalSpecies)
+    // 보상 동물(용)처럼 알에서 안 나오는 종류는 뺀다
+    .where(gt(animalSpecies.hatchWeight, 0))
     .orderBy(sql`${animalSpecies.hatchWeight} DESC`, asc(animalSpecies.id));
 }
 
@@ -153,8 +156,8 @@ export async function countActive(tx: Tx, userId: string) {
   return n;
 }
 
-/** 다 자란 동물. special = 특별 진화한 모습의 이름 (보통이면 null) */
-export type GrownAnimal = { id: number; name: string; rewardExp: number; rewardCoins: number; special: string | null };
+/** 다 자란 동물. special = 특별 진화한 모습의 이름 (보통이면 null), dexReward = 이번에 도감을 다 채워 받은 동물 이름 (용) */
+export type GrownAnimal = { id: number; name: string; rewardExp: number; rewardCoins: number; special: string | null; dexReward?: string };
 
 /**
  * 동물에게 성장치를 더하고, 다 자라면 보상을 준다. lockUser를 건 트랜잭션 안에서 호출한다.
@@ -193,6 +196,12 @@ export async function addGrowth(tx: Tx, userId: string, amount: number, animalId
       await addLedgerEntry(tx, { userId, reason: "farm_grown", expDelta: sp.rewardExp, coinDelta: sp.rewardCoins, refId: u.id });
     }
     grown.push({ id: u.id, name: sp.name, rewardExp: sp.rewardExp, rewardCoins: sp.rewardCoins, special: special?.name ?? null });
+  }
+  // 도감 보상 (2026-10-16): 모든 종류에 특별 진화가 있어 마지막 칸은 늘 다 자라는 순간에 열린다 (특별 진화 칸).
+  // 그래서 부화·분양 때는 보지 않고 여기서만 본다. 이미 다 채운 회원도 다음에 동물이 다 자랄 때 받는다
+  if (grown.length) {
+    const reward = await grantDexReward(tx, userId);
+    if (reward) grown[grown.length - 1].dexReward = reward;
   }
   return grown;
 }
