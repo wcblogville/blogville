@@ -30,6 +30,7 @@ import { requireMember } from "@/server/dal";
 import { uniqueViolation } from "@/server/db-errors";
 import { addGrowth, countActive, type GrownAnimal, randomSex } from "@/server/farm";
 import { consumeGrowthItem } from "@/server/inventory";
+import { updateShowcase } from "@/server/showcase";
 import { getWallet, grantReward, lockUser } from "@/server/points";
 import type { IconName } from "@/lib/art/icons";
 
@@ -39,8 +40,13 @@ export type FarmResult = { ok: true; text: string; icon?: IconName } | { ok: fal
 /** 다 자랐을 때 문구 (특별 진화면 크게 알려 준다) */
 function grownText(grown: GrownAnimal) {
   const reward = `경험치 +${grown.rewardExp}, 코인 +${grown.rewardCoins}`;
-  if (grown.special) return `특별한 일이 생겼어요! ${subject(grown.name)} ${toward(grown.special)} 자랐어요! ${reward}`;
-  return `${subject(grown.name)} 다 자랐어요! ${reward}`;
+  const text = grown.special ? `특별한 일이 생겼어요! ${subject(grown.name)} ${toward(grown.special)} 자랐어요! ${reward}` : `${subject(grown.name)} 다 자랐어요! ${reward}`;
+  return text + dexRewardText(grown.dexReward ?? null);
+}
+
+/** 도감을 다 채워 보상 동물이 왔을 때 덧붙이는 말 (2026-10-16) */
+function dexRewardText(name: string | null) {
+  return name ? ` 그리고 도감을 다 채웠어요! 전설의 ${subject(name)} 찾아왔어요` : "";
 }
 
 const FULL = `한 번에 ${MAX_ACTIVE_ANIMALS}마리까지 키울 수 있어요. 다 키운 뒤에 새 알을 받아 주세요`;
@@ -132,7 +138,7 @@ export async function careAnimal(animalId: number, action: CareAction): Promise<
       await tx.insert(animalCares).values({ animalId: id, action, date: todayKST() });
       await grantReward(tx, viewer.userId, "farm_care", id);
       const [grown] = await addGrowth(tx, viewer.userId, care.growth, [id]);
-      if (grown) return { ok: true, text: grownText(grown), icon: grown.special ? "sparkle" : "party" };
+      if (grown) return { ok: true, text: grownText(grown), icon: grown.dexReward ? "crown" : grown.special ? "sparkle" : "party" };
       return { ok: true, text: `${care.label} 완료! 성장 +${care.growth}`, icon: care.icon };
     });
     revalidatePath("/", "layout");
@@ -159,7 +165,7 @@ export async function feedGrowthItem(animalId: unknown, itemId: unknown): Promis
     const used = await consumeGrowthItem(tx, viewer.userId, item);
     if (!used) return { ok: false, text: "가지고 있는 성장 아이템이 없어요" };
     const [grown] = await addGrowth(tx, viewer.userId, used.growthValue, [id]);
-    if (grown) return { ok: true, text: grownText(grown), icon: grown.special ? "sparkle" : "party" };
+    if (grown) return { ok: true, text: grownText(grown), icon: grown.dexReward ? "crown" : grown.special ? "sparkle" : "party" };
     return { ok: true, text: `${used.name} 먹였어요! 성장 +${used.growthValue}`, icon: "sprout" };
   });
   if (result.ok) revalidatePath("/", "layout");
@@ -272,4 +278,17 @@ export async function setAnimalForm(animalId: unknown, form: unknown): Promise<F
   if (!row) return { ok: false, text: "다 키운 내 동물만 모습을 바꿀 수 있어요" };
   revalidatePath("/", "layout");
   return { ok: true, text: `${FORM_LABEL[form]}으로 데리고 다녀요` };
+}
+
+/**
+ * 데리고 다닐 동물 고르기 (사용자 요청 2026-10-16 "따라다닐 동물 등록하는 거 동물농장에서도"): 블로그 도감의 [전시하기]와 같다.
+ * 고른 동물은 우리 집 방과 광장에서 나를 따라다닌다. animalId가 null이면 빼기
+ */
+export async function setFollowAnimal(animalId: unknown): Promise<FarmResult> {
+  const viewer = await requireMember();
+  const id = animalId === null ? null : parseId(animalId);
+  if (animalId !== null && id === null) return { ok: false, text: "잘못된 요청이에요" };
+  if (!(await updateShowcase(viewer.userId, id))) return { ok: false, text: "다 키운 내 동물만 데리고 다닐 수 있어요" };
+  revalidatePath("/", "layout");
+  return id === null ? { ok: true, text: "이제 혼자 다녀요" } : { ok: true, text: "이 동물이 이제 나를 따라다녀요! 광장과 우리 집에서 만나요", icon: "paw" };
 }

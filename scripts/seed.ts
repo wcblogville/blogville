@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { animalSkins, animalSpecies, items } from "../src/db/schema";
 import { ensureNoticePosts, noticePostsMessage } from "./notice-posts";
+import { DRAGON_CODE } from "../src/lib/dex";
 import { hatchWeightOf } from "../src/lib/farm";
 
 config({ path: ".env.local" });
@@ -230,6 +231,8 @@ const SPECIES: (typeof animalSpecies.$inferInsert)[] = [
   { code: "eagle", name: "독수리", assetKey: "animal.eagle", growExp: 220, rewardExp: 230, rewardCoins: 100 },
   { code: "tiger", name: "호랑이", assetKey: "animal.tiger", growExp: 240, rewardExp: 250, rewardCoins: 110 },
   { code: "lion", name: "사자", assetKey: "animal.lion", growExp: 240, rewardExp: 250, rewardCoins: 110 },
+  // 도감을 다 채우면 오는 용 (2026-10-16): 알·분양 없이 다 자란 모습으로 온다 (src/server/dex.ts grantDexReward)
+  { code: DRAGON_CODE, name: "용", assetKey: "animal.dragon", growExp: 300, rewardExp: 0, rewardCoins: 0, rewardOnly: true },
 ].map((sp) => ({ ...sp, hatchWeight: hatchWeightOf(sp.code) }));
 
 // 동물 스킨 (2026-10-11 "펫 종류별로 스킨"): 종류마다 둘. 색·무늬는 src/lib/art/animals.ts ANIMAL_SKINS (asset_key)
@@ -317,6 +320,7 @@ async function main() {
             rewardCoins: sp.rewardCoins,
             hatchWeight: sp.hatchWeight,
             price: sp.price ?? null,
+            rewardOnly: sp.rewardOnly ?? false,
           },
         });
     }

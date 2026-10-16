@@ -7,7 +7,7 @@
 
 - 구현된 요구사항(✅·🚧) **95개** 중 시험이 있는 것 **78개 (82%)**
 - 그중 PR마다 자동으로 확인하는 것 **49개 (52%)**
-- 시험 파일: 단위 13개, E2E 51개 (PR 13 · 매일 밤 37 · 손으로 1)
+- 시험 파일: 단위 13개, E2E 52개 (PR 14 · 매일 밤 37 · 손으로 1)
 
 표시: 이름만 = PR마다(단위 테스트·CI E2E), 🌙 = 매일 밤 전체 E2E, ✋ = 손으로 돌리는 시험
 
@@ -55,7 +55,7 @@
 | BLOG-01 | 회원 한 명은 블로그 하나를 가진다 | M | ✅ | `test-blog.ts`, `blog-home.mjs` 🌙 |
 | BLOG-02 | 블로그 주소는 /@블로그주소 형식이다 | M | ✅ | `blog-home.mjs` 🌙, `params.mjs` 🌙 |
 | BLOG-03 | 블로그 이름·소개와, 가입 때 자동으로 정한 블로그 주소·닉네임을 바꿀 수 있다 | M | ✅ | `test-blog.ts`, `blog-address.mjs` 🌙, `params.mjs` 🌙 |
-| BLOG-04 | 블로그 위쪽에 제목 줄 | M | ✅ | `blog-showcase.mjs` 🌙, `blog.mjs`, `params.mjs` 🌙 |
+| BLOG-04 | 블로그 위쪽에 제목 줄 | M | ✅ | `blog-showcase.mjs` 🌙, `blog.mjs`, `dex.mjs`, `params.mjs` 🌙 |
 | BLOG-05 | 블로그마다 카테고리를 2단계 | S | ✅ | `categories.mjs` 🌙, `params.mjs` 🌙, `visits.mjs` 🌙 |
 | BLOG-06 | 블로그 방문자 수 | C | ✅ | `visits.mjs` 🌙 |
 | BLOG-07 | 내 블로그에서 마을의 글·블로그를 검색한다 | S | ✅ | `blog-search.mjs` 🌙 |
@@ -127,7 +127,7 @@
 | TOWN-06 | 다른 사람이 광장에서 움직이는 모습을 실시간으로 본다 | W | ❌ | - |
 | TOWN-07 | 마을의 내 집 지붕 색을 10가지 중 열린 색에서 고른다 | C | ✅ | `test-blog.ts`, `test-game.ts`, `house.mjs` |
 | TOWN-08 | 이웃 중에서 즐겨찾는 이웃을 최대 10명 정하고 | S | ✅ | `post-lists.mjs` 🌙 |
-| TOWN-09 | 동물 농장에서 동물을 키워 경험치·코인을 얻는다 | S | ✅ | `test-game.ts`, `booster.mjs`, `farm.mjs` 🌙 |
+| TOWN-09 | 동물 농장에서 동물을 키워 경험치·코인을 얻는다 | S | ✅ | `test-game.ts`, `booster.mjs`, `dex.mjs`, `farm.mjs` 🌙 |
 | TOWN-10 | 화면 맨 위 헤더 | S | ❌ | - |
 | TOWN-11 | 마을의 집이 주인 레벨에 따라 10단계로 성장한다 | C | ✅ | `test-game.ts` |
 | TOWN-12 | ☰ 마을 메뉴 하나로 내 프로필·알림·텔레포트·친구 목록·내 정보·로그아웃을 쓴다 | M | ✅ | `town.mjs` |

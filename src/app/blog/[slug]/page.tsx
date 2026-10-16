@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AnimalCollection } from "@/components/blog/animal-collection";
+import { getDex } from "@/server/dex";
 import { BlogTitleBar } from "@/components/blog/blog-header";
 import { BlogSearchBox, BlogSearchResults } from "@/components/blog/blog-search";
 import {
@@ -76,7 +77,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
   // 주인을 이웃 추가한 회원에게는 👥 이웃 공개 글도 보인다 (POST-02). 목록·위젯 조건에 쓰므로 먼저 읽는다
   const following = viewerId && !isOwner ? await isFollowing(viewerId, blog.ownerId) : false;
   const access = postAccessOf(isOwner, following);
-  const [cats, list, visits, grown, found, ownerWallet, placed, owned, side, neighborCounts, neighborPreview] = await Promise.all([
+  const [cats, list, visits, grown, found, ownerWallet, placed, owned, side, neighborCounts, neighborPreview, dex] = await Promise.all([
     getCategories(blog.id, access),
     search
       ? search.empty
@@ -99,6 +100,8 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
     // 👫 이웃 위젯 (SOC-06): 수는 모두에게, 얼굴(목록)은 회원에게만
     getNeighborCounts(blog.ownerId),
     viewerId ? listNeighbors({ ownerId: blog.ownerId, tab: "following", viewerId, limit: NEIGHBOR_PREVIEW }).then((r) => r.rows) : [],
+    // 동물 도감 칸 (2026-10-16 실루엣 카드)
+    getDex(blog.ownerId),
   ]);
   // 문: 마을의 이 집 앞으로 나간다. 처음 가입한 회원은 환영 문구가 있는 마을로 (마을 개편 2차)
   const doorHref = welcome ? "/town?welcome=1" : `/town?at=${blog.slug}`;
@@ -167,6 +170,7 @@ export default async function BlogHomePage(props: PageProps<"/blog/[slug]">) {
             animals={grown.map((a) => ({ id: a.id, name: animalName(a.name, a.variant), assetKey: a.assetKey, skinKey: a.skinKey, sex: a.sex, variant: a.variant, grownDate: a.grownAt ? formatDate(a.grownAt) : "" }))}
             showcaseId={shown?.id ?? null}
             isOwner={isOwner}
+            dex={dex}
           />
         }
         className="mt-4"

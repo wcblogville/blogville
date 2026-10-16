@@ -8,7 +8,7 @@ import { ANIMAL_SIZE, type AnimalTier, animalSvg, displaySizeChoices, eggSvg, to
 import { growthDataUri } from "@/lib/art/growth";
 import { ANIMAL_FORMS, animalName, animalStage, CARE_ACTIONS, DISPLAY_SIZE_LABEL, FORM_LABEL, HATCH_RARITY, RARITY_ICON, RARITY_LABEL, STAGE_LABEL } from "@/lib/farm";
 import type { AdoptableSpecies, FarmAnimal, FarmSkin } from "@/server/farm";
-import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalForm, setAnimalSize, wearSkin } from "./actions";
+import { adoptAnimal, buyEgg, careAnimal, claimEgg, type FarmResult, feedGrowthItem, hatchEgg, setAnimalForm, setAnimalSize, setFollowAnimal, wearSkin } from "./actions";
 
 const TIER_LABEL: Record<AnimalTier, string> = { small: "작은 동물", medium: "중간 동물", large: "큰 동물" };
 
@@ -43,6 +43,7 @@ export function FarmView({
   growthItems = [],
   adoptable = [],
   skins = [],
+  followId = null,
 }: {
   active: FarmAnimal[];
   grown: FarmAnimal[];
@@ -57,6 +58,8 @@ export function FarmView({
   adoptable?: AdoptableSpecies[];
   /** 동물 스킨 목록과 산 것 (2026-10-11 "펫 종류별로 스킨") */
   skins?: FarmSkin[];
+  /** 나를 따라다니는 동물 (blogs.showcase_animal_id, 2026-10-16 농장에서도 고른다) */
+  followId?: number | null;
 }) {
   const [pending, start] = useTransition();
   // 특별 진화한 동물은 스킨을 입지 않는다 (2026-10-12)
@@ -348,6 +351,19 @@ export function FarmView({
                   {animalName(a.name!, a.variant)} <SexMark sex={a.sex} />
                 </span>
                 <span className="text-[11px] text-ink-soft">{a.grownAt ? new Date(a.grownAt).toLocaleDateString("ko-KR") : ""}</span>
+                {/* 데리고 다니기 (2026-10-16 "따라다닐 동물 등록하는 거 동물농장에서도"): 블로그 도감의 [전시하기]와 같다 */}
+                {a.id === followId ? (
+                  <div className="mt-2 flex w-full flex-col items-center gap-1" data-follow="on">
+                    <span className="pixel-badge bg-[#e9f6e4] text-[11px] font-bold"><IconText icon="paw">따라다니는 중</IconText></span>
+                    <button type="button" disabled={pending} onClick={() => run(() => setFollowAnimal(null))} className="pixel-btn pixel-btn-sm w-full bg-white px-1 py-0.5 font-sans text-[11px] text-ink">
+                      그만 따라오기
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" disabled={pending} onClick={() => run(() => setFollowAnimal(a.id))} className="pixel-btn pixel-btn-sm mt-2 w-full bg-leaf px-1 py-0.5 font-sans text-[11px] text-white" data-follow="off">
+                    <PixelIcon name="paw" scale={1} className="mr-0.5 align-[-1px]" />데리고 다니기
+                  </button>
+                )}
                 {/* 데리고 다닐 모습 (2026-10-12 "아기 형태로 데리고 다닐 수도 있게"): 광장·우리 집에서 이 모습으로 */}
                 <div className="mt-2 grid w-full grid-cols-2 gap-1" role="group" aria-label={`${a.name} 데리고 다닐 모습`}>
                   {ANIMAL_FORMS.map((f) => (

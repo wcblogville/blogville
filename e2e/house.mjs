@@ -69,7 +69,7 @@ const firstRoofs = await openRoofs();
 check("1단계 지붕 색: 1개 열림, 9개 잠김", firstRoofs.length === 1 && (await roofPicker.locator('li[title$="에 열려요"]').count()) === 9, firstRoofs.join(","));
 check("안 고른 지붕은 처음 색이 선택됨", (await roofPicker.locator('[data-roof][aria-pressed="true"]').count()) === 1);
 await page.screenshot({ path: `${outDir}/house-roof-1.png` });
-await room.getByRole("button", { name: /다 골랐어요/ }).click();
+await room.getByRole("button", { name: /닫기/ }).click();
 await page.waitForTimeout(1500);
 await room.screenshot({ path: `${outDir}/01-room-1280.png` });
 
@@ -197,12 +197,15 @@ check("2단계: Lv.20에 다음 단계", (await room.innerText()).includes("Lv.2
 await room.getByRole("button", { name: "지붕 색" }).click();
 const secondRoofs = await openRoofs();
 check("2단계 지붕 색: 2개 열림 (처음 색 + 1)", secondRoofs.length === 2 && secondRoofs[0] === firstRoofs[0], secondRoofs.join(","));
+// 고르기만 하면 미리보기, [저장]을 눌러야 바뀐다 (2026-10-16 "저장 누르면 적용")
 await roofPicker.locator(`[data-roof="${secondRoofs[1]}"]`).click();
-await roofPicker.locator(`[data-roof="${secondRoofs[1]}"][aria-pressed="true"]`).waitFor({ timeout: 10000 }).catch(() => {});
-const savedRoof = (await one("SELECT roof_color FROM blogs WHERE owner_id = $1", [uid])).roof_color;
-check("새 지붕 색 저장", savedRoof === secondRoofs[1], String(savedRoof));
+await page.waitForTimeout(500);
+check("지붕 색을 고르기만 하면 저장 안 됨", (await one("SELECT roof_color FROM blogs WHERE owner_id = $1", [uid])).roof_color !== secondRoofs[1] && (await roofPicker.locator(`[data-roof="${secondRoofs[1]}"]`).getAttribute("aria-pressed")) === "true");
 await page.screenshot({ path: `${outDir}/house-roof-2.png` });
-await room.getByRole("button", { name: /다 골랐어요/ }).click();
+await roofPicker.locator("[data-roof-save]").click();
+await roofPicker.waitFor({ state: "detached", timeout: 10000 });
+const savedRoof = (await one("SELECT roof_color FROM blogs WHERE owner_id = $1", [uid])).roof_color;
+check("[저장] → 새 지붕 색 저장, 창 닫힘", savedRoof === secondRoofs[1], String(savedRoof));
 
 // 2단계 편집: 탁자(2×1칸)를 넣어 7×7 방의 맨 앞 줄(5,6 → 5~6칸)로, 가구 6개 저장
 await room.getByRole("button", { name: "가구 놓기" }).click();
@@ -277,6 +280,8 @@ await room.screenshot({ path: `${outDir}/05-stage5-10x10.png` });
   await db.query("UPDATE blogs SET showcase_animal_id = $2 WHERE owner_id = $1", [uid, animal.id]);
   await page.goto(`${BASE}/@${H}`);
   await room.locator("[data-showcase]").waitFor();
+  // 카메라를 잰 뒤(data-room-dot)에 크기를 본다 (그 전에는 CSS 기본 크기)
+  await room.locator("[data-room-grid][data-room-dot]").waitFor();
   {
     const z = await sizes();
     // 동물은 캐릭터의 3/4 도트: 캐릭터 3px(24칸 = 72px)이면 동물 2px(32칸 = 64px)

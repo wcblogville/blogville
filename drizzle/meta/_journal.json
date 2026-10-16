@@ -309,6 +309,13 @@
       "when": 1791785980519,
       "tag": "0043_face_shape_slot",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792134307134,
+      "tag": "0044_dex_dragon",
+      "breakpoints": true
     }
   ]
 }
