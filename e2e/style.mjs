@@ -208,6 +208,10 @@ let captured = null;
   check("광장 캐릭터에 머리·옷", look.includes("hair.pony") && look.includes("haircolor.pink") && look.includes("outfit.pajama"), look);
   await page.waitForTimeout(800);
   await canvas.click({ position: { x: 5, y: 5 } }).catch(() => {});
+  // 누르면 그곳까지 길을 찾아 걷기 시작하므로(2026-10-16), 둘레가 트인 분수 앞에 세우고 방향키를 시험한다
+  await page.waitForFunction(() => document.querySelector("canvas")?.dataset.feet, null, { timeout: 20000 });
+  await canvas.evaluate((c) => c.dispatchEvent(new CustomEvent("bv-teleport", { detail: "plaza" })));
+  await page.waitForTimeout(300);
   await page.keyboard.down("ArrowLeft");
   const walking = await page
     .waitForFunction(() => document.querySelector("canvas")?.dataset.walk === "walk-left", null, { timeout: 5000 })
