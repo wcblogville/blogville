@@ -35,6 +35,11 @@ const ITEMS: NewItem[] = [
   { code: "bg_sakura", type: "background", name: "벚꽃길", description: "봄바람이 부는 벚꽃길. 꾸미면 마을에 꽃잎이 흩날려요", price: 300, requiredLevel: 3, isStarter: false, assetKey: "bg.sakura" },
   { code: "bg_night", type: "background", name: "밤의 도시", description: "불빛이 반짝이는 밤. 꾸미면 마을도 밤이 되고 반딧불이가 날아요", price: 450, requiredLevel: 4, isStarter: false, assetKey: "bg.night" },
   { code: "bg_space", type: "background", name: "우주", description: "끝없이 펼쳐진 우주. 꾸미면 마을이 보랏빛으로 물들고 별이 반짝여요", price: 900, requiredLevel: 6, isStarter: false, assetKey: "bg.space" },
+  { code: "bg_autumn", type: "background", name: "가을 단풍", description: "붉게 물든 단풍길. 꾸미면 마을에 낙엽이 떨어져요", price: 350, requiredLevel: 3, isStarter: false, assetKey: "bg.autumn" },
+  { code: "bg_forest", type: "background", name: "숲속 버섯 마을", description: "커다란 버섯이 자라는 깊은 숲. 꾸미면 마을이 짙은 초록이 되고 반딧불이가 날아요", price: 400, requiredLevel: 4, isStarter: false, assetKey: "bg.forest" },
+  { code: "bg_sunset", type: "background", name: "노을 바다", description: "해가 지는 바다와 갈매기. 꾸미면 마을이 노을빛으로 물들어요", price: 550, requiredLevel: 5, isStarter: false, assetKey: "bg.sunset" },
+  { code: "bg_desert", type: "background", name: "사막 오아시스", description: "선인장과 작은 오아시스. 꾸미면 마을 땅이 모래빛이 돼요", price: 650, requiredLevel: 5, isStarter: false, assetKey: "bg.desert" },
+  { code: "bg_candy", type: "background", name: "과자 나라", description: "막대사탕 나무와 무지개. 꾸미면 마을이 분홍·민트 과자 나라가 돼요", price: 1200, requiredLevel: 8, isStarter: false, assetKey: "bg.candy" },
   // 집 안 가구 (마을 개편 2차). 화분·나무 의자는 가입할 때 모두 받는 기본 가구. 마이그레이션 0026에도 같은 값이 있다
   { code: "fur_plant", type: "furniture", name: "초록 화분", description: "집 안을 싱그럽게 해 주는 화분", price: 0, requiredLevel: 1, isStarter: true, assetKey: "furniture.plant" },
   { code: "fur_chair", type: "furniture", name: "나무 의자", description: "처음 이사 온 날부터 함께한 의자", price: 0, requiredLevel: 1, isStarter: true, assetKey: "furniture.chair" },

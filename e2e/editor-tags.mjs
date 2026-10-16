@@ -56,11 +56,22 @@ await page.getByRole("button", { name: "바탕색 노랑" }).click();
 check("에디터에 바탕색 mark", (await editor.locator("mark").first().getAttribute("data-color")) === "#fff176");
 
 // 키보드: 버튼에서 Enter로 열고, 창 안 칸에 포커스, Esc로 닫으면 버튼으로 돌아온다
-await toolbar.getByRole("button", { name: "글꼴 색" }).focus();
-await page.keyboard.press("Enter");
+// 바탕색 창이 닫힐 때 포커스를 에디터로 돌려주는 일이 다음 그리기에서 일어나, 느린 CI에서는 방금 옮긴 포커스를 빼앗아 간다.
+// 포커스가 버튼에 머문 것을 보고 Enter를 누르고, 창이 안 열렸으면 다시 한다
+for (let i = 0; i < 5; i++) {
+  await toolbar.getByRole("button", { name: "글꼴 색" }).focus();
+  await page.waitForTimeout(150);
+  if ((await page.evaluate(() => document.activeElement?.getAttribute("aria-label"))) !== "글꼴 색") continue;
+  await page.keyboard.press("Enter");
+  if (await page.locator("[data-palette=color]").waitFor({ timeout: 3000 }).then(() => true, () => false)) break;
+}
 await page.locator("[data-palette=color]").waitFor();
-const focusedInPanel = await page.evaluate(() => Boolean(document.activeElement?.closest("[data-palette]")));
+// 창이 뜬 뒤 포커스가 옮겨 가는 것은 다음 그리기에서 일어난다. 느린 CI에서는 바로 보면 아직 옮겨 가기 전이라 기다린다
+const focusedInPanel = await page
+  .waitForFunction(() => Boolean(document.activeElement?.closest("[data-palette]")), null, { timeout: 3000 })
+  .then(() => true, () => false);
 await page.keyboard.press("Escape");
+await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "글꼴 색", null, { timeout: 3000 }).catch(() => {});
 const backOnTrigger = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
 check("키보드: 열면 창 안 포커스, Esc면 버튼으로", focusedInPanel && backOnTrigger === "글꼴 색" && (await page.locator("[data-palette]").count()) === 0, backOnTrigger ?? "");
 

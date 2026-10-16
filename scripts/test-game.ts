@@ -1,9 +1,11 @@
 // 게임 규칙 계산 테스트: 레벨(GAME-02), 출석 일차(GAME-04), 레벨업(GAME-06), 동물 농장(TOWN-09), 집 단계·지붕 색(TOWN-07·11), 광장 꾸미기 자리,
 // 2.5D 마을 배치(겹침·절벽·걸어서 갈 수 있는지·이웃이 걷는 길), 이웃 집 자리(TOWN-18)
 // 실행: npm run test:game
+// 요구사항: TOWN-02 누른 곳까지 길 찾기, TOWN-05 2.5D 지형, TOWN-20 내 정원
 import { DECO_SLOTS, FARM_POS, HOUSE_SLOTS, houseSlot, inHome, LAMPS, LOT_AREAS, PATHS, POND_POS, smoothPath, START_POS, townSpots } from "../src/components/town/layout";
 import { npcGraph, segmentClear, solidBox, townLayout, townProps } from "../src/components/town/structures";
 import { boxWalkable, reachable, stairCrossings, terrain, TERRAIN_FEET, walkableAt } from "../src/components/town/terrain";
+import { findTownPath, walkGrid } from "../src/components/town/path";
 import type { TownData, TownNeighbor } from "../src/components/town/types";
 import { assignLots, isNeighborLot, NEIGHBOR_LOTS } from "../src/lib/town-lots";
 import { BOARD_SIZE, CLOTHES_SIZE, FARM_SIZE, FISHING_SIZE, FOUNTAIN_FRAMES, FOUNTAIN_SIZE, fountainSheetSvg, HOUSE_STAGES, houseStage, LAMP_SIZE, SALON_SIZE, SHOP_SIZE, TOWN_ROWS } from "../src/lib/art/town";
@@ -241,6 +243,34 @@ expect("꾸미기 자리 8개", DECO_SLOTS.length, MAX_DECO_SLOTS);
   expect("이웃이 걷는 길: 마디 100개 이상", linked.length >= 100, true);
   expect("이웃이 걷는 길: 내 집 앞(190px)에는 마디가 없음", linked.some((i) => Math.hypot(g.nodes[i].x - home.x, g.nodes[i].y - home.y - 46) < 190), false);
   expect("집 자리 11곳, 자리 설명 11개", [HOUSE_SLOTS, LOT_AREAS.length], [11, 11]);
+
+  // 누른 곳까지 길 찾기 (2026-10-16 "길 막혀있을 때 클릭한 곳까지 알아서 가는 기능"):
+  // 처음 자리에서 모든 입구까지 길이 있고, 길의 꺾는 점 사이가 모두 걸을 수 있다 (건물·절벽을 뚫지 않는다)
+  {
+    const grid = walkGrid(solids);
+    const free = (x: number, y: number) => grid.free[Math.floor(y / 12) * grid.cols + Math.floor(x / 12)] === 1;
+    const lineOk = (a: { x: number; y: number }, b: { x: number; y: number }) => {
+      const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 4);
+      for (let k = 1; k < n; k++) if (!free(a.x + ((b.x - a.x) * k) / n, a.y + ((b.y - a.y) * k) / n)) return false;
+      return true;
+    };
+    const noPath: string[] = [];
+    const broken: string[] = [];
+    for (const e of entrances) {
+      const route = findTownPath(grid, START_POS, e);
+      if (!route) {
+        noPath.push(e.label);
+        continue;
+      }
+      const pts = [START_POS, ...route.slice(0, -1)];
+      if (pts.some((p, i) => i > 0 && !lineOk(pts[i - 1], p))) broken.push(e.label);
+    }
+    expect("길 찾기: 처음 자리에서 모든 입구까지 길이 있다", noPath, []);
+    expect("길 찾기: 꺾는 점 사이가 막히지 않는다", broken, []);
+    const pond = findTownPath(grid, START_POS, POND_POS);
+    expect("길 찾기: 연못 한가운데를 누르면 물가까지 (끝점은 걸을 수 있다)", !!pond && free(pond[pond.length - 1].x, pond[pond.length - 1].y), true);
+    expect("길 찾기: 바로 옆이면 점 하나", findTownPath(grid, START_POS, { x: START_POS.x + 5, y: START_POS.y })?.length, 1);
+  }
 
   // 계단과 길 (사용자 요청 2026-10-11 "계단이 너무 좁아서 안 가지는 길이 많다"):
   // 그린 길 가운데선을 따라 6px마다 찍은 점이 모두 걸을 수 있고, 처음 자리에서 걸어서 닿는다

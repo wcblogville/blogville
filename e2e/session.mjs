@@ -1,6 +1,7 @@
 // 로그인 유지·로그아웃 (AUTH-04, AUTH-09 / FR-015~FR-024, FR-029, SC-005, SC-009 / quickstart 4.3)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/session.mjs <스크린샷 폴더>
 // 시간 조건(2시간·7일)은 기다리지 않고 DB의 sessions.expires_at·updated_at을 당겨 만든다. 실행마다 새 아이디를 쓴다.
+// 요구사항: NF-11 쿠키, NF-12 CSRF
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";

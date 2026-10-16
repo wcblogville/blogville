@@ -8,9 +8,9 @@
 // 기본(초원)은 지금 마을 그대로. 친구 마을(/town/[slug])은 그 마을 주인의 배경을 따른다.
 import { PALETTE, rgbOf } from "./pixel";
 
-export const TOWN_THEME_KEYS = ["meadow", "beach", "snow", "sakura", "night", "space"] as const;
+export const TOWN_THEME_KEYS = ["meadow", "beach", "snow", "sakura", "night", "space", "autumn", "sunset", "desert", "forest", "candy"] as const;
 export type TownThemeKey = (typeof TOWN_THEME_KEYS)[number];
-export type Weather = "snow" | "petals" | "fireflies" | "stars" | "glints";
+export type Weather = "snow" | "petals" | "fireflies" | "stars" | "glints" | "leaves";
 
 type Four = readonly [string, string, string, string];
 export type Grade = {
@@ -175,6 +175,110 @@ export const TOWN_THEMES: Readonly<Record<TownThemeKey, TownTheme>> = {
     charStrength: 0.4,
     weather: "stars",
     bg: "#b9a1e8",
+  },
+  // 가을 단풍 (2026-10-16): 노랗고 붉은 풀, 단풍 숲, 떨어지는 낙엽
+  autumn: {
+    ...MEADOW,
+    key: "autumn",
+    name: "가을 단풍",
+    grass: {
+      0: ["#e6c178", "#d6a85e", "#c08d4a", "#9a6c38"],
+      1: ["#ecca84", "#ddb26a", "#c99855", "#a57742"],
+      2: ["#f0d290", "#e3bb76", "#d0a261", "#ae814c"],
+      3: ["#f4da9c", "#e8c482", "#d6ab6c", "#b68a56"],
+    },
+    sky: ["#ffd9a8", "#ffe3b8", "#ffedcc", "#fff4dd"],
+    hills: ["#e8b88a", "#d9a074"],
+    farForest: ["#e0743c", "#c75a2e", "#a84a2a"],
+    flowers: ["#ff8b4a", "#ffd36e", "#e05a4f", PALETTE.w],
+    water: ["#5c95b8", "#92c2d8", "#fff3dd", "#b6d6e4"],
+    haze: "#f8e3c4",
+    grade: { mul: [1.05, 0.97, 0.86], mix: "#ffb46b", amount: 0.1 },
+    charStrength: 0.35,
+    weather: "leaves",
+    bg: "#ddb26a",
+  },
+  // 노을 바다: 분홍·주황 노을빛, 반짝이는 물결
+  sunset: {
+    ...MEADOW,
+    key: "sunset",
+    name: "노을 바다",
+    sky: ["#a0498f", "#d05d84", "#f2807a", "#ffab72"],
+    hills: ["#c46a8a", "#a8577a"],
+    farForest: ["#8a5a7a", "#76496a", "#633b5c"],
+    flowers: ["#ffb08a", "#ffd36e", PALETTE.V, PALETTE.w],
+    water: ["#7a3f86", "#c45a7c", "#ffe2b8", "#e98a8f"],
+    haze: "#f6c3b0",
+    grade: { mul: [1.06, 0.88, 0.86], mix: "#ff8a6b", amount: 0.12 },
+    charStrength: 0.4,
+    weather: "glints",
+    bg: "#c9a072",
+  },
+  // 사막 오아시스: 모래빛 땅, 뜨거운 하늘, 맑은 연못
+  desert: {
+    ...MEADOW,
+    key: "desert",
+    name: "사막 오아시스",
+    grass: {
+      0: ["#f5dca4", "#ecc985", "#dcb06c", "#bb8f52"],
+      1: ["#f8e3b0", "#f0d092", "#e2b978", "#c4995c"],
+      2: ["#faeabc", "#f3d79e", "#e7c184", "#cca366"],
+      3: ["#fcf0c8", "#f6deaa", "#ebc990", "#d3ac70"],
+    },
+    sky: ["#9fd6f3", "#b8e1f5", "#d2ebf5", "#f3ecd0"],
+    hills: ["#e9c98e", "#dcb578"],
+    farForest: ["#8fbf78", "#77a866", "#5f9156"],
+    flowers: ["#ff8b78", "#ffd36e", PALETTE.w],
+    water: ["#2fa8c8", "#6fd0e6", "#ecffff", "#a8e6f2"],
+    haze: "#f7ebcc",
+    grade: { mul: [1.05, 1.0, 0.88], mix: "#ffe2a0", amount: 0.08 },
+    charStrength: 0.3,
+    weather: "glints",
+    bg: "#f0d092",
+  },
+  // 숲속 버섯 마을: 짙은 초록, 어둑한 공기, 반딧불이
+  forest: {
+    ...MEADOW,
+    key: "forest",
+    name: "숲속 버섯 마을",
+    grass: {
+      0: ["#7fb86e", "#62a05a", "#4c8a4c", "#386f3e"],
+      1: ["#88c076", "#6aa862", "#549253", "#3f7645"],
+      2: ["#92c880", "#74b06a", "#5d9a5a", "#467e4b"],
+      3: ["#9cd08a", "#7eb874", "#66a262", "#4e8652"],
+    },
+    sky: ["#3d7d63", "#4f9170", "#69a77f", "#8fc095"],
+    hills: ["#4f8a66", "#427a5a"],
+    farForest: ["#2f6b4a", "#255a3e", "#1d4a33"],
+    flowers: ["#e05a4f", PALETTE.w, "#ffd36e", PALETTE.U],
+    water: ["#3a7a7a", "#6aa8a0", "#e6fff4", "#8fc4b8"],
+    haze: "#b9d8bf",
+    grade: { mul: [0.82, 0.95, 0.85], mix: "#2f6b4a", amount: 0.1 },
+    charStrength: 0.35,
+    weather: "fireflies",
+    bg: "#62a05a",
+  },
+  // 과자 나라: 분홍·민트 풀, 솜사탕 하늘, 별사탕이 반짝
+  candy: {
+    ...MEADOW,
+    key: "candy",
+    name: "과자 나라",
+    grass: {
+      0: ["#c2f0de", "#a6e6cd", "#8ad6b9", "#6bbfa0"],
+      1: ["#ffd1e8", "#ffb8dc", "#f79cc9", "#e07fb0"],
+      2: ["#d4f5e6", "#b9f0dc", "#9ee3c9", "#80cdb0"],
+      3: ["#ffe0f0", "#ffc8e4", "#fbaed2", "#ea92bd"],
+    },
+    sky: ["#ffd1ec", "#ffe0f2", "#ecf2ff", "#e0f7ef"],
+    hills: ["#ffc2e0", "#f5a8cf"],
+    farForest: ["#ff94c6", "#9ee3c9", "#c9a8ff"],
+    flowers: [PALETTE.V, PALETTE.z, PALETTE.U, PALETTE.w, "#7fd0ff"],
+    water: ["#c084fc", "#e9c8ff", "#ffffff", "#f3e0ff"],
+    haze: "#ffe6f4",
+    grade: { mul: [1.04, 0.97, 1.03], mix: "#ffc6e6", amount: 0.1 },
+    charStrength: 0.35,
+    weather: "stars",
+    bg: "#ffb8dc",
   },
 };
 

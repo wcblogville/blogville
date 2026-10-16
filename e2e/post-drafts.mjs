@@ -42,9 +42,11 @@ await a.keyboard.press("Control+b");
 await a.keyboard.type("굵은 본문");
 await a.getByLabel("태그", { exact: true }).fill("임시, 태그");
 await a.waitForTimeout(2600);
-const kst = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
+const kstAt = (ms) => new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
 const st = await draftStatus();
-check("US10-1 `임시 저장됨 HH:mm` 한국 시간", st === `임시 저장됨 ${kst}`, st);
+// 저장한 뒤 분이 바뀔 수 있어 지금과 1분 전을 둘 다 받는다
+const now = Date.now();
+check("US10-1 `임시 저장됨 HH:mm` 한국 시간", [kstAt(now), kstAt(now - 60_000)].some((k) => st === `임시 저장됨 ${k}`), st);
 check("US10 회원별 키", (await draftKeys(a)).length === 1);
 await a.screenshot({ path: `${outDir}/post-drafts-saved.png` });
 

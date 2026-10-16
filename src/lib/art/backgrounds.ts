@@ -133,6 +133,53 @@ const CABIN: Sprite = [
   ".############.",
 ];
 
+const MAPLE: Sprite = [
+  "..######..",
+  ".#KKzKKK#.",
+  "#KzKKNKzK#",
+  "#KKNKKzNN#",
+  "#zKKNKKKN#",
+  ".#NNKNNN#.",
+  "..##n###..",
+  "....n#....",
+  "...#n#....",
+  "..##n##...",
+];
+const MUSHROOM: Sprite = [
+  "..####..",
+  ".#NwNN#.",
+  "#NNNNwN#",
+  "#wNNNNN#",
+  "########",
+  "..#ww#..",
+  "..#ww#..",
+  ".######.",
+];
+const CACTUS: Sprite = [
+  "...##...",
+  "..#ll#..",
+  "#.#lm#..",
+  "l##lm#.#",
+  "#ll#m##l",
+  ".##lm#l#",
+  "..#lmm#.",
+  "..#lm#..",
+  "..#lm#..",
+  ".######.",
+];
+const LOLLIPOP: Sprite = [
+  ".####.",
+  "#VwVV#",
+  "#wVVw#",
+  "#VVwV#",
+  ".####.",
+  "..#w#.",
+  "..#w#.",
+  "..#w#.",
+  "..#w#.",
+  ".##w##",
+];
+
 const SCENES: Record<string, Scene> = {
   // 초원: 해, 구름, 언덕, 들꽃, 나무
   "bg.meadow": {
@@ -282,8 +329,103 @@ const SCENES: Record<string, Scene> = {
       });
     },
   },
+  // 가을 단풍: 노을빛 하늘, 단풍나무, 낙엽 (2026-10-16 새 배경)
+  "bg.autumn": {
+    accent: "#c2410c",
+    colors: { 0: "#ffd9a8", 7: "#ffe3b8", 8: "#ffedcc", C: "#fff3dd", D: "#e8b86a", F: "#d9a055", J: "#c98b47", O: "#b5763a" },
+    draw: (p) => {
+      sky(p, ["0", "7", "8"]);
+      spread(p, 38, 61, (x, r) => cloud(p, x, 14 + Math.floor(r() * 10), 10 + Math.floor(r() * 5), "w", "C"));
+      hills(p, 40, 4, 63, "D", "F");
+      spread(p, 22, 65, (x) => p.stamp(MAPLE, x - 5, 34));
+      ground(p, "J", "O", 67);
+      dots(p, 69, 14, [4, BG_ROWS - 1], ["K", "z", "N", "u"]);
+    },
+  },
+  // 노을 바다: 붉게 지는 해, 노을 물결, 갈매기
+  "bg.sunset": {
+    accent: "#db2777",
+    colors: { 0: "#5b3a8c", 7: "#a0498f", 8: "#e86a7a", 9: "#ffa36b", C: "#ffc58f", S: "#7a3f86", W: "#c45a7c", D: "#f2c48d", F: "#e0ab72", O: "#ffe2b8" },
+    draw: (p) => {
+      sky(p, ["0", "7", "8", "9"], 34);
+      const sx = Math.round(p.w / 2) + 18;
+      p.ellipse(sx, 31, 7, 7, "z").ellipse(sx, 31, 5, 5, "Z");
+      spread(p, 36, 71, (x, r) => cloud(p, x, 10 + Math.floor(r() * 10), 12, "C", "9"));
+      p.rect(0, 34, p.w, 5, "S").rect(0, 39, p.w, 5, "W");
+      // 해 그림자가 물에 비친다
+      for (let y = 35; y < GROUND; y += 2) p.hline(sx - 5 + (y % 4), sx + 4 - (y % 4), y, "z");
+      const rand = rng(73);
+      for (let i = 0; i < p.w / 7; i++) {
+        const x = Math.floor(rand() * p.w);
+        p.hline(x, x + 2, 35 + Math.floor(rand() * 8), "C");
+      }
+      // 갈매기
+      spread(p, 44, 75, (x, r) => {
+        const y = 8 + Math.floor(r() * 12);
+        p.px(x - 1, y, "#").px(x, y + 1, "#").px(x + 1, y, "#").px(x + 2, y + 1, "#").px(x + 3, y, "#");
+      });
+      ground(p, "D", "F", 77);
+      for (let x = 0; x < p.w; x++) p.px(x, GROUND + (Math.floor(x / 5) % 3 === 0 ? 1 : 0), "O");
+    },
+  },
+  // 사막 오아시스: 뜨거운 해, 모래 언덕, 선인장, 작은 오아시스
+  "bg.desert": {
+    accent: "#b45309",
+    colors: { 0: "#7ec8f0", 7: "#a0d8f5", 8: "#c6e8f7", 9: "#f3ecd0", D: "#f0cf8e", F: "#e3b874", J: "#f5d9a0", O: "#dcae68", S: "#3fb3e8", W: "#6fcbef" },
+    draw: (p) => {
+      sky(p, ["0", "7", "8", "9"]);
+      const sx = Math.round(p.w / 2) - 24;
+      p.ellipse(sx, 14, 5, 5, "Z").ellipse(sx, 14, 4, 4, "w");
+      hills(p, 36, 6, 81, "F", "D");
+      hills(p, 41, 4, 83, "D", "J");
+      spread(p, 24, 85, (x) => p.stamp(CACTUS, x - 4, 35));
+      ground(p, "J", "O", 87);
+      // 오아시스 (오른쪽 앞)
+      const ox = Math.round(p.w / 2) + 30;
+      p.ellipse(ox, GROUND + 7, 9, 3, "S").ellipse(ox, GROUND + 7, 7, 2, "W").hline(ox - 3, ox, GROUND + 6, "I");
+      for (let k = 0; k < 12; k++) p.rect(ox + 10 + Math.round((k / 12) ** 2 * 3), GROUND + 6 - k, 2, 1, k % 3 ? "b" : "n");
+      for (const [dx, dy] of [[-1, 0], [1, 0], [-1, -1], [1, -1]] as const)
+        for (let k = 0; k < 6; k++) p.rect(ox + 13 + dx * k, GROUND - 7 + dy * Math.round(k * 0.6) + (k > 3 ? k - 3 : 0), 2, 1, k % 2 ? "l" : "m");
+    },
+  },
+  // 숲속 버섯 마을: 짙은 숲, 큰 버섯 집, 반딧불이
+  "bg.forest": {
+    accent: "#15803d",
+    colors: { 0: "#2f6b57", 7: "#3d7d63", 8: "#4f9170", 9: "#69a77f", D: "#2f6b4a", F: "#3c7d55", J: "#5aa064", O: "#4a8a55", Y: "#fffbd0" },
+    draw: (p) => {
+      sky(p, ["0", "7", "8", "9"]);
+      // 빛줄기
+      for (let k = 0; k < 3; k++) {
+        const x0 = Math.round(p.w / 2) - 30 + k * 26;
+        for (let y = 0; y < 36; y++) if ((y + k) % 2) p.px(x0 + Math.floor(y / 3), y, "9");
+      }
+      hills(p, 30, 6, 91, "D", "F", GROUND);
+      spread(p, 14, 93, (x) => p.stamp(PINE, x - 4, 26));
+      hills(p, 40, 3, 95, "F", "J");
+      spread(p, 30, 97, (x) => p.stamp(MUSHROOM, x - 4, 37));
+      ground(p, "J", "O", 99);
+      dots(p, 101, 10, [6, BG_ROWS - 4], ["Y", "z"]);
+    },
+  },
+  // 과자 나라: 솜사탕 하늘, 사탕 언덕, 막대사탕 나무, 뿌려진 별사탕
+  "bg.candy": {
+    accent: "#ec4899",
+    colors: { 0: "#ffd1ec", 7: "#ffe0f2", 8: "#e3f2ff", 9: "#d8f7ee", D: "#ffb3d9", F: "#ff94c6", J: "#b9f0dc", O: "#9ee3c9", C: "#fff0fa" },
+    draw: (p) => {
+      sky(p, ["0", "7", "8", "9"]);
+      spread(p, 30, 103, (x, r) => cloud(p, x, 12 + Math.floor(r() * 14), 11 + Math.floor(r() * 5), "C", "V"));
+      // 무지개 (가운데 위)
+      const cx = Math.round(p.w / 2);
+      ["N", "z", "l", "v", "U"].forEach((c, i) => {
+        for (let t = 0; t <= Math.PI; t += 0.01) p.px(Math.round(cx + (26 - i) * Math.cos(t)), Math.round(40 - (20 - i) * Math.sin(t)), c);
+      });
+      hills(p, 41, 4, 105, "D", "F");
+      spread(p, 20, 107, (x) => p.stamp(LOLLIPOP, x - 3, 34));
+      ground(p, "J", "O", 109);
+      dots(p, 111, 12, [GROUND + 2, BG_ROWS - 1], ["V", "z", "U", "w"], true);
+    },
+  },
 };
-
 /**
  * 배경 장면 SVG. width = 화면에 보일 너비(px), scale = 도트 한 칸의 px (정수).
  * 높이는 BG_ROWS × scale. 쓰는 쪽은 크기를 늘이지 말고 아래 가운데에 붙인다

@@ -51,6 +51,9 @@ async function publish(page, { title, length = 100, visibility = "public" }) {
   await page.keyboard.insertText("가".repeat(length));
   await page.getByRole("button", { name: "발행하기" }).click();
   await page.waitForURL(/\/@[a-z0-9_]+\/\d+/);
+  // 임시 저장 글은 발행 뒤 글 화면(PublishNotice)이 지운다. 지우기 전에 다음 글쓰기로 가면 "불러올까요?"에서 앞 글 내용이 다시 들어와
+  // 글자 수가 늘어난다 (느린 CI에서 99자 글이 보상을 받던 원인)
+  await page.waitForFunction(() => !Object.keys(localStorage).some((k) => k.startsWith("blogville:draft:")), null, { timeout: 10000 }).catch(() => {});
   return Number(new URL(page.url()).pathname.match(/\/(\d+)$/)[1]);
 }
 
@@ -182,7 +185,7 @@ check("US2-11 97,020 → Lv.99·MAX", (await R2.page.getByRole("banner").innerTe
 // 글 보상으로 Lv.2가 되어 레벨업 팝업이 화면을 덮으므로 먼저 읽음으로 (팝업은 e2e/notifications.mjs가 확인)
 await db.query("UPDATE notifications SET read_at = now() WHERE user_id = $1", [uid1]);
 // 구매 줄
-await R1.page.goto(`${BASE}/shop`);
+await R1.page.goto(`${BASE}/shop#background`);
 await R1.page.locator("article", { hasText: "바닷가" }).getByRole("button", { name: "사기" }).click();
 await R1.page.getByRole("status").filter({ hasText: "샀어요" }).waitFor();
 await R1.page.getByRole("banner").getByTitle("코인").click();

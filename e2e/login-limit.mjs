@@ -1,6 +1,7 @@
 // 로그인 시도 제한 (AUTH-09 / FR-025~FR-028, SC-004, SC-006, research R8 / quickstart 4.4)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/login-limit.mjs <스크린샷 폴더>
 // DB는 .env.local의 DATABASE_URL로 준비·확인한다. 실행마다 새 아이디를 쓴다.
+// 요구사항: NF-10
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";

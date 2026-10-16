@@ -1,5 +1,6 @@
-// SHOP 영역: 상점 구역·정렬·버튼 상태, 성장 아이템 수량, 꾸미기 아바타 장착·벗기, 옷 입은 캐릭터가 블로그·마을·헤더에 보임, 농장에서 성장 아이템 쓰기
+// SHOP 영역: 상점 탭(옷·모자·소품·가구·배경·성장)·정렬·버튼 상태, 성장 아이템 수량, 꾸미기 아바타 장착·벗기, 옷 입은 캐릭터가 블로그·마을·헤더에 보임, 농장에서 성장 아이템 쓰기
 // 사용: 개발 서버를 띄운 상태에서 node e2e/shop.mjs <스크린샷 폴더>
+// 요구사항: SHOP-01 상점 탭, SHOP-02 레벨 제한, SHOP-03 코인 부족
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
@@ -22,23 +23,43 @@ await loginDev(page, N);
 const uid = (await one("SELECT id FROM users WHERE username = $1", [N])).id;
 const card = (name) => page.locator("article", { has: page.getByRole("heading", { name, exact: true }) });
 
-// ── 상점 구역 (FR-003): 아바타 → 가구 → 배경 → 성장, 캐릭터 없음 ──
+// ── 상점 탭 (FR-003, 2026-10-16 종류·부위별로 나눔): 옷 → 모자 → 소품 → 가구 → 배경 → 성장, 캐릭터 없음 ──
 await page.goto(`${BASE}/shop`);
-const sections = await page.locator("[data-shop-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-shop-section")));
-check("상점 구역 4개 순서 (광장 장식은 2026-10-11에 뺐다)", sections.join(",") === "avatar,furniture,background,growth", sections.join(","));
+const tabs = await page.locator("[data-shop-tab-button]").evaluateAll((els) => els.map((e) => e.getAttribute("data-shop-tab-button")));
+check("상점 탭 6개 순서", tabs.join(",") === "outfit,hat,accessory,furniture,background,growth", tabs.join(","));
+const tab = async (key) => {
+  await page.locator(`[data-shop-tab-button="${key}"]`).click();
+  await page.locator(`[data-shop-tab="${key}"]`).waitFor();
+};
+check("처음은 옷 탭, 한 탭만 보인다", (await page.locator("[data-shop-tab]").count()) === 1 && (await page.locator("[data-shop-tab]").getAttribute("data-shop-tab")) === "outfit");
+check("옷 탭에 옷가게 가기 링크", (await page.getByRole("link", { name: /옷가게 가기/ }).getAttribute("href")) === "/clothes");
 const main = await page.locator("main").innerText();
 // 제목 앞 🏪는 도트 가게 그림이 되었다 (2026-10-12 도트 화면)
 check("상점 제목·안내", (await page.getByRole("heading", { level: 1 }).innerText()).trim() === "마을 상점" && main.includes("내 캐릭터와 우리 집을 꾸며 보세요"));
 // 카드 제목으로 확인 (아이템 이름에 "고양이 귀 머리띠"처럼 같은 낱말이 들어갈 수 있다)
-const titles = await page.locator("article h3").allInnerTexts();
+const titles = [];
+for (const key of tabs) {
+  await tab(key);
+  titles.push(...(await page.locator("article h3").allInnerTexts()));
+}
 check("상점에 캐릭터·기본 아이템 없음", !["고양이", "나무 의자", "남자 주민"].some((n) => titles.includes(n)));
+await tab("background");
+check("새 배경 5종이 배경 탭에", ["가을 단풍", "숲속 버섯 마을", "노을 바다", "사막 오아시스", "과자 나라"].every((n) => titles.includes(n)));
+await page.screenshot({ path: `${outDir}/shop-backgrounds.png`, fullPage: true });
+await page.goto(`${BASE}/shop#hat`);
+await page.locator('[data-shop-tab="hat"]').waitFor();
+check("주소 #hat으로 모자 탭", (await page.locator('[data-shop-tab-button="hat"]').getAttribute("aria-selected")) === "true");
 
 // ── 버튼 상태 (FR-006): 가입 110코인, Lv.1 ──
 const btn = async (name) => (await card(name).getByRole("button").innerText()).trim();
 check("Lv.2 털모자는 🔒 Lv.2", (await btn("털모자")) === "Lv.2", await btn("털모자"));
 check("Lv.2+ 표시", (await card("털모자").innerText()).includes("Lv.2+"));
 check("Lv.1은 Lv 표시 없음", !(await card("밀짚모자").innerText()).includes("Lv.1+"));
-check("코인 모자라면 코인 부족 (멜빵바지 100은 사기)", (await btn("멜빵바지")) === "사기" && (await btn("목도리")).startsWith("Lv."));
+await tab("outfit");
+check("코인 모자라면 코인 부족 (멜빵바지 100은 사기)", (await btn("멜빵바지")) === "사기");
+await tab("accessory");
+check("Lv 모자란 소품은 잠김 (목도리)", (await btn("목도리")).startsWith("Lv."));
+await tab("hat");
 
 // ── 사기: 밀짚모자 50 → 보유 중, 코인 차감, 원장 ──
 const before = await coins(page);
@@ -54,6 +75,7 @@ const ledger = await one("SELECT coin_delta FROM point_ledger WHERE user_id = $1
 check("원장 purchase −50", ledger?.coin_delta === -50);
 
 // ── 성장 아이템: 두 번 사면 수량 2, 버튼은 계속 사기 ──
+await tab("growth");
 for (let i = 0; i < 2; i++) {
   await card("동물 먹이").getByRole("button", { name: "사기" }).click();
   await page.waitForLoadState("networkidle");
@@ -68,12 +90,14 @@ check("성장 아이템 카드에 보유 2개, 버튼은 사기", (await card("�
 const owned = await db.query("SELECT 1 FROM user_items ui JOIN items i ON i.id = ui.item_id WHERE ui.user_id = $1 AND i.code = 'char_cat'", [uid]);
 check("판매 안 하는 캐릭터는 상점에 없음", owned.rowCount === 0 && (await card("고양이").count()) === 0);
 
-// ── 정렬 (FR-014): 비싼 순 → 아바타 구역 첫 카드는 황금 예복(2,500, 옷가게 아이템도 상점에 나온다) ──
+// ── 정렬 (FR-014): 비싼 순 → 옷 탭 첫 카드는 황금 예복(2,500, 옷가게 아이템도 상점에 나온다) ──
+await tab("outfit");
 await page.getByLabel("정렬").selectOption("priceDesc");
-const firstAvatar = await page.locator('[data-shop-section="avatar"] article h3').first().innerText();
-check("비싼 순: 황금 예복(2,500)이 먼저", firstAvatar === "황금 예복", firstAvatar);
+const firstOutfit = await page.locator('[data-shop-tab="outfit"] article h3').first().innerText();
+check("비싼 순: 황금 예복(2,500)이 먼저", firstOutfit === "황금 예복", firstOutfit);
+await tab("hat");
 await page.getByLabel("정렬").selectOption("priceAsc");
-check("싼 순: 밀짚모자가 먼저", (await page.locator('[data-shop-section="avatar"] article h3').first().innerText()) === "밀짚모자");
+check("싼 순: 모자 탭은 밀짚모자가 먼저 (정렬은 탭을 바꿔도 그대로)", (await page.locator('[data-shop-tab="hat"] article h3').first().innerText()) === "밀짚모자");
 await page.screenshot({ path: `${outDir}/shop.png`, fullPage: true });
 
 // ── 꾸미기: 아바타 장착 → 저장 표시 → 미니룸·헤더에 반영, 다시 누르면 벗기 ──

@@ -1,6 +1,7 @@
 // 친구 마을 구경 (사용자 요청 2026-10-09, 집 자리는 그 회원이 고른 대로 TOWN-18)과 광장 꾸미기를 쉬는지 (사용자 결정 2026-10-11, TOWN-16 ❌)
 // 사용: 개발 서버를 띄운 상태에서 node e2e/plaza.mjs <스크린샷 폴더>
 // 실행마다 새 회원 P(마을 주인)·Q(놀러 가는 친구)를 만든다. DB는 .env.local의 DATABASE_URL로 확인한다.
+// 요구사항: TOWN-15
 import { chromium } from "@playwright/test";
 import { config } from "dotenv";
 import pg from "pg";
