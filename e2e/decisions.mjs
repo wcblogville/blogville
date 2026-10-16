@@ -54,7 +54,7 @@ const uid = await userId(NAME);
 await db.query("INSERT INTO point_ledger (user_id, reason, coin_delta, ref_id) VALUES ($1, 'attendance_streak', 50, $2)", [uid, kstDate(-30)]);
 
 // ── GAME-07: 내역 화면 (헤더 코인을 누르면 이동, 구매에 아이템 이름) ──
-await page.goto(`${BASE}/shop`);
+await page.goto(`${BASE}/shop#background`);
 await page.locator("article", { hasText: "바닷가" }).getByRole("button", { name: "사기" }).click();
 await page.getByRole("status").filter({ hasText: "샀어요" }).waitFor();
 await page.getByRole("banner").getByTitle("코인").click();

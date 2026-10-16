@@ -11,7 +11,8 @@
     "board-blog",
     "house",
     "room-interact",
-    "town"
+    "town",
+    "town-walk"
   ],
   "nightly": [
     "auth",
@@ -60,6 +61,7 @@
     "social",
     "style",
     "town",
+    "town-walk",
     "visits",
     "write-count"
   ]

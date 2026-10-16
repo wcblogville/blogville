@@ -163,7 +163,7 @@ check("DB: 방 밖 칸(10)은 못 놓음", await blocked("UPDATE house_furniture
 check("DB: 한 칸에 가구 둘은 못 놓음 (house_furniture_tile_uq)", await blocked("UPDATE house_furniture SET tile_x = 3, tile_y = 3 WHERE user_id = $1", [uid]));
 
 // 상점 가구: 둥근 탁자 사기 → 가구 놓기 목록에 생김
-await page.goto(`${BASE}/shop`);
+await page.goto(`${BASE}/shop#furniture`);
 const table = page.locator("article", { hasText: "둥근 탁자" });
 check("상점에 🛋 가구", await page.getByRole("heading", { name: /가구/ }).isVisible());
 await table.getByRole("button", { name: "사기" }).click();

@@ -31,6 +31,7 @@ import {
 import { HOUSE_SLOTS, houseAt, houseSlot, START_POS, townSpots, WORLD } from "./layout";
 import { bakeGround, GROUND_SIZE, hazeAt } from "./ground";
 import { boxWalkable, stairCrossings, terrain, TERRAIN_FEET } from "./terrain";
+import { findTownPath, walkGrid, type WalkGrid } from "./path";
 import { houseKey, npcGraph, segmentClear, solidBox, stageOf, townLayout, townProps, walkKey, type Entrance, type Structure } from "./structures";
 import type { TownData, TownNeighbor, TownPet, TownTarget } from "./types";
 import { PIXEL, rgbOf } from "@/lib/art/pixel";
@@ -145,6 +146,7 @@ const WEATHER: Record<Weather, { per: number; rows: string[]; colors: Record<str
   fireflies: { per: 30000, rows: [".y.", "yYy", ".y."], colors: { Y: "#fffbd0", y: "#ffe066" } },
   stars: { per: 22000, rows: [".s.", "sWs", ".s."], colors: { W: "#ffffff", s: "#e9d5ff" } },
   glints: { per: 40000, rows: [".g.", "gWg", ".g."], colors: { W: "#ffffff", g: "#fff3c4" } },
+  leaves: { per: 18000, rows: [".o", "oO", "O."], colors: { o: "#ff9b4a", O: "#e0603a" } },
 };
 const WEATHER_DEPTH = 95000;
 const IDLE_MOTIONS_BY_KEY = new Map(IDLE_MOTIONS.map((m) => [m.key, m]));
@@ -236,6 +238,8 @@ export function createTownScene(
   fontFamily = "sans-serif",
   /** 처음 설 곳 (텔레포트 목록의 key, 예: "house:0"). 없으면 광장 아래쪽 */
   startAt: string | null = null,
+  /** 들어갔다 나온 자리 (return-spot.ts). 있으면 startAt보다 먼저 */
+  resumeAt: { x: number; y: number } | null = null,
 ) {
   const allSpots = (() => {
     const { places, houses } = townSpots(data);
@@ -262,6 +266,13 @@ export function createTownScene(
     /** 이번 프레임에 Space·Enter를 눌렀는지 (keydown 이벤트로 받는다) */
     private actionQueued = false;
     private moveTarget: PhaserNS.Math.Vector2 | null = null;
+    /** 누른 곳까지 가는 남은 꺾는 점들 (moveTarget이 지금 가는 점), 길 찾기 칸 표, 막혀서 다시 찾은 횟수 */
+    private route: { x: number; y: number }[] = [];
+    private routeGoal: { x: number; y: number } | null = null;
+    private replans = 0;
+    private stuckMs = 0;
+    private grid: WalkGrid | null = null;
+    private buildGrid: (() => WalkGrid) | null = null;
     private entrances: Entrance[] = [];
     private prompt!: PhaserNS.GameObjects.Text;
     private promptIcon!: PhaserNS.GameObjects.Image;
@@ -316,9 +327,14 @@ export function createTownScene(
       this.entrances = entrances;
       const props = townProps();
       for (const s of [...structures, ...props]) this.placeStructure(s, walls);
+      // 길 찾기 칸 표(약 70ms)는 첫 화면을 늦추지 않게 조금 뒤에 만든다. 그 전에 누르면 그때 만든다
+      const solids = [...structures, ...props].map(solidBox).filter((b) => b !== null);
+      this.buildGrid = () => (this.grid ??= walkGrid(solids, FEET));
+      this.time.delayedCall(1500, () => this.buildGrid?.());
 
       // 플레이어: 발 상자(물리) + 그림
-      const start = allSpots.find((p) => p.key === startAt) ?? START_POS;
+      const resume = resumeAt && boxWalkable(resumeAt.x, resumeAt.y, TERRAIN_FEET.w, TERRAIN_FEET.h) ? resumeAt : null;
+      const start = resume ?? allSpots.find((p) => p.key === startAt) ?? START_POS;
       this.feet = this.add.zone(start.x, start.y, FEET.w, FEET.h);
       this.physics.add.existing(this.feet);
       this.playerBody = this.feet.body as PhaserNS.Physics.Arcade.Body;
@@ -398,10 +414,9 @@ export function createTownScene(
         if (hit) {
           // 가까우면 바로 들어가고, 멀면 그 입구 앞까지 걸어간다
           if (this.distanceTo(hit) <= INTERACT_DISTANCE) return onEnter(hit.target);
-          this.moveTarget = new Phaser.Math.Vector2(hit.x, hit.y);
-          return;
+          return this.walkTo(hit.x, hit.y);
         }
-        this.moveTarget = new Phaser.Math.Vector2(pointer.worldX, pointer.worldY);
+        this.walkTo(pointer.worldX, pointer.worldY);
       });
       this.input.on("pointermove", (pointer: PhaserNS.Input.Pointer) => {
         if (this.joystick?.pointerId === pointer.id) this.moveJoystick(pointer);
@@ -418,7 +433,7 @@ export function createTownScene(
       const teleport = (key: string) => {
         const spot = allSpots.find((p) => p.key === key);
         if (!spot) return;
-        this.moveTarget = null;
+        this.stopWalk();
         this.playerBody.reset(spot.x, spot.y);
         this.cameras.main.centerOn(spot.x, spot.y);
         this.placePet(spot);
@@ -529,6 +544,36 @@ export function createTownScene(
       j.thumb.setPosition(j.base.x, j.base.y);
     }
 
+    /** 누른 곳까지 길을 찾아 걷는다. 길이 없으면(섬처럼 막힌 곳) 곧장 그쪽으로 걷다가 막히면 멈춘다 */
+    private walkTo(x: number, y: number, replans = 0) {
+      const grid = this.buildGrid?.();
+      const path = grid ? findTownPath(grid, this.feet, { x, y }) : null;
+      this.routeGoal = { x, y };
+      this.replans = replans;
+      this.route = path ?? [{ x, y }];
+      const first = this.route.shift()!;
+      this.moveTarget = new Phaser.Math.Vector2(first.x, first.y);
+      this.game.canvas.dataset.route = String(this.route.length + 1);
+    }
+
+    /** 지금 발 위치 (광장을 떠날 때 return-spot.ts에 적는다) */
+    spot() {
+      return this.feet ? { x: this.feet.x, y: this.feet.y } : null;
+    }
+
+    private stopWalk() {
+      this.moveTarget = null;
+      this.route = [];
+      this.routeGoal = null;
+    }
+
+    /** 걷다가 막히면(모서리에 걸림 등) 지금 자리에서 길을 두 번까지 다시 찾는다 */
+    private replan() {
+      const goal = this.routeGoal;
+      if (goal && this.replans < 2) this.walkTo(goal.x, goal.y, this.replans + 1);
+      else this.stopWalk();
+    }
+
     update(time: number, delta: number) {
       const left = this.cursors.left.isDown || this.wasd.A.isDown;
       const right = this.cursors.right.isDown || this.wasd.D.isDown;
@@ -540,16 +585,24 @@ export function createTownScene(
       const speed = SPEED * (onStairs ? STAIRS_SPEED : 1);
 
       let v = new Phaser.Math.Vector2(0, 0);
+      // 누른 곳으로 걷다가 건물·땅에 막혀 서 있으면 잠시 뒤 길을 다시 찾는다
+      let stuck = !!this.moveTarget && this.playerBody.blocked.none === false && this.playerBody.deltaAbsX() < 0.3 && this.playerBody.deltaAbsY() < 0.3;
       if (left || right || up || down) {
-        this.moveTarget = null;
+        this.stopWalk();
         v = new Phaser.Math.Vector2((right ? 1 : 0) - (left ? 1 : 0), (down ? 1 : 0) - (up ? 1 : 0)).normalize().scale(speed);
       } else if (this.joystick && this.joystick.vector.lengthSq() > 0) {
         // 조이스틱: 많이 밀수록 빠르게 (최대 SPEED)
-        this.moveTarget = null;
+        this.stopWalk();
         v = this.joystick.vector.clone().scale(speed);
       } else if (this.moveTarget) {
-        const d = Phaser.Math.Distance.Between(this.feet.x, this.feet.y, this.moveTarget.x, this.moveTarget.y);
-        if (d < 8 || this.playerBody.blocked.none === false) this.moveTarget = null;
+        let d = Phaser.Math.Distance.Between(this.feet.x, this.feet.y, this.moveTarget.x, this.moveTarget.y);
+        // 꺾는 점에 닿으면 다음 점으로
+        while (d < 8 && this.route.length) {
+          const next = this.route.shift()!;
+          this.moveTarget.set(next.x, next.y);
+          d = Phaser.Math.Distance.Between(this.feet.x, this.feet.y, next.x, next.y);
+        }
+        if (d < 8) this.stopWalk();
         else v = new Phaser.Math.Vector2(this.moveTarget.x - this.feet.x, this.moveTarget.y - this.feet.y).setLength(speed);
       }
       // 땅: 다음 자리에 발 상자가 절벽·물·낭떠러지에 걸리면 그 방향은 멈춘다 (한쪽만 막히면 미끄러져 간다).
@@ -583,10 +636,15 @@ export function createTownScene(
           }
           if (!okX) v.x = 0;
           if (!okY) v.y = 0;
-          if (!v.x && !v.y) this.moveTarget = null;
+          if (!v.x && !v.y && this.moveTarget) stuck = true;
         }
       }
       this.playerBody.setVelocity(v.x, v.y);
+      this.stuckMs = stuck && this.moveTarget ? this.stuckMs + Math.min(delta, 60) : 0;
+      if (this.stuckMs > 250) {
+        this.stuckMs = 0;
+        this.replan();
+      }
 
       // 그림은 발 상자를 따라간다. 걷는 방향의 걷기 그림을 돌리고(통통 튀는 것도 그림에 있다), 멈추면 그 방향으로 서 있는다.
       // 벽에 막혀 제자리걸음일 때는 걷지 않는다 (속도는 남아도 실제로 움직이지 않는다)
@@ -707,8 +765,8 @@ export function createTownScene(
           img,
           x: Math.random() * 4000,
           y: Math.random() * 4000,
-          vx: kind === "petals" ? 18 + Math.random() * 22 : slow ? 0 : (Math.random() - 0.5) * 8,
-          vy: kind === "snow" ? 26 + Math.random() * 30 : kind === "petals" ? 30 + Math.random() * 25 : 0,
+          vx: kind === "petals" || kind === "leaves" ? 18 + Math.random() * 22 : slow ? 0 : (Math.random() - 0.5) * 8,
+          vy: kind === "snow" ? 26 + Math.random() * 30 : kind === "petals" || kind === "leaves" ? 30 + Math.random() * 25 : 0,
           phase: Math.random() * Math.PI * 2,
         });
       }
@@ -735,7 +793,7 @@ export function createTownScene(
         const sx = wrap(p.x - cam.scrollX, width + 12) - 6;
         const sy = wrap(p.y - cam.scrollY, height + 12) - 6;
         p.img.setPosition(Math.round(sx), Math.round(sy));
-        if (kind === "petals") p.img.setFlipX(Math.sin(now * 4 + p.phase) > 0);
+        if (kind === "petals" || kind === "leaves") p.img.setFlipX(Math.sin(now * 4 + p.phase) > 0);
         else if (kind !== "snow") p.img.setAlpha(Math.max(0, Math.sin(now * (kind === "fireflies" ? 1.6 : 2.2) + p.phase)) ** 2);
       }
     }

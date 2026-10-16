@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { PixelIcon } from "@/components/pixel-icon";
 import { isTownPath } from "@/components/town/layout";
+import { returnTownPath } from "@/components/town/return-spot";
 import { titleDataUri, TITLE_SIZE } from "@/lib/art/landing";
 import { FIND_PASSWORD_PATH } from "@/lib/password-reset";
 
@@ -17,10 +18,13 @@ export function ExitButton({ member = false }: { member?: boolean }) {
   const router = useRouter();
   if (HIDDEN_ON.has(pathname) || isTownPath(pathname)) return null;
   // 가입 직후 블로그(?welcome=1)에서 나가면 문으로 나간 것과 같게 첫 마을 환영으로 간다
+  // 친구 마을에서 들어온 곳이면 그 친구 마을로 돌아간다 (들어간 자리는 town-game이 기억한다)
   const exit = (e: React.MouseEvent) => {
-    if (!new URLSearchParams(window.location.search).has("welcome")) return;
+    const welcome = new URLSearchParams(window.location.search).has("welcome");
+    const back = returnTownPath();
+    if (!welcome && back === "/town") return;
     e.preventDefault();
-    router.push("/town?welcome=1");
+    router.push(welcome ? "/town?welcome=1" : back);
   };
   return (
     <Link href="/town" onClick={exit} className={`pixel-btn pixel-btn-sm shrink-0 whitespace-nowrap bg-white text-ink max-sm:px-3 ${member ? "phone:hidden" : ""}`}>

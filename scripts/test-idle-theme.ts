@@ -68,6 +68,9 @@ const SHADOW = PALETTE[":"];
 // ===== 마을 테마 =====
 {
   expect("배경 → 테마", ["bg.meadow", "bg.beach", "bg.snow", "bg.sakura", "bg.night", "bg.space"].map(townThemeOf), ["meadow", "beach", "snow", "sakura", "night", "space"]);
+  // 새 배경 5종 (2026-10-16): 배경마다 마을 테마가 있다
+  expect("새 배경 → 테마", ["bg.autumn", "bg.sunset", "bg.desert", "bg.forest", "bg.candy"].map(townThemeOf), ["autumn", "sunset", "desert", "forest", "candy"]);
+  expect("가을 단풍은 낙엽이 떨어짐", TOWN_THEMES.autumn.weather, "leaves");
   expect("모르는 배경·없음 → 초원", [townThemeOf("bg.mars"), townThemeOf(null), townThemeOf("snow")], ["meadow", "meadow", "meadow"]);
   expect("테마마다 key가 이름과 같음", TOWN_THEME_KEYS.filter((k) => TOWN_THEMES[k].key !== k), []);
   expect("초원은 색 보정·날씨 없음", [TOWN_THEMES.meadow.grade, TOWN_THEMES.meadow.weather, TOWN_THEMES.meadow.snow], [null, null, false]);
