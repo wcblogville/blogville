@@ -171,7 +171,7 @@ const blocked = await db
 check("DB: 갖지 않은 옷은 못 입음", blocked);
 
 // ── 농장: 성장 아이템 먹이기 → 성장 +20, 수량 −1 ──
-const sp = await one("SELECT id, grow_exp FROM animal_species ORDER BY grow_exp DESC LIMIT 1");
+const sp = await one("SELECT id, grow_exp FROM animal_species WHERE NOT reward_only ORDER BY grow_exp DESC LIMIT 1");
 const animal = await one("INSERT INTO user_animals (user_id, sex, source, status, species_id, growth) VALUES ($1, 'female', 'shop', 'growing', $2, 0) RETURNING id", [uid, sp.id]);
 await page.goto(`${BASE}/farm`);
 await page.getByRole("button", { name: /동물 먹이 ×3/ }).first().click();
