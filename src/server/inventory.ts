@@ -31,6 +31,7 @@ export async function listShopItems(userId: string): Promise<ShopItem[]> {
       price: items.price,
       requiredLevel: items.requiredLevel,
       assetKey: items.assetKey,
+      avatarSlot: items.avatarSlot,
       quantity: sql<number>`COALESCE(${userItems.quantity}, 0)::int`,
       ownerCount: sql<number>`COALESCE(${owners.n}, 0)::int`,
     })

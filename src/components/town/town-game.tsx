@@ -7,6 +7,7 @@ import { PHONE_MEDIA } from "@/lib/device";
 import { PIXEL } from "@/lib/art/pixel";
 import { gradePixels, snowCapPixels, townTheme, type TownTheme } from "@/lib/art/town-theme";
 import { townBus } from "./bus";
+import { readReturnSpot, saveReturnSpot } from "./return-spot";
 import type { TownData, TownTarget } from "./types";
 
 export function TownGame({
@@ -32,6 +33,15 @@ export function TownGame({
     let cancelled = false;
     // 휴대폰에서는 광장을 띄우지 않고 간단 메뉴(TownMenu)를 쓴다
     const phone = window.matchMedia(PHONE_MEDIA);
+    // 이 마을 주소. 떠날 때(다른 화면으로 가거나 창을 닫을 때) 발 위치를 적어 두고, 돌아오면 그 자리에서 시작한다.
+    // 주소에 ?at=(그 집 앞)·?welcome=이 있으면 그쪽이 먼저
+    const here = window.location.pathname;
+    const query = new URLSearchParams(window.location.search);
+    const resumeAt = query.has("at") || query.has("welcome") ? null : readReturnSpot(here);
+    const saveSpot = () => {
+      const spot = (game?.scene.getScene("town") as unknown as { spot?: () => { x: number; y: number } | null } | undefined)?.spot?.();
+      if (spot) saveReturnSpot(here, spot.x, spot.y);
+    };
 
     const onEnter = (target: TownTarget) => {
       if (target.kind === "link") router.push(target.href);
@@ -93,11 +103,15 @@ export function TownGame({
         pixelArt: true,
         roundPixels: true,
         physics: { default: "arcade", arcade: { debug: false } },
+        // 처음 120프레임 동안 Phaser는 프레임 사이 시간을 1/60초로 잘라(panicMax) 화면이 무거운 시작 때 걸음이
+        // 몇 배 느려졌다가 돌아왔다 (사용자 제보 2026-10-16). 0이면 처음부터 실제 시간으로 움직인다
+        fps: { panicMax: 0 },
         scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" },
-        scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily, startAt),
+        scene: createTownScene(Phaser, data, images, onEnter, getComputedStyle(document.body).fontFamily, startAt, resumeAt),
       });
     };
     const stop = () => {
+      saveSpot();
       game?.destroy(true);
       game = null;
     };
@@ -106,6 +120,7 @@ export function TownGame({
     const sync = () => (phone.matches ? stop() : void start());
     sync();
     phone.addEventListener("change", sync);
+    window.addEventListener("pagehide", saveSpot);
 
     return () => {
       cancelled = true;
@@ -114,6 +129,7 @@ export function TownGame({
       window.removeEventListener("keydown", yieldKeys, true);
       window.removeEventListener("keyup", yieldKeys, true);
       phone.removeEventListener("change", sync);
+      window.removeEventListener("pagehide", saveSpot);
       stop();
     };
     // 광장 데이터가 바뀌면(새 이웃 등) 게임을 다시 만든다

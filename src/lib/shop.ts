@@ -12,6 +12,35 @@ export const SHOP_SECTIONS: { type: Exclude<ItemType, "character">; title: strin
   { type: "growth", title: "성장 아이템", name: "성장 아이템", icon: "sprout" },
 ];
 
+/**
+ * 상점 탭 (사용자 요청 2026-10-16 "상점이 잡화점마냥 다 몰아져있는 느낌 → 종류별로 나누자"):
+ * 아바타 꾸미기는 부위(옷·모자·소품)마다, 나머지는 종류마다 한 탭. 주소 #key로 바로 연다 (예: /shop#growth)
+ */
+export const SHOP_TABS = [
+  { key: "outfit", type: "avatar", slot: "outfit", name: "옷", icon: "shirt", group: "꾸미기" },
+  { key: "hat", type: "avatar", slot: "hat", name: "모자", icon: "crown", group: "꾸미기" },
+  { key: "accessory", type: "avatar", slot: "accessory", name: "소품", icon: "sparkle", group: "꾸미기" },
+  { key: "furniture", type: "furniture", slot: null, name: "가구", icon: "chair", group: "우리 집" },
+  { key: "background", type: "background", slot: null, name: "배경", icon: "frame", group: "우리 집" },
+  { key: "growth", type: "growth", slot: null, name: "성장 아이템", icon: "sprout", group: "동물 농장" },
+] as const satisfies readonly { key: string; type: Exclude<ItemType, "character" | "deco">; slot: string | null; name: string; icon: string; group: string }[];
+
+export type ShopTab = (typeof SHOP_TABS)[number]["key"];
+export const DEFAULT_TAB: ShopTab = "outfit";
+
+/** 아이템이 놓이는 탭 (부위를 모르는 아바타 아이템은 소품) */
+export function shopTabOf(item: Pick<ShopItem, "type" | "avatarSlot">): ShopTab | null {
+  if (item.type === "avatar") return SHOP_TABS.find((t) => t.type === "avatar" && t.slot === item.avatarSlot)?.key ?? "accessory";
+  return SHOP_TABS.find((t) => t.type === item.type)?.key ?? null;
+}
+
+/** 주소의 #으로 탭 고르기. 예전 구역 주소 #avatar는 옷 탭 */
+export function tabFromHash(hash: string): ShopTab | null {
+  const key = decodeURIComponent(hash.replace(/^#/, ""));
+  if (key === "avatar") return "outfit";
+  return SHOP_TABS.find((t) => t.key === key)?.key ?? null;
+}
+
 export function sectionTitle(type: ItemType): string | null {
   return SHOP_SECTIONS.find((s) => s.type === type)?.title ?? null;
 }
@@ -25,6 +54,8 @@ export type ShopItem = {
   price: number;
   requiredLevel: number;
   assetKey: string;
+  /** 아바타 아이템의 부위 (outfit·hat·accessory), 다른 종류는 null */
+  avatarSlot?: string | null;
   /** 내가 가진 개수 (없으면 0). 꾸미기 아이템은 0 또는 1 */
   quantity: number;
   /** 가진 회원 수 (인기순) */

@@ -185,7 +185,7 @@ check("US2-11 97,020 → Lv.99·MAX", (await R2.page.getByRole("banner").innerTe
 // 글 보상으로 Lv.2가 되어 레벨업 팝업이 화면을 덮으므로 먼저 읽음으로 (팝업은 e2e/notifications.mjs가 확인)
 await db.query("UPDATE notifications SET read_at = now() WHERE user_id = $1", [uid1]);
 // 구매 줄
-await R1.page.goto(`${BASE}/shop`);
+await R1.page.goto(`${BASE}/shop#background`);
 await R1.page.locator("article", { hasText: "바닷가" }).getByRole("button", { name: "사기" }).click();
 await R1.page.getByRole("status").filter({ hasText: "샀어요" }).waitFor();
 await R1.page.getByRole("banner").getByTitle("코인").click();
