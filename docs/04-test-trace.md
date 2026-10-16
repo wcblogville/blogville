@@ -7,7 +7,7 @@
 
 - 구현된 요구사항(✅·🚧) **95개** 중 시험이 있는 것 **78개 (82%)**
 - 그중 PR마다 자동으로 확인하는 것 **49개 (52%)**
-- 시험 파일: 단위 13개, E2E 50개 (PR 12 · 매일 밤 37 · 손으로 1)
+- 시험 파일: 단위 13개, E2E 51개 (PR 13 · 매일 밤 37 · 손으로 1)
 
 표시: 이름만 = PR마다(단위 테스트·CI E2E), 🌙 = 매일 밤 전체 E2E, ✋ = 손으로 돌리는 시험
 
@@ -67,7 +67,7 @@
 
 | ID | 요구사항 | 우선 | 상태 | 확인하는 시험 |
 |---|---|---|---|---|
-| POST-01 | 에디터 | M | ✅ | `test-post.ts`, `blog.mjs`, `farm.mjs` 🌙, `post-write.mjs` 🌙, `write-count.mjs` 🌙 |
+| POST-01 | 에디터 | M | ✅ | `test-post.ts`, `blog.mjs`, `farm.mjs` 🌙, `post-align.mjs`, `post-write.mjs` 🌙, `write-count.mjs` 🌙 |
 | POST-02 | 글은 공개 / 👥 이웃 공개 / 비공개를 정할 수 있다 | M | ✅ | `test-post.ts`, `all-posts.mjs` 🌙, `attachment-links.mjs` 🌙, `post-write.mjs` 🌙 |
 | POST-03 | 글에 카테고리를 지정할 수 있다 | S | ✅ | `params.mjs` 🌙, `post-categories.mjs` 🌙 |
 | POST-04 | 글에 태그를 여러 개 달 수 있고, 태그별로 모아볼 수 있다 | S | ✅ | `blog.mjs`, `post-lists.mjs` 🌙 |

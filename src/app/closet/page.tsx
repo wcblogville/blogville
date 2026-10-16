@@ -38,7 +38,8 @@ export default async function ClosetPage() {
       <ClosetView items={owned} equipped={equipped} nickname={viewer.profile.nickname} slug={viewer.profile.blogSlug} />
 
       <p className="pixel-paper mt-10 p-3 text-center">
-        더 많은 꾸미기 아이템과 배경은 <Link href="/shop" className="font-bold text-leaf-dark underline">상점</Link>에서 만날 수 있어요.
+        더 많은 꾸미기 아이템과 배경은 <Link href="/clothes" className="font-bold text-leaf-dark underline">옷가게</Link>(옷·모자·소품)와{" "}
+        <Link href="/shop" className="font-bold text-leaf-dark underline">상점</Link>(가구·배경)에서 만날 수 있어요.
       </p>
     </div>
   );

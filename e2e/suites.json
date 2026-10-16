@@ -4,6 +4,7 @@
     "auth",
     "blog",
     "shop",
+    "post-align",
     "booster",
     "style",
     "plaza",
@@ -63,6 +64,7 @@
     "town",
     "town-walk",
     "visits",
-    "write-count"
+    "write-count",
+    "post-align"
   ]
 }

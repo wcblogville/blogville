@@ -30,6 +30,12 @@ function safeColor(value: string | null | undefined): string | null {
   return rgb ? `#${rgb.slice(1).map((n) => Number(n).toString(16).padStart(2, "0")).join("")}` : v;
 }
 
+const ALIGN_RE = /^(center|right)$/;
+function alignBlock(tagName: string, attribs: sanitizeHtml.Attributes): sanitizeHtml.Tag {
+  const align = styleValue(attribs.style, "text-align")?.trim().toLowerCase();
+  return { tagName, attribs: align && ALIGN_RE.test(align) ? { style: `text-align: ${align}` } : {} };
+}
+
 // 에디터가 만들 수 있는 태그만 허용한다. <script>, onClick 같은 속성은 모두 제거된다 (XSS 방지)
 function options(known?: KnownAttachments): sanitizeHtml.IOptions {
   return {
@@ -41,17 +47,41 @@ function options(known?: KnownAttachments): sanitizeHtml.IOptions {
     ],
     allowedAttributes: {
       a: ["href", "target", "rel", "data-file", "data-name", "data-size", "data-size-label", "data-ext", "aria-label"],
-      img: ["src", "alt"],
+      img: ["src", "alt", "data-align", "data-size"],
       span: ["style"],
+      // 줄 정렬 (2026-10-16): 문단·제목의 style="text-align: center|right"만
+      p: ["style"],
+      h2: ["style"],
+      h3: ["style"],
       mark: ["style", "data-color"],
     },
     // 아래 transformTags가 색 하나짜리 style로 다시 쓰고, 여기서 한 번 더 값 모양을 확인한다
     allowedStyles: {
       span: { color: [SAFE_COLOR_RE] },
       mark: { "background-color": [SAFE_COLOR_RE], color: [/^inherit$/] },
+      p: { "text-align": [ALIGN_RE] },
+      h2: { "text-align": [ALIGN_RE] },
+      h3: { "text-align": [ALIGN_RE] },
     },
     allowedSchemes: ["http", "https", "mailto"],
     transformTags: {
+      // 줄 정렬: text-align 하나만 (가운데·오른쪽). 다른 CSS는 버린다
+      p: alignBlock,
+      h1: alignBlock,
+      h2: alignBlock,
+      h3: alignBlock,
+      // 사진 정렬·크기: data-align은 가운데·오른쪽, data-size는 작게·보통·크게일 때만 남긴다
+      img: (tagName, attribs): sanitizeHtml.Tag => {
+        const { "data-align": align, "data-size": size, ...rest } = attribs;
+        return {
+          tagName,
+          attribs: {
+            ...rest,
+            ...(align === "center" || align === "right" ? { "data-align": align } : {}),
+            ...(size === "s" || size === "m" || size === "l" ? { "data-size": size } : {}),
+          },
+        };
+      },
       // 글꼴 색: color 하나만, 안전한 색 값일 때만 남긴다 (font-size·url() 등은 버린다)
       span: (tagName, attribs): sanitizeHtml.Tag => {
         const color = safeColor(styleValue(attribs.style, "color"));
