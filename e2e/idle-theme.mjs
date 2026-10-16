@@ -220,9 +220,10 @@ await page.mouse.move(5, 5);
   await page.keyboard.press("Space");
   await page.waitForURL(/\/shop/, { timeout: 10000 }).catch(() => {});
   check("입구 앞에서는 Space = 들어가기 (말 걸기보다 먼저)", page.url().includes("/shop"), page.url());
-  // 상점의 배경 설명에 마을 이야기
+  // 상점의 배경 설명에 마을 이야기 (배경은 상점의 배경 탭, 2026-10-16)
+  await page.locator('[data-shop-tab-button="background"]').click();
   const bgCard = page.getByText("꾸미면 마을에도 눈이 쌓이고");
-  check("상점 배경 설명: 마을도 바뀐다고 안내", await bgCard.first().isVisible().catch(() => false));
+  check("상점 배경 설명: 마을도 바뀐다고 안내", await bgCard.first().waitFor({ timeout: 5000 }).then(() => true, () => false));
   await page.screenshot({ path: `${outDir}/shop-backgrounds.png`, fullPage: true });
 }
 
