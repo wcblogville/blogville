@@ -34,7 +34,8 @@ await page.screenshot({ path: `${outDir}/21-shop.png`, fullPage: true });
 // 꾸미기: 바닷가 장착 → 블로그 우리 집 창밖 풍경 확인
 await page.goto(`${BASE}/closet`);
 await page.getByRole("button", { name: /바닷가/ }).click();
-await page.waitForTimeout(800);
+await page.locator("[data-closet-save]").click();
+await page.locator('[data-closet-savebar][data-dirty="false"]').waitFor();
 await page.screenshot({ path: `${outDir}/22-closet.png`, fullPage: true });
 await page.goto(`${BASE}/@${NAME}`);
 await page.screenshot({ path: `${outDir}/23-blog-beach.png` });

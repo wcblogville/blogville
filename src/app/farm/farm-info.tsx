@@ -47,12 +47,12 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
         type="button"
         onClick={() => ref.current?.showModal()}
         aria-haspopup="dialog"
-        aria-label="동물 농장 안내 (알 확률·암수·특별 진화)"
         title="알 확률·암수·특별 진화 안내"
-        className="pixel-btn pixel-btn-sm min-w-11 bg-[#fffaf0] px-3 font-display text-lg text-ink"
+        // ⓘ만으로는 무엇인지 모를 수 있어 글자로 "확률표"라고 쓴다 (사용자 요청 2026-10-16)
+        className="pixel-btn pixel-btn-sm min-w-11 gap-1.5 whitespace-nowrap bg-sun px-3 font-display text-ink"
         data-farm-info-open
       >
-        ⓘ
+        <PixelIcon name="egg" scale={1} />알 확률표 <span aria-hidden>ⓘ</span>
       </button>
       <dialog
         ref={ref}
@@ -66,7 +66,7 @@ export function FarmInfo({ odds }: { odds: HatchOdds[] }) {
         <div className="p-5">
           <div className="pb-plank sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
             <h2 id="farm-info-title" className="font-display text-xl">
-              ⓘ 동물 농장 안내
+              <IconText icon="egg" scale={2}>알 확률표</IconText> <span className="text-sm text-[#fff3d6]">· 동물 농장 안내</span>
             </h2>
             <button type="button" onClick={() => ref.current?.close()} aria-label="안내 닫기" className="pixel-btn pixel-btn-sm min-w-11 bg-[#fffaf0] px-3 text-ink [text-shadow:none]">
               ✕

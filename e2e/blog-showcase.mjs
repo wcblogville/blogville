@@ -117,7 +117,8 @@ async function viewOf(page, slug = OWNER) {
   const before = await view(guest.page);
   await own.page.goto(`${BASE}/closet`);
   await own.page.getByRole("button", { name: /눈/ }).first().click();
-  await own.page.getByText(/장착을 저장했어요/).waitFor({ timeout: 10000 });
+  await own.page.locator("[data-closet-save]").click();
+  await own.page.getByText(/꾸민 모습을 저장했어요/).waitFor({ timeout: 10000 });
   await guest.page.goto(`${BASE}/@${OWNER}`);
   const after = await view(guest.page);
   check("US4-2 꾸미기에서 배경 변경 → 창밖 풍경 바뀜", before === "bg.meadow" && after === "bg.snow", `${before} → ${after}`);

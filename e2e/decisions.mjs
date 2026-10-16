@@ -43,8 +43,9 @@ check("SHOP 캐릭터 1마리면 꾸미기에 🐾 구역 없음", (await page.l
 await db.query("INSERT INTO user_items (user_id, item_id) SELECT u.id, i.id FROM users u, items i WHERE u.username = $1 AND i.code = 'char_cat'", [NAME]);
 await page.reload();
 await page.getByRole("button", { name: /고양이/ }).click();
+await page.locator("[data-closet-save]").click();
 const saved = await page.getByRole("status").filter({ hasText: "저장했어요" }).waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
-check("SHOP-04 장착하면 '저장했어요' 표시", saved);
+check("SHOP-04 [저장]하면 '저장했어요' 표시", saved);
 await page.screenshot({ path: `${outDir}/50-closet-saved.png` });
 await page.waitForTimeout(2300);
 check("SHOP-04 '저장했어요'는 2초 뒤 사라짐", (await page.getByRole("status").innerText()).trim() === "");

@@ -32,7 +32,7 @@ export default async function ClosetPage() {
           </div>
         }
       >
-        <p>고르면 바로 내 블로그 우리 집(캐릭터·창밖 풍경)과 마을 캐릭터에 적용돼요.</p>
+        <p>눌러서 입어 보고 아래 [저장]을 누르면 내 블로그 우리 집(캐릭터·창밖 풍경)과 마을 캐릭터에 적용돼요.</p>
       </PlaceHeader>
 
       <ClosetView items={owned} equipped={equipped} nickname={viewer.profile.nickname} slug={viewer.profile.blogSlug} />

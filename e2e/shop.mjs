@@ -117,8 +117,14 @@ check("꾸미기 구역: 아바타·배경·가구, 캐릭터 1마리면 🐾 �
   (await page.locator("[data-closet-section]").evaluateAll((els) => els.map((e) => e.getAttribute("data-closet-section")).join(","))) === "avatar,background,furniture");
 check("꾸미기 하단 안내", (await page.locator("main").innerText()).includes("더 많은 꾸미기 아이템과 배경은"));
 const straw = page.getByRole("button", { name: /밀짚모자/ });
+const saveBtn = page.locator("[data-closet-save]");
+check("처음엔 바꾼 게 없어 [저장]이 꺼져 있다", await saveBtn.isDisabled());
 await straw.click();
-check("장착 저장 표시", await page.getByRole("status").filter({ hasText: "밀짚모자 장착을 저장했어요 ✓" }).waitFor({ timeout: 5000 }).then(() => true, () => false));
+// 눌러 보기만 하면 미리보기, [저장]을 눌러야 적용 (2026-10-16 "저장 누르면 적용")
+await page.waitForTimeout(500);
+check("눌러 보기만 하면 저장 안 됨 (미리보기)", (await straw.getAttribute("aria-pressed")) === "true" && (await db.query("SELECT 1 FROM avatar_equips WHERE user_id = $1", [uid])).rowCount === 0 && (await page.locator("[data-closet-savebar]").getAttribute("data-dirty")) === "true");
+await saveBtn.click();
+check("[저장] → 저장 표시", await page.getByRole("status").filter({ hasText: "꾸민 모습을 저장했어요 ✓" }).waitFor({ timeout: 5000 }).then(() => true, () => false));
 check("장착 버튼 눌림", (await straw.getAttribute("aria-pressed")) === "true");
 const worn = await one("SELECT i.code FROM avatar_equips ae JOIN items i ON i.id = ae.item_id WHERE ae.user_id = $1", [uid]);
 check("DB avatar_equips 모자", worn?.code === "hat_straw");
@@ -139,18 +145,22 @@ check("마을 캐릭터가 모자를 씀", townLook?.includes("hat.straw"), town
 // 벗기
 await page.goto(`${BASE}/closet`);
 await page.getByRole("button", { name: /밀짚모자/ }).click();
-await page.getByRole("status").filter({ hasText: "벗었어요" }).waitFor({ timeout: 5000 });
+await page.locator("[data-closet-save]").click();
+await page.getByRole("status").filter({ hasText: "저장했어요" }).waitFor({ timeout: 5000 });
 check("다시 누르면 벗기", (await db.query("SELECT 1 FROM avatar_equips WHERE user_id = $1", [uid])).rowCount === 0);
 
 // 같은 부위는 하나만: 리본을 사서 끼면 밀짚모자 자리를 바꾼다
 await db.query("INSERT INTO user_items (user_id, item_id) SELECT $1, id FROM items WHERE code IN ('hat_ribbon', 'acc_glasses')", [uid]);
 await page.reload();
 await page.getByRole("button", { name: /밀짚모자/ }).click();
+await page.locator("[data-closet-save]").click();
 await page.getByRole("status").filter({ hasText: "저장했어요" }).waitFor();
+// 리본·안경을 함께 골라 한 번에 저장
 await page.getByRole("button", { name: /리본/ }).click();
-await page.getByRole("status").filter({ hasText: "리본 장착" }).waitFor();
 await page.getByRole("button", { name: /안경/ }).click();
-await page.getByRole("status").filter({ hasText: "안경 장착" }).waitFor();
+check("저장 줄: 2가지 바꿈", (await page.locator("[data-closet-savebar]").innerText()).includes("2가지 바꿨어요"));
+await page.locator("[data-closet-save]").click();
+await page.locator('[data-closet-savebar][data-dirty="false"]').waitFor();
 const slots = (await db.query("SELECT ae.slot, i.code FROM avatar_equips ae JOIN items i ON i.id = ae.item_id WHERE ae.user_id = $1 ORDER BY slot", [uid])).rows.map((r) => `${r.slot}:${r.code}`).join(",");
 check("부위마다 하나 (모자는 리본으로 바뀜)", slots === "hat:hat_ribbon,accessory:acc_glasses", slots);
 

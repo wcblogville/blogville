@@ -3,16 +3,17 @@
 // 블로그 관리 Server Action (BLOG-03, BLOG-05 / contracts/blog-settings.md)
 // 대상은 늘 로그인한 회원의 블로그다 (요청 값의 blogId·ownerId를 읽지 않는다, FR-021).
 // 다른 사이트에서 보낸 요청은 Next.js Server Action의 Origin 확인이 막는다 (FR-060).
-import { and, asc, eq, exists, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { blogs, categories, posts, subcategories, userAnimals } from "@/db/schema";
+import { blogs, categories, posts, subcategories } from "@/db/schema";
 import { BLOG_DESCRIPTION_MAX, charCount, checkBlogTitle, SLUG_RE, swapPosition } from "@/lib/blog";
 import { parseId } from "@/lib/ids";
 import { isReservedName, normalizeName } from "@/lib/names";
 import { requireMember } from "@/server/dal";
 import { uniqueViolation } from "@/server/db-errors";
 import { findNameConflict, lockName } from "@/server/names";
+import { updateShowcase } from "@/server/showcase";
 
 /**
  * 폼 결과 (contracts/blog-settings.md 0절, research R-08).
@@ -368,25 +369,8 @@ export async function moveSubcategory(subcategoryId: number, direction: -1 | 1) 
  */
 export async function setShowcaseAnimal(animalId: number | null) {
   const viewer = await requireMember();
-  if (animalId === null) {
-    await db.update(blogs).set({ showcaseAnimalId: null }).where(eq(blogs.ownerId, viewer.userId));
-  } else {
-    const id = parseId(animalId);
-    if (id === null) return;
-    await db
-      .update(blogs)
-      .set({ showcaseAnimalId: id })
-      .where(
-        and(
-          eq(blogs.ownerId, viewer.userId),
-          exists(
-            db
-              .select({ x: sql`1` })
-              .from(userAnimals)
-              .where(and(eq(userAnimals.id, id), eq(userAnimals.userId, viewer.userId), eq(userAnimals.status, "grown"))),
-          ),
-        ),
-      );
-  }
+  const id = animalId === null ? null : parseId(animalId);
+  if (animalId !== null && id === null) return;
+  await updateShowcase(viewer.userId, id);
   revalidatePath("/", "layout");
 }

@@ -4,6 +4,7 @@ import { requireMember } from "@/server/dal";
 import { getFarm } from "@/server/farm";
 import { listGrowthItems } from "@/server/inventory";
 import { getWallet } from "@/server/points";
+import { getShowcaseId } from "@/server/showcase";
 import { FarmInfo } from "./farm-info";
 import { FarmView } from "./farm-view";
 import { IconText } from "@/components/pixel-icon";
@@ -14,7 +15,7 @@ export const metadata = { title: "동물 농장" };
 export default async function FarmPage() {
   const viewer = await requireMember();
   const wallet = await getWallet(viewer.userId);
-  const [farm, growthItems] = await Promise.all([getFarm(viewer.userId, wallet.level), listGrowthItems(viewer.userId)]);
+  const [farm, growthItems, followId] = await Promise.all([getFarm(viewer.userId, wallet.level), listGrowthItems(viewer.userId), getShowcaseId(viewer.userId)]);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:py-8">
@@ -55,6 +56,7 @@ export default async function FarmPage() {
         growthItems={growthItems}
         adoptable={farm.adoptable}
         skins={farm.skins}
+        followId={followId}
       />
     </div>
   );

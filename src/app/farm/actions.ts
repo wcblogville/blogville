@@ -30,6 +30,7 @@ import { requireMember } from "@/server/dal";
 import { uniqueViolation } from "@/server/db-errors";
 import { addGrowth, countActive, type GrownAnimal, randomSex } from "@/server/farm";
 import { consumeGrowthItem } from "@/server/inventory";
+import { updateShowcase } from "@/server/showcase";
 import { getWallet, grantReward, lockUser } from "@/server/points";
 import type { IconName } from "@/lib/art/icons";
 
@@ -277,4 +278,17 @@ export async function setAnimalForm(animalId: unknown, form: unknown): Promise<F
   if (!row) return { ok: false, text: "다 키운 내 동물만 모습을 바꿀 수 있어요" };
   revalidatePath("/", "layout");
   return { ok: true, text: `${FORM_LABEL[form]}으로 데리고 다녀요` };
+}
+
+/**
+ * 데리고 다닐 동물 고르기 (사용자 요청 2026-10-16 "따라다닐 동물 등록하는 거 동물농장에서도"): 블로그 도감의 [전시하기]와 같다.
+ * 고른 동물은 우리 집 방과 광장에서 나를 따라다닌다. animalId가 null이면 빼기
+ */
+export async function setFollowAnimal(animalId: unknown): Promise<FarmResult> {
+  const viewer = await requireMember();
+  const id = animalId === null ? null : parseId(animalId);
+  if (animalId !== null && id === null) return { ok: false, text: "잘못된 요청이에요" };
+  if (!(await updateShowcase(viewer.userId, id))) return { ok: false, text: "다 키운 내 동물만 데리고 다닐 수 있어요" };
+  revalidatePath("/", "layout");
+  return id === null ? { ok: true, text: "이제 혼자 다녀요" } : { ok: true, text: "이 동물이 이제 나를 따라다녀요! 광장과 우리 집에서 만나요", icon: "paw" };
 }

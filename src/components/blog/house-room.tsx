@@ -68,6 +68,8 @@ export function HouseRoom({
   const [draft, setDraft] = useState<FurnitureSpot[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [roofOpen, setRoofOpen] = useState(false);
+  // 고르는 중인 지붕 색 (2026-10-16 "저장 버튼 만들어서 저장 누르면 적용"): 누르면 미리보기만 바뀌고 [저장]해야 광장에 보인다
+  const [roofDraft, setRoofDraft] = useState<RoofColor | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -131,10 +133,23 @@ export function HouseRoom({
         setNotice("가구 배치를 저장했어요.");
       } else setError(r.error);
     });
-  const chooseRoof = (color: RoofColor) =>
+  const roofShown = roofDraft ?? roof?.current ?? null;
+  const closeRoof = () => {
+    setRoofOpen(false);
+    setRoofDraft(null);
+  };
+  const saveRoof = () =>
     start(async () => {
-      const r = await chooseRoofColor(color);
-      setError(r.ok ? null : r.error);
+      if (!roofDraft || roofDraft === roof?.current) {
+        closeRoof();
+        return;
+      }
+      const r = await chooseRoofColor(roofDraft);
+      if (r.ok) {
+        closeRoof();
+        setError(null);
+        setNotice("지붕 색을 저장했어요. 광장의 우리 집도 이 색이에요.");
+      } else setError(r.error);
     });
 
   return (
@@ -155,7 +170,8 @@ export function HouseRoom({
             <button
               type="button"
               onClick={() => {
-                setRoofOpen(!roofOpen);
+                if (roofOpen) closeRoof();
+                else setRoofOpen(true);
                 setError(null);
                 setNotice(null);
               }}
@@ -163,7 +179,7 @@ export function HouseRoom({
               className={`pixel-btn pixel-btn-sm ${roofOpen ? "bg-leaf text-white" : "bg-[#fffaf0] text-ink"}`}
             >
               {roofOpen ? (
-                "✓ 다 골랐어요"
+                "✕ 닫기"
               ) : (
                 <>
                   <PixelIcon name="house" scale={1} />지붕 색
@@ -234,7 +250,7 @@ export function HouseRoom({
           <div role="dialog" aria-label="지붕 색 고르기" data-roof-picker className="pixel-panel absolute inset-x-4 top-4 z-[2000] max-h-[calc(100%-2rem)] overflow-y-auto p-3">
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element -- 코드로 만든 SVG(data URI) */}
-              <img src={toDataUri(houseSvg(house.stage, ROOF_HEX[roof.current]))} alt="" className="h-20 w-20 shrink-0 object-contain" />
+              <img src={toDataUri(houseSvg(house.stage, ROOF_HEX[roofShown ?? roof.current]))} alt="" className="h-20 w-20 shrink-0 object-contain" data-roof-preview />
               <div className="min-w-0 text-sm">
                 <p className="font-bold">광장에 보일 지붕 색을 골라 주세요</p>
                 <p className="text-ink-soft">
@@ -249,15 +265,15 @@ export function HouseRoom({
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() => chooseRoof(color)}
-                      aria-pressed={color === roof.current}
+                      onClick={() => setRoofDraft(color)}
+                      aria-pressed={color === roofShown}
                       aria-label={`${ROOF_LABELS[color]} 지붕`}
                       title={ROOF_LABELS[color]}
                       data-roof={color}
-                      className={`grid h-11 w-11 place-items-center border-[3px] text-sm font-bold text-white ${color === roof.current ? "border-ink shadow-[0_0_0_3px_#ffd36e]" : "border-[#4a3426]"}`}
+                      className={`grid h-11 w-11 place-items-center border-[3px] text-sm font-bold text-white ${color === roofShown ? "border-ink shadow-[0_0_0_3px_#ffd36e]" : "border-[#4a3426]"}`}
                       style={{ background: ROOF_HEX[color] }}
                     >
-                      {color === roof.current ? "✓" : ""}
+                      {color === roofShown ? "✓" : ""}
                     </button>
                   </li>
                 ) : (
@@ -268,6 +284,17 @@ export function HouseRoom({
                 ),
               )}
             </ul>
+            {/* 고르기만 하면 미리보기, [저장]을 눌러야 적용 (2026-10-16) */}
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              {roofDraft && roofDraft !== roof.current && <span className="mr-auto text-sm text-ink-soft">[저장]을 눌러야 바뀌어요</span>}
+              <button type="button" onClick={closeRoof} className="pixel-btn pixel-btn-sm bg-[#fffaf0] text-ink">
+                취소
+              </button>
+              <button type="button" disabled={pending || !roofDraft || roofDraft === roof.current} onClick={saveRoof} className="pixel-btn pixel-btn-sm bg-leaf text-white" data-roof-save>
+                <PixelIcon name="save" scale={1} />
+                {pending ? "저장 중…" : "저장"}
+              </button>
+            </div>
           </div>
         )}
       </div>

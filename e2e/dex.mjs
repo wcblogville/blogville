@@ -98,7 +98,33 @@ await page.locator("[data-house-room] [data-showcase]").waitFor();
 check("용을 전시하면 우리 집 방에 용", (await page.locator("[data-house-room] [data-showcase]").getAttribute("title")) === "용");
 await page.locator("[data-house-room]").screenshot({ path: `${outDir}/dex-dragon-room.png` });
 
-// 5) 농장 ⓘ 알 확률 표에 용은 없다 (알에서 안 나온다)
+// 5) 농장 (2026-10-16 요청): [알 확률표] 버튼, 창을 내려도 닫기 버튼이 위에, 다 키운 카드에서 [데리고 다니기]
+await page.goto(`${BASE}/farm`);
+await page.locator('dialog[open][aria-labelledby="level-up-title"]').waitFor({ timeout: 2000 }).catch(() => {});
+const infoBtn = page.locator("[data-farm-info-open]");
+check("농장 안내 버튼에 '알 확률표' 글자", (await infoBtn.innerText()).includes("알 확률표"));
+await infoBtn.click();
+const info = page.locator("dialog[data-farm-info]");
+await info.waitFor();
+await info.evaluate((el) => el.scrollTo(0, el.scrollHeight));
+await page.waitForTimeout(300);
+const closeBox = await info.getByRole("button", { name: "안내 닫기" }).boundingBox();
+const infoBox = await info.boundingBox();
+check("확률표 창을 끝까지 내려도 닫기 버튼이 창 위에 보인다", closeBox && infoBox && closeBox.y >= infoBox.y - 1 && closeBox.y < infoBox.y + 60, `${closeBox?.y} / ${infoBox?.y}`);
+await page.screenshot({ path: `${outDir}/dex-farm-info-scrolled.png` });
+await info.getByRole("button", { name: "안내 닫기" }).click();
+const dragonFarmCard = page.locator(`[data-grown]`, { hasText: "용" }).first();
+check("농장: 전시한 용 카드에 '따라다니는 중'", (await dragonFarmCard.locator('[data-follow="on"]').count()) === 1);
+const chickCard = page.locator(`[data-grown]`, { hasText: "병아리" }).first();
+const chickId = Number(await chickCard.getAttribute("data-grown"));
+await chickCard.locator('[data-follow="off"]').click();
+await page.getByText(/나를 따라다녀요/).waitFor();
+check("농장 [데리고 다니기] → 전시 동물이 바뀐다", (await one("SELECT showcase_animal_id AS id FROM blogs WHERE owner_id = $1", [uid])).id === chickId);
+await chickCard.getByRole("button", { name: "그만 따라오기" }).click();
+await page.getByText(/혼자 다녀요/).waitFor();
+check("[그만 따라오기] → 전시 동물 없음", (await one("SELECT showcase_animal_id AS id FROM blogs WHERE owner_id = $1", [uid])).id === null);
+
+// 6) 농장 알 확률표에 용은 없다 (알에서 안 나온다)
 const odds = await one("SELECT hatch_weight, price, reward_only FROM animal_species WHERE code = 'dragon'");
 check("용: 알 비중 0, 분양 안 함, 보상 전용", odds.hatch_weight === 0 && odds.price === null && odds.reward_only === true);
 
