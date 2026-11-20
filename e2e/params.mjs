@@ -274,6 +274,11 @@ check("카테고리 삭제: 범위 밖 ID → 오류 없음", (await replay(del,
 }
 // 상점·꾸미기 (SHOP NF-02): 장착·구매 요청을 잡아 이상한 아이템 ID로 다시 보내도 500 없이 그대로
 {
+  // 가입하면 배경은 입고 있는 초원 하나뿐이다. 매일 밤 묶음에서는 이 시험이 상점 시험보다 먼저 돌아
+  // 안 입은 배경이 없어 30초 기다리다 실패했다 → 눈 마을 배경을 하나 더 쥐여 준다
+  await db.query(
+    "INSERT INTO user_items (user_id, item_id) SELECT u.id, i.id FROM users u, items i WHERE u.username = 'tester1' AND i.code = 'bg_snow' ON CONFLICT DO NOTHING",
+  );
   await page.goto(`${BASE}/closet`);
   // 저장해야 적용되므로 아직 안 입은 배경을 골라 [저장] 요청을 잡는다 (2026-10-16)
   await page.locator('[data-closet-section="background"] button[aria-pressed="false"]').first().click();

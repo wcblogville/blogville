@@ -8,7 +8,7 @@
 // 전시한 동물은 방 안에서 주인을 따라 걷고, 마을에서는 주인을 따라다닌다.
 // 누구에게나 같고 (US4-10), 주인에게만 전시 버튼이 보인다 (판정은 서버, setShowcaseAnimal).
 // 버튼 [전시하기] / `전시 중` + [전시 빼기]는 plan 임시 문구.
-import { useRef, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { AnimalArt } from "@/components/character";
 import { setShowcaseAnimal } from "@/app/settings/blog/actions";
 import { SexMark } from "@/components/game/sex-mark";
@@ -22,6 +22,9 @@ export type CollectionCard = { id: number; name: string; assetKey: string; skinK
 export function AnimalCollection({ animals, showcaseId, isOwner, dex }: { animals: CollectionCard[]; showcaseId: number | null; isOwner: boolean; dex: Dex }) {
   const [pending, start] = useTransition();
   const ref = useRef<HTMLDialogElement>(null);
+  // 창 안(도감 44칸 그림·동물 카드)은 처음 열 때 그린다. 블로그 첫 화면 HTML에 넣으면
+  // HTML이 55KB → 77KB로 늘고 휴대폰 Lighthouse 성능이 87 → 82~84로 떨어졌다 (2026-11-19, 매일 밤 검사)
+  const [opened, setOpened] = useState(false);
   const species = dex.entries.filter((e) => e.kind === "species");
   const variants = dex.entries.filter((e) => e.kind === "variant");
   const done = dex.count >= dex.total;
@@ -29,7 +32,10 @@ export function AnimalCollection({ animals, showcaseId, isOwner, dex }: { animal
     <>
       <button
         type="button"
-        onClick={() => ref.current?.showModal()}
+        onClick={() => {
+          setOpened(true);
+          ref.current?.showModal();
+        }}
         aria-haspopup="dialog"
         className="pixel-btn pixel-btn-sm shrink-0 gap-1 whitespace-nowrap bg-[#fffaf0] px-3 text-ink"
         data-collection-open
@@ -46,6 +52,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner, dex }: { animal
         }}
         className="pixel-dialog m-auto max-h-[85dvh] w-[min(94vw,46rem)] overflow-y-auto p-0 backdrop:bg-[#2b2118]/60"
       >
+        {opened && (
         <div className="p-5">
           <div className="pb-plank sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between gap-2 px-5 py-2.5">
             <h2 id="collection-title" className="font-display text-xl">
@@ -138,6 +145,7 @@ export function AnimalCollection({ animals, showcaseId, isOwner, dex }: { animal
             </>
           )}
         </div>
+        )}
       </dialog>
     </>
   );
